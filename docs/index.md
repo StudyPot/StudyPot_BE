@@ -27,6 +27,7 @@
 - [아키텍처 맵](./architecture/backend-map.md)
 - [Codex 테스트 하네스](./testing/codex-harness.md)
 - [PR 리뷰 게이트](./operations/pr-review-gate.md)
+- [GitHub Actions 리뷰 게이트](./operations/github-actions-review-gate.md)
 - [Jira Board Sync](./operations/jira-board-sync.md)
 - [Obsidian 에러 레저 운영](./operations/obsidian-error-ledger.md)
 - [품질 스코어카드](./quality/scorecard.md)
@@ -40,5 +41,5 @@
 - v1 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태이며, 기획/API/DB/AI/Discord/권한/QA 변경은 Change Request와 ADR 없이는 금지합니다.
 - 구현 작업의 source of truth는 Jira Board입니다. Obsidian은 mirror/회고/세션 연속성 용도로만 사용합니다.
 - harness/infrastructure 작업은 `Related Feature IDs`에 `n/a-harness`를 사용합니다.
-- PR은 `develop` 대상으로 만들고, merge 전에는 review activity, unresolved thread, checks, subagent pass marker를 확인합니다.
+- PR은 `develop` 대상으로 만들고, merge 전에는 GitHub Actions Review Gate marker, unresolved thread, required checks를 확인합니다.
 - 긴 설명보다 실행 가능한 계약을 문서에 남깁니다.

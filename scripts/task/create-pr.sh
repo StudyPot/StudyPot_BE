@@ -55,11 +55,10 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- '- Status: `%s`\n' "${LAST_VERIFY_STATUS:-unknown}"
   printf -- '- Time: `%s`\n' "${LAST_VERIFY_AT:-unknown}"
   printf '\n## Review Gate Checklist\n\n'
-  printf -- '- [ ] Automated or human review activity exists\n'
-  printf -- '- [ ] Actionable review feedback addressed\n'
+  printf -- '- [ ] GitHub Actions Review Gate pass marker posted for latest head\n'
+  printf -- '- [ ] Required GitHub Actions checks passing\n'
+  printf -- '- [ ] reviewdog/actionlint feedback addressed\n'
   printf -- '- [ ] Review threads resolved\n'
-  printf -- '- [ ] Checks passing\n'
-  printf -- '- [ ] Codex Subagent Review Gate pass marker posted, or explicitly disabled for this PR\n'
 } > "${pr_body}"
 
 pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --body-file "${pr_body}")"
