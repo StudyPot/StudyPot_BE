@@ -3,9 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/common.sh"
-# shellcheck source=./jira-board.sh
+# shellcheck source=scripts/task/jira-board.sh
 JIRA_BOARD_SOURCE_ONLY=1 source "${SCRIPT_DIR}/jira-board.sh"
 
 resolve_threads=0

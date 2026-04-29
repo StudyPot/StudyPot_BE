@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./testlib.sh
+# shellcheck source=scripts/tests/testlib.sh
 source "${SCRIPT_DIR}/testlib.sh"
 
 for script in create-pr.sh verify-pr-ready.sh finish-pr.sh jira-board.sh; do

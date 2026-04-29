@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 pr="${1:-}"
@@ -84,6 +84,7 @@ esac
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 owner="${repo_name%%/*}"
 name="${repo_name#*/}"
+# shellcheck disable=SC2016
 unresolved_count="$(gh api graphql \
   -f query='query($owner:String!, $name:String!, $number:Int!) {
     repository(owner:$owner, name:$name) {
