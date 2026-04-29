@@ -1,8 +1,7 @@
 # Codex Harness
 
 ## 표준 검증 계약
-- Codex의 기본 검증 명령은 `TODO: set verification command` 입니다.
-- Spring Boot 골격이 들어오면 표준 명령은 `./gradlew check build --no-daemon` 입니다.
+- Codex의 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.
 - stale build output 또는 파일 시스템 race가 의심되면 `./gradlew --stop` 후 `./gradlew clean check build --no-daemon`을 사용합니다.
 - 외부 의존성은 가능한 한 test profile, mock, fixture, 또는 local-only 설정으로 격리합니다.
 

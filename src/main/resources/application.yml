@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: ai-study-leader
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

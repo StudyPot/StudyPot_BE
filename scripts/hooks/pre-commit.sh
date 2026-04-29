@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../task/common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/../task/common.sh"
 
 repo="$(repo_root)"
@@ -54,10 +54,11 @@ if contains_path '^src/main/' && ! contains_path '^src/test/'; then
   fail "src/main 변경에는 같은 commit 안에 src/test 변경이 반드시 포함되어야 합니다."
 fi
 
-verify_command="${STRICT_VERIFY_COMMAND:-TODO: set verification command}"
+verify_command="${STRICT_VERIFY_COMMAND:-./gradlew check build --no-daemon}"
 run_verify_command "${repo}" "${verify_command}" || fail "verification command failed: ${verify_command}"
 
 LAST_VERIFY_COMMAND="${verify_command}"
 LAST_VERIFY_STATUS="passed"
 LAST_VERIFY_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+export LAST_VERIFY_COMMAND LAST_VERIFY_STATUS LAST_VERIFY_AT
 write_task_env "${slug}"

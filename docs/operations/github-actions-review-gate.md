@@ -8,7 +8,7 @@
   - `shellcheck-reviewdog`: shell script ShellCheck feedback을 reviewdog으로 PR에 남김
   - `workflow-lint`: GitHub Actions workflow를 actionlint로 검사
   - `openapi-parse`: `docs/specs/openapi.yaml` 문법과 최소 필수 필드 확인
-  - `backend-check`: Spring/Gradle scaffold가 생기면 `./gradlew check --no-daemon`
+  - `backend-check`: Spring/Gradle scaffold가 생기면 `./gradlew check build --no-daemon`
   - `review-gate-pass`: 선행 job 통과 후 PASS marker comment 작성
 - `.github/workflows/codeql.yml`
   - Java/Kotlin source가 생기면 CodeQL 분석 실행
@@ -39,7 +39,7 @@ Head: <current_pr_head_sha>
 - workflow 실패: GitHub Actions log에서 실패 job을 확인하고 코드/스크립트/문서를 수정한다.
 - reviewdog comment: ShellCheck 또는 actionlint feedback을 반영하고 thread를 resolve한다.
 - OpenAPI 실패: `docs/specs/openapi.yaml`이 YAML로 파싱되고 `openapi`, `info.title`, `paths`가 있는지 확인한다.
-- backend-check 실패: scaffold 이후 `./gradlew` 실행 권한과 `./gradlew check --no-daemon` 결과를 확인한다.
+- backend-check 실패: scaffold 이후 `./gradlew` 실행 권한과 `./gradlew check build --no-daemon` 결과를 확인한다.
 - marker 누락: `review-gate-pass` job이 성공했는지 확인하고 PR head가 marker의 `Head`와 같은지 확인한다.
 
 ## Branch Policy

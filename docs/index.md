@@ -34,7 +34,7 @@
 - [현재 실행 계획](./exec-plans/active/harness-rollout.md)
 
 ## 기본 원칙
-- 기본 검증 명령은 `TODO: set verification command` 입니다.
+- 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.
 - 작업에 사용한 관련 문서는 `EXEC_PLAN`의 `Related Docs`와 `Doc Notes`에 남겨야 합니다.
 - 기능 작업은 `EXEC_PLAN`의 `Related Feature IDs`와 연결합니다.
 - 제품/ERD 변경은 `docs/specs/`를 먼저 갱신한 뒤 Obsidian mirror를 갱신합니다.
