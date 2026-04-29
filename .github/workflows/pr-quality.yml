@@ -76,7 +76,7 @@ jobs:
       - name: Run backend check when scaffold exists
         run: |
           if [[ -x ./gradlew ]]; then
-            ./gradlew check --no-daemon
+            ./gradlew check build --no-daemon
           elif compgen -G "build.gradle*" >/dev/null || compgen -G "settings.gradle*" >/dev/null; then
             echo "Gradle project exists but ./gradlew is missing or not executable."
             exit 1

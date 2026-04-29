@@ -3,9 +3,9 @@
 이 문서는 작업 시작 전에 읽는 아키텍처 요약 문서다.
 
 ## 현재 구조
-- Stack adapter: `Spring Boot planned`
+- Stack adapter: `Spring Boot`
 - Repository: `/Users/hyunwoo/Documents/New project 3`
-- Verification command: `TODO: set verification command`
+- Verification command: `./gradlew check build --no-daemon`
 - Remote: `https://github.com/StudyPot/StudyPot_BE.git`
 - Intended PR target: `develop`
 - Locked backend baseline: Java 21 + Gradle + Spring Boot

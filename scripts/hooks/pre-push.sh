@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../task/common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/../task/common.sh"
 
 repo="$(repo_root)"
@@ -26,7 +26,7 @@ plan_has_checked_related_doc "${EXEC_PLAN}" || fail "작업 관련 docs를 최�
 plan_has_checked_feature_id "${EXEC_PLAN}" || fail "EXEC_PLAN의 Related Feature IDs에 체크된 feature id를 최소 1개 이상 기록해야 합니다."
 plan_doc_notes_filled "${EXEC_PLAN}" || fail "Doc Notes에 문서에서 반영한 내용을 적어야 합니다."
 
-verify_command="${STRICT_VERIFY_COMMAND:-TODO: set verification command}"
+verify_command="${STRICT_VERIFY_COMMAND:-./gradlew check build --no-daemon}"
 [[ "${verify_command}" != TODO:* ]] || fail "verification command is not configured."
 (
   cd "${repo}"
@@ -39,4 +39,5 @@ verify_command="${STRICT_VERIFY_COMMAND:-TODO: set verification command}"
 LAST_VERIFY_COMMAND="${verify_command}"
 LAST_VERIFY_STATUS="passed"
 LAST_VERIFY_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+export LAST_VERIFY_COMMAND LAST_VERIFY_STATUS LAST_VERIFY_AT
 write_task_env "${slug}"

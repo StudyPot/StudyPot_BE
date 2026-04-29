@@ -44,7 +44,7 @@
 - 리팩터링은 기존 동작 확인 테스트를 포함한다.
 
 ## 4단계: 검증 실행
-- 표준 검증 명령은 `TODO: set verification command` 이다.
+- 표준 검증 명령은 `./gradlew check build --no-daemon` 이다.
 - 하나라도 실패하면 commit 하지 않는다.
 - hook은 마지막 성공 검증 명령, 상태, 시각을 task state에 기록해야 한다.
 
