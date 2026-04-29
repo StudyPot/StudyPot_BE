@@ -14,7 +14,7 @@
 - commit subject는 `[feat] 설명` 형식을 따른다.
 - push와 PR 생성은 `scripts/task/create-pr.sh`를 기본 경로로 사용한다.
 - merge는 PR review gate를 통과한 뒤 `scripts/task/finish-pr.sh`로만 수행한다.
-- green CI만으로 merge하지 않는다. 자동/사람 리뷰 활동과 unresolved thread 상태를 확인한다.
+- green CI만으로 merge하지 않는다. GitHub Actions Review Gate 마커와 unresolved thread 상태를 확인한다.
 - v1 기획/API/DB/AI/Discord/권한/QA 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태다. 변경은 `docs/specs/change-control-v1.md`의 Change Request + ADR 절차 없이는 금지한다.
 
 ## 1단계: EXEC_PLAN 생성
@@ -52,11 +52,11 @@
 - `scripts/task/create-pr.sh`는 feature branch를 push하고 PR 본문에 `EXEC_PLAN`, 검증 상태, review gate checklist를 포함한다.
 - PR 본문에는 Jira issue key/URL을 포함한다.
 - PR target은 `develop`을 기본으로 한다.
-- 자동 리뷰 활동(예: Gemini) 또는 사람 리뷰 활동이 없는 PR은 merge 준비 완료로 보지 않는다.
-- 모든 actionable review comment는 코드, 테스트, 문서 중 하나로 처리하고 review thread를 resolve한다.
-- subagent review는 사용자가 명시적으로 허용한 경우에만 수행한다.
-- subagent review gate를 사용하는 경우 PR comment에 아래 마커가 있어야 한다.
-  - `Codex Subagent Review Gate: PASS`
+- GitHub Actions Review Gate가 최신 PR head에 대해 PASS comment를 남기기 전에는 merge 준비 완료로 보지 않는다.
+- reviewdog/actionlint feedback과 모든 actionable review comment는 코드, 테스트, 문서 중 하나로 처리하고 review thread를 resolve한다.
+- subagent review는 사용자가 명시적으로 허용한 경우에만 보조적으로 수행한다.
+- 기본 review gate comment에는 아래 마커가 있어야 한다.
+  - `GitHub Actions Review Gate: PASS`
   - `Head: <current_pr_head_sha>`
 - `scripts/task/finish-pr.sh`는 PR head가 검증 중 바뀌지 않았는지 확인하고, clean/unlocked feature worktree만 정리한다.
 - `scripts/task/finish-pr.sh`는 PR merge와 cleanup이 끝난 뒤 Jira Task를 `완료`로 전환한다.

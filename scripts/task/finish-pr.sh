@@ -3,9 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/common.sh"
-# shellcheck source=./jira-board.sh
+# shellcheck source=scripts/task/jira-board.sh
 JIRA_BOARD_SOURCE_ONLY=1 source "${SCRIPT_DIR}/jira-board.sh"
 
 resolve_threads=0
@@ -50,7 +50,14 @@ fi
 head_after="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
 [[ "${head_before}" == "${head_after}" ]] || fail "PR head changed during verification."
 
-if [[ "${STRICT_REQUIRE_CODEX_SUBAGENT_PASS:-1}" != "0" ]]; then
+if [[ "${STRICT_REQUIRE_GITHUB_ACTIONS_REVIEW_PASS:-1}" != "0" ]]; then
+  pass_count="$(gh pr view "${pr}" --json comments --jq "
+    [.comments[]? | select((.body | contains(\"GitHub Actions Review Gate: PASS\")) and (.body | contains(\"Head: ${head_after}\")))] | length
+  ")"
+  [[ "${pass_count}" -gt 0 ]] || fail "latest-head GitHub Actions review gate pass marker is missing."
+fi
+
+if [[ "${STRICT_REQUIRE_CODEX_SUBAGENT_PASS:-0}" == "1" ]]; then
   pass_count="$(gh pr view "${pr}" --json comments --jq "
     [.comments[]? | select((.body | contains(\"Codex Subagent Review Gate: PASS\")) and (.body | contains(\"Head: ${head_after}\")))] | length
   ")"

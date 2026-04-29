@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./common.sh
+# shellcheck source=scripts/task/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 pr="${1:-}"
@@ -38,6 +38,42 @@ bad_checks="$(gh pr view "${pr}" --json statusCheckRollup --jq '
 ')"
 [[ "${bad_checks}" == "0" ]] || fail "PR has non-passing checks."
 
+required_checks="${STRICT_REQUIRED_CHECKS:-harness-tests shellcheck-reviewdog workflow-lint openapi-parse backend-check codeql-scan review-gate-pass}"
+for required_check in ${required_checks}; do
+  check_state="$(gh pr view "${pr}" --json statusCheckRollup --jq "
+    [.statusCheckRollup[]? | select(
+      (.name? == \"${required_check}\")
+      or (.context? == \"${required_check}\")
+      or ((.name? // \"\") | endswith(\" / ${required_check}\"))
+      or ((.context? // \"\") | endswith(\" / ${required_check}\"))
+    )]
+    | if length == 0 then
+        \"missing\"
+      else
+        .[0]
+        | if ((.conclusion? // \"\") != \"\") then
+            .conclusion
+          elif ((.state? // \"\") != \"\") then
+            .state
+          elif ((.status? // \"\") != \"\") then
+            .status
+          else
+            \"UNKNOWN\"
+          end
+      end
+  ")"
+  case "${check_state}" in
+    SUCCESS|SKIPPED|NEUTRAL)
+      ;;
+    missing)
+      fail "required PR check is missing: ${required_check}"
+      ;;
+    *)
+      fail "required PR check is not passing: ${required_check} (${check_state})"
+      ;;
+  esac
+done
+
 merge_state="$(gh pr view "${pr}" --json mergeStateStatus --jq '.mergeStateStatus // ""')"
 case "${merge_state}" in
   DIRTY|BLOCKED|BEHIND)
@@ -48,6 +84,7 @@ esac
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 owner="${repo_name%%/*}"
 name="${repo_name#*/}"
+# shellcheck disable=SC2016
 unresolved_count="$(gh api graphql \
   -f query='query($owner:String!, $name:String!, $number:Int!) {
     repository(owner:$owner, name:$name) {
