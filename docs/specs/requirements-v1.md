@@ -1,55 +1,50 @@
-# Requirements v1
+# AI Study Leader Requirements v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Requirement IDs are stable for v1.
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 
-## Global Requirements
-| ID | Requirement | Acceptance |
-| --- | --- | --- |
-| `REQ-GLOBAL-001` | All public APIs are under `/api/v1`. | OpenAPI has no public path outside `/api/v1`. |
-| `REQ-GLOBAL-002` | All API errors use `application/problem+json`. | Error responses reference `ProblemDetail`. |
-| `REQ-GLOBAL-003` | All list APIs use cursor pagination. | List responses include `items` and `pageInfo`. |
-| `REQ-GLOBAL-004` | All mutable records use soft delete. | ERD and DDL include `deleted_at`. |
-| `REQ-GLOBAL-005` | UUIDv7 IDs are supplied by application code. | DDL primary keys are `uuid`; implementation must not use random UUIDv4 defaults. |
+## Priority Definitions
+| Priority | Meaning |
+| --- | --- |
+| P0 | Required for MVP implementation. |
+| P1 | Important but can follow after the first backend MVP path works. |
+| P2 | Explicitly deferred from MVP. |
 
-## Feature Requirements
-| Feature ID | Requirement ID | Requirement | Acceptance |
+## P0 Functional Requirements
+| Feature ID | Req ID | Requirement | Acceptance |
 | --- | --- | --- | --- |
-| `identity-core` | `REQ-ID-001` | Users authenticate with Google OAuth. | OAuth account is stored in `user_oauth_accounts`; current user endpoint returns profile. |
-| `identity-core` | `REQ-ID-002` | Users can link and unlink one primary Discord account. | `user_discord_accounts` stores Discord ID and `is_primary`. |
-| `identity-core` | `REQ-ID-003` | Discord ID is not stored on core study tables. | DDL has Discord IDs only in Discord integration tables. |
-| `study-group-core` | `REQ-GRP-001` | Authenticated users can create study groups. | Creator becomes active `owner`. |
-| `study-group-core` | `REQ-GRP-002` | Owners/managers can invite members. | Invitation supports email, Discord user ID, or link-only token. |
-| `study-group-core` | `REQ-GRP-003` | Group membership has role and status. | Roles are `owner`, `manager`, `member`; statuses are `active`, `paused`, `left`, `removed`. |
-| `study-group-rules` | `REQ-RULE-001` | Group rules are stored in `study_groups.rules JSONB`. | Rules include attendance, meeting, and AI feedback policy sections. |
-| `study-group-rules` | `REQ-RULE-002` | Schedule defaults are stored in `study_groups.schedule_defaults JSONB`. | Defaults include duration, recurrence, and reminder offsets. |
-| `study-session-core` | `REQ-SES-001` | Managers can create scheduled sessions. | Session gets group-local `sequence_no`. |
-| `study-session-core` | `REQ-SES-002` | Attendance is tracked per session/member. | Unique active row exists for `(session_id, member_id)`. |
-| `structured-notes` | `REQ-NOTE-001` | Members can submit structured notes. | Notes support `pre_note`, `post_note`, `decision`, `blocker`, `summary`. |
-| `structured-notes` | `REQ-ACT-001` | Sessions can have action items. | Action items support assignee, source note, due date, and status. |
-| `study-group-core` | `REQ-GOAL-001` | Groups can define goals. | Goals can be group-level or member-owned. |
-| `structured-notes` | `REQ-PROG-001` | Members can log progress. | Logs attach to member and optional goal/session. |
-| `study-group-core` | `REQ-RES-001` | Groups can save study resources. | Resources support URL, type, title, description, and metadata. |
-| `ai-prep-brief` | `REQ-AI-PREP-001` | AI can generate pre-session preparation briefs. | Output follows `PreparationBriefV1`. |
-| `ai-feedback-report` | `REQ-AI-FB-001` | AI can generate post-session group feedback. | Output follows `FeedbackReportV1` with `reportType = group`. |
-| `ai-feedback-report` | `REQ-AI-FB-002` | AI can generate individual member feedback. | Output follows `FeedbackReportV1` with `reportType = individual`. |
-| `ai-prep-brief` | `REQ-AI-RUN-001` | Every AI generation is traceable. | `ai_prompt_runs` records type, provider, model, status, input snapshot, output payload, and token counts. |
-| `discord-notifications` | `REQ-DIS-001` | Groups can connect Discord notification channels. | Active channel row stores guild, channel, status, and settings. |
-| `discord-notifications` | `REQ-DIS-002` | MVP sends notification-only events. | Supported types are `session_reminder`, `prep_brief`, `feedback_ready`, `action_item_due`. |
-| `discord-notifications` | `REQ-DIS-003` | Delivery attempts are logged. | `discord_notification_logs` records payload, scheduled time, sent time, status, and error. |
+| `identity-core` | `REQ-ID-001` | Users authenticate and own application profile data. | `users`, `oauth_account`, and `refresh_token` support login/session lifecycle. |
+| `identity-core` | `REQ-ID-002` | Users can connect Discord identity for notification delivery. | `discord_integration` stores encrypted tokens and external Discord IDs. |
+| `study-group-core` | `REQ-GRP-001` | Host can create a study group. | Required inputs are name, topic, detail keywords, max members, starts/ends dates. |
+| `study-group-core` | `REQ-GRP-002` | Created group enters onboarding flow. | `study_group.status = ONBOARDING`, owner member is `PENDING_ONBOARDING`. |
+| `study-group-core` | `REQ-INV-001` | Host can share invite link/code. | Invite code is unique and creates pending member records. |
+| `group-onboarding` | `REQ-ONB-001` | Host and members submit group-specific onboarding. | Response stores keyword skills, task preferences, note, and submitted timestamp. |
+| `group-onboarding` | `REQ-ONB-002` | Onboarding stores recurring availability slots. | Slots include day of week, start time, end time, and timezone. |
+| `group-onboarding` | `REQ-ONB-003` | Skill and task preference scores use 1 to 5 scale. | Invalid values are rejected. |
+| `curriculum-core` | `REQ-CUR-001` | Host can start study after onboarding begins. | Start does not require all members to submit onboarding. |
+| `curriculum-core` | `REQ-CUR-002` | AI curriculum uses submitted onboarding responses. | `curriculum.onboarding_summary` stores generation context. |
+| `weekly-todo` | `REQ-TODO-001` | Curriculum weeks contain weekly tasks. | Tasks have type, order, title, required flag, and due timestamp. |
+| `weekly-todo` | `REQ-TODO-002` | Members can complete todos before deadline. | Completion timestamp and note are stored. |
+| `weekly-todo` | `REQ-TODO-003` | Members must submit incomplete reason after deadline. | Incomplete reason and submission timestamp are stored. |
+| `retrospective-feedback` | `REQ-RETRO-001` | Retrospective is created from weekly progress. | Trigger can be week end, incomplete modal, user chat, or manual request. |
+| `retrospective-feedback` | `REQ-RETRO-002` | AI feedback can propose next-week adjustment. | Feedback and adjustment are stored as JSON. |
+| `ai-team-leader` | `REQ-AI-001` | AI can suggest detail keywords. | Suggestions are not persisted as candidates unless selected by user. |
+| `ai-team-leader` | `REQ-AI-002` | AI chat stores messages and summary. | Messages link to conversation and LLM usage. |
+| `discord-notifications` | `REQ-DIS-001` | System records notification jobs and outcomes. | Notification supports idempotency key, payload, status, retry, and related resource IDs. |
 
-## Exception And Failure Requirements
-| ID | Scenario | Required Behavior |
+## P1 Requirements
+| Feature ID | Req ID | Requirement |
 | --- | --- | --- |
-| `REQ-ERR-001` | Unauthorized request | Return `401` ProblemDetail. |
-| `REQ-ERR-002` | Authenticated but not permitted | Return `403` ProblemDetail. |
-| `REQ-ERR-003` | Resource not found or soft-deleted | Return `404` ProblemDetail. |
-| `REQ-ERR-004` | Duplicate active unique resource | Return `409` ProblemDetail. |
-| `REQ-ERR-005` | Invalid request payload | Return `422` ProblemDetail with field errors. |
-| `REQ-ERR-006` | AI provider failure | Persist failed `ai_prompt_runs`; return retryable ProblemDetail. |
-| `REQ-ERR-007` | Discord delivery failure | Persist failed `discord_notification_logs`; do not fail unrelated business transaction. |
+| `study-group-rules` | `REQ-RULE-001` | Group rules can define task deadline and retrospective policies. |
+| `discord-notifications` | `REQ-DIS-002` | Discord worker sends onboarding, todo, overdue, retrospective, and feedback notifications. |
+| `ai-team-leader` | `REQ-AI-003` | LLM usage can be aggregated by group, user, purpose, and UTC date. |
 
-## Traceability Rule
-Every implementation EXEC_PLAN must include the relevant `Feature ID` and at least one `Requirement ID` in Doc Notes.
+## P2 / Deferred
+| Area | Reason |
+| --- | --- |
+| Live meeting assistant | Out of MVP; requires real-time UX and latency contract. |
+| Voice transcription | Out of MVP; requires separate privacy and storage policy. |
+| Heavy synchronous meeting automation | MVP is asynchronous onboarding/todo/feedback. |
+| Automatic full curriculum regeneration for late joiners | Late joiner context is applied to future adjustment only. |

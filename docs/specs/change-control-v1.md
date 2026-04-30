@@ -2,8 +2,14 @@
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Locked date: `2026-04-29`
+- Original locked date: `2026-04-29`
+- Current lock refresh date: `2026-04-30`
 - Lock unit: full v1 planning package.
+
+## Current Approved Change
+- Change Request: [CR-20260430-onboarding-mysql8-mvp](./change-requests/CR-20260430-onboarding-mysql8-mvp.md)
+- ADR: [ADR-20260430-onboarding-mysql8-mvp](./adr/ADR-20260430-onboarding-mysql8-mvp.md)
+- Result: v1 implementation source of truth is Requirements v0.3, ERD v0.8, MySQL8, and onboarding MVP.
 
 ## Locked Documents
 - `docs/specs/prd-v1.md`
@@ -26,8 +32,9 @@ After v1 lock, any change to product scope, feature behavior, API shape, DB shap
 1. Change Request using `docs/specs/change-request-template.md`.
 2. ADR using `docs/specs/adr-template.md`.
 3. Update to affected source documents.
-4. Update to Obsidian mirror summary.
-5. Harness validation.
+4. Update to Confluence/Jira document references.
+5. Update to Obsidian mirror summary if the vault is in use.
+6. Harness validation.
 
 ## Allowed Without ADR
 - Typo fixes that do not change meaning.
@@ -43,6 +50,7 @@ After v1 lock, any change to product scope, feature behavior, API shape, DB shap
 - Discord notification type or delivery behavior change.
 - Permission matrix change.
 - MVP scope or non-scope change.
+- DBMS baseline change.
 
 ## Decision Owners
 - Product owner: user.
@@ -55,4 +63,4 @@ After v1 lock, any change to product scope, feature behavior, API shape, DB shap
 - The change lists affected docs.
 - The change has migration or compatibility notes when API/DB changes.
 - The feature coverage matrix is updated.
-- Obsidian `Current State` is updated.
+- Jira documentation issues link to the current source of truth.
