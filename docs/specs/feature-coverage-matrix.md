@@ -10,14 +10,14 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 
 | Feature ID | PRD | Requirements | API | DB | Integration | QA | Implementation Evidence | Test Evidence | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `identity-core` | `prd-v1.md` | `REQ-ID-001` to `REQ-ID-002` | `api-contract-v1.md`, `openapi.yaml` | `users`, `oauth_account`, `refresh_token`, `discord_integration` | `auth-permissions-v1.md` | `QA-ID-001` to `QA-ID-003` | Not started | Not started | Planned |
+| `identity-core` | `prd-v1.md` | `REQ-ID-001` to `REQ-ID-002` | `api-contract-v1.md`, `openapi.yaml` | `users`, `oauth_account`, `refresh_token` | `auth-permissions-v1.md` | `QA-ID-001` to `QA-ID-003` | Not started | Not started | Planned |
 | `study-group-core` | `prd-v1.md` | `REQ-GRP-001` to `REQ-GRP-002`, `REQ-INV-001` | `api-contract-v1.md`, `openapi.yaml` | `study_group`, `group_member` | `auth-permissions-v1.md` | `QA-GRP-001` to `QA-GRP-004` | Not started | Not started | Planned |
 | `group-onboarding` | `prd-v1.md` | `REQ-ONB-001` to `REQ-ONB-003` | `api-contract-v1.md`, `openapi.yaml` | `group_onboarding_response`, `member_availability_slot` | `auth-permissions-v1.md` | `QA-ONB-001` to `QA-ONB-004` | Not started | Not started | Planned |
 | `curriculum-core` | `prd-v1.md` | `REQ-CUR-001` to `REQ-CUR-002` | `api-contract-v1.md`, `openapi.yaml` | `curriculum`, `curriculum_week`, `weekly_task` | `ai-contract-v1.md` | `QA-CUR-001` to `QA-CUR-003` | Not started | Not started | Planned |
 | `weekly-todo` | `prd-v1.md` | `REQ-TODO-001` to `REQ-TODO-003` | `api-contract-v1.md`, `openapi.yaml` | `member_week_progress`, `task_completion` | `auth-permissions-v1.md` | `QA-TODO-001` to `QA-TODO-004` | Not started | Not started | Planned |
 | `retrospective-feedback` | `prd-v1.md` | `REQ-RETRO-001` to `REQ-RETRO-002` | `api-contract-v1.md`, `openapi.yaml` | `retrospective`, `ai_conversation`, `ai_conversation_message` | `ai-contract-v1.md`, `auth-permissions-v1.md` | `QA-RETRO-001` to `QA-RETRO-004` | Not started | Not started | Planned |
 | `ai-team-leader` | `prd-v1.md` | `REQ-AI-001` to `REQ-AI-003` | `api-contract-v1.md`, `openapi.yaml` | `llm_usage`, AI JSON columns | `ai-contract-v1.md` | `QA-AI-001` to `QA-AI-004` | Not started | Not started | Planned |
-| `discord-notifications` | `prd-v1.md` | `REQ-DIS-001` to `REQ-DIS-002` | `api-contract-v1.md`, `openapi.yaml` | `discord_integration`, `notification` | `discord-contract-v1.md` | `QA-DIS-001` to `QA-DIS-004` | Not started | Not started | Planned |
+| `notification` | `prd-v1.md` | `REQ-NOTI-001` to `REQ-NOTI-003` | `api-contract-v1.md`, `openapi.yaml` | `notification` | `notification-contract-v1.md`, `auth-permissions-v1.md` | `QA-NOTI-001` to `QA-NOTI-004` | Not started | Not started | Planned |
 | `n/a-harness` | `prd-v1.md` | global workflow | `n/a` | schema verification | `jira-board-sync.md`, `pr-review-gate.md` | `QA-GLOBAL-001` to `QA-GLOBAL-005` | `SPT-19`, `SPT-50` | Not started | Planned |
 
 ## Coverage Rules

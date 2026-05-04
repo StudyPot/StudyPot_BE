@@ -10,7 +10,8 @@
 - Owner creates/updates group and starts study.
 - Pending member can submit onboarding.
 - Active member can view curriculum, complete todos, request retrospective, and chat with AI.
-- Owner can read notification and LLM usage logs.
+- Members can read and mark their own in-app notifications.
+- Owner can read group notification and LLM usage logs.
 
 ## Source
 - `docs/specs/auth-permissions-v1.md`

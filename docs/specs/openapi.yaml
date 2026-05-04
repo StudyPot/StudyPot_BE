@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: AI Study Leader API
   version: 1.0.0
-  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend.
+  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend with in-app notification.
 servers:
   - url: /api/v1
 security:
@@ -19,25 +19,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
-  /users/me/discord-link:
-    post:
-      tags: [Users]
-      operationId: linkDiscord
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DiscordLinkRequest'
-      responses:
-        '204':
-          description: Linked
-    delete:
-      tags: [Users]
-      operationId: unlinkDiscord
-      responses:
-        '204':
-          description: Unlinked
   /groups:
     get:
       tags: [Groups]
@@ -325,12 +306,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiConversationMessageResponse'
+  /users/me/notifications:
+    get:
+      tags: [Notifications]
+      operationId: listMyNotifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema: {type: boolean}
+        - name: cursor
+          in: query
+          required: false
+          schema: {type: string}
+      responses:
+        '200':
+          description: My in-app notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+  /notifications/{notificationId}/read:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    post:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      responses:
+        '200':
+          description: Notification marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+  /users/me/notifications/read-all:
+    post:
+      tags: [Notifications]
+      operationId: markAllMyNotificationsRead
+      responses:
+        '204':
+          description: All my notifications marked read
   /groups/{groupId}/notifications:
     parameters:
       - $ref: '#/components/parameters/GroupId'
     get:
-      tags: [Operations]
-      operationId: listNotifications
+      tags: [Notifications]
+      operationId: listGroupNotifications
       responses:
         '200':
           description: Notification logs
@@ -382,6 +405,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
   schemas:
     StudyGroupStatus:
       type: string
@@ -402,12 +430,6 @@ components:
         id: {type: string, format: uuid}
         email: {type: string, format: email}
         nickname: {type: string}
-    DiscordLinkRequest:
-      type: object
-      required: [discordUserId]
-      properties:
-        discordUserId: {type: string}
-        discordUsername: {type: string}
     CreateGroupRequest:
       type: object
       required: [name, topic, detailKeywords, maxMembers, startsAt, endsAt]
@@ -603,9 +625,13 @@ components:
       properties:
         id: {type: string, format: uuid}
         notificationType: {type: string}
-        channel: {type: string}
-        status: {type: string, enum: [PENDING, SENT, FAILED, SKIPPED]}
+        channel: {type: string, enum: [IN_APP]}
+        title: {type: string}
+        body: {type: string}
+        status: {type: string, enum: [PENDING, DELIVERED, READ, FAILED, SKIPPED]}
         scheduledAt: {type: string, format: date-time}
+        deliveredAt: {type: string, format: date-time}
+        readAt: {type: string, format: date-time}
     LlmUsageResponse:
       type: object
       properties:

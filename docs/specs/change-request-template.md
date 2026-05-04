@@ -23,7 +23,7 @@
 - API:
 - DB:
 - AI:
-- Discord:
+- Notification:
 - Permissions:
 - QA:
 

@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | `identity-core` | `QA-ID-001` | User profile can be read with authenticated context. |
 | `identity-core` | `QA-ID-002` | OAuth/refresh token records are stored without raw token leakage. |
-| `identity-core` | `QA-ID-003` | Discord integration can be linked/unlinked safely. |
+| `identity-core` | `QA-ID-003` | Refresh token revocation prevents reuse. |
 | `study-group-core` | `QA-GRP-001` | Group creation requires name, topic, detail keywords, max members, and period. |
 | `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
@@ -43,10 +43,10 @@
 | `ai-team-leader` | `QA-AI-002` | AI conversation stores user and assistant messages. |
 | `ai-team-leader` | `QA-AI-003` | Redacted request metadata excludes secrets/tokens. |
 | `ai-team-leader` | `QA-AI-004` | Invalid AI JSON output is rejected or marked failed. |
-| `discord-notifications` | `QA-DIS-001` | Notification log stores idempotency key and status. |
-| `discord-notifications` | `QA-DIS-002` | Duplicate idempotency key does not send twice. |
-| `discord-notifications` | `QA-DIS-003` | Delivery failure stores redacted error and retry count. |
-| `discord-notifications` | `QA-DIS-004` | Notification failure does not roll back core domain event. |
+| `notification` | `QA-NOTI-001` | In-app notification stores recipient, title/body, idempotency key, status, and related resource links. |
+| `notification` | `QA-NOTI-002` | Duplicate idempotency key does not create duplicate recipient notifications. |
+| `notification` | `QA-NOTI-003` | Recipients can list and mark only their own notifications as read. |
+| `notification` | `QA-NOTI-004` | Notification failure does not roll back core domain event. |
 
 ## Required Scenario Tests
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
@@ -55,4 +55,4 @@
 - Overdue incomplete reason modal path.
 - AI retrospective feedback with next-week adjustment.
 - AI conversation message persistence and LLM usage logging.
-- Discord notification idempotency.
+- In-app notification idempotency and read-state update.

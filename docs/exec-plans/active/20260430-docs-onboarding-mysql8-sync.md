@@ -33,7 +33,7 @@
 - [x] weekly-todo
 - [x] retrospective-feedback
 - [x] ai-team-leader
-- [x] discord-notifications
+- [x] notification
 - [x] n/a-harness
 
 ## Doc Notes
@@ -49,7 +49,7 @@ Bring repo specs, Jira, and Confluence-ready documentation to one implementation
 ## Approach
 1. Record Change Request and ADR for replacing the locked meeting-centered v1 baseline.
 2. Rewrite locked spec docs to the onboarding MVP contract.
-3. Keep API, DB, AI, Discord, permission, QA, and feature coverage docs aligned with ERD v0.8 entities and statuses.
+3. Keep API, DB, AI, notification, permission, QA, and feature coverage docs aligned with ERD v0.8 entities and statuses.
 4. Generate Confluence-ready Markdown pages if Confluence access remains blocked.
 5. Update Jira issue descriptions and labels to point at the same source of truth.
 
@@ -74,7 +74,7 @@ Bring repo specs, Jira, and Confluence-ready documentation to one implementation
 - DOCX render: requirements v0.3 rendered to 10 pages at `/tmp/requirements_v03_render_check`.
 - DOCX render: ERD v0.8 rendered to 25 pages at `/tmp/erd_v08_render_check`.
 - OpenAPI parse: `ruby -ryaml` parsed 19 paths successfully.
-- DB schema coverage: all 20 ERD v0.8 tables found in `docs/specs/db-schema-v1.sql`.
+- DB schema coverage: all ERD v0.8 onboarding MVP tables found in `docs/specs/db-schema-v1.sql`; notification scope later superseded by `SPT-55`.
 - Stale repo text check: no `P0.*meeting`, `meeting.*P0`, `study_sessions`, or stale PostgreSQL baseline matches in active specs.
 - Jira stale labels: JQL for `erd-v06`, `erd-v07`, `meeting` returned 0 issues.
 - Jira empty labels: JQL for empty labels returned 0 issues.

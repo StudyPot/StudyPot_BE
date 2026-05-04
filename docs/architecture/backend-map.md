@@ -22,7 +22,7 @@
   - `weeklytodo`
   - `retrospective`
   - `ai`
-  - `discord`
+  - `notification`
 - Meeting/session specific packages are post-MVP unless a new Change Request and ADR reintroduce them.
 - Each bounded context is prepared with:
   - `domain`: entities, value objects, domain services, domain events. No Spring or adapter dependencies.

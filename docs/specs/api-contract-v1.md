@@ -17,21 +17,19 @@
 ## Resource Summary
 | Resource | Feature ID | Description |
 | --- | --- | --- |
-| Auth/User | `identity-core` | Current user and OAuth/Discord identity linkage. |
+| Auth/User | `identity-core` | Current user and application session identity. |
 | Study Group | `study-group-core` | Group creation, invite code, membership, status. |
 | Onboarding | `group-onboarding` | Group/member onboarding responses and availability slots. |
 | Curriculum | `curriculum-core` | Host-start generated curriculum, weeks, tasks. |
 | Weekly Todo | `weekly-todo` | Member week progress and task completion/incomplete reasons. |
 | Retrospective | `retrospective-feedback` | AI feedback and next-week adjustment. |
 | AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
-| Notification/Usage | `discord-notifications`, `ai-team-leader` | Notification logs and LLM usage. |
+| Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage. |
 
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/v1/users/me` | `identity-core` | authenticated | Read current user. |
-| `POST` | `/api/v1/users/me/discord-link` | `identity-core` | authenticated | Link Discord integration. |
-| `DELETE` | `/api/v1/users/me/discord-link` | `identity-core` | authenticated | Unlink Discord integration. |
 | `GET` | `/api/v1/groups` | `study-group-core` | authenticated | List my groups. |
 | `POST` | `/api/v1/groups` | `study-group-core` | authenticated | Create group and owner membership. |
 | `GET` | `/api/v1/groups/{groupId}` | `study-group-core` | group member | Read group. |
@@ -51,7 +49,10 @@
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
 | `POST` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | Send message and get assistant response. |
-| `GET` | `/api/v1/groups/{groupId}/notifications` | `discord-notifications` | owner | List notification logs. |
+| `GET` | `/api/v1/users/me/notifications` | `notification` | authenticated | List my in-app notifications. |
+| `POST` | `/api/v1/notifications/{notificationId}/read` | `notification` | notification recipient | Mark one in-app notification as read. |
+| `POST` | `/api/v1/users/me/notifications/read-all` | `notification` | authenticated | Mark all my in-app notifications as read. |
+| `GET` | `/api/v1/groups/{groupId}/notifications` | `notification` | owner | List group notification logs for audit. |
 | `GET` | `/api/v1/groups/{groupId}/llm-usage` | `ai-team-leader` | owner | List LLM usage records. |
 
 ## Key Request Shapes
@@ -94,6 +95,7 @@
 - `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
 - `task_completion`: `TODO -> DONE`, `TODO -> INCOMPLETE`, `TODO -> SKIPPED`.
 - `retrospective`: `PENDING -> PROCESSING -> COMPLETED` or `FAILED`.
+- `notification`: `PENDING -> DELIVERED -> READ`; failed generation/delivery can become `FAILED` or `SKIPPED`.
 
 ## API Compatibility Rules
 - Adding/removing endpoints, changing request fields, response fields, enum values, or authorization behavior requires Change Request and ADR.

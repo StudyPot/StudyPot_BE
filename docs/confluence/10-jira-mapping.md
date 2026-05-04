@@ -9,12 +9,13 @@
 - `SPT-19` to `SPT-50`: implementation and verification task queue.
 - `SPT-51`: ERD document consolidation.
 - `SPT-53`: AI prompt/team leader document consolidation.
+- `SPT-55`: Discord removal and in-app notification source update.
 
 ## Required Labels
 - `requirements-v03`
 - `erd-v08`
 - `onboarding`
-- Feature-specific labels such as `weekly-todo`, `retrospective`, `ai-chat`, `discord-notifications`, `notification`, `qa`
+- Feature-specific labels such as `weekly-todo`, `retrospective`, `ai-chat`, `notification`, `in-app-notification`, `no-discord`, `qa`
 
 ## Stale Labels
 - `erd-v06`

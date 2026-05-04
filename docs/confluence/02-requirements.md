@@ -10,13 +10,14 @@
 - Weekly todos support done, skipped, incomplete, and incomplete reason.
 - Retrospective stores AI feedback and next-week adjustment.
 - AI conversation stores user/assistant messages.
-- Notification and LLM usage logs are auditable.
+- In-app notification list/read-state and LLM usage logs are auditable.
 
 ## P2
 - Live meeting assistant.
 - Voice transcription.
 - Heavy synchronous meeting automation.
 - Automatic full curriculum regeneration for late joiners.
+- Discord integration and bot delivery.
 
 ## Source
 - Repo: `docs/specs/requirements-v1.md`

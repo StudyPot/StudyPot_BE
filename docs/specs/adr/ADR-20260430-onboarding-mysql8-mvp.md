@@ -2,6 +2,7 @@
 
 ## Status
 - Accepted
+- Superseded for notification scope by [ADR-20260504-no-discord-inapp-notification](./ADR-20260504-no-discord-inapp-notification.md).
 
 ## Context
 - The first locked v1 package described a meeting/session-centered MVP using PostgreSQL and JSONB.
@@ -17,7 +18,7 @@
 - Treat meeting-centered features as post-MVP unless a new Change Request and ADR reintroduces them.
 
 ## Consequences
-- Positive: Jira, API, DB, AI, Discord, and QA documents now match the product the user wants to build.
+- Positive: Jira, API, DB, AI, notification, and QA documents now match the product the user wants to build.
 - Positive: host start and onboarding response timing are explicit enough for implementation tasks.
 - Negative: previous session-centered docs and tests must be rewritten before implementation continues.
 - Negative: MySQL JSON behavior differs from PostgreSQL JSONB, so query/index strategy must be explicit.
@@ -31,7 +32,7 @@
 - `weekly-todo`
 - `retrospective-feedback`
 - `ai-team-leader`
-- `discord-notifications`
+- `notification`
 - `n/a-harness`
 
 ## Affected Documents
@@ -44,7 +45,7 @@
 - `docs/specs/db-contract-v1.md`
 - `docs/specs/db-schema-v1.sql`
 - `docs/specs/ai-contract-v1.md`
-- `docs/specs/discord-contract-v1.md`
+- `docs/specs/notification-contract-v1.md`
 - `docs/specs/auth-permissions-v1.md`
 - `docs/specs/qa-acceptance-v1.md`
 - `docs/specs/feature-coverage-matrix.md`

@@ -3,12 +3,12 @@
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
-- Change record: [CR-20260430-onboarding-mysql8-mvp](./change-requests/CR-20260430-onboarding-mysql8-mvp.md)
+- Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
 
 ## Product Summary
-AI Study Leader helps a host create a study group, collect member onboarding context, generate an AI curriculum, track weekly todos, and run lightweight retrospective feedback through an AI team leader.
+AI Study Leader helps a host create a study group, collect member onboarding context, generate an AI curriculum, track weekly todos, and run weekly retrospective feedback through an AI team leader.
 
-The product replaces the manual study leader role for small groups. The leader does not need to schedule heavy synchronous sessions for MVP; instead, the system captures member skill, task preference, availability, progress, incomplete reasons, and AI feedback.
+The product replaces the manual study leader role for small groups. The leader does not need to schedule heavy synchronous sessions for MVP; instead, the system captures member skill, task preference, availability, progress, incomplete reasons, and AI feedback so the AI team leader can adjust the next week.
 
 ## Target Users
 - Study hosts who want to create a group and start a structured curriculum quickly.
@@ -21,8 +21,8 @@ The product replaces the manual study leader role for small groups. The leader d
 - Member-specific onboarding for skill, task preference, availability, and notes.
 - Host start action that turns submitted onboarding responses into an AI curriculum.
 - Weekly todo completion and incomplete-reason capture.
-- AI team leader retrospective feedback and next-week adjustment.
-- Discord notification hooks for reminders and status events.
+- AI team leader retrospective feedback and weekly next-week adjustment.
+- In-app notifications for onboarding, weekly deadlines, incomplete-reason prompts, and feedback readiness.
 
 ## MVP Golden Path
 1. Host creates a group.
@@ -35,6 +35,7 @@ The product replaces the manual study leader role for small groups. The leader d
 8. Members complete weekly todos or submit incomplete reasons.
 9. AI team leader produces feedback and next-week adjustment.
 10. Late joiners complete onboarding and join from the current week.
+11. Members receive in-app notifications when onboarding, todo deadlines, incomplete reasons, or AI feedback need attention.
 
 ## Explicitly Deferred
 - Heavy live meeting automation.
@@ -43,6 +44,7 @@ The product replaces the manual study leader role for small groups. The leader d
 - Rule version history.
 - Rich frontend wireframe implementation.
 - Automatic full curriculum regeneration for late joiners.
+- Discord integration, bot, channel delivery, and Discord token storage.
 
 ## Technical Baseline
 - Backend: Java 21, Gradle, Spring Boot.

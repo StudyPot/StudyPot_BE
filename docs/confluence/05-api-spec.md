@@ -11,6 +11,9 @@
 - `/api/v1/weeks/{weekId}/retrospectives/me`
 - `/api/v1/groups/{groupId}/ai-conversations`
 - `/api/v1/ai-conversations/{conversationId}/messages`
+- `/api/v1/users/me/notifications`
+- `/api/v1/notifications/{notificationId}/read`
+- `/api/v1/users/me/notifications/read-all`
 - `/api/v1/groups/{groupId}/notifications`
 - `/api/v1/groups/{groupId}/llm-usage`
 

@@ -11,7 +11,7 @@ Confluence 앱 권한이 열리면 이 디렉터리의 Markdown을 같은 제목
 - [05 API 명세](./05-api-spec.md)
 - [06 AI 팀장 명세](./06-ai-team-leader.md)
 - [07 권한 / 상태 전이](./07-permissions-state.md)
-- [08 Discord / 알림](./08-discord-notification.md)
+- [08 알림](./08-notification.md)
 - [09 QA / Acceptance Criteria](./09-qa-acceptance.md)
 - [10 Jira 매핑](./10-jira-mapping.md)
 
