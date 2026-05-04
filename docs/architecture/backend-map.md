@@ -17,10 +17,13 @@
 - Bounded contexts:
   - `identity`
   - `studygroup`
-  - `studysession`
-  - `learning`
+  - `onboarding`
+  - `curriculum`
+  - `weeklytodo`
+  - `retrospective`
   - `ai`
   - `discord`
+- Meeting/session specific packages are post-MVP unless a new Change Request and ADR reintroduce them.
 - Each bounded context is prepared with:
   - `domain`: entities, value objects, domain services, domain events. No Spring or adapter dependencies.
   - `application`: use cases and ports. No adapter dependencies.

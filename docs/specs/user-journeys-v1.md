@@ -1,126 +1,74 @@
-# User Journeys v1
+# AI Study Leader User Journeys v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Change rule: changes require `docs/specs/change-control-v1.md`.
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 
-## Journey 1: First Login And Discord Link
-1. User opens the web client and chooses Google login.
-2. Client completes Google OAuth against backend auth endpoints.
-3. Backend creates or updates `users` and `user_oauth_accounts`.
-4. User links a Discord account.
-5. Backend stores `user_discord_accounts` without placing Discord IDs on core study tables.
-6. User can view their current profile and linked Discord state.
+## Journey 1: Host Creates Group
+1. Authenticated host submits group name, topic, selected/detail keywords, maximum members, and study period.
+2. Backend creates `study_group` with `status = ONBOARDING`.
+3. Backend creates owner `group_member` with `status = PENDING_ONBOARDING`.
+4. Backend returns group summary and invite link/code.
 
-Success state:
-- `users.status = active`
-- at least one active `user_oauth_accounts` row
-- optional active `user_discord_accounts` row
+Acceptance:
+- `study_group.detail_keywords` stores only final selected/direct keywords.
+- `study_group.onboarding_started_at` is set.
+- Host must still submit onboarding before becoming `ACTIVE`.
 
-Failure handling:
-- OAuth failure returns `401` or `409` with `application/problem+json`.
-- Discord account already linked to another active user returns `409`.
+## Journey 2: Member Joins by Invite
+1. Authenticated user opens invite link.
+2. Backend validates group status and max member count.
+3. Backend creates `group_member` with `status = PENDING_ONBOARDING`.
+4. Backend returns onboarding form metadata based on group detail keywords.
 
-## Journey 2: Create Study Group
-1. Authenticated user creates a group with name, timezone, rules, and schedule defaults.
-2. Backend creates `study_groups`.
-3. Backend creates an owner `study_group_members` row for the creator.
-4. Group owner can update rules and schedule defaults.
+Acceptance:
+- Duplicate active membership is rejected.
+- Joined member cannot access weekly todos until onboarding is submitted or host starts current-week assignment policy allows it.
 
-Success state:
-- Group has one active owner.
-- `study_groups.rules` and `study_groups.schedule_defaults` match the JSONB contract in `domain-erd.md`.
+## Journey 3: Member Submits Onboarding
+1. Member enters detail-keyword skill levels.
+2. Member enters task preference scores.
+3. Member enters optional note.
+4. Member enters recurring availability slots.
+5. Backend stores `group_onboarding_response` as `SUBMITTED` and creates `member_availability_slot` rows.
+6. Backend changes `group_member.status` to `ACTIVE` if the group is already active or ready to activate.
 
-Failure handling:
-- Duplicate active slug returns `409`.
-- Invalid rules payload returns `422`.
+Acceptance:
+- Skill and preference values are 1 to 5.
+- Availability uses `day_of_week`, `start_time`, `end_time`, and `timezone`.
+- Each member has at most one active onboarding response per group.
 
-## Journey 3: Invite Members
-1. Owner or manager creates an invitation.
-2. Backend stores `study_group_invitations` with hashed token and target role.
-3. Invitee accepts the invitation.
-4. Backend creates or activates the user's membership.
+## Journey 4: Host Starts Study
+1. Host clicks start.
+2. Backend verifies host is owner and group is `ONBOARDING`.
+3. Backend summarizes submitted onboarding responses.
+4. Backend creates curriculum, weeks, and weekly tasks.
+5. Backend sets `study_group.status = ACTIVE` and `started_at`.
 
-Success state:
-- Invitation status becomes `accepted`.
-- Accepted user has `study_group_members.status = active`.
+Acceptance:
+- Start does not require every invitee to finish onboarding.
+- Initial curriculum uses only responses submitted at start time.
+- Late joiner onboarding is reflected in future feedback/adjustments, not automatic full regeneration.
 
-Failure handling:
-- Expired invite returns `410`.
-- Revoked invite returns `409`.
-- Non-owner/non-manager invite creation returns `403`.
+## Journey 5: Weekly Todo Execution
+1. Member sees current week and tasks.
+2. Member completes task or leaves it open.
+3. Before deadline, member can click complete todo.
+4. After deadline, incomplete tasks require an incomplete reason modal.
+5. Backend stores task and week progress.
 
-## Journey 4: Connect Discord Notification Channel
-1. Owner or manager selects a Discord guild/channel in the client.
-2. Backend validates the channel binding and stores `discord_notification_channels`.
-3. Notification settings are stored in `notification_settings JSONB`.
-4. Future notifications write rows to `discord_notification_logs`.
+Acceptance:
+- `task_completion.status` is one of `TODO`, `DONE`, `INCOMPLETE`, `SKIPPED`.
+- Incomplete reason is required for overdue incomplete status.
+- Completion timestamps and notes are retained.
 
-Success state:
-- Channel status is `active`.
-- Notification types are limited to v1 supported values.
+## Journey 6: Retrospective and AI Team Leader Chat
+1. Week ends or user opens AI team leader conversation.
+2. Backend creates retrospective context from onboarding, tasks, completion notes, and incomplete reasons.
+3. AI produces feedback and next-week adjustment proposal.
+4. Chat messages are stored for the member and group.
 
-Failure handling:
-- Missing Discord authorization returns `401`.
-- Channel already connected to same group returns `409`.
-- Revoked bot access marks the channel `revoked` and records failed logs.
-
-## Journey 5: Schedule And Prepare Session
-1. Owner or manager creates a study session.
-2. Backend assigns group-local `sequence_no`.
-3. Backend stores agenda and meeting snapshot.
-4. A preparation brief can be generated for the session.
-5. AI run is recorded in `ai_prompt_runs`; result is stored in `ai_preparation_briefs`.
-6. Discord can send a `prep_brief` notification.
-
-Success state:
-- Session status moves from `scheduled` to `ready` when prep material is available.
-- AI output follows `PreparationBriefV1` schema.
-
-Failure handling:
-- AI failure stores failed `ai_prompt_runs` with redacted error data.
-- Session remains usable without AI output.
-
-## Journey 6: Submit Attendance And Notes
-1. Members submit or update attendance.
-2. Members submit structured pre-note or post-note payloads.
-3. Notes can produce action items manually or through AI extraction.
-
-Success state:
-- One active attendance row per session/member.
-- Notes have `structured_payload`.
-- Action items point to session and optional source note.
-
-Failure handling:
-- Non-member access returns `403`.
-- Note submitted for archived/cancelled session returns `409`.
-- Invalid note payload returns `422`.
-
-## Journey 7: Generate Feedback
-1. Owner or manager requests feedback after a session.
-2. Backend gathers redacted session context.
-3. AI run is stored in `ai_prompt_runs`.
-4. Group feedback is stored in `ai_feedback_reports` with `target_member_id = null`.
-5. Individual feedback is stored with `target_member_id` set.
-6. Discord can send `feedback_ready` notification.
-
-Success state:
-- Feedback output follows `FeedbackReportV1` schema.
-- Generated report version increments per session and target.
-
-Failure handling:
-- Missing required notes returns `409` with clear problem detail.
-- AI provider failure records failed prompt run and returns retryable problem response.
-
-## Journey 8: Track Progress And Follow-Up
-1. Members complete action items or add progress logs.
-2. Managers update goals and resources.
-3. Future preparation briefs and feedback reports use prior history.
-
-Success state:
-- Progress logs remain attached to member, optional goal, and optional session.
-- Action item status changes are auditable through `updated_at` and `completed_at`.
-
-Failure handling:
-- Completing another member's private action item without permission returns `403`.
-- Invalid status transition returns `409`.
+Acceptance:
+- Feedback is linked to `member_week_progress`, `curriculum_week`, and `group_member`.
+- AI responses are backed by `llm_usage`.
+- Next-week adjustment can affect future weekly task recommendations.

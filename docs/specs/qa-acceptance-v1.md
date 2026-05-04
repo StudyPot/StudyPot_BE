@@ -1,64 +1,58 @@
-# QA Acceptance v1
+# AI Study Leader QA Acceptance v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- QA scenarios are required before implementation is considered complete.
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 
-## Global Acceptance
-| ID | Scenario | Expected Result |
-| --- | --- | --- |
-| `QA-GLOBAL-001` | Invalid request payload | API returns `422` ProblemDetail with field errors. |
-| `QA-GLOBAL-002` | Missing auth | API returns `401` ProblemDetail. |
-| `QA-GLOBAL-003` | Authenticated user lacks group role | API returns `403` ProblemDetail. |
-| `QA-GLOBAL-004` | Soft-deleted resource is requested | API returns `404` ProblemDetail. |
-| `QA-GLOBAL-005` | List endpoint receives no cursor | API returns first page with `pageInfo`. |
-| `QA-GLOBAL-006` | List endpoint receives valid cursor | API returns next page with stable ordering. |
-
-## Feature Acceptance Matrix
-| Feature ID | QA IDs |
+## Global QA
+| ID | Acceptance |
 | --- | --- |
-| `identity-core` | `QA-ID-001`, `QA-ID-002`, `QA-ID-003` |
-| `study-group-core` | `QA-GRP-001`, `QA-GRP-002`, `QA-GRP-003`, `QA-INV-001` |
-| `study-group-rules` | `QA-RULE-001`, `QA-RULE-002` |
-| `study-session-core` | `QA-SES-001`, `QA-SES-002`, `QA-ATT-001` |
-| `structured-notes` | `QA-NOTE-001`, `QA-ACT-001`, `QA-PROG-001` |
-| `ai-prep-brief` | `QA-AI-PREP-001`, `QA-AI-RUN-001` |
-| `ai-feedback-report` | `QA-AI-FB-001`, `QA-AI-FB-002`, `QA-AI-PRIV-001` |
-| `discord-notifications` | `QA-DIS-001`, `QA-DIS-002`, `QA-DIS-003` |
+| `QA-GLOBAL-001` | `./gradlew check build --no-daemon` passes before merge. |
+| `QA-GLOBAL-002` | OpenAPI YAML parses and contains `openapi`, `info.title`, and `paths`. |
+| `QA-GLOBAL-003` | DB schema includes all ERD v0.8 tables. |
+| `QA-GLOBAL-004` | Jira task has source document links and current labels. |
+| `QA-GLOBAL-005` | No active Jira issue keeps stale `erd-v06`, `erd-v07`, or `meeting` labels. |
 
-## Scenario Details
-| ID | Scenario | Expected Result |
+## Feature QA
+| Feature ID | QA IDs | Acceptance |
 | --- | --- | --- |
-| `QA-ID-001` | New Google OAuth user signs in. | `users` and `user_oauth_accounts` are created; `/users/me` returns active user. |
-| `QA-ID-002` | Existing Google OAuth user signs in. | Existing user is reused; no duplicate active OAuth account. |
-| `QA-ID-003` | User links Discord account already linked elsewhere. | API returns `409`; no second active link is created. |
-| `QA-GRP-001` | Authenticated user creates group. | Group and owner membership are created. |
-| `QA-GRP-002` | Manager updates group rules. | `study_groups.rules` updates and remains valid JSON object. |
-| `QA-GRP-003` | Member tries to archive group. | API returns `403`. |
-| `QA-INV-001` | Invitee accepts valid invitation. | Invitation becomes `accepted`; membership becomes active. |
-| `QA-RULE-001` | Rules payload misses required policy section. | API returns `422`. |
-| `QA-RULE-002` | Schedule defaults contain invalid reminder offset. | API returns `422`. |
-| `QA-SES-001` | Manager creates session. | Session gets next `sequence_no`. |
-| `QA-SES-002` | scheduled end is before start. | API returns `422`. |
-| `QA-ATT-001` | Member upserts own attendance. | One active attendance row exists for session/member. |
-| `QA-NOTE-001` | Member submits post note. | Note is stored with valid `structured_payload`. |
-| `QA-ACT-001` | Manager assigns action item. | Action item is visible in session action item list. |
-| `QA-PROG-001` | Member logs progress for goal. | Progress log links member and goal. |
-| `QA-AI-PREP-001` | Manager generates preparation brief. | `ai_prompt_runs` succeeds and `ai_preparation_briefs` stores `PreparationBriefV1`. |
-| `QA-AI-RUN-001` | AI provider fails. | Failed `ai_prompt_runs` is stored; API returns retryable ProblemDetail. |
-| `QA-AI-FB-001` | Manager generates group feedback. | Group report is visible to all active members. |
-| `QA-AI-FB-002` | Manager generates individual feedback. | Target member report is stored with `targetMemberId`. |
-| `QA-AI-PRIV-001` | Member reads another member's individual feedback. | API returns `403`. |
-| `QA-DIS-001` | Manager connects Discord channel. | Active `discord_notification_channels` row is created. |
-| `QA-DIS-002` | Session reminder send succeeds. | Notification log becomes `sent`. |
-| `QA-DIS-003` | Discord access revoked. | Channel becomes `revoked`; notification log becomes `failed`. |
+| `identity-core` | `QA-ID-001` | User profile can be read with authenticated context. |
+| `identity-core` | `QA-ID-002` | OAuth/refresh token records are stored without raw token leakage. |
+| `identity-core` | `QA-ID-003` | Discord integration can be linked/unlinked safely. |
+| `study-group-core` | `QA-GRP-001` | Group creation requires name, topic, detail keywords, max members, and period. |
+| `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
+| `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
+| `study-group-core` | `QA-GRP-004` | Owner-only group updates reject non-owner access. |
+| `group-onboarding` | `QA-ONB-001` | Host and members can save and submit onboarding. |
+| `group-onboarding` | `QA-ONB-002` | Keyword skill levels and task preferences reject values outside 1 to 5. |
+| `group-onboarding` | `QA-ONB-003` | Availability slots reject invalid day/time windows. |
+| `group-onboarding` | `QA-ONB-004` | One member cannot create duplicate active onboarding responses. |
+| `curriculum-core` | `QA-CUR-001` | Host start creates curriculum from submitted onboarding summary. |
+| `curriculum-core` | `QA-CUR-002` | Host can start without waiting for every invitee. |
+| `curriculum-core` | `QA-CUR-003` | Late joiner onboarding does not auto-regenerate initial curriculum. |
+| `weekly-todo` | `QA-TODO-001` | Weekly tasks are listed for active members. |
+| `weekly-todo` | `QA-TODO-002` | Member can complete own task with timestamp and note. |
+| `weekly-todo` | `QA-TODO-003` | Overdue incomplete task requires incomplete reason. |
+| `weekly-todo` | `QA-TODO-004` | Cross-member completion updates are rejected. |
+| `retrospective-feedback` | `QA-RETRO-001` | Retrospective can be requested from current week progress. |
+| `retrospective-feedback` | `QA-RETRO-002` | AI feedback and next-week adjustment are stored as JSON. |
+| `retrospective-feedback` | `QA-RETRO-003` | Failed AI generation leaves retriable failed status. |
+| `retrospective-feedback` | `QA-RETRO-004` | Member can read own retrospective only. |
+| `ai-team-leader` | `QA-AI-001` | LLM usage is recorded for every AI call. |
+| `ai-team-leader` | `QA-AI-002` | AI conversation stores user and assistant messages. |
+| `ai-team-leader` | `QA-AI-003` | Redacted request metadata excludes secrets/tokens. |
+| `ai-team-leader` | `QA-AI-004` | Invalid AI JSON output is rejected or marked failed. |
+| `discord-notifications` | `QA-DIS-001` | Notification log stores idempotency key and status. |
+| `discord-notifications` | `QA-DIS-002` | Duplicate idempotency key does not send twice. |
+| `discord-notifications` | `QA-DIS-003` | Delivery failure stores redacted error and retry count. |
+| `discord-notifications` | `QA-DIS-004` | Notification failure does not roll back core domain event. |
 
-## Release Readiness Checklist
-- OpenAPI parses successfully.
-- DDL draft defines all 18 ERD tables.
-- Every feature_id has requirements and QA IDs.
-- Every protected endpoint has permission coverage.
-- AI schemas validate success and failure examples.
-- Discord failure does not roll back business event.
-- No v1 document contains unlocked product questions.
+## Required Scenario Tests
+- Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
+- Host start with only partial onboarding completion.
+- Current week task completion before due date.
+- Overdue incomplete reason modal path.
+- AI retrospective feedback with next-week adjustment.
+- AI conversation message persistence and LLM usage logging.
+- Discord notification idempotency.

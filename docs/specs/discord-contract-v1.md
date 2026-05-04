@@ -1,76 +1,41 @@
-# Discord Contract v1
+# AI Study Leader Discord Contract v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- MVP scope: notification-only.
-- Slash commands and Discord-first UX are post-MVP.
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 
-## Supported Notification Types
-| Type | Trigger | Recipient | Required Payload |
-| --- | --- | --- | --- |
-| `session_reminder` | Session reminder offset arrives. | Connected channel. | group, session, scheduled time, action link. |
-| `prep_brief` | Preparation brief is generated. | Connected channel. | session, brief summary, link. |
-| `feedback_ready` | Feedback report is generated. | Connected channel. | session, report type, link. |
-| `action_item_due` | Action item due window arrives. | Connected channel. | action item, assignee display name, due date. |
+## Responsibilities
+- Store user Discord integration in `discord_integration`.
+- Store group Discord delivery targets on `study_group.discord_guild_id` and `study_group.discord_channel_id`.
+- Record all delivery attempts in `notification`.
+- Keep notification sending asynchronous from core business transactions.
 
-## Channel Connection
-- Owners and managers can connect Discord channels.
-- Backend stores:
-  - `discord_guild_id`
-  - `discord_channel_id`
-  - `channel_name`
-  - `status`
-  - `notification_settings`
-- Discord bot access validation happens before channel status becomes `active`.
+## Notification Types
+| Type | Trigger | Related Fields |
+| --- | --- | --- |
+| `GROUP_INVITE_CREATED` | Host creates or shares invite | `group_id` |
+| `ONBOARDING_REQUESTED` | Member joins group | `related_onboarding_response_id` |
+| `ONBOARDING_SUBMITTED` | Member submits onboarding | `related_onboarding_response_id` |
+| `STUDY_STARTED` | Host starts study | `related_week_id` |
+| `TASK_DUE_REMINDER` | Task due soon | `related_week_id`, `related_task_completion_id` |
+| `TASK_OVERDUE_CHECK` | Task deadline passed | `related_task_completion_id` |
+| `INCOMPLETE_REASON_REQUESTED` | Incomplete modal/event needed | `related_task_completion_id` |
+| `RETROSPECTIVE_READY` | AI feedback completed | `related_retrospective_id` |
 
-## `notification_settings` Shape
-```json
-{
-  "enabledTypes": ["session_reminder", "prep_brief", "feedback_ready", "action_item_due"],
-  "reminderOffsetsMinutes": [1440, 60, 10],
-  "mentionPolicy": {
-    "mentionEveryone": false,
-    "mentionAssignees": true
-  }
-}
-```
+## Delivery Channels
+- `DISCORD_CHANNEL`: group-level channel notifications.
+- `DISCORD_DM`: member-specific reminder or feedback notification.
 
-Validation rules:
-- `enabledTypes` values are limited to supported notification types.
-- `mentionEveryone` defaults to false.
-- Reminder offsets must be positive integers.
+## Idempotency
+- Every notification must have `idempotency_key`.
+- Duplicate idempotency key must not send twice.
+- Failed sends increment `retry_count` and store redacted `error_message`.
 
-## Notification Log Contract
-Every attempted notification creates or updates `discord_notification_logs`.
+## Token Handling
+- OAuth/Discord tokens are encrypted in `discord_integration`.
+- Token expiry must be checked before delivery.
+- Revoked or deleted integration causes notification status `SKIPPED` or `FAILED` according to worker policy.
 
-| Status | Meaning |
-| --- | --- |
-| `pending` | Scheduled but not sent. |
-| `sent` | Discord accepted the message. |
-| `failed` | Send attempt failed. |
-| `skipped` | Notification was intentionally skipped by settings or business rule. |
-
-`payload` must be redacted and must not include:
-- Discord bot token
-- OAuth token
-- private AI input snapshot
-- raw user secret
-
-## Retry Rules
-- Retry only `failed` rows caused by transient Discord/API errors.
-- Do not retry `skipped` rows.
-- If bot/channel access is revoked, mark channel `revoked` and log failure.
-- Discord delivery failure must not roll back the business event that triggered it.
-
-## Message Content Rules
-- Messages are concise and action-oriented.
-- Messages include a web client link when the action requires UI.
-- Individual AI feedback is never posted directly into channel text.
-- Channel messages may announce that feedback is ready, but members must open the web client to view private individual feedback.
-
-## Post-MVP
-- Slash commands.
-- Direct messages.
-- Discord-native note submission.
-- Interactive Discord buttons.
+## Non-Rollback Rule
+- Notification failure must not roll back group creation, onboarding submission, host start, task completion, or retrospective creation.
