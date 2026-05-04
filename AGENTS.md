@@ -15,7 +15,7 @@
 - push와 PR 생성은 `scripts/task/create-pr.sh`를 기본 경로로 사용한다.
 - merge는 PR review gate를 통과한 뒤 `scripts/task/finish-pr.sh`로만 수행한다.
 - green CI만으로 merge하지 않는다. GitHub Actions Review Gate 마커와 unresolved thread 상태를 확인한다.
-- v1 기획/API/DB/AI/Discord/권한/QA 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태다. 변경은 `docs/specs/change-control-v1.md`의 Change Request + ADR 절차 없이는 금지한다.
+- v1 기획/API/DB/AI/알림/권한/QA 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태다. 변경은 `docs/specs/change-control-v1.md`의 Change Request + ADR 절차 없이는 금지한다.
 
 ## 1단계: EXEC_PLAN 생성
 - 시작 명령: `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`

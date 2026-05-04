@@ -1,5 +1,5 @@
 -- AI Study Leader DB Schema v1
--- Source: ERD v0.8 MySQL8, Requirements v0.3
+-- Source: ERD v0.8 MySQL8, Requirements v0.3, CR-20260504-no-discord-inapp-notification
 -- IDs are application-generated UUIDv7 values stored as BINARY(16).
 
 create table users (
@@ -38,7 +38,7 @@ create table oauth_account (
   unique key oauth_provider_account_live_uidx (provider_account_live_key),
   key oauth_user_idx (user_id),
   constraint oauth_account_user_fk foreign key (user_id) references users (id),
-  constraint oauth_provider_check check (provider in ('GOOGLE','DISCORD'))
+  constraint oauth_provider_check check (provider in ('GOOGLE'))
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_0900_ai_ci;
 
 create table refresh_token (
@@ -54,25 +54,6 @@ create table refresh_token (
   unique key refresh_token_hash_uidx (token_hash),
   key refresh_token_user_idx (user_id),
   constraint refresh_token_user_fk foreign key (user_id) references users (id) on delete cascade
-) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_0900_ai_ci;
-
-create table discord_integration (
-  id binary(16) not null,
-  user_id binary(16) not null,
-  discord_user_id varchar(64) not null,
-  discord_username varchar(120) null,
-  discord_user_live_key varchar(191) not null,
-  access_token_enc text null,
-  refresh_token_enc text null,
-  token_expires_at timestamp(6) null,
-  scope varchar(1000) null,
-  connected_at timestamp(6) not null default current_timestamp(6),
-  last_synced_at timestamp(6) null,
-  deleted_at timestamp(6) null,
-  primary key (id),
-  unique key discord_integration_user_live_uidx (discord_user_live_key),
-  key discord_integration_user_idx (user_id),
-  constraint discord_integration_user_fk foreign key (user_id) references users (id)
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_0900_ai_ci;
 
 create table study_group (
@@ -91,8 +72,6 @@ create table study_group (
   ends_at date not null,
   onboarding_started_at timestamp(6) null,
   started_at timestamp(6) null,
-  discord_guild_id varchar(64) null,
-  discord_channel_id varchar(64) null,
   created_at timestamp(6) not null default current_timestamp(6),
   updated_at timestamp(6) not null default current_timestamp(6) on update current_timestamp(6),
   deleted_at timestamp(6) null,
@@ -424,17 +403,20 @@ create table ai_conversation_message (
 create table notification (
   id binary(16) not null,
   group_id binary(16) not null,
+  recipient_user_id binary(16) not null,
   related_onboarding_response_id binary(16) null,
   related_week_id binary(16) null,
   related_task_completion_id binary(16) null,
   related_retrospective_id binary(16) null,
   notification_type varchar(80) not null,
   channel varchar(60) not null,
-  target_id varchar(191) not null,
   idempotency_key varchar(191) not null,
+  title varchar(160) not null,
+  body text null,
   payload json not null,
   status varchar(40) not null,
-  sent_at timestamp(6) null,
+  delivered_at timestamp(6) null,
+  read_at timestamp(6) null,
   error_message text null,
   retry_count int not null default 0,
   scheduled_at timestamp(6) null,
@@ -442,16 +424,18 @@ create table notification (
   primary key (id),
   unique key notification_idempotency_uidx (idempotency_key),
   key notification_group_status_scheduled_idx (group_id, status, scheduled_at),
+  key notification_recipient_status_idx (recipient_user_id, status, read_at, created_at),
   key notification_onboarding_idx (related_onboarding_response_id),
   key notification_week_idx (related_week_id),
   key notification_task_completion_idx (related_task_completion_id),
   key notification_retrospective_idx (related_retrospective_id),
   constraint notification_group_fk foreign key (group_id) references study_group (id),
+  constraint notification_recipient_user_fk foreign key (recipient_user_id) references users (id),
   constraint notification_onboarding_fk foreign key (related_onboarding_response_id) references group_onboarding_response (id),
   constraint notification_week_fk foreign key (related_week_id) references curriculum_week (id),
   constraint notification_task_completion_fk foreign key (related_task_completion_id) references task_completion (id),
   constraint notification_retrospective_fk foreign key (related_retrospective_id) references retrospective (id),
-  constraint notification_channel_check check (channel in ('DISCORD_CHANNEL','DISCORD_DM')),
-  constraint notification_status_check check (status in ('PENDING','SENT','FAILED','SKIPPED')),
+  constraint notification_channel_check check (channel in ('IN_APP')),
+  constraint notification_status_check check (status in ('PENDING','DELIVERED','READ','FAILED','SKIPPED')),
   constraint notification_retry_count_check check (retry_count >= 0)
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_0900_ai_ci;

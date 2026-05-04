@@ -1,7 +1,7 @@
 # 04 ERD / 데이터 모델
 
 ## Entity Set
-- Identity/Auth: `users`, `oauth_account`, `refresh_token`, `discord_integration`
+- Identity/Auth: `users`, `oauth_account`, `refresh_token`
 - Group/Onboarding/Rules: `study_group`, `group_member`, `group_onboarding_response`, `member_availability_slot`, `group_rule`, `rule_violation`
 - Curriculum/Todo: `curriculum`, `curriculum_week`, `weekly_task`, `member_week_progress`, `task_completion`
 - AI/Retrospective: `retrospective`, `ai_conversation`, `ai_conversation_message`, `llm_usage`
@@ -24,11 +24,6 @@ erDiagram
         binary id PK
         binary user_id FK
         varchar token_hash
-    }
-    discord_integration {
-        binary id PK
-        binary user_id FK
-        varchar discord_user_id
     }
     study_group {
         binary id PK
@@ -118,10 +113,14 @@ erDiagram
     notification {
         binary id PK
         binary group_id FK
+        binary recipient_user_id FK
         binary related_onboarding_response_id FK
         binary related_week_id FK
         binary related_task_completion_id FK
         binary related_retrospective_id FK
+        varchar channel
+        varchar status
+        timestamp read_at
     }
     llm_usage {
         binary id PK
@@ -132,9 +131,9 @@ erDiagram
 
     users ||--o{ oauth_account : has
     users ||--o{ refresh_token : owns
-    users ||--o| discord_integration : connects
     users ||--o{ study_group : creates
     users ||--o{ group_member : joins
+    users ||--o{ notification : receives
     study_group ||--o{ group_member : includes
     study_group ||--o{ group_onboarding_response : collects
     group_member ||--o| group_onboarding_response : submits
@@ -164,3 +163,4 @@ erDiagram
 - Structured context as `JSON`.
 - Timestamps as `TIMESTAMP(6)`.
 - Schema draft: `docs/specs/db-schema-v1.sql`.
+- Discord integration and external delivery channels are not MVP entities.

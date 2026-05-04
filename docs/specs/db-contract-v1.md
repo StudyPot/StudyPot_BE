@@ -20,23 +20,22 @@
 | 1 | `users` | `identity-core` | Core application user profile. |
 | 2 | `oauth_account` | `identity-core` | OAuth provider account links. |
 | 3 | `refresh_token` | `identity-core` | Session refresh token hashes. |
-| 4 | `discord_integration` | `identity-core`, `discord-notifications` | Discord user integration and encrypted tokens. |
-| 5 | `study_group` | `study-group-core` | Group, topic, detail keywords, status, invite code, period. |
-| 6 | `group_member` | `study-group-core`, `group-onboarding` | User membership, permission, onboarding-aware status. |
-| 7 | `group_onboarding_response` | `group-onboarding` | Group/member onboarding response. |
-| 8 | `member_availability_slot` | `group-onboarding` | Recurring day/time availability slots. |
-| 9 | `group_rule` | `study-group-core`, `weekly-todo` | Group-level task/retrospective policies. |
-| 10 | `rule_violation` | `weekly-todo` | Rule violation records for overdue/incomplete states. |
-| 11 | `curriculum` | `curriculum-core`, `ai-team-leader` | AI or manually created curriculum. |
-| 12 | `curriculum_week` | `curriculum-core` | Week units in a curriculum. |
-| 13 | `weekly_task` | `weekly-todo` | Todo items inside a curriculum week. |
-| 14 | `member_week_progress` | `weekly-todo` | Member-level weekly progress state. |
-| 15 | `task_completion` | `weekly-todo` | Member-level task completion/incomplete reason. |
-| 16 | `retrospective` | `retrospective-feedback` | AI feedback and next-week adjustment. |
-| 17 | `ai_conversation` | `ai-team-leader`, `retrospective-feedback` | AI team leader chat session. |
-| 18 | `ai_conversation_message` | `ai-team-leader` | Chat messages. |
-| 19 | `notification` | `discord-notifications` | Notification jobs and delivery outcomes. |
-| 20 | `llm_usage` | `ai-team-leader` | LLM call usage, cost, status, and redacted metadata. |
+| 4 | `study_group` | `study-group-core` | Group, topic, detail keywords, status, invite code, period. |
+| 5 | `group_member` | `study-group-core`, `group-onboarding` | User membership, permission, onboarding-aware status. |
+| 6 | `group_onboarding_response` | `group-onboarding` | Group/member onboarding response. |
+| 7 | `member_availability_slot` | `group-onboarding` | Recurring day/time availability slots. |
+| 8 | `group_rule` | `study-group-core`, `weekly-todo` | Group-level task/retrospective policies. |
+| 9 | `rule_violation` | `weekly-todo` | Rule violation records for overdue/incomplete states. |
+| 10 | `curriculum` | `curriculum-core`, `ai-team-leader` | AI or manually created curriculum. |
+| 11 | `curriculum_week` | `curriculum-core` | Week units in a curriculum. |
+| 12 | `weekly_task` | `weekly-todo` | Todo items inside a curriculum week. |
+| 13 | `member_week_progress` | `weekly-todo` | Member-level weekly progress state. |
+| 14 | `task_completion` | `weekly-todo` | Member-level task completion/incomplete reason. |
+| 15 | `retrospective` | `retrospective-feedback` | AI feedback and next-week adjustment. |
+| 16 | `ai_conversation` | `ai-team-leader`, `retrospective-feedback` | AI team leader chat session. |
+| 17 | `ai_conversation_message` | `ai-team-leader` | Chat messages. |
+| 18 | `notification` | `notification` | In-app notification records, read state, and idempotency. |
+| 19 | `llm_usage` | `ai-team-leader` | LLM call usage, cost, status, and redacted metadata. |
 
 ## Locked Status Values
 | Field | Values |
@@ -52,7 +51,8 @@
 | `task_completion.status` | `TODO`, `DONE`, `INCOMPLETE`, `SKIPPED` |
 | `retrospective.status` | `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` |
 | `ai_conversation.conversation_type` | `TEAM_LEAD_CHAT`, `RETROSPECTIVE` |
-| `notification.status` | `PENDING`, `SENT`, `FAILED`, `SKIPPED` |
+| `notification.channel` | `IN_APP` |
+| `notification.status` | `PENDING`, `DELIVERED`, `READ`, `FAILED`, `SKIPPED` |
 | `llm_usage.status` | `SUCCESS`, `FAILED`, `TIMEOUT` |
 
 ## JSON Fields
@@ -68,7 +68,7 @@
 | `retrospective.input_summary` | Progress and incomplete reason summary. |
 | `retrospective.ai_feedback` | AI team leader feedback. |
 | `retrospective.next_week_adjustment` | Future week/task adjustment proposal. |
-| `notification.payload` | Delivery payload. |
+| `notification.payload` | In-app notification metadata and deep-link context. |
 | `llm_usage.request_payload` | Redacted request metadata. |
 
 ## Hot Query Expectations
@@ -77,18 +77,20 @@
 - Fetch availability slots by group or member.
 - Fetch active curriculum and current week by group.
 - Fetch weekly tasks and member task completion by week/member.
-- Find overdue tasks and incomplete reasons for reminder workers.
+- Find overdue tasks and incomplete reasons for in-app notification workers.
 - Fetch retrospective by progress/week/member.
+- Fetch unread notifications by recipient user.
 - Aggregate LLM usage by group, user, purpose, and UTC date.
 
 ## Migration Order
-1. Identity: `users`, `oauth_account`, `refresh_token`, `discord_integration`.
+1. Identity: `users`, `oauth_account`, `refresh_token`.
 2. Group: `study_group`, `group_member`.
 3. Onboarding: `group_onboarding_response`, `member_availability_slot`.
-4. Rules: `group_rule`, `rule_violation`.
+4. Rules base: `group_rule`.
 5. Curriculum/todo: `curriculum`, `curriculum_week`, `weekly_task`, `member_week_progress`, `task_completion`.
-6. AI/retrospective: `llm_usage`, `retrospective`, `ai_conversation`, `ai_conversation_message`.
-7. Notifications: `notification`.
+6. Rule outcomes: `rule_violation`.
+7. AI/retrospective: `llm_usage`, `retrospective`, `ai_conversation`, `ai_conversation_message`.
+8. Notifications: `notification`.
 
 ## Deferred Tables
 | Table | Reason |
@@ -96,4 +98,5 @@
 | `study_session` and attendance/note/action tables | Meeting-centered MVP was replaced by asynchronous onboarding/todo/retrospective flow. |
 | `study_group_invitation` | MVP can store invite code on `study_group`; add table when invite audit/expiry is required. |
 | `rule_version` | Rule version history is post-MVP. |
-| `notification_preference` | Member preferences can be added after baseline notification logging works. |
+| `notification_preference` | Member preferences can be added after baseline in-app notification works. |
+| External notification channel tables | Discord, email, push, or Kakao delivery is post-MVP. |

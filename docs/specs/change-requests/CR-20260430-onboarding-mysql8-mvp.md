@@ -2,6 +2,7 @@
 
 ## Status
 - Approved
+- Superseded for notification scope by [CR-20260504-no-discord-inapp-notification](./CR-20260504-no-discord-inapp-notification.md).
 
 ## Request
 - Replace the locked meeting/session-centered v1 implementation baseline with the onboarding MVP baseline from Requirements v0.3 and ERD v0.8.
@@ -20,7 +21,7 @@
 - `weekly-todo`
 - `retrospective-feedback`
 - `ai-team-leader`
-- `discord-notifications`
+- `notification`
 - `n/a-harness`
 
 ## Affected Documents
@@ -35,7 +36,7 @@
 - `docs/specs/db-contract-v1.md`
 - `docs/specs/db-schema-v1.sql`
 - `docs/specs/ai-contract-v1.md`
-- `docs/specs/discord-contract-v1.md`
+- `docs/specs/notification-contract-v1.md`
 - `docs/specs/auth-permissions-v1.md`
 - `docs/specs/qa-acceptance-v1.md`
 - `docs/specs/feature-coverage-matrix.md`
@@ -45,7 +46,7 @@
 - API: group, invite, onboarding, host start, curriculum, weekly task, retrospective, AI conversation, notification, and LLM usage resources become primary.
 - DB: ERD v0.8 entity set replaces the previous session/note/action-item schema.
 - AI: AI team leader generates detail keyword suggestions, curriculum, feedback, and next-week adjustments from onboarding and weekly progress context.
-- Discord: Discord remains notification delivery and integration storage, not the core study record.
+- Notification: original external-delivery note is superseded; MVP notification is now in-app first.
 - Permissions: owner/member access is tied to group status and onboarding status.
 - QA: acceptance tests focus on onboarding completeness, host start, weekly todo completion/incomplete reasons, feedback, and schema coverage.
 

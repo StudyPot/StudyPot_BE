@@ -19,7 +19,9 @@ Study groups lose momentum because the leader role is manual: collecting member 
 - AI curriculum generation uses onboarding responses submitted at start time.
 - Members can complete weekly todo items or provide incomplete reasons.
 - AI team leader feedback can be requested through retrospective and chat flows.
+- AI team leader feedback can adjust the next week's difficulty, todo shape, and support materials.
 - Late joiners can complete onboarding and join from the current week.
+- In-app notifications help members notice onboarding, weekly deadlines, incomplete reasons, retrospective readiness, and AI feedback.
 
 ## Non-Goals
 - Live meeting assistant.
@@ -27,6 +29,7 @@ Study groups lose momentum because the leader role is manual: collecting member 
 - Full frontend design.
 - Calendar scheduling optimization.
 - Automatic full curriculum regeneration every time a late member joins.
+- Discord integration, bot, channel delivery, and Discord token storage.
 - Payment, billing, or enterprise administration.
 
 ## Personas
@@ -34,7 +37,7 @@ Study groups lose momentum because the leader role is manual: collecting member 
 | --- | --- |
 | Host | Create the group, invite members, start the curriculum, monitor progress. |
 | Member | Submit onboarding, follow weekly todos, complete or explain incomplete work, receive feedback. |
-| AI Team Leader | Suggest detail keywords, create curriculum, summarize progress, produce retrospective feedback. |
+| AI Team Leader | Suggest detail keywords, create curriculum, summarize progress, produce retrospective feedback, and propose next-week adjustments every week. |
 
 ## MVP Flow
 | Step | Product Behavior | Primary Data |
@@ -45,11 +48,13 @@ Study groups lose momentum because the leader role is manual: collecting member 
 | Host start | Group becomes active and AI curriculum is generated. | `curriculum`, `curriculum_week`, `weekly_task` |
 | Weekly execution | Member completes tasks or submits incomplete reason. | `member_week_progress`, `task_completion` |
 | Retrospective | AI feedback and next-week adjustment are stored. | `retrospective`, `ai_conversation` |
-| Notification | Reminders and status events are logged and delivered. | `notification`, `discord_integration` |
+| Notification | Reminders and status events are delivered in-app and tracked with read state. | `notification` |
 
 ## Success Criteria
 - A group can reach `ACTIVE` through the full onboarding start path.
 - Curriculum generation records the onboarding summary used.
 - Weekly todo completion and incomplete reason flows are auditable.
 - AI feedback and chat records are linked to member/week context.
+- AI feedback can propose audited next-week adjustments after every week.
+- In-app notifications surface onboarding, todo deadline, incomplete reason, retrospective, and AI feedback events.
 - Jira implementation tasks reference the same source documents and labels.

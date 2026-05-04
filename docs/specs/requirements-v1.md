@@ -16,7 +16,7 @@
 | Feature ID | Req ID | Requirement | Acceptance |
 | --- | --- | --- | --- |
 | `identity-core` | `REQ-ID-001` | Users authenticate and own application profile data. | `users`, `oauth_account`, and `refresh_token` support login/session lifecycle. |
-| `identity-core` | `REQ-ID-002` | Users can connect Discord identity for notification delivery. | `discord_integration` stores encrypted tokens and external Discord IDs. |
+| `identity-core` | `REQ-ID-002` | Users can refresh and revoke application sessions. | `refresh_token` stores hashed refresh tokens, expiry, and revocation state. |
 | `study-group-core` | `REQ-GRP-001` | Host can create a study group. | Required inputs are name, topic, detail keywords, max members, starts/ends dates. |
 | `study-group-core` | `REQ-GRP-002` | Created group enters onboarding flow. | `study_group.status = ONBOARDING`, owner member is `PENDING_ONBOARDING`. |
 | `study-group-core` | `REQ-INV-001` | Host can share invite link/code. | Invite code is unique and creates pending member records. |
@@ -32,13 +32,14 @@
 | `retrospective-feedback` | `REQ-RETRO-002` | AI feedback can propose next-week adjustment. | Feedback and adjustment are stored as JSON. |
 | `ai-team-leader` | `REQ-AI-001` | AI can suggest detail keywords. | Suggestions are not persisted as candidates unless selected by user. |
 | `ai-team-leader` | `REQ-AI-002` | AI chat stores messages and summary. | Messages link to conversation and LLM usage. |
-| `discord-notifications` | `REQ-DIS-001` | System records notification jobs and outcomes. | Notification supports idempotency key, payload, status, retry, and related resource IDs. |
+| `notification` | `REQ-NOTI-001` | System creates in-app notifications for onboarding, weekly todo, incomplete reason, retrospective, and AI feedback events. | Notification stores recipient, title/body, payload, related resource IDs, idempotency key, status, delivered timestamp, and read timestamp. |
+| `notification` | `REQ-NOTI-002` | Members can list and mark their own notifications as read. | Unread and read states are queryable by recipient user. |
 
 ## P1 Requirements
 | Feature ID | Req ID | Requirement |
 | --- | --- | --- |
 | `study-group-rules` | `REQ-RULE-001` | Group rules can define task deadline and retrospective policies. |
-| `discord-notifications` | `REQ-DIS-002` | Discord worker sends onboarding, todo, overdue, retrospective, and feedback notifications. |
+| `notification` | `REQ-NOTI-003` | External delivery channels can be added after in-app notification is stable. |
 | `ai-team-leader` | `REQ-AI-003` | LLM usage can be aggregated by group, user, purpose, and UTC date. |
 
 ## P2 / Deferred
@@ -48,3 +49,4 @@
 | Voice transcription | Out of MVP; requires separate privacy and storage policy. |
 | Heavy synchronous meeting automation | MVP is asynchronous onboarding/todo/feedback. |
 | Automatic full curriculum regeneration for late joiners | Late joiner context is applied to future adjustment only. |
+| Discord integration and bot delivery | Out of MVP; in-app notification is the first notification surface. |

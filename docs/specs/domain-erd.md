@@ -3,7 +3,7 @@
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: ERD v0.8 MySQL8.
-- Change record: [CR-20260430-onboarding-mysql8-mvp](./change-requests/CR-20260430-onboarding-mysql8-mvp.md)
+- Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
 
 ## Design Decisions
 - Primary database is MySQL8.
@@ -12,12 +12,14 @@
 - The MVP stores final selected detail keywords, not transient AI suggestion candidates.
 - Host start uses onboarding responses submitted at that moment.
 - Late joiner onboarding is not allowed to automatically regenerate the entire initial curriculum.
+- AI team leader uses weekly progress and incomplete reasons to propose next-week adjustments.
+- Notification is in-app for MVP; Discord and other external channels are deferred.
 - Meeting-centered entities are deferred from P0.
 
 ## Entity Groups
 | Group | Tables |
 | --- | --- |
-| Identity/Auth | `users`, `oauth_account`, `refresh_token`, `discord_integration` |
+| Identity/Auth | `users`, `oauth_account`, `refresh_token` |
 | Group/Onboarding/Rules | `study_group`, `group_member`, `group_onboarding_response`, `member_availability_slot`, `group_rule`, `rule_violation` |
 | Curriculum/Todo | `curriculum`, `curriculum_week`, `weekly_task`, `member_week_progress`, `task_completion` |
 | AI/Retrospective | `retrospective`, `ai_conversation`, `ai_conversation_message`, `llm_usage` |
@@ -68,21 +70,6 @@ erDiagram
         timestamp created_at
     }
 
-    discord_integration {
-        binary id PK
-        binary user_id FK
-        varchar discord_user_id
-        varchar discord_username
-        varchar discord_user_live_key UK
-        text access_token_enc
-        text refresh_token_enc
-        timestamp token_expires_at
-        varchar scope
-        timestamp connected_at
-        timestamp last_synced_at
-        timestamp deleted_at
-    }
-
     study_group {
         binary id PK
         binary created_by FK
@@ -99,8 +86,6 @@ erDiagram
         date ends_at
         timestamp onboarding_started_at
         timestamp started_at
-        varchar discord_guild_id
-        varchar discord_channel_id
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
@@ -298,17 +283,20 @@ erDiagram
     notification {
         binary id PK
         binary group_id FK
+        binary recipient_user_id FK
         binary related_onboarding_response_id FK
         binary related_week_id FK
         binary related_task_completion_id FK
         binary related_retrospective_id FK
         varchar notification_type
         varchar channel
-        varchar target_id
         varchar idempotency_key UK
+        varchar title
+        text body
         json payload
         varchar status
-        timestamp sent_at
+        timestamp delivered_at
+        timestamp read_at
         text error_message
         int retry_count
         timestamp scheduled_at
@@ -336,9 +324,9 @@ erDiagram
 
     users ||--o{ oauth_account : has
     users ||--o{ refresh_token : owns
-    users ||--o| discord_integration : connects
     users ||--o{ study_group : creates
     users ||--o{ group_member : joins
+    users ||--o{ notification : receives
     study_group ||--o{ group_member : includes
     study_group ||--o{ group_onboarding_response : collects
     group_member ||--o| group_onboarding_response : submits
@@ -383,7 +371,8 @@ erDiagram
 - `curriculum_week.week_number` is unique per curriculum.
 - `weekly_task.display_order` is unique per curriculum week.
 - `task_completion` is unique per weekly task/member.
-- `notification.idempotency_key` prevents duplicate sends.
+- `notification.idempotency_key` prevents duplicate in-app notification rows.
+- `notification.read_at` records member acknowledgement without changing the original event payload.
 
 ## Implementation Notes
 - Keep MySQL FK constraints simple and enforce cross-table group consistency in service logic.

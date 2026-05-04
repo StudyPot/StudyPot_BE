@@ -28,7 +28,9 @@
 | Submit own incomplete reason | no | no | no | yes | yes |
 | Request own retrospective | no | no | no | yes | yes |
 | Chat with AI team leader | no | no | no | yes | yes |
-| Read notification logs | no | no | no | no | yes |
+| Read own notifications | no | yes | yes | yes | yes |
+| Mark own notifications read | no | yes | yes | yes | yes |
+| Read group notification logs | no | no | no | no | yes |
 | Read LLM usage logs | no | no | no | no | yes |
 
 ## Data Visibility
@@ -36,7 +38,8 @@
 - Owners can see onboarding completion status and aggregate summaries needed to start the study.
 - Owners should not receive raw private notes beyond what is needed for group operation unless the product explicitly exposes them.
 - Members can read their own retrospective and conversation records.
-- Owners can read group-level operational records such as notification logs and LLM usage logs.
+- Members can read and acknowledge their own in-app notifications.
+- Owners can read group-level operational records such as notification logs and LLM usage logs, but cannot mark another member's notifications read.
 
 ## State Rules
 - A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.

@@ -13,11 +13,18 @@
 | `RETROSPECTIVE_FEEDBACK` | Week ended, incomplete modal, or user request | Feedback and next-week adjustment | `retrospective`, `llm_usage` |
 | `TEAM_LEAD_CHAT` | Member chats with AI team leader | Assistant message and optional summary | `ai_conversation`, `ai_conversation_message`, `llm_usage` |
 
+## Operating Role
+- The AI team leader is a weekly operator, not a one-time curriculum generator.
+- After every week, it reviews todo completion, incomplete reasons, member notes, and conversation summaries.
+- It proposes `next_week_adjustment` for difficulty, task split, optional/required work, support material, and member-specific coaching notes.
+- Host/member-visible audit data must explain what context was used for the adjustment.
+
 ## Context Rules
 - Detail keyword suggestions can use group topic and user-entered hints.
 - Curriculum generation uses only onboarding responses submitted before host start.
 - Late joiner onboarding can influence future retrospective/adjustment, not automatic full initial curriculum regeneration.
 - Retrospective feedback uses onboarding summary, current week tasks, completion notes, incomplete reasons, and prior conversation summary.
+- Weekly adjustment can use late joiner onboarding only for future weeks.
 - AI output must not expose another member's private note unless the permission contract explicitly allows group-level aggregation.
 
 ## Output Shapes
@@ -78,7 +85,7 @@
 ## LLM Usage Logging
 - Every AI call creates `llm_usage`.
 - Store provider, model, purpose, token counts, latency, status, cost if available, redacted request payload, and response summary.
-- Do not store raw secrets, OAuth tokens, Discord tokens, or unredacted provider credentials.
+- Do not store raw secrets, OAuth tokens, or unredacted provider credentials.
 
 ## Failure Handling
 - If curriculum generation fails, group remains `ONBOARDING` unless a partial curriculum was explicitly accepted.

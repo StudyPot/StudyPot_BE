@@ -12,6 +12,8 @@
 - Product source: Requirements v0.3.
 - Data source: ERD v0.8 MySQL8.
 - MVP golden path: 그룹 생성 -> 초대 링크 공유 -> 멤버별 온보딩 -> 호스트 시작 -> AI 커리큘럼 생성 -> 주차 todo 수행 -> AI 팀장 회고/피드백.
+- AI 팀장은 초기 커리큘럼 생성뿐 아니라 매주 회고와 다음 주 조정까지 담당하는 운영자 역할입니다.
+- Discord 연동은 MVP에서 제외하며, 알림은 서비스 내부 `IN_APP` 알림으로 제공합니다.
 - Database baseline: MySQL8, application-generated UUIDv7 stored as `BINARY(16)`, flexible values stored as `JSON`.
 - Heavy synchronous meeting automation is deferred.
 
@@ -26,7 +28,7 @@
 - [DB 계약 v1](./specs/db-contract-v1.md)
 - [DB DDL 초안 v1](./specs/db-schema-v1.sql)
 - [AI 계약 v1](./specs/ai-contract-v1.md)
-- [Discord 계약 v1](./specs/discord-contract-v1.md)
+- [Notification 계약 v1](./specs/notification-contract-v1.md)
 - [Auth/Permission v1](./specs/auth-permissions-v1.md)
 - [QA 수용 기준 v1](./specs/qa-acceptance-v1.md)
 - [변경 통제 v1](./specs/change-control-v1.md)
@@ -39,14 +41,14 @@
 - [Jira Board Sync](./operations/jira-board-sync.md)
 - [Obsidian 에러 레저 운영](./operations/obsidian-error-ledger.md)
 - [품질 스코어카드](./quality/scorecard.md)
-- [현재 실행 계획](./exec-plans/active/20260430-docs-onboarding-mysql8-sync.md)
+- [현재 실행 계획](./exec-plans/active/20260504-docs-no-discord-inapp-notifications.md)
 
 ## 기본 원칙
 - 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.
 - 작업에 사용한 관련 문서는 `EXEC_PLAN`의 `Related Docs`와 `Doc Notes`에 남겨야 합니다.
 - 기능 작업은 `EXEC_PLAN`의 `Related Feature IDs`와 연결합니다.
 - 제품/ERD 변경은 `docs/specs/`를 먼저 갱신한 뒤 Obsidian mirror와 Confluence/Jira 링크를 갱신합니다.
-- v1 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태이며, 기획/API/DB/AI/Discord/권한/QA 변경은 Change Request와 ADR 없이는 금지합니다.
+- v1 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태이며, 기획/API/DB/AI/알림/권한/QA 변경은 Change Request와 ADR 없이는 금지합니다.
 - 구현 작업의 source of truth는 Jira Board입니다. Obsidian은 mirror/회고/세션 연속성 용도로만 사용합니다.
 - harness/infrastructure 작업은 `Related Feature IDs`에 `n/a-harness`를 사용합니다.
 - PR은 `develop` 대상으로 만들고, merge 전에는 GitHub Actions Review Gate marker, unresolved thread, required checks를 확인합니다.

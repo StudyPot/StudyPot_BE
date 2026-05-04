@@ -7,7 +7,7 @@
 - Overdue incomplete reason capture.
 - AI retrospective and next-week adjustment.
 - AI conversation and LLM usage logging.
-- Discord notification idempotency.
+- In-app notification idempotency and read-state update.
 
 ## Verification
 - OpenAPI YAML parses.
