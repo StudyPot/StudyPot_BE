@@ -22,6 +22,13 @@ Confluence 앱 권한이 열리면 이 디렉터리의 Markdown을 같은 제목
 - Repo specs: `docs/specs/*`
 - Jira Epic: `SPT-10`
 
-## Current Permission Note
-Atlassian MCP can access Jira but Confluence returns 403: `The app is not installed on this instance`.
-Until the Confluence app is installed, this directory is the Confluence-ready draft.
+## Confluence Publication Note
+Atlassian MCP/Rovo search can access Jira but still returns 403 for Confluence: `The app is not installed on this instance`.
+Confluence publication is available through authenticated Confluence REST API access to space `D`.
+
+Published root:
+- `AI Study Leader 개발 문서`: https://studypot.atlassian.net/wiki/spaces/D/pages/1835009/AI+Study+Leader
+
+Published pages:
+- `02 요구사항`: https://studypot.atlassian.net/wiki/spaces/D/pages/1867777/02
+- `04 ERD / 데이터 모델`: https://studypot.atlassian.net/wiki/spaces/D/pages/1933313/04+ERD
