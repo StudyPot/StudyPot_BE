@@ -4,6 +4,7 @@ The working rules in this repository are not recommendations; they are the defau
 
 ## Absolute Rules
 - After cloning, run `scripts/hooks/install-hooks.sh` once to enable the hooks.
+- When the user asks what to do next, run `scripts/task/jira-board.sh recommend-next --limit 3` first, read Jira done/not-done context, and recommend about three next tasks before starting implementation.
 - Do not write code without a plan.
 - Always implement in a separate `codex/<slug>` worktree.
 - Once implementation starts, continue through code, tests, review feedback, PR finish, and the develop merge path until the feature is complete or a real blocker requires user input.

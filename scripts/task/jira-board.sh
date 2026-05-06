@@ -232,6 +232,267 @@ jira_board_mark_done_for_task() {
   printf 'Jira %s is done: %s\n' "${JIRA_ISSUE_KEY}" "${JIRA_ISSUE_URL}"
 }
 
+jira_board_search_project_json() {
+  local project_key="$1"
+  local tmp_dir next_token page_index body_file page_file is_last
+
+  tmp_dir="$(mktemp -d)"
+  next_token=""
+  page_index=0
+
+  while :; do
+    body_file="${tmp_dir}/body-${page_index}.json"
+    JIRA_SEARCH_PROJECT="${project_key}" \
+    JIRA_NEXT_PAGE_TOKEN="${next_token}" \
+    JIRA_SEARCH_PAGE_SIZE="${STRICT_JIRA_SEARCH_PAGE_SIZE:-100}" \
+    python3 - <<'PY' > "${body_file}"
+import json
+import os
+
+body = {
+    "jql": f"project = {os.environ['JIRA_SEARCH_PROJECT']} ORDER BY key ASC",
+    "maxResults": int(os.environ["JIRA_SEARCH_PAGE_SIZE"]),
+    "fields": [
+        "summary",
+        "status",
+        "issuetype",
+        "priority",
+        "labels",
+        "assignee",
+        "created",
+        "updated",
+    ],
+}
+next_page_token = os.environ.get("JIRA_NEXT_PAGE_TOKEN", "")
+if next_page_token:
+    body["nextPageToken"] = next_page_token
+print(json.dumps(body, ensure_ascii=False))
+PY
+
+    page_file="${tmp_dir}/page-${page_index}.json"
+    jira_board_request POST "/rest/api/3/search/jql" "${body_file}" > "${page_file}"
+
+    next_token="$(python3 -c 'import json, sys; print((json.load(sys.stdin).get("nextPageToken") or ""))' < "${page_file}")"
+    is_last="$(python3 -c 'import json, sys; doc=json.load(sys.stdin); print("1" if doc.get("isLast", True) else "0")' < "${page_file}")"
+    page_index=$((page_index + 1))
+
+    [[ "${is_last}" == "1" || -z "${next_token}" ]] && break
+  done
+
+  python3 - "${tmp_dir}"/page-*.json <<'PY'
+import json
+import sys
+
+issues = []
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as handle:
+        page = json.load(handle)
+    issues.extend(page.get("issues") or [])
+print(json.dumps({"issues": issues}, ensure_ascii=False))
+PY
+  rm -rf "${tmp_dir}"
+}
+
+jira_board_recommend_next() {
+  local limit="3"
+  local arg project_key issues_json issues_file
+
+  while [[ "$#" -gt 0 ]]; do
+    arg="$1"
+    case "${arg}" in
+      --limit)
+        limit="${2:-}"
+        [[ -n "${limit}" ]] || fail "--limit requires a positive number."
+        shift 2
+        ;;
+      *)
+        fail "usage: jira-board.sh recommend-next [--limit 3]"
+        ;;
+    esac
+  done
+
+  [[ "${limit}" =~ ^[0-9]+$ && "${limit}" -gt 0 ]] || fail "--limit must be a positive number."
+
+  project_key="$(jira_board_project_key)"
+  issues_json="$(jira_board_search_project_json "${project_key}")"
+  issues_file="$(mktemp)"
+  printf '%s\n' "${issues_json}" > "${issues_file}"
+
+  JIRA_ISSUES_JSON="${issues_file}" \
+  JIRA_RECOMMEND_LIMIT="${limit}" \
+  JIRA_PROJECT_KEY="${project_key}" \
+  JIRA_BASE_URL="$(jira_board_base_url)" \
+  JIRA_STATUS_TODO="$(jira_board_status_todo)" \
+  JIRA_STATUS_IN_PROGRESS="$(jira_board_status_in_progress)" \
+  JIRA_STATUS_DONE="$(jira_board_status_done)" \
+  JIRA_ALLOWED_ISSUE_TYPES="${STRICT_JIRA_ALLOWED_ISSUE_TYPES:-작업,Task}" \
+  python3 - <<'PY'
+import json
+import os
+import re
+from datetime import datetime
+
+with open(os.environ["JIRA_ISSUES_JSON"], encoding="utf-8") as handle:
+    doc = json.load(handle)
+
+issues = doc.get("issues") or []
+limit = int(os.environ["JIRA_RECOMMEND_LIMIT"])
+project_key = os.environ["JIRA_PROJECT_KEY"]
+base_url = os.environ["JIRA_BASE_URL"].rstrip("/")
+todo_status = os.environ["JIRA_STATUS_TODO"]
+in_progress_status = os.environ["JIRA_STATUS_IN_PROGRESS"]
+done_status = os.environ["JIRA_STATUS_DONE"]
+allowed_types = {
+    value.strip()
+    for value in os.environ["JIRA_ALLOWED_ISSUE_TYPES"].split(",")
+    if value.strip()
+}
+
+
+def clean(value):
+    return str(value or "").replace("\n", " ").strip()
+
+
+def fields(issue):
+    return issue.get("fields") or {}
+
+
+def issue_key(issue):
+    return clean(issue.get("key"))
+
+
+def key_number(issue):
+    match = re.search(r"-(\d+)$", issue_key(issue))
+    return int(match.group(1)) if match else 10**9
+
+
+def issue_summary(issue):
+    return clean(fields(issue).get("summary"))
+
+
+def issue_type(issue):
+    return clean((fields(issue).get("issuetype") or {}).get("name"))
+
+
+def status_name(issue):
+    return clean((fields(issue).get("status") or {}).get("name"))
+
+
+def status_category(issue):
+    status = fields(issue).get("status") or {}
+    category = status.get("statusCategory") or {}
+    return clean(category.get("key") or category.get("name")).lower()
+
+
+def bucket(issue):
+    status = status_name(issue)
+    category = status_category(issue)
+    if status == done_status or category in {"done", "complete", "completed"}:
+        return "done"
+    if status == in_progress_status or category in {"indeterminate", "in progress"}:
+        return "in_progress"
+    if status == todo_status or category in {"new", "to do", "todo"}:
+        return "todo"
+    return "other_open"
+
+
+def priority_rank(issue):
+    priority = clean((fields(issue).get("priority") or {}).get("name")).lower()
+    order = {
+        "highest": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 3,
+        "lowest": 4,
+    }
+    return order.get(priority, 5)
+
+
+def updated_at(issue):
+    raw = clean(fields(issue).get("updated") or fields(issue).get("created"))
+    if not raw:
+        return datetime.min
+    normalized = raw.replace("Z", "+0000")
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(normalized, fmt).replace(tzinfo=None)
+        except ValueError:
+            pass
+    return datetime.min
+
+
+def slug_for(issue):
+    key = issue_key(issue).lower()
+    summary_words = re.findall(r"[a-z0-9]+", issue_summary(issue).lower())
+    suffix = "-".join(summary_words[:4])
+    return f"{key}-{suffix}" if suffix else key
+
+
+def shell_double_quoted(value):
+    return clean(value).replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
+
+
+stats = {"done": 0, "in_progress": 0, "todo": 0, "other_open": 0}
+for issue in issues:
+    stats[bucket(issue)] += 1
+
+candidates = [
+    issue
+    for issue in issues
+    if issue_type(issue) in allowed_types and bucket(issue) != "done"
+]
+
+rank_order = {"in_progress": 0, "todo": 1, "other_open": 2}
+candidates.sort(
+    key=lambda issue: (
+        rank_order.get(bucket(issue), 9),
+        priority_rank(issue),
+        key_number(issue),
+    )
+)
+
+done_issues = [issue for issue in issues if bucket(issue) == "done"]
+done_issues.sort(key=lambda issue: (updated_at(issue), key_number(issue)), reverse=True)
+recommendations = candidates[:limit]
+
+print("## Jira Next Work Recommendations")
+print()
+print(f"- Project: `{project_key}`")
+print(f"- Read: `{len(issues)}` Jira issues")
+print(f"- Done: `{stats['done']}`")
+print(f"- In Progress: `{stats['in_progress']}`")
+print(f"- To Do: `{stats['todo']}`")
+print(f"- Other Open: `{stats['other_open']}`")
+print()
+
+if not recommendations:
+    print("No unfinished implementation tasks were found.")
+else:
+    print(f"### Recommended Next {len(recommendations)}")
+    for index, issue in enumerate(recommendations, start=1):
+        key = issue_key(issue)
+        status = status_name(issue)
+        summary = issue_summary(issue)
+        why = {
+            "in_progress": "Already in progress; finish this before opening new work.",
+            "todo": "Unstarted implementation task; good next candidate after completed work.",
+            "other_open": "Not done yet; inspect status before starting.",
+        }.get(bucket(issue), "Not done yet.")
+        print(f"{index}. `{key}` - {summary}")
+        print(f"   - Status: `{status}`")
+        print(f"   - URL: {base_url}/browse/{key}")
+        print(f"   - Why: {why}")
+        print(f"   - Start: `scripts/task/init-task.sh {slug_for(issue)} \"{shell_double_quoted(summary)}\" --jira {key}`")
+    print()
+
+if done_issues:
+    print("### Recent Done Context")
+    for issue in done_issues[:5]:
+        print(f"- `{issue_key(issue)}` - {issue_summary(issue)}")
+PY
+  rm -f "${issues_file}"
+}
+
 if [[ "${JIRA_BOARD_SOURCE_ONLY:-0}" == "1" ]]; then
   return 0 2>/dev/null || exit 0
 fi
@@ -254,7 +515,11 @@ case "${cmd}" in
     [[ -n "${2:-}" ]] || fail "usage: jira-board.sh done-task <slug> [ISSUE_KEY]"
     jira_board_mark_done_for_task "$2" "${3:-}"
     ;;
+  recommend-next)
+    shift
+    jira_board_recommend_next "$@"
+    ;;
   *)
-    fail "usage: jira-board.sh {issue-url|validate-start|start-task|done-task} ..."
+    fail "usage: jira-board.sh {issue-url|validate-start|start-task|done-task|recommend-next} ..."
     ;;
 esac

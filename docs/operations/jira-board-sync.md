@@ -5,6 +5,7 @@
 ## 기본 원칙
 - 구현 작업은 Obsidian에서 고르지 않는다.
 - 구현 작업은 Jira `SPT` 프로젝트의 구현 단위 Task 이슈에서 고른다.
+- 사용자가 "다음에 할 것"을 추천해 달라고 하면 먼저 Jira 전체 작업 맥락을 읽고 약 세 개의 다음 후보를 추천한다.
 - 작업 시작은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로만 수행한다.
 - 작업 시작 시 Jira 이슈는 `해야 할 일`에서 `진행 중`으로 이동한다.
 - PR merge와 local cleanup이 끝난 뒤 Jira 이슈는 `완료`로 이동한다.
@@ -28,6 +29,24 @@ export STRICT_JIRA_PROJECT_KEY="SPT"
 | `finish-pr.sh` completes merge and cleanup | `완료` |
 
 The script discovers transition IDs from each issue's available transitions. It does not hardcode transition IDs.
+
+## 다음 작업 추천
+다음 작업 추천은 작업 시작 전 후보 선정 단계다.
+
+```bash
+scripts/task/jira-board.sh recommend-next --limit 3
+```
+
+이 명령은 Jira Cloud JQL search endpoint인 `/rest/api/3/search/jql`로 프로젝트 이슈를 읽고, 완료/진행 중/해야 할 일/기타 미완료 상태를 요약한 뒤 다음 작업 후보를 출력한다.
+
+추천 순서는 다음 원칙을 따른다.
+
+1. 이미 `진행 중`인 구현 Task를 먼저 마무리한다.
+2. 그다음 `해야 할 일` 상태의 구현 Task를 추천한다.
+3. 그 외 미완료 상태는 상태 확인이 필요한 후보로 뒤에 둔다.
+4. `완료` 상태의 이슈는 추천 후보에서 제외하고, 최근 완료 맥락으로만 보여준다.
+
+추천은 작업 시작이 아니다. 선택한 후보는 반드시 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로 시작한다.
 
 ## 허용 이슈
 - Project key: `SPT`

@@ -101,6 +101,31 @@ if [[ "${method}" == "POST" && "${path}" == /rest/api/3/issue/*/transitions ]]; 
   exit 0
 fi
 
+if [[ "${method}" == "POST" && "${path}" == "/rest/api/3/search/jql" ]]; then
+  if [[ -n "${JIRA_FAKE_SEARCH_FILE:-}" ]]; then
+    cat "${JIRA_FAKE_SEARCH_FILE}"
+  else
+    cat <<JSON
+{
+  "isLast": true,
+  "issues": [
+    {
+      "key": "SPT-1",
+      "fields": {
+        "summary": "${summary}",
+        "issuetype": { "name": "${issue_type}" },
+        "status": { "name": "${status}", "statusCategory": { "key": "new" } },
+        "priority": { "name": "Medium" },
+        "labels": []
+      }
+    }
+  ]
+}
+JSON
+  fi
+  exit 0
+fi
+
 echo "unexpected fake Jira request: ${method} ${path}" >&2
 exit 1
 STUB
