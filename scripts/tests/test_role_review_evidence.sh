@@ -50,11 +50,25 @@ fi
 bad_evidence="${tmp}/bad.md"
 cat > "${bad_evidence}" <<'EOF'
 ## Evidence
+- User Decision: no new user decision was needed.
 - Architecture Reviewed: package boundaries checked
 EOF
 
 if PATH="${tmp}:${PATH}" "${TEST_ROOT}/scripts/task/post-role-review-pass.sh" 7 cto-architecture "${bad_evidence}" >/dev/null 2>&1; then
   fail "expected incomplete CTO evidence to fail"
+fi
+
+empty_evidence="${tmp}/empty.md"
+cat > "${empty_evidence}" <<'EOF'
+## Evidence
+- User Decision:
+- Architecture Reviewed:
+- Work Breakdown:
+- Risks:
+EOF
+
+if PATH="${tmp}:${PATH}" "${TEST_ROOT}/scripts/task/post-role-review-pass.sh" 7 cto-architecture "${empty_evidence}" >/dev/null 2>&1; then
+  fail "expected empty CTO evidence entries to fail"
 fi
 
 write_evidence() {
@@ -65,6 +79,7 @@ write_evidence() {
     cto-architecture)
       cat > "${target}" <<'EOF'
 ## Evidence
+- User Decision: no new user decision was needed.
 - Architecture Reviewed: domain/API boundaries checked.
 - Work Breakdown: implementation, tests, and docs reviewed.
 - Risks: no untracked API/DB contract drift found.
@@ -73,6 +88,7 @@ EOF
     qa-verification)
       cat > "${target}" <<'EOF'
 ## Evidence
+- User Decision: no new user decision was needed.
 - Commands Run: ./gradlew check build --no-daemon
 - Scenarios Tested: happy path, validation, and regression checks.
 - Results: all reviewed checks passed.
@@ -81,6 +97,7 @@ EOF
     product-value)
       cat > "${target}" <<'EOF'
 ## Evidence
+- User Decision: no new user decision was needed.
 - User Value: supports the intended user workflow.
 - Retention Impact: no harmful churn risk identified.
 - Scope Decision: follow-up ideas are separated from this PR.
@@ -89,6 +106,7 @@ EOF
     final-cto-merge)
       cat > "${target}" <<'EOF'
 ## Evidence
+- User Decision: no new user decision was needed.
 - Prior Gates Checked: CTO, QA, and Product gates reviewed.
 - Unresolved Threads: none open at final review time.
 - Merge Decision: approved for merge.

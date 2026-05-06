@@ -6,6 +6,8 @@ The working rules in this repository are not recommendations; they are the defau
 - After cloning, run `scripts/hooks/install-hooks.sh` once to enable the hooks.
 - Do not write code without a plan.
 - Always implement in a separate `codex/<slug>` worktree.
+- Once implementation starts, continue through code, tests, review feedback, PR finish, and the develop merge path until the feature is complete or a real blocker requires user input.
+- Do not invent unrequested scope, product direction, architecture choices, or opinion-sensitive tradeoffs. Ask the user first, then record the decision in `EXEC_PLAN`.
 - Start implementation work from a Jira `SPT` implementation Task issue. Do not use Obsidian as the work queue.
 - Use this start command format: `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`.
 - Do not edit `src/` directly from a `main` or `develop` checkout.

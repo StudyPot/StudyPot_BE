@@ -12,6 +12,13 @@
 7. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태를 검증한다.
 8. 최종 merge와 cleanup은 `scripts/task/finish-pr.sh <PR_NUMBER>`가 수행한다.
 
+## 작업 지속 및 사용자 결정 계약
+- 구현이 시작된 feature는 코드, 테스트, review feedback 수정, PR finish, develop merge 경로까지 완료되기 전에는 중간 완료로 멈추지 않는다.
+- 멈출 수 있는 경우는 외부 권한/자격 증명, 파괴적 작업 승인, 최신 사용자 결정이 필요한 범위/제품/아키텍처 판단처럼 실제 blocker가 있는 경우뿐이다.
+- 문서와 Jira/EXEC_PLAN에 없는 새 기능, 새 범위, 제품 방향, 아키텍처 선택, 의견 의존 tradeoff는 에이전트가 임의로 만들지 않는다.
+- 그런 판단이 필요하면 구현 전에 사용자에게 질문하고, 결정 내용을 `EXEC_PLAN`의 `Doc Notes` 또는 `Step Plan`에 기록한다.
+- role gate는 승인되지 않은 scope creep 또는 미해결 사용자 결정을 merge-blocking feedback으로 처리한다.
+
 ## PR 생성 계약
 - target branch는 기본적으로 `develop`이다.
 - head branch는 `codex/<slug>`여야 한다.
@@ -35,6 +42,7 @@
 - pending/failing/cancelled checks
 - required GitHub Actions check가 없음
 - 최신 PR head에 대한 company role gate pass marker가 없음
+- 승인되지 않은 scope creep 또는 미해결 사용자 결정이 role gate evidence에 남아 있음
 - unresolved PR review threads
 - merge conflict 또는 blocked merge state
 
@@ -58,7 +66,7 @@ Codex review is part of the default finish gate. It follows a company-style role
 - Product Value Gate: Product/CBO value and retention review. Validate user value, adoption/retention impact, workflow fit, and whether follow-up product ideas should become separate tasks instead of scope creep.
 - Final CTO Merge Gate: Final CTO merge approval. Re-check all previous feedback, latest evidence, unresolved threads, contract drift, and merge readiness. Treat actionable issues as merge-blocking.
 
-Evidence is mandatory for every role gate. Each passing role gate must leave a PR comment on the latest head using one of these markers and a `## Evidence` section:
+Evidence is mandatory for every role gate. Each passing role gate must leave a PR comment on the latest head using one of these markers and a `## Evidence` section. Every role evidence file must include a non-empty `User Decision` entry to state either that no new user decision was needed or that the user-approved decision is recorded in `EXEC_PLAN`.
 
 ```text
 CTO Architecture Gate: PASS
@@ -81,12 +89,13 @@ Supported gate values are `cto-architecture`, `qa-verification`, `product-value`
 Harness/bootstrap exceptions may set `STRICT_REQUIRE_COMPANY_REVIEW_GATES=0`. Partial gates may set `STRICT_REQUIRE_COMPANY_REVIEW_GATES` to a space-separated subset, but feature work should keep the default `cto-architecture qa-verification product-value final-cto-merge`.
 
 ### Evidence Templates
-Each evidence file must include `## Evidence` and the labels required for that gate.
+Each evidence file must include `## Evidence`, `User Decision`, and the labels required for that gate. Evidence entries must be filled in; label-only templates are not accepted as pass markers.
 
 CTO Architecture Gate:
 
 ```markdown
 ## Evidence
+- User Decision:
 - Architecture Reviewed:
 - Work Breakdown:
 - Risks:
@@ -96,6 +105,7 @@ QA Verification Gate:
 
 ```markdown
 ## Evidence
+- User Decision:
 - Commands Run:
 - Scenarios Tested:
 - Results:
@@ -105,6 +115,7 @@ Product Value Gate:
 
 ```markdown
 ## Evidence
+- User Decision:
 - User Value:
 - Retention Impact:
 - Scope Decision:
@@ -114,6 +125,7 @@ Final CTO Merge Gate:
 
 ```markdown
 ## Evidence
+- User Decision:
 - Prior Gates Checked:
 - Unresolved Threads:
 - Merge Decision:

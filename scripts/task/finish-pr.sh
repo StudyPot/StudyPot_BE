@@ -80,16 +80,16 @@ company_review_marker() {
 company_review_evidence_filter() {
   case "$1" in
     cto-architecture)
-      printf 'and (.body | contains("Architecture Reviewed")) and (.body | contains("Work Breakdown")) and (.body | contains("Risks"))'
+      printf 'and (.body | test("(?m)^[[:space:]]*-[[:space:]]*User Decision:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Architecture Reviewed:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Work Breakdown:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Risks:[[:space:]]*[^[:space:]]"))'
       ;;
     qa-verification)
-      printf 'and (.body | contains("Commands Run")) and (.body | contains("Scenarios Tested")) and (.body | contains("Results"))'
+      printf 'and (.body | test("(?m)^[[:space:]]*-[[:space:]]*User Decision:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Commands Run:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Scenarios Tested:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Results:[[:space:]]*[^[:space:]]"))'
       ;;
     product-value)
-      printf 'and (.body | contains("User Value")) and (.body | contains("Retention Impact")) and (.body | contains("Scope Decision"))'
+      printf 'and (.body | test("(?m)^[[:space:]]*-[[:space:]]*User Decision:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*User Value:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Retention Impact:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Scope Decision:[[:space:]]*[^[:space:]]"))'
       ;;
     final-cto-merge)
-      printf 'and (.body | contains("Prior Gates Checked")) and (.body | contains("Unresolved Threads")) and (.body | contains("Merge Decision"))'
+      printf 'and (.body | test("(?m)^[[:space:]]*-[[:space:]]*User Decision:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Prior Gates Checked:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Unresolved Threads:[[:space:]]*[^[:space:]]")) and (.body | test("(?m)^[[:space:]]*-[[:space:]]*Merge Decision:[[:space:]]*[^[:space:]]"))'
       ;;
     *)
       fail "unknown company review gate: $1"

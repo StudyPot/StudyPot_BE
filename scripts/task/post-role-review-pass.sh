@@ -62,31 +62,49 @@ require_evidence_label() {
   grep -Fq "${label}" "${file}" || fail "evidence file must include '${label}'."
 }
 
+require_evidence_entry() {
+  local file="$1"
+  local label="$2"
+  awk -v label="${label}" '
+    $0 ~ "^[[:space:]]*-[[:space:]]*" label ":" {
+      value = $0
+      sub("^[[:space:]]*-[[:space:]]*" label ":[[:space:]]*", "", value)
+      if (value ~ /[^[:space:]]/) {
+        found = 1
+      }
+    }
+    END {
+      exit found ? 0 : 1
+    }
+  ' "${file}" || fail "evidence file must include a non-empty '${label}' entry."
+}
+
 validate_evidence_file() {
   local gate="$1"
   local file="$2"
 
   require_evidence_label "${file}" "## Evidence"
+  require_evidence_entry "${file}" "User Decision"
   case "${gate}" in
     cto-architecture)
-      require_evidence_label "${file}" "Architecture Reviewed"
-      require_evidence_label "${file}" "Work Breakdown"
-      require_evidence_label "${file}" "Risks"
+      require_evidence_entry "${file}" "Architecture Reviewed"
+      require_evidence_entry "${file}" "Work Breakdown"
+      require_evidence_entry "${file}" "Risks"
       ;;
     qa-verification)
-      require_evidence_label "${file}" "Commands Run"
-      require_evidence_label "${file}" "Scenarios Tested"
-      require_evidence_label "${file}" "Results"
+      require_evidence_entry "${file}" "Commands Run"
+      require_evidence_entry "${file}" "Scenarios Tested"
+      require_evidence_entry "${file}" "Results"
       ;;
     product-value)
-      require_evidence_label "${file}" "User Value"
-      require_evidence_label "${file}" "Retention Impact"
-      require_evidence_label "${file}" "Scope Decision"
+      require_evidence_entry "${file}" "User Value"
+      require_evidence_entry "${file}" "Retention Impact"
+      require_evidence_entry "${file}" "Scope Decision"
       ;;
     final-cto-merge)
-      require_evidence_label "${file}" "Prior Gates Checked"
-      require_evidence_label "${file}" "Unresolved Threads"
-      require_evidence_label "${file}" "Merge Decision"
+      require_evidence_entry "${file}" "Prior Gates Checked"
+      require_evidence_entry "${file}" "Unresolved Threads"
+      require_evidence_entry "${file}" "Merge Decision"
       ;;
     *)
       fail "unknown company review gate: ${gate}"
