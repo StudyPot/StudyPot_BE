@@ -41,6 +41,7 @@
 - [PR 리뷰 게이트](./operations/pr-review-gate.md)
 - [GitHub Actions 리뷰 게이트](./operations/github-actions-review-gate.md)
 - [Jira Board Sync](./operations/jira-board-sync.md)
+- [Error Ledger](./operations/error-ledger.md)
 - [Obsidian 에러 레저 운영](./operations/obsidian-error-ledger.md)
 - [품질 스코어카드](./quality/scorecard.md)
 - [실행 계획 기록](./exec-plans/active/)
