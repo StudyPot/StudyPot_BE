@@ -22,6 +22,11 @@
 ## PR 생성 계약
 - target branch는 기본적으로 `develop`이다.
 - head branch는 `codex/<slug>`여야 한다.
+- 사람이 작성하는 commit subject와 PR title은 `[type] 한글 내용` 형식을 따른다.
+- `type`은 `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, `revert` 중 하나여야 한다.
+- 제목의 내용 부분은 한글 설명을 포함해야 한다.
+- 기존 public `develop` 히스토리는 legacy로 두며, 히스토리 rewrite/force push는 명시적인 사용자 승인 없이는 수행하지 않는다.
+- Merge commit 제목은 GitHub merge 흐름의 일부로 허용한다.
 - PR body에는 다음 증거가 들어가야 한다.
   - Jira issue key/URL
   - 관련 issue closing line

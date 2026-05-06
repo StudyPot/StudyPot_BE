@@ -20,6 +20,7 @@ load_task_env "${slug}"
 
 base="${STRICT_PR_BASE:-develop}"
 title="${STRICT_PR_TITLE:-${TASK_TITLE}}"
+validate_commit_subject "${title}" "PR title"
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 issue_number="${STRICT_ISSUE_NUMBER:-}"
 

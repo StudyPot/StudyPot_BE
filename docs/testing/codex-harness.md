@@ -2,6 +2,8 @@
 
 ## 표준 검증 계약
 - Codex의 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.
+- commit-msg hook은 사람이 작성하는 제목을 `[type] 한글 내용` 형식으로 검증합니다.
+- 허용되는 `type`은 lowercase English token인 `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, `revert` 입니다.
 - stale build output 또는 파일 시스템 race가 의심되면 `./gradlew --stop` 후 `./gradlew clean check build --no-daemon`을 사용합니다.
 - 외부 의존성은 가능한 한 test profile, mock, fixture, 또는 local-only 설정으로 격리합니다.
 
