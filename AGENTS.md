@@ -14,7 +14,7 @@ The working rules in this repository are not recommendations; they are the defau
 - Do not edit `src/` directly from a `main` or `develop` checkout.
 - Before implementation, read documents in this order: `AGENTS.md -> ARCHITECTURE.md -> docs/index.md -> task-related docs`.
 - Do not skip writing tests or running verification.
-- Commit subjects must follow the `[feat] description` format.
+- Human-authored commit subjects and PR titles must follow the `[type] 한글 내용` format. `type` must be lowercase English, such as `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, or `revert`.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
 - Merge only through `scripts/task/finish-pr.sh` after passing the PR review gate.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.
