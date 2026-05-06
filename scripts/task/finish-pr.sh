@@ -57,12 +57,37 @@ if [[ "${STRICT_REQUIRE_GITHUB_ACTIONS_REVIEW_PASS:-1}" != "0" ]]; then
   [[ "${pass_count}" -gt 0 ]] || fail "latest-head GitHub Actions review gate pass marker is missing."
 fi
 
-if [[ "${STRICT_REQUIRE_CODEX_SUBAGENT_PASS:-0}" == "1" ]]; then
-  pass_count="$(gh pr view "${pr}" --json comments --jq "
-    [.comments[]? | select((.body | contains(\"Codex Subagent Review Gate: PASS\")) and (.body | contains(\"Head: ${head_after}\")))] | length
-  ")"
-  [[ "${pass_count}" -gt 0 ]] || fail "latest-head Codex subagent pass marker is missing."
+subagent_review_marker() {
+  case "$1" in
+    1)
+      printf 'Codex Subagent Review Round 1: PASS'
+      ;;
+    2)
+      printf 'Codex Subagent Review Round 2: PASS'
+      ;;
+    3)
+      printf 'Codex Subagent Review Round 3: PASS'
+      ;;
+    *)
+      fail "unknown Codex subagent review round: $1"
+      ;;
+  esac
+}
+
+required_subagent_rounds="${STRICT_REQUIRE_CODEX_SUBAGENT_ROUNDS:-3}"
+[[ "${required_subagent_rounds}" =~ ^[0-3]$ ]] || fail "STRICT_REQUIRE_CODEX_SUBAGENT_ROUNDS must be 0, 1, 2, or 3."
+
+if [[ "${STRICT_REQUIRE_CODEX_SUBAGENT_PASS:-0}" == "1" && "${required_subagent_rounds}" == "0" ]]; then
+  required_subagent_rounds="3"
 fi
+
+for ((round = 1; round <= required_subagent_rounds; round++)); do
+  marker="$(subagent_review_marker "${round}")"
+  pass_count="$(gh pr view "${pr}" --json comments --jq "
+    [.comments[]? | select((.body | contains(\"${marker}\")) and (.body | contains(\"Head: ${head_after}\")))] | length
+  ")"
+  [[ "${pass_count}" -gt 0 ]] || fail "latest-head Codex subagent review round ${round} pass marker is missing."
+done
 
 feature_worktree=""
 locked="0"

@@ -8,8 +8,9 @@
 3. commit 전 hook이 `EXEC_PLAN`, related docs, feature id, tests, verification을 확인한다.
 4. PR 생성은 `scripts/task/create-pr.sh`로 수행한다.
 5. GitHub Actions가 PR 품질 검사와 reviewdog feedback을 실행하고 pass marker를 남긴다.
-6. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태를 검증한다.
-7. 최종 merge와 cleanup은 `scripts/task/finish-pr.sh <PR_NUMBER>`가 수행한다.
+6. Codex subagent review를 3회 수행한다. 작성자는 각 round의 actionable feedback을 수정한 뒤 다음 round를 요청한다.
+7. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태를 검증한다.
+8. 최종 merge와 cleanup은 `scripts/task/finish-pr.sh <PR_NUMBER>`가 수행한다.
 
 ## PR 생성 계약
 - target branch는 기본적으로 `develop`이다.
@@ -20,7 +21,9 @@
   - `EXEC_PLAN` 경로와 본문
   - 마지막 검증 명령, 상태, 시각
   - GitHub Actions Review Gate checklist
-- `STRICT_AUTO_FINISH_PR=0`이 아니면 `create-pr.sh`는 기본적으로 `finish-pr.sh`를 호출한다.
+  - Codex Subagent Review Round 1/2/3 checklist
+- `create-pr.sh`는 기본적으로 PR 생성 후 자동 finish를 하지 않는다.
+- `STRICT_AUTO_FINISH_PR=1`을 명시한 경우에만 PR 생성 직후 `finish-pr.sh`를 호출한다.
 
 ## Merge 전 차단 조건
 `verify-pr-ready.sh`는 다음 경우 실패해야 한다.
@@ -31,6 +34,7 @@
 - review/comment activity가 없음
 - pending/failing/cancelled checks
 - required GitHub Actions check가 없음
+- 최신 PR head에 대한 Codex Subagent Review Round 1/2/3 pass marker가 없음
 - unresolved PR review threads
 - merge conflict 또는 blocked merge state
 
@@ -46,10 +50,31 @@ Head: <current_pr_head_sha>
 
 `finish-pr.sh`는 기본적으로 최신 PR head에 대한 이 pass marker를 요구한다. harness/bootstrap 작업처럼 예외가 필요하면 `STRICT_REQUIRE_GITHUB_ACTIONS_REVIEW_PASS=0`으로 명시한다.
 
-## Optional Subagent Review
-- Codex subagent review loop는 사용자가 명시적으로 허용한 경우에만 보조적으로 수행한다.
-- 필요한 경우 `STRICT_REQUIRE_CODEX_SUBAGENT_PASS=1`로 기존 subagent pass marker도 추가 요구할 수 있다.
-- 기본 merge gate는 GitHub Actions Review Gate다.
+## Progressive Codex Subagent Review
+Codex subagent review is part of the default finish gate. The review gets stricter after each correction cycle:
+
+- Round 1: flexible architecture and direction review. Focus on scope, approach, missing tests, high-risk design issues, and obviously dangerous behavior. Avoid blocking on small style choices.
+- Round 2: focused fix verification review. Re-check the author's fixes, test coverage, edge cases, contracts, and any newly introduced risk.
+- Round 3: strict final merge-readiness review. Treat every actionable bug, missing verification, unresolved thread, contract drift, unsafe cleanup, or stale evidence as merge-blocking.
+
+Each passing review round must leave a PR comment on the latest head using this format:
+
+```text
+Codex Subagent Review Round <1|2|3>: PASS
+Head: <current_pr_head_sha>
+```
+
+After a Codex subagent review round passes, use the helper below to post the standard marker:
+
+```bash
+scripts/task/post-subagent-review-pass.sh <PR_NUMBER> <ROUND>
+```
+
+An optional notes file may be passed as the third argument. The helper records the current PR head SHA, so run it only after the reviewed fixes have been pushed.
+
+`finish-pr.sh` requires all three round markers for the latest PR head by default. If a new commit is pushed after a round passes, that round must be repeated because the previous marker no longer matches the current head.
+
+Harness/bootstrap exceptions may set `STRICT_REQUIRE_CODEX_SUBAGENT_ROUNDS=0`. Partial gates may set the value to `1` or `2`, but feature work should keep the default `3`.
 
 ## Cleanup 원칙
 `finish-pr.sh`는 다음 조건을 증명하기 전에는 worktree나 branch를 삭제하지 않는다.

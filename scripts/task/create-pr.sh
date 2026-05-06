@@ -58,6 +58,9 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- '- [ ] GitHub Actions Review Gate pass marker posted for latest head\n'
   printf -- '- [ ] Required GitHub Actions checks passing\n'
   printf -- '- [ ] reviewdog/actionlint feedback addressed\n'
+  printf -- '- [ ] Codex Subagent Review Round 1: flexible architecture and direction review posted for latest head\n'
+  printf -- '- [ ] Codex Subagent Review Round 2: focused fix verification review posted for latest head\n'
+  printf -- '- [ ] Codex Subagent Review Round 3: strict final merge-readiness review posted for latest head\n'
   printf -- '- [ ] Review threads resolved\n'
 } > "${pr_body}"
 
@@ -65,6 +68,6 @@ pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --
 printf '%s\n' "${pr_url}"
 
 pr_number="${pr_url##*/}"
-if [[ "${STRICT_AUTO_FINISH_PR:-1}" != "0" ]]; then
+if [[ "${STRICT_AUTO_FINISH_PR:-0}" != "0" ]]; then
   "${SCRIPT_DIR}/finish-pr.sh" "${pr_number}"
 fi

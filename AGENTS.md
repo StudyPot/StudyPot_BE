@@ -54,10 +54,12 @@ The working rules in this repository are not recommendations; they are the defau
 - The default PR target is `develop`.
 - Do not consider a PR ready to merge until the GitHub Actions Review Gate has posted a PASS comment for the latest PR head.
 - Address reviewdog/actionlint feedback and every actionable review comment through code, tests, or docs, then resolve the review threads.
-- Subagent review is optional support only when the user explicitly allows it.
+- Codex subagent review runs in three rounds by default: flexible architecture/direction review, focused fix verification review, and strict final merge-readiness review.
+- After each round, address the actionable feedback before requesting the next round.
 - The default review gate comment must contain these markers:
   - `GitHub Actions Review Gate: PASS`
   - `Head: <current_pr_head_sha>`
+- The final merge gate also requires latest-head `Codex Subagent Review Round 1/2/3: PASS` markers unless explicitly disabled for harness/bootstrap exceptions.
 - `scripts/task/finish-pr.sh` verifies that the PR head did not change during verification and only cleans up a clean/unlocked feature worktree.
 - `scripts/task/finish-pr.sh` transitions the Jira Task to the done status after PR merge and cleanup are complete.
 
