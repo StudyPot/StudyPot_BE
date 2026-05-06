@@ -66,6 +66,16 @@ jobs:
         run: |
           ruby -e 'require "yaml"; doc = YAML.load_file("docs/specs/openapi.yaml"); abort("openapi must be 3.1.x") unless doc.fetch("openapi").to_s.start_with?("3.1."); abort("info.title is required") unless doc.dig("info", "title"); abort("paths is required") unless doc["paths"].is_a?(Hash); puts "OpenAPI parsed"'
 
+  db-schema-coverage:
+    name: db-schema-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify ERD v0.8 schema coverage
+        run: bash scripts/tests/test_quality_gate_contracts.sh
+
   backend-check:
     name: backend-check
     runs-on: ubuntu-latest
@@ -92,6 +102,7 @@ jobs:
       - shellcheck-reviewdog
       - workflow-lint
       - openapi-parse
+      - db-schema-coverage
       - backend-check
     if: ${{ always() }}
     steps:
