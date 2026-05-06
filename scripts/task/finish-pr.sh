@@ -57,36 +57,37 @@ if [[ "${STRICT_REQUIRE_GITHUB_ACTIONS_REVIEW_PASS:-1}" != "0" ]]; then
   [[ "${pass_count}" -gt 0 ]] || fail "latest-head GitHub Actions review gate pass marker is missing."
 fi
 
-subagent_review_marker() {
+company_review_marker() {
   case "$1" in
-    1)
-      printf 'Codex Subagent Review Round 1: PASS'
+    cto-architecture)
+      printf 'CTO Architecture Gate: PASS'
       ;;
-    2)
-      printf 'Codex Subagent Review Round 2: PASS'
+    qa-verification)
+      printf 'QA Verification Gate: PASS'
       ;;
-    3)
-      printf 'Codex Subagent Review Round 3: PASS'
+    product-value)
+      printf 'Product Value Gate: PASS'
+      ;;
+    final-cto-merge)
+      printf 'Final CTO Merge Gate: PASS'
       ;;
     *)
-      fail "unknown Codex subagent review round: $1"
+      fail "unknown company review gate: $1"
       ;;
   esac
 }
 
-required_subagent_rounds="${STRICT_REQUIRE_CODEX_SUBAGENT_ROUNDS:-3}"
-[[ "${required_subagent_rounds}" =~ ^[0-3]$ ]] || fail "STRICT_REQUIRE_CODEX_SUBAGENT_ROUNDS must be 0, 1, 2, or 3."
-
-if [[ "${STRICT_REQUIRE_CODEX_SUBAGENT_PASS:-0}" == "1" && "${required_subagent_rounds}" == "0" ]]; then
-  required_subagent_rounds="3"
+required_company_gates="${STRICT_REQUIRE_COMPANY_REVIEW_GATES:-cto-architecture qa-verification product-value final-cto-merge}"
+if [[ "${required_company_gates}" == "0" || "${required_company_gates}" == "none" ]]; then
+  required_company_gates=""
 fi
 
-for ((round = 1; round <= required_subagent_rounds; round++)); do
-  marker="$(subagent_review_marker "${round}")"
+for gate in ${required_company_gates}; do
+  marker="$(company_review_marker "${gate}")"
   pass_count="$(gh pr view "${pr}" --json comments --jq "
     [.comments[]? | select((.body | contains(\"${marker}\")) and (.body | contains(\"Head: ${head_after}\")))] | length
   ")"
-  [[ "${pass_count}" -gt 0 ]] || fail "latest-head Codex subagent review round ${round} pass marker is missing."
+  [[ "${pass_count}" -gt 0 ]] || fail "latest-head company review gate pass marker is missing: ${marker}"
 done
 
 feature_worktree=""

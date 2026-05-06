@@ -58,9 +58,10 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- '- [ ] GitHub Actions Review Gate pass marker posted for latest head\n'
   printf -- '- [ ] Required GitHub Actions checks passing\n'
   printf -- '- [ ] reviewdog/actionlint feedback addressed\n'
-  printf -- '- [ ] Codex Subagent Review Round 1: flexible architecture and direction review posted for latest head\n'
-  printf -- '- [ ] Codex Subagent Review Round 2: focused fix verification review posted for latest head\n'
-  printf -- '- [ ] Codex Subagent Review Round 3: strict final merge-readiness review posted for latest head\n'
+  printf -- '- [ ] CTO Architecture Gate posted for latest head\n'
+  printf -- '- [ ] QA Verification Gate posted for latest head\n'
+  printf -- '- [ ] Product Value Gate posted for latest head\n'
+  printf -- '- [ ] Final CTO Merge Gate posted for latest head\n'
   printf -- '- [ ] Review threads resolved\n'
 } > "${pr_body}"
 
