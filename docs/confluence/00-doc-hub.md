@@ -6,7 +6,7 @@
 - 알림: MVP는 서비스 내부 `IN_APP` 알림이며 Discord 연동은 제외.
 - AI 팀장: 매주 회고와 다음 주 조정까지 담당.
 - Repo source: `docs/specs/*`.
-- Jira source: `SPT-10` Epic and implementation tasks `SPT-19` to `SPT-55`.
+- Jira source: `SPT-10` Epic, published source tasks `SPT-4`/`SPT-6`/`SPT-7`, implementation tasks `SPT-19` to `SPT-50`, and documentation cleanup task `SPT-56`.
 
 ## 읽기 순서
 1. MVP 골든패스

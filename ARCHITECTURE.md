@@ -4,7 +4,7 @@
 
 ## 현재 구조
 - Stack adapter: `Spring Boot`
-- Repository: `/Users/hyunwoo/Documents/New project 3`
+- Repository: `/Users/hyunwoo/Developer/Projects/StudyPot`
 - Verification command: `./gradlew check build --no-daemon`
 - Remote: `https://github.com/StudyPot/StudyPot_BE.git`
 - Intended PR target: `develop`
