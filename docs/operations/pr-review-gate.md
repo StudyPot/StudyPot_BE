@@ -48,7 +48,7 @@
 
 ## GitHub Actions Review Gate
 - 기본 review gate는 CodeRabbit이나 Codex subagent가 아니라 GitHub Actions 기반 무료 검사다.
-- required check 기본 목록은 `harness-tests`, `shellcheck-reviewdog`, `workflow-lint`, `openapi-parse`, `backend-check`, `codeql-scan`, `review-gate-pass`다.
+- required check 기본 목록은 `harness-tests`, `shellcheck-reviewdog`, `workflow-lint`, `openapi-parse`, `db-schema-coverage`, `backend-check`, `codeql-scan`, `review-gate-pass`다.
 - `review-gate-pass` job은 선행 job이 모두 success/skipped일 때 최신 PR head에 대해 아래 마커를 남긴다.
 
 ```text

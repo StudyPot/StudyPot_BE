@@ -9,6 +9,7 @@
 - 핵심 사용자 여정 테스트
 - domain/service regression 테스트
 - 구조 또는 layering guardrail 테스트
+- OpenAPI parse와 ERD v0.8 MySQL8 `db-schema-coverage` 계약 테스트
 
 ## 실패 시 확인 순서
 1. 현재 worktree와 branch가 `codex/<slug>`인지 확인합니다.
@@ -20,7 +21,7 @@
 7. PR 단계라면 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 checks/reviews/threads를 막고 있는지 확인합니다.
 
 ## GitHub Actions Review Gate 테스트
-- `PR Quality` workflow는 PR마다 하네스 테스트, ShellCheck/reviewdog, actionlint, OpenAPI parse, backend check를 실행합니다.
+- `PR Quality` workflow는 PR마다 하네스 테스트, ShellCheck/reviewdog, actionlint, OpenAPI parse, `db-schema-coverage`, backend check를 실행합니다.
 - `CodeQL` workflow는 Java/Kotlin source가 생기면 분석을 실행하고, 구현 전에는 skip/pass 상태를 유지합니다.
 - `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker가 없으면 merge하지 않습니다.
 - static test는 workflow 파일 존재, required check 이름, PASS marker 문자열을 확인해야 합니다.

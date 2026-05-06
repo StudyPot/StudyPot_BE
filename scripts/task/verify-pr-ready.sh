@@ -38,7 +38,7 @@ bad_checks="$(gh pr view "${pr}" --json statusCheckRollup --jq '
 ')"
 [[ "${bad_checks}" == "0" ]] || fail "PR has non-passing checks."
 
-required_checks="${STRICT_REQUIRED_CHECKS:-harness-tests shellcheck-reviewdog workflow-lint openapi-parse backend-check codeql-scan review-gate-pass}"
+required_checks="${STRICT_REQUIRED_CHECKS:-harness-tests shellcheck-reviewdog workflow-lint openapi-parse db-schema-coverage backend-check codeql-scan review-gate-pass}"
 for required_check in ${required_checks}; do
   check_state="$(gh pr view "${pr}" --json statusCheckRollup --jq "
     [.statusCheckRollup[]? | select(
