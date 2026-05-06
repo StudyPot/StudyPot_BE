@@ -25,7 +25,7 @@ repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 issue_number="${STRICT_ISSUE_NUMBER:-}"
 
 if [[ -z "${issue_number}" ]]; then
-  issue_text="$(printf "## Work\n\n%s\n\n## Jira\n\n- Issue: \`%s\`\n- URL: %s\n\n## Evidence\n\n- EXEC_PLAN: \`%s\`\n- Verification: \`%s\` / \`%s\` / \`%s\`\n" \
+  issue_text="$(printf "## 작업\n\n%s\n\n## Jira\n\n- 이슈: \`%s\`\n- URL: %s\n\n## 증거\n\n- EXEC_PLAN: \`%s\`\n- 검증: \`%s\` / \`%s\` / \`%s\`\n" \
     "${title}" \
     "${JIRA_ISSUE_KEY:-not-linked}" \
     "${JIRA_ISSUE_URL:-not-linked}" \
@@ -48,24 +48,24 @@ trap 'rm -f "${pr_body:-}"' EXIT
   if [[ -n "${JIRA_ISSUE_KEY:-}" ]]; then
     printf 'Jira: [%s](%s)\n\n' "${JIRA_ISSUE_KEY}" "${JIRA_ISSUE_URL}"
   fi
-  printf '## EXEC_PLAN\n\n'
-  printf -- "- Path: \`%s\`\n\n" "${EXEC_PLAN}"
+  printf '## 실행 계획\n\n'
+  printf -- "- 경로: \`%s\`\n\n" "${EXEC_PLAN}"
   sed -n '1,220p' "${EXEC_PLAN}"
-  printf '\n\n## Verification\n\n'
-  printf -- "- Command: \`%s\`\n" "${LAST_VERIFY_COMMAND:-unknown}"
-  printf -- "- Status: \`%s\`\n" "${LAST_VERIFY_STATUS:-unknown}"
-  printf -- "- Time: \`%s\`\n" "${LAST_VERIFY_AT:-unknown}"
-  printf '\n## Review Gate Checklist\n\n'
-  printf -- '- [ ] GitHub Actions Review Gate pass marker posted for latest head\n'
-  printf -- '- [ ] Required GitHub Actions checks passing\n'
-  printf -- '- [ ] reviewdog/actionlint feedback addressed\n'
-  printf -- '- [ ] Feature continuity maintained until completion or documented blocker\n'
-  printf -- '- [ ] User decision recorded for any unplanned scope or opinion-sensitive tradeoff\n'
-  printf -- '- [ ] CTO Architecture Gate evidence-backed marker posted for latest head\n'
-  printf -- '- [ ] QA Verification Gate evidence-backed marker posted for latest head\n'
-  printf -- '- [ ] Product Value Gate evidence-backed marker posted for latest head\n'
-  printf -- '- [ ] Final CTO Merge Gate evidence-backed marker posted for latest head\n'
-  printf -- '- [ ] Review threads resolved\n'
+  printf '\n\n## 검증\n\n'
+  printf -- "- 명령: \`%s\`\n" "${LAST_VERIFY_COMMAND:-unknown}"
+  printf -- "- 상태: \`%s\`\n" "${LAST_VERIFY_STATUS:-unknown}"
+  printf -- "- 시각: \`%s\`\n" "${LAST_VERIFY_AT:-unknown}"
+  printf '\n## 리뷰 게이트 체크리스트\n\n'
+  printf -- '- [ ] 최신 head에 GitHub Actions Review Gate PASS marker 게시\n'
+  printf -- '- [ ] 필수 GitHub Actions checks 통과\n'
+  printf -- '- [ ] reviewdog/actionlint 피드백 반영\n'
+  printf -- '- [ ] 완료 또는 문서화된 blocker까지 작업 연속성 유지\n'
+  printf -- '- [ ] 예상 밖 범위 또는 의견 의존 tradeoff의 사용자 결정 기록\n'
+  printf -- '- [ ] 최신 head에 CTO Architecture Gate 증거 포함 marker 게시\n'
+  printf -- '- [ ] 최신 head에 QA Verification Gate 증거 포함 marker 게시\n'
+  printf -- '- [ ] 최신 head에 Product Value Gate 증거 포함 marker 게시\n'
+  printf -- '- [ ] 최신 head에 Final CTO Merge Gate 증거 포함 marker 게시\n'
+  printf -- '- [ ] 리뷰 thread 해결\n'
 } > "${pr_body}"
 
 pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --body-file "${pr_body}")"

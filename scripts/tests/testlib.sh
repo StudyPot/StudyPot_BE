@@ -3,6 +3,7 @@
 set -euo pipefail
 
 TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export TEST_ROOT
 
 fail() {
   echo "FAIL: $*" >&2
@@ -17,6 +18,12 @@ assert_contains() {
   local needle="$1"
   local haystack="$2"
   grep -Fq -- "${needle}" "${haystack}" || fail "expected '${needle}' in ${haystack}"
+}
+
+assert_not_contains() {
+  local needle="$1"
+  local haystack="$2"
+  ! grep -Fq -- "${needle}" "${haystack}" || fail "did not expect '${needle}' in ${haystack}"
 }
 
 setup_sandbox_repo() {

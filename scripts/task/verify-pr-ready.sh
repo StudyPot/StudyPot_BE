@@ -76,8 +76,11 @@ done
 
 merge_state="$(gh pr view "${pr}" --json mergeStateStatus --jq '.mergeStateStatus // ""')"
 case "${merge_state}" in
-  DIRTY|BLOCKED|BEHIND)
+  DIRTY|BEHIND)
     fail "PR merge state is blocked: ${merge_state}"
+    ;;
+  BLOCKED)
+    [[ "${STRICT_ALLOW_BLOCKED_FOR_MANUAL_MERGE:-0}" == "1" ]] || fail "PR merge state is blocked: ${merge_state}"
     ;;
 esac
 

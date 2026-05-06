@@ -7,7 +7,7 @@ The working rules in this repository are not recommendations; they are the defau
 - When the user asks what to do next, run `scripts/task/jira-board.sh recommend-next --limit 3` first, read Jira done/not-done context, and recommend about three next tasks before starting implementation.
 - Do not write code without a plan.
 - Always implement in a separate `codex/<slug>` worktree.
-- Once implementation starts, continue through code, tests, review feedback, PR finish, and the develop merge path until the feature is complete or a real blocker requires user input.
+- Once implementation starts, continue through code, tests, review feedback, PR ready notification, user-confirmed merge, and post-merge cleanup until the feature is complete or a real blocker requires user input.
 - Do not invent unrequested scope, product direction, architecture choices, or opinion-sensitive tradeoffs. Ask the user first, then record the decision in `EXEC_PLAN`.
 - Start implementation work from a Jira `SPT` implementation Task issue. Do not use Obsidian as the work queue.
 - Use this start command format: `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`.
@@ -15,8 +15,10 @@ The working rules in this repository are not recommendations; they are the defau
 - Before implementation, read documents in this order: `AGENTS.md -> ARCHITECTURE.md -> docs/index.md -> task-related docs`.
 - Do not skip writing tests or running verification.
 - Human-authored commit subjects and PR titles must follow the `[type] 한글 내용` format. `type` must be lowercase English, such as `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, or `revert`.
+- Human-facing Mattermost notifications, PR bodies, PR review comments, and role gate evidence must be written in Korean. Keep only machine-readable marker tokens such as `CTO Architecture Gate: PASS` and `Head: <sha>` in their required literal form.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
-- Merge only through `scripts/task/finish-pr.sh` after passing the PR review gate.
+- Do not auto-merge PRs. After passing the PR review gate, use `scripts/task/finish-pr.sh` to verify readiness and send the Mattermost manual-merge notification; the human user clicks the GitHub merge button.
+- After the human merge, run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and Jira Done transition.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.
 - The v1 planning/API/DB/AI/notification/permission/QA specs are `LOCKED_FOR_IMPLEMENTATION`. Changes are forbidden without the Change Request + ADR process in `docs/specs/change-control-v1.md`.
 
@@ -60,12 +62,13 @@ The working rules in this repository are not recommendations; they are the defau
 - Codex review follows a company-style role pipeline by default: CTO Architecture, QA Verification, Product Value, and Final CTO Merge gates.
 - Address actionable feedback from each role before requesting the next gate.
 - Every role gate PASS marker must include review evidence for that role; evidence-free markers are not accepted.
+- The GitHub Actions `review-gate-pass` required check must verify the latest-head role gate markers and fail until CTO Architecture, QA Verification, Product Value, and Final CTO Merge evidence markers exist.
 - The default review gate comment must contain these markers:
   - `GitHub Actions Review Gate: PASS`
   - `Head: <current_pr_head_sha>`
-- The final merge gate also requires latest-head `CTO Architecture Gate`, `QA Verification Gate`, `Product Value Gate`, and `Final CTO Merge Gate` PASS markers unless explicitly disabled for harness/bootstrap exceptions.
-- `scripts/task/finish-pr.sh` verifies that the PR head did not change during verification and only cleans up a clean/unlocked feature worktree.
-- `scripts/task/finish-pr.sh` transitions the Jira Task to the done status after PR merge and cleanup are complete.
+- The final merge gate also requires latest-head `CTO Architecture Gate`, `QA Verification Gate`, `Product Value Gate`, and `Final CTO Merge Gate` PASS markers unless explicitly disabled for harness/bootstrap exceptions; without them, the GitHub merge button remains blocked by the required `review-gate-pass` check.
+- `scripts/task/finish-pr.sh` verifies that the PR head did not change during verification and sends a Mattermost notification instead of merging.
+- `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` transitions the Jira Task to the done status after the human merge and cleanup are complete.
 
 ## Related Documents
 - Architecture summary: `ARCHITECTURE.md`

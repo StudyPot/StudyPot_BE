@@ -25,15 +25,17 @@
 ## GitHub Actions Review Gate 테스트
 - `PR Quality` workflow는 PR마다 하네스 테스트, ShellCheck/reviewdog, actionlint, OpenAPI parse, `db-schema-coverage`, backend check를 실행합니다.
 - `CodeQL` workflow는 Java/Kotlin source가 생기면 분석을 실행하고, 구현 전에는 skip/pass 상태를 유지합니다.
-- `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker가 없으면 merge하지 않습니다.
-- static test는 workflow 파일 존재, required check 이름, PASS marker 문자열을 확인해야 합니다.
+- `review-gate-pass` required check는 `scripts/task/verify-role-review-gates.sh`로 최신 head의 CTO/QA/Product/Final CTO evidence marker를 확인합니다.
+- `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker가 없으면 manual merge 알림을 보내지 않습니다.
+- static test는 workflow 파일 존재, required check 이름, role gate 검증 스크립트 호출, PASS marker 문자열을 확인해야 합니다.
 
 ## 금지 사항
 - CI에서 테스트를 임의로 제외하기
 - 실서비스 secret을 테스트에 요구하기
 - 실패한 검증을 통과한 것으로 기록하기
 - review activity 없이 green CI만 보고 merge하기
-- GitHub Actions Review Gate marker 없이 merge하기
+- GitHub Actions Review Gate marker 없이 manual merge 알림 보내기
+- CTO/QA/Product/Final CTO evidence marker 없이 required `review-gate-pass`를 통과시키기
 - dirty 또는 locked worktree를 cleanup 대상으로 삼기
 - Jira Board 전환 실패를 무시하고 작업 시작/완료 처리하기
 

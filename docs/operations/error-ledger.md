@@ -22,6 +22,22 @@ Each entry must include:
 
 ## Entries
 
+### 2026-05-06 - Role Gates Only Enforced In Finish Script
+- Work / feature id: `SPT-61`, `n/a-harness`
+- Symptom: Company role gates were required by `finish-pr.sh`, but a user could still bypass the harness and click GitHub's merge button if branch protection only saw green checks.
+- Cause: CTO/QA/Product/Final CTO evidence validation lived in the local finish path, not in a required GitHub status check.
+- Fix: Add `scripts/task/verify-role-review-gates.sh` and run it inside the required `review-gate-pass` GitHub Actions job before the Actions PASS marker is posted.
+- Prevent next time: Merge-critical review contracts must live in a required status check, not only in local helper scripts.
+- Next checkpoint: 최신 head role gate marker를 게시한 뒤 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun하고, required check가 green인지 확인한 뒤 Mattermost 수동 merge 알림을 보낸다.
+
+### 2026-05-06 - Manual Merge Notification Blocked By Human Review Protection
+- Work / feature id: `SPT-61`, `n/a-harness`
+- Symptom: `scripts/task/finish-pr.sh 26` could not send the Mattermost ready notification after CI passed because `verify-pr-ready.sh` failed on `mergeStateStatus=BLOCKED`.
+- Cause: GitHub branch protection can report `BLOCKED` before human review/approval, which is exactly the state where the user wants a manual review and merge notification.
+- Fix: Add `STRICT_ALLOW_BLOCKED_FOR_MANUAL_MERGE=1` for the finish notification path while keeping `DIRTY`, `BEHIND`, failed checks, `CHANGES_REQUESTED`, and unresolved threads blocking.
+- Prevent next time: Manual merge notification mode should treat branch-protection review `BLOCKED` as human action required, not as an agent-fixable failure.
+- Next checkpoint: When a PR has all required checks passing and no requested changes but `mergeStateStatus=BLOCKED`, verify whether the remaining blocker is human review before changing code.
+
 ### 2026-05-06 - Jira API Token Exposed In Chat
 - Work / feature id: `SPT-20`, `SPT-56`, `n/a-harness`
 - Symptom: A Jira API token was pasted directly into the chat and then used for Jira-backed task scripts.
