@@ -56,6 +56,7 @@ The working rules in this repository are not recommendations; they are the defau
 - Address reviewdog/actionlint feedback and every actionable review comment through code, tests, or docs, then resolve the review threads.
 - Codex review follows a company-style role pipeline by default: CTO Architecture, QA Verification, Product Value, and Final CTO Merge gates.
 - Address actionable feedback from each role before requesting the next gate.
+- Every role gate PASS marker must include review evidence for that role; evidence-free markers are not accepted.
 - The default review gate comment must contain these markers:
   - `GitHub Actions Review Gate: PASS`
   - `Head: <current_pr_head_sha>`

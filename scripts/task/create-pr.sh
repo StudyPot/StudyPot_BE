@@ -58,10 +58,10 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- '- [ ] GitHub Actions Review Gate pass marker posted for latest head\n'
   printf -- '- [ ] Required GitHub Actions checks passing\n'
   printf -- '- [ ] reviewdog/actionlint feedback addressed\n'
-  printf -- '- [ ] CTO Architecture Gate posted for latest head\n'
-  printf -- '- [ ] QA Verification Gate posted for latest head\n'
-  printf -- '- [ ] Product Value Gate posted for latest head\n'
-  printf -- '- [ ] Final CTO Merge Gate posted for latest head\n'
+  printf -- '- [ ] CTO Architecture Gate evidence-backed marker posted for latest head\n'
+  printf -- '- [ ] QA Verification Gate evidence-backed marker posted for latest head\n'
+  printf -- '- [ ] Product Value Gate evidence-backed marker posted for latest head\n'
+  printf -- '- [ ] Final CTO Merge Gate evidence-backed marker posted for latest head\n'
   printf -- '- [ ] Review threads resolved\n'
 } > "${pr_body}"
 

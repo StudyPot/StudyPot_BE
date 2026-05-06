@@ -58,7 +58,7 @@ Codex review is part of the default finish gate. It follows a company-style role
 - Product Value Gate: Product/CBO value and retention review. Validate user value, adoption/retention impact, workflow fit, and whether follow-up product ideas should become separate tasks instead of scope creep.
 - Final CTO Merge Gate: Final CTO merge approval. Re-check all previous feedback, latest evidence, unresolved threads, contract drift, and merge readiness. Treat actionable issues as merge-blocking.
 
-Each passing role gate must leave a PR comment on the latest head using one of these markers:
+Evidence is mandatory for every role gate. Each passing role gate must leave a PR comment on the latest head using one of these markers and a `## Evidence` section:
 
 ```text
 CTO Architecture Gate: PASS
@@ -71,14 +71,53 @@ Head: <current_pr_head_sha>
 After a Codex role gate passes, use the helper below to post the standard marker:
 
 ```bash
-scripts/task/post-role-review-pass.sh <PR_NUMBER> <GATE>
+scripts/task/post-role-review-pass.sh <PR_NUMBER> <GATE> <evidence_file>
 ```
 
-Supported gate values are `cto-architecture`, `qa-verification`, `product-value`, and `final-cto-merge`. An optional notes file may be passed as the third argument. The helper records the current PR head SHA, so run it only after the reviewed fixes have been pushed.
+Supported gate values are `cto-architecture`, `qa-verification`, `product-value`, and `final-cto-merge`. The evidence file is required. The helper records the current PR head SHA, so run it only after the reviewed fixes have been pushed.
 
-`finish-pr.sh` requires all four role gate markers for the latest PR head by default. If a new commit is pushed after a gate passes, that gate must be repeated because the previous marker no longer matches the current head.
+`finish-pr.sh` requires all four role gate markers for the latest PR head by default, and each accepted marker comment must include a `## Evidence` section. If a new commit is pushed after a gate passes, that gate must be repeated because the previous marker no longer matches the current head.
 
 Harness/bootstrap exceptions may set `STRICT_REQUIRE_COMPANY_REVIEW_GATES=0`. Partial gates may set `STRICT_REQUIRE_COMPANY_REVIEW_GATES` to a space-separated subset, but feature work should keep the default `cto-architecture qa-verification product-value final-cto-merge`.
+
+### Evidence Templates
+Each evidence file must include `## Evidence` and the labels required for that gate.
+
+CTO Architecture Gate:
+
+```markdown
+## Evidence
+- Architecture Reviewed:
+- Work Breakdown:
+- Risks:
+```
+
+QA Verification Gate:
+
+```markdown
+## Evidence
+- Commands Run:
+- Scenarios Tested:
+- Results:
+```
+
+Product Value Gate:
+
+```markdown
+## Evidence
+- User Value:
+- Retention Impact:
+- Scope Decision:
+```
+
+Final CTO Merge Gate:
+
+```markdown
+## Evidence
+- Prior Gates Checked:
+- Unresolved Threads:
+- Merge Decision:
+```
 
 ## Cleanup 원칙
 `finish-pr.sh`는 다음 조건을 증명하기 전에는 worktree나 branch를 삭제하지 않는다.

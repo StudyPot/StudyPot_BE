@@ -8,10 +8,12 @@ source "${SCRIPT_DIR}/common.sh"
 
 pr="${1:-}"
 gate="${2:-}"
-notes_file="${3:-}"
+evidence_file="${3:-}"
 
-[[ -n "${pr}" && -n "${gate}" ]] || fail "usage: post-role-review-pass.sh <PR_NUMBER> <GATE> [notes_file]"
-[[ -z "${notes_file}" || -f "${notes_file}" ]] || fail "notes file does not exist: ${notes_file}"
+[[ -n "${pr}" && -n "${gate}" ]] || fail "usage: post-role-review-pass.sh <PR_NUMBER> <GATE> <evidence_file>"
+[[ -n "${evidence_file}" ]] || fail "evidence file is required."
+[[ -f "${evidence_file}" ]] || fail "evidence file does not exist: ${evidence_file}"
+[[ -s "${evidence_file}" ]] || fail "evidence file is empty: ${evidence_file}"
 command -v gh >/dev/null 2>&1 || fail "gh CLI is required."
 
 company_review_marker() {
@@ -54,6 +56,45 @@ company_review_scope() {
   esac
 }
 
+require_evidence_label() {
+  local file="$1"
+  local label="$2"
+  grep -Fq "${label}" "${file}" || fail "evidence file must include '${label}'."
+}
+
+validate_evidence_file() {
+  local gate="$1"
+  local file="$2"
+
+  require_evidence_label "${file}" "## Evidence"
+  case "${gate}" in
+    cto-architecture)
+      require_evidence_label "${file}" "Architecture Reviewed"
+      require_evidence_label "${file}" "Work Breakdown"
+      require_evidence_label "${file}" "Risks"
+      ;;
+    qa-verification)
+      require_evidence_label "${file}" "Commands Run"
+      require_evidence_label "${file}" "Scenarios Tested"
+      require_evidence_label "${file}" "Results"
+      ;;
+    product-value)
+      require_evidence_label "${file}" "User Value"
+      require_evidence_label "${file}" "Retention Impact"
+      require_evidence_label "${file}" "Scope Decision"
+      ;;
+    final-cto-merge)
+      require_evidence_label "${file}" "Prior Gates Checked"
+      require_evidence_label "${file}" "Unresolved Threads"
+      require_evidence_label "${file}" "Merge Decision"
+      ;;
+    *)
+      fail "unknown company review gate: ${gate}"
+      ;;
+  esac
+}
+
+validate_evidence_file "${gate}" "${evidence_file}"
 head_sha="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
 review_marker="$(company_review_marker "${gate}")"
 scope="$(company_review_scope "${gate}")"
@@ -64,10 +105,8 @@ trap 'rm -f "${body:-}"' EXIT
   printf '%s\n' "${review_marker}"
   printf 'Head: %s\n' "${head_sha}"
   printf 'Scope: %s\n' "${scope}"
-  if [[ -n "${notes_file}" ]]; then
-    printf '\n## Notes\n\n'
-    sed -n '1,220p' "${notes_file}"
-  fi
+  printf '\n'
+  sed -n '1,220p' "${evidence_file}"
 } > "${body}"
 
 gh pr comment "${pr}" --body-file "${body}"

@@ -77,6 +77,26 @@ company_review_marker() {
   esac
 }
 
+company_review_evidence_filter() {
+  case "$1" in
+    cto-architecture)
+      printf 'and (.body | contains("Architecture Reviewed")) and (.body | contains("Work Breakdown")) and (.body | contains("Risks"))'
+      ;;
+    qa-verification)
+      printf 'and (.body | contains("Commands Run")) and (.body | contains("Scenarios Tested")) and (.body | contains("Results"))'
+      ;;
+    product-value)
+      printf 'and (.body | contains("User Value")) and (.body | contains("Retention Impact")) and (.body | contains("Scope Decision"))'
+      ;;
+    final-cto-merge)
+      printf 'and (.body | contains("Prior Gates Checked")) and (.body | contains("Unresolved Threads")) and (.body | contains("Merge Decision"))'
+      ;;
+    *)
+      fail "unknown company review gate: $1"
+      ;;
+  esac
+}
+
 required_company_gates="${STRICT_REQUIRE_COMPANY_REVIEW_GATES:-cto-architecture qa-verification product-value final-cto-merge}"
 if [[ "${required_company_gates}" == "0" || "${required_company_gates}" == "none" ]]; then
   required_company_gates=""
@@ -84,10 +104,11 @@ fi
 
 for gate in ${required_company_gates}; do
   marker="$(company_review_marker "${gate}")"
+  evidence_filter="$(company_review_evidence_filter "${gate}")"
   pass_count="$(gh pr view "${pr}" --json comments --jq "
-    [.comments[]? | select((.body | contains(\"${marker}\")) and (.body | contains(\"Head: ${head_after}\")))] | length
+    [.comments[]? | select((.body | contains(\"${marker}\")) and (.body | contains(\"Head: ${head_after}\")) and (.body | contains(\"## Evidence\")) ${evidence_filter})] | length
   ")"
-  [[ "${pass_count}" -gt 0 ]] || fail "latest-head company review gate pass marker is missing: ${marker}"
+  [[ "${pass_count}" -gt 0 ]] || fail "latest-head evidence-backed company review gate pass marker is missing: ${marker}"
 done
 
 feature_worktree=""
