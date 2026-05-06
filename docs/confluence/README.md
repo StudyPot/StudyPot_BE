@@ -32,3 +32,4 @@ Published root:
 Published pages:
 - `02 요구사항`: https://studypot.atlassian.net/wiki/spaces/D/pages/1867777/02
 - `04 ERD / 데이터 모델`: https://studypot.atlassian.net/wiki/spaces/D/pages/1933313/04+ERD
+- `05 API 명세`: https://studypot.atlassian.net/wiki/spaces/D/pages/1736706/05+API
