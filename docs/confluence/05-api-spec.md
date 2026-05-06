@@ -6,13 +6,14 @@
 - Human contract: `docs/specs/api-contract-v1.md`
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
-- Current contract size: 21 paths, 27 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`
+- Current contract size: 25 paths, 31 schemas
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
 - Base path: `/api/v1`
 - Authentication: bearer access token unless an endpoint is explicitly anonymous.
+- Public auth endpoints: `POST /auth/oauth/google`, `POST /auth/refresh`.
 - ID format: UUID string at the API boundary.
 - Persistence ID format: application-generated UUIDv7 stored as MySQL `BINARY(16)`.
 - Error format: RFC 9457-style problem detail.
@@ -34,6 +35,10 @@
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens. |
+| `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens. |
+| `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
+| `POST` | `/api/v1/auth/logout-all` | `identity-core` | authenticated | Revoke all refresh tokens for the current user. |
 | `GET` | `/api/v1/users/me` | `identity-core` | authenticated | Read current user. |
 | `GET` | `/api/v1/groups` | `study-group-core` | authenticated | List my groups. |
 | `POST` | `/api/v1/groups` | `study-group-core` | authenticated | Create group and owner membership. |
@@ -61,6 +66,22 @@
 | `GET` | `/api/v1/groups/{groupId}/llm-usage` | `ai-team-leader` | owner | List LLM usage records. |
 
 ## Key Request Shapes
+### Google OAuth Login
+```json
+{
+  "authorizationCode": "google-authorization-code",
+  "redirectUri": "https://app.studypot.example/auth/callback",
+  "codeVerifier": "pkce-code-verifier"
+}
+```
+
+### Refresh Token
+```json
+{
+  "refreshToken": "raw-refresh-token-issued-by-backend"
+}
+```
+
 ### Create Group
 ```json
 {
@@ -104,6 +125,8 @@
 
 ## Permission Summary
 - Bearer token authentication is required for every `/api/v1` endpoint unless explicitly documented otherwise.
+- Google OAuth login and refresh endpoints are explicitly public auth endpoints.
+- Current-session logout and logout-all require bearer authentication.
 - Group read access requires membership.
 - Group update, host start, group notification logs, and LLM usage logs are owner-only.
 - Pending members may submit onboarding but cannot complete weekly tasks.
@@ -119,7 +142,7 @@
 
 ## Verification
 - OpenAPI YAML must parse before PR review.
-- Current local parse: `openapi=3.1.0`, `paths=21`, `schemas=27`.
+- Current local parse: `openapi=3.1.0`, `paths=25`, `schemas=31`.
 - Standard repo verification: `./gradlew check build --no-daemon`.
 
 ## 추적 링크

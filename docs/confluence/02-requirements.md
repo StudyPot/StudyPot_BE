@@ -5,7 +5,7 @@
 - Lock status: `LOCKED_FOR_IMPLEMENTATION`
 - Source of truth: `docs/specs/requirements-v1.md`
 - Supporting sources: `docs/specs/prd-v1.md`, `docs/specs/user-journeys-v1.md`, `docs/specs/notification-contract-v1.md`
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`
 - 변경 규칙: 제품 범위, API, DB, AI, 알림, 권한, QA 의미 변경은 Change Request + ADR 필요
 
 ## MVP 골든패스
@@ -14,8 +14,8 @@
 ## P0 기능 요구사항
 | Feature ID | Req ID | 요구사항 | 수용 기준 |
 | --- | --- | --- | --- |
-| `identity-core` | `REQ-ID-001` | 사용자는 인증하고 앱 프로필 데이터를 가진다. | `users`, `oauth_account`, `refresh_token`이 로그인/세션 생명주기를 지원한다. |
-| `identity-core` | `REQ-ID-002` | 사용자는 애플리케이션 세션을 갱신하고 폐기할 수 있다. | `refresh_token`은 해시 토큰, 만료, 폐기 상태를 저장한다. |
+| `identity-core` | `REQ-ID-001` | 사용자는 인증하고 앱 프로필 데이터를 가진다. | Google OAuth code exchange가 `users`, `oauth_account`, application token record를 생성/갱신한다. |
+| `identity-core` | `REQ-ID-002` | 사용자는 애플리케이션 세션을 갱신하고 폐기할 수 있다. | `refresh_token`은 해시 토큰, 만료, 폐기 상태를 저장하고 rotation 및 logout/logout-all revocation을 지원한다. |
 | `study-group-core` | `REQ-GRP-001` | 호스트는 스터디 그룹을 만들 수 있다. | 필수 입력은 이름, 주제, 상세 키워드, 최대 인원, 시작/종료일이다. |
 | `study-group-core` | `REQ-GRP-002` | 생성된 그룹은 온보딩 플로우에 들어간다. | `study_group.status = ONBOARDING`, owner member는 `PENDING_ONBOARDING`이다. |
 | `study-group-core` | `REQ-INV-001` | 호스트는 초대 링크/코드를 공유할 수 있다. | 초대 코드는 유니크하고, 참여 시 pending member record를 만든다. |

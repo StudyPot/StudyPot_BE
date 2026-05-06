@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260506-auth-api-entrypoints](./change-requests/CR-20260506-auth-api-entrypoints.md)
+- ADR: [ADR-20260506-auth-api-entrypoints](./adr/ADR-20260506-auth-api-entrypoints.md)
+- Result: The MVP API includes explicit Google OAuth login, refresh, current-session logout, and all-session logout endpoints for `identity-core`.
+
+## Previous Approved Change
 - Change Request: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
 - ADR: [ADR-20260504-no-discord-inapp-notification](./adr/ADR-20260504-no-discord-inapp-notification.md)
 - Result: Discord integration is removed from MVP, notification is in-app first, and AI team leader owns weekly next-week adjustment.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260430-onboarding-mysql8-mvp](./change-requests/CR-20260430-onboarding-mysql8-mvp.md)
 - ADR: [ADR-20260430-onboarding-mysql8-mvp](./adr/ADR-20260430-onboarding-mysql8-mvp.md)
 - Result: v1 implementation source of truth is Requirements v0.3, ERD v0.8, MySQL8, and onboarding MVP.

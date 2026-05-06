@@ -15,8 +15,8 @@
 ## P0 Functional Requirements
 | Feature ID | Req ID | Requirement | Acceptance |
 | --- | --- | --- | --- |
-| `identity-core` | `REQ-ID-001` | Users authenticate and own application profile data. | `users`, `oauth_account`, and `refresh_token` support login/session lifecycle. |
-| `identity-core` | `REQ-ID-002` | Users can refresh and revoke application sessions. | `refresh_token` stores hashed refresh tokens, expiry, and revocation state. |
+| `identity-core` | `REQ-ID-001` | Users authenticate and own application profile data. | Google OAuth code exchange creates or updates `users`, `oauth_account`, and application token records. |
+| `identity-core` | `REQ-ID-002` | Users can refresh and revoke application sessions. | `refresh_token` stores hashed refresh tokens, expiry, revocation state, and supports rotation plus logout/logout-all revocation. |
 | `study-group-core` | `REQ-GRP-001` | Host can create a study group. | Required inputs are name, topic, detail keywords, max members, starts/ends dates. |
 | `study-group-core` | `REQ-GRP-002` | Created group enters onboarding flow. | `study_group.status = ONBOARDING`, owner member is `PENDING_ONBOARDING`. |
 | `study-group-core` | `REQ-INV-001` | Host can share invite link/code. | Invite code is unique and creates pending member records. |

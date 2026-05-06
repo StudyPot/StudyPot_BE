@@ -8,6 +8,62 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /auth/oauth/google:
+    post:
+      tags: [Auth]
+      operationId: loginWithGoogleOAuth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleOAuthLoginRequest'
+      responses:
+        '200':
+          description: Application tokens issued from a Google authorization code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshAuthToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Refreshed application tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutCurrentSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Current refresh token revoked
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      operationId: logoutAllSessions
+      responses:
+        '204':
+          description: All refresh tokens revoked for the authenticated user
   /users/me:
     get:
       tags: [Users]
@@ -423,6 +479,33 @@ components:
     RetrospectiveStatus:
       type: string
       enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+    GoogleOAuthLoginRequest:
+      type: object
+      required: [authorizationCode, redirectUri]
+      properties:
+        authorizationCode: {type: string, minLength: 1}
+        redirectUri: {type: string, format: uri}
+        codeVerifier: {type: string}
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: {type: string, minLength: 1}
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: {type: string, minLength: 1}
+    AuthTokenResponse:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: {type: string}
+        refreshToken: {type: string}
+        tokenType: {type: string, enum: [Bearer]}
+        expiresIn: {type: integer, minimum: 1}
+        user:
+          $ref: '#/components/schemas/UserResponse'
     UserResponse:
       type: object
       required: [id, email, nickname]

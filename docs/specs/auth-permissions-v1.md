@@ -15,6 +15,10 @@
 ## Permission Matrix
 | Action | Anonymous | Authenticated Non-Member | Pending Member | Active Member | Owner |
 | --- | --- | --- | --- | --- | --- |
+| Exchange Google authorization code | yes | yes | yes | yes | yes |
+| Refresh application token | yes | yes | yes | yes | yes |
+| Logout current session | no | yes | yes | yes | yes |
+| Logout all sessions | no | yes | yes | yes | yes |
 | Read own user profile | no | yes | yes | yes | yes |
 | Create group | no | yes | yes | yes | yes |
 | Join group by invite | no | yes | yes | yes | yes |
@@ -48,6 +52,10 @@
 - `ARCHIVED` groups are read-only except for owner/admin audit access.
 
 ## Security Requirements
-- Bearer token authentication is required for all `/api/v1` endpoints except explicit OAuth/public invite metadata endpoints if added later.
+- Bearer token authentication is required for all `/api/v1` endpoints except explicit public auth endpoints and public invite metadata endpoints if added later.
+- `POST /api/v1/auth/oauth/google` and `POST /api/v1/auth/refresh` are explicit public auth endpoints.
+- `POST /api/v1/auth/logout` and `POST /api/v1/auth/logout-all` require bearer authentication.
+- Refresh tokens must be stored as hashes and rotated on refresh.
+- A refresh token used after rotation or revocation must be rejected.
 - Cross-group access must be rejected even if the resource ID exists.
 - Service logic must verify that member, week, task, retrospective, and conversation belong to the same group.

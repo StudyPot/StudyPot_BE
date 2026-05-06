@@ -9,6 +9,7 @@
 ## Global Contract
 - Base path: `/api/v1`.
 - Authentication: bearer access token unless endpoint is explicitly anonymous.
+- Public auth endpoints: `POST /auth/oauth/google` and `POST /auth/refresh` do not require bearer authentication.
 - IDs: UUID strings at the API boundary; persistence stores UUIDv7 as `BINARY(16)`.
 - Error format: RFC 9457-style problem detail.
 - Pagination: cursor pagination for list endpoints that can grow.
@@ -29,6 +30,10 @@
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens. |
+| `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens. |
+| `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
+| `POST` | `/api/v1/auth/logout-all` | `identity-core` | authenticated | Revoke all refresh tokens for the current user. |
 | `GET` | `/api/v1/users/me` | `identity-core` | authenticated | Read current user. |
 | `GET` | `/api/v1/groups` | `study-group-core` | authenticated | List my groups. |
 | `POST` | `/api/v1/groups` | `study-group-core` | authenticated | Create group and owner membership. |
@@ -56,6 +61,22 @@
 | `GET` | `/api/v1/groups/{groupId}/llm-usage` | `ai-team-leader` | owner | List LLM usage records. |
 
 ## Key Request Shapes
+### Google OAuth Login
+```json
+{
+  "authorizationCode": "google-authorization-code",
+  "redirectUri": "https://app.studypot.example/auth/callback",
+  "codeVerifier": "pkce-code-verifier"
+}
+```
+
+### Refresh Token
+```json
+{
+  "refreshToken": "raw-refresh-token-issued-by-backend"
+}
+```
+
 ### Create Group
 ```json
 {
@@ -91,6 +112,7 @@
 ```
 
 ## State Transition Rules
+- `refresh_token`: active -> revoked when used for logout, logout-all, or detected reuse after rotation.
 - `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
 - `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
 - `task_completion`: `TODO -> DONE`, `TODO -> INCOMPLETE`, `TODO -> SKIPPED`.
@@ -101,3 +123,12 @@
 - Adding/removing endpoints, changing request fields, response fields, enum values, or authorization behavior requires Change Request and ADR.
 - OpenAPI must parse before PR review.
 - API examples must match DB contract enum values.
+
+## Auth API Rules
+- MVP login provider is Google OAuth.
+- The client obtains the Google authorization code and sends it to `POST /auth/oauth/google`.
+- The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and returns an access/refresh token pair.
+- `POST /auth/refresh` rotates the refresh token; the old refresh token must not be accepted again.
+- `POST /auth/logout` revokes the submitted refresh token for the authenticated user.
+- `POST /auth/logout-all` revokes every active refresh token for the authenticated user.
+- Raw application refresh tokens, provider access tokens, provider refresh tokens, and OAuth client secrets must not be logged or returned outside the token issuance/rotation response.
