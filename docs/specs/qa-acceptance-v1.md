@@ -20,6 +20,9 @@
 | `identity-core` | `QA-ID-001` | User profile can be read with authenticated context. |
 | `identity-core` | `QA-ID-002` | OAuth/refresh token records are stored without raw token leakage. |
 | `identity-core` | `QA-ID-003` | Refresh token revocation prevents reuse. |
+| `identity-core` | `QA-ID-004` | Google OAuth authorization-code exchange creates or updates the user, OAuth account, and application token pair. |
+| `identity-core` | `QA-ID-005` | Refresh token rotation returns a new token pair and rejects reuse of the old refresh token. |
+| `identity-core` | `QA-ID-006` | Current-session logout and logout-all revoke the intended refresh tokens. |
 | `study-group-core` | `QA-GRP-001` | Group creation requires name, topic, detail keywords, max members, and period. |
 | `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
@@ -49,6 +52,8 @@
 | `notification` | `QA-NOTI-004` | Notification failure does not roll back core domain event. |
 
 ## Required Scenario Tests
+- Google OAuth login -> read current user -> refresh token rotation -> old refresh token reuse rejected -> logout current session.
+- Login from two sessions -> logout-all -> both refresh tokens rejected.
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
 - Host start with only partial onboarding completion.
 - Current week task completion before due date.

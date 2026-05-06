@@ -11,6 +11,7 @@
 - `SPT-53`: AI prompt/team leader document consolidation Story; use as reference for AI follow-up, not a harness start target.
 - `SPT-55`: Discord removal and in-app notification source update, completed.
 - `SPT-56`: remaining documentation source-of-truth cleanup Task.
+- `SPT-58`: Auth login/token API source update Task.
 
 ## Harness Start Rule
 - Start implementation only from Jira `SPT` issues of type `작업`/`Task`.

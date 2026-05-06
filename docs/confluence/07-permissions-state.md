@@ -7,6 +7,8 @@
 - `retrospective.status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
 
 ## Permission Summary
+- Google OAuth login and refresh token rotation are public auth endpoints.
+- Current-session logout and logout-all require bearer authentication.
 - Owner creates/updates group and starts study.
 - Pending member can submit onboarding.
 - Active member can view curriculum, complete todos, request retrospective, and chat with AI.

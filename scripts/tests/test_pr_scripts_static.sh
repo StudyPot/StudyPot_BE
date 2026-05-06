@@ -66,6 +66,7 @@ assert_contains "Final CTO merge approval" "${TEST_ROOT}/scripts/task/post-role-
 assert_contains "test_quality_gate_contracts.sh" "${TEST_ROOT}/scripts/tests/run.sh"
 assert_contains "test_docs_source_of_truth.sh" "${TEST_ROOT}/scripts/tests/run.sh"
 assert_contains "test_error_ledger_contracts.sh" "${TEST_ROOT}/scripts/tests/run.sh"
+assert_contains "test_auth_api_contracts.sh" "${TEST_ROOT}/scripts/tests/run.sh"
 assert_contains "db-schema-coverage" "${TEST_ROOT}/.github/workflows/pr-quality.yml"
 assert_contains "Verify ERD v0.8 schema coverage" "${TEST_ROOT}/.github/workflows/pr-quality.yml"
 assert_contains "db-schema-coverage" "${TEST_ROOT}/scripts/task/verify-pr-ready.sh"
