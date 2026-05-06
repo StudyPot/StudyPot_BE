@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./testlib.sh
+# shellcheck source=scripts/tests/testlib.sh
 source "${SCRIPT_DIR}/testlib.sh"
 
 tmp="$(mktemp -d)"
@@ -65,3 +65,11 @@ git -C "${worktree}" add docs src
 
 STRICT_REPO_ROOT="${worktree}" STRICT_VERIFY_COMMAND="true" "${TEST_ROOT}/scripts/hooks/pre-commit.sh"
 STRICT_REPO_ROOT="${worktree}" STRICT_VERIFY_COMMAND="true" "${TEST_ROOT}/scripts/hooks/pre-push.sh"
+
+installed_hooks="${tmp}/installed-hooks"
+mkdir -p "${installed_hooks}"
+ln -sf "${TEST_ROOT}/scripts/hooks/pre-commit.sh" "${installed_hooks}/pre-commit"
+ln -sf "${TEST_ROOT}/scripts/hooks/pre-push.sh" "${installed_hooks}/pre-push"
+
+STRICT_REPO_ROOT="${worktree}" STRICT_VERIFY_COMMAND="true" "${installed_hooks}/pre-commit"
+STRICT_REPO_ROOT="${worktree}" STRICT_VERIFY_COMMAND="true" "${installed_hooks}/pre-push"

@@ -1,6 +1,6 @@
 # AI Study Leader 개발 문서
 
-Confluence 앱 권한이 열리면 이 디렉터리의 Markdown을 같은 제목의 Confluence 페이지로 생성한다.
+이 디렉터리는 Confluence 문서의 repo mirror이자 publication source입니다. Confluence에 이미 발행된 페이지와 아직 Markdown draft로 남은 페이지를 같은 tree 안에서 관리합니다.
 
 ## Page Tree
 - [00 문서 허브](./00-doc-hub.md)
@@ -21,10 +21,11 @@ Confluence 앱 권한이 열리면 이 디렉터리의 Markdown을 같은 제목
 - Mermaid: `/Users/hyunwoo/Desktop/Project/CodingTestTeam/outputs/erd-mysql8/ERD_MySQL8_v0.8.mmd`
 - Repo specs: `docs/specs/*`
 - Jira Epic: `SPT-10`
+- Published source tasks: `SPT-4`, `SPT-6`, `SPT-7`
+- Remaining docs cleanup task: `SPT-56`
 
 ## Confluence Publication Note
-Atlassian MCP/Rovo search can access Jira but still returns 403 for Confluence: `The app is not installed on this instance`.
-Confluence publication is available through authenticated Confluence REST API access to space `D`.
+Confluence publication is available through authenticated Confluence REST API access to space `D`. Keep the Markdown source and published page list synchronized when a page is created or refreshed.
 
 Published root:
 - `AI Study Leader 개발 문서`: https://studypot.atlassian.net/wiki/spaces/D/pages/1835009/AI+Study+Leader
@@ -33,3 +34,13 @@ Published pages:
 - `02 요구사항`: https://studypot.atlassian.net/wiki/spaces/D/pages/1867777/02
 - `04 ERD / 데이터 모델`: https://studypot.atlassian.net/wiki/spaces/D/pages/1933313/04+ERD
 - `05 API 명세`: https://studypot.atlassian.net/wiki/spaces/D/pages/1736706/05+API
+
+Draft pages not yet confirmed as published:
+- `00 문서 허브`
+- `01 MVP 골든패스`
+- `03 유저 플로우`
+- `06 AI 팀장 명세`
+- `07 권한 / 상태 전이`
+- `08 알림`
+- `09 QA / Acceptance Criteria`
+- `10 Jira 매핑`

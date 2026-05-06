@@ -16,6 +16,8 @@
 - Discord 연동은 MVP에서 제외하며, 알림은 서비스 내부 `IN_APP` 알림으로 제공합니다.
 - Database baseline: MySQL8, application-generated UUIDv7 stored as `BINARY(16)`, flexible values stored as `JSON`.
 - Heavy synchronous meeting automation is deferred.
+- Published source tasks: `SPT-4` requirements, `SPT-6` ERD/data model, and `SPT-7` API specification.
+- Remaining documentation cleanup is tracked by `SPT-56`.
 
 ## 문서 맵
 - [제품 명세](./specs/product-brief.md)
@@ -41,7 +43,8 @@
 - [Jira Board Sync](./operations/jira-board-sync.md)
 - [Obsidian 에러 레저 운영](./operations/obsidian-error-ledger.md)
 - [품질 스코어카드](./quality/scorecard.md)
-- [현재 실행 계획](./exec-plans/active/20260504-docs-no-discord-inapp-notifications.md)
+- [실행 계획 기록](./exec-plans/active/)
+- [문서 정리 실행 계획](./exec-plans/active/20260506-docs-source-of-truth-cleanup.md)
 
 ## 기본 원칙
 - 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.

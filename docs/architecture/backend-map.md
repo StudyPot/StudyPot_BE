@@ -2,7 +2,7 @@
 
 ## Project
 - Name: `AI Study Leader`
-- Repo: `/Users/hyunwoo/Documents/New project 3`
+- Repo: `/Users/hyunwoo/Developer/Projects/StudyPot`
 - Stack: `Java 21 + Gradle + Spring Boot`
 
 ## Map
