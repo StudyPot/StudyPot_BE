@@ -45,12 +45,12 @@ class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 	}
 
 	@Override
-	public void revoke(UUID refreshTokenId, Instant revokedAt) {
-		jdbcTemplate.update(
+	public boolean revoke(UUID refreshTokenId, Instant revokedAt) {
+		return jdbcTemplate.update(
 			RefreshTokenJdbcSql.REVOKE_REFRESH_TOKEN,
 			timestamp(revokedAt),
 			UuidBinary.toBytes(refreshTokenId)
-		);
+		) > 0;
 	}
 
 	@Override

@@ -290,9 +290,13 @@ class AuthControllerTest {
 		}
 
 		@Override
-		public void revoke(UUID refreshTokenId, Instant revokedAt) {
+		public boolean revoke(UUID refreshTokenId, Instant revokedAt) {
 			RefreshTokenSession session = sessionsById.get(refreshTokenId);
+			if (session == null || session.revokedAt().isPresent()) {
+				return false;
+			}
 			sessionsById.put(refreshTokenId, session.revoke(revokedAt));
+			return true;
 		}
 
 		@Override

@@ -94,6 +94,21 @@ class AuthSessionServiceTest {
 	}
 
 	@Test
+	void refreshRejectsConcurrentReuseWhenRevokeLosesRace() {
+		google.nextProfile = verifiedProfile("google-123", "member@example.com", "Study Member");
+		AuthTokenResult issued = service.loginWithGoogle(command("code-123"), metadata("Chrome", "203.0.113.10"));
+
+		refreshTokenRepository.loseNextRevokeRace = true;
+		clock.current = NOW.plus(Duration.ofMinutes(3));
+
+		assertThatThrownBy(() -> service.refresh(issued.refreshToken(), metadata("Safari", "203.0.113.11")))
+			.isInstanceOf(RefreshTokenRejectedException.class)
+			.hasMessageContaining("refresh token");
+		assertThat(refreshTokenRepository.sessionsById).hasSize(1);
+		assertThat(refreshTokenRepository.sessionsById.get(FIRST_REFRESH_ID).revokedAt()).isEmpty();
+	}
+
+	@Test
 	void logoutRevokesOnlySubmittedRefreshTokenForAuthenticatedUser() {
 		google.nextProfile = verifiedProfile("google-123", "member@example.com", "Study Member");
 		AuthTokenResult issued = service.loginWithGoogle(command("code-123"), metadata("Chrome", "203.0.113.10"));
@@ -236,6 +251,7 @@ class AuthSessionServiceTest {
 
 		private final Map<UUID, RefreshTokenSession> sessionsById = new HashMap<>();
 		private final Map<String, UUID> sessionIdsByHash = new HashMap<>();
+		private boolean loseNextRevokeRace;
 
 		@Override
 		public Optional<RefreshTokenSession> findByTokenHash(String tokenHash) {
@@ -251,9 +267,17 @@ class AuthSessionServiceTest {
 		}
 
 		@Override
-		public void revoke(UUID refreshTokenId, Instant revokedAt) {
+		public boolean revoke(UUID refreshTokenId, Instant revokedAt) {
+			if (loseNextRevokeRace) {
+				loseNextRevokeRace = false;
+				return false;
+			}
 			RefreshTokenSession session = sessionsById.get(refreshTokenId);
+			if (session == null || session.revokedAt().isPresent()) {
+				return false;
+			}
 			sessionsById.put(refreshTokenId, session.revoke(revokedAt));
+			return true;
 		}
 
 		@Override

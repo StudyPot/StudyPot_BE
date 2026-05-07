@@ -10,7 +10,7 @@ public interface RefreshTokenRepository {
 
 	RefreshTokenSession save(RefreshTokenSession session);
 
-	void revoke(UUID refreshTokenId, Instant revokedAt);
+	boolean revoke(UUID refreshTokenId, Instant revokedAt);
 
 	int revokeAllActiveByUserId(UUID userId, Instant revokedAt);
 }

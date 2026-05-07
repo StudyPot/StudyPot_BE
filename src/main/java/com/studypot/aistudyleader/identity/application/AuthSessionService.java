@@ -55,7 +55,7 @@ public class AuthSessionService {
 		Instant now = clock.instant();
 		RefreshTokenSession currentSession = requireActiveRefreshToken(rawRefreshToken, now);
 		IdentityUser user = findActiveUser(currentSession.userId());
-		refreshTokenRepository.revoke(currentSession.id(), now);
+		revokeOrReject(currentSession.id(), now);
 		return issueTokenPair(user, metadata, now);
 	}
 
@@ -67,7 +67,7 @@ public class AuthSessionService {
 		if (!session.userId().equals(authenticatedUserId)) {
 			throw new RefreshTokenRejectedException("refresh token does not belong to the authenticated user.");
 		}
-		refreshTokenRepository.revoke(session.id(), now);
+		revokeOrReject(session.id(), now);
 	}
 
 	@Transactional
@@ -116,6 +116,12 @@ public class AuthSessionService {
 			throw new RefreshTokenRejectedException("refresh token is invalid or revoked.");
 		}
 		return session;
+	}
+
+	private void revokeOrReject(UUID refreshTokenId, Instant revokedAt) {
+		if (!refreshTokenRepository.revoke(refreshTokenId, revokedAt)) {
+			throw new RefreshTokenRejectedException("refresh token is invalid or revoked.");
+		}
 	}
 
 	private IdentityUser findActiveUser(UUID userId) {

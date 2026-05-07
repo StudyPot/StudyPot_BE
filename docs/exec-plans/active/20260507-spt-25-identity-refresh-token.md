@@ -91,3 +91,8 @@ Implement SPT-25 identity session support: wire Google OAuth login to applicatio
 - [x] Final full verification after local profile check: `./gradlew check build --no-daemon` PASS.
 - [x] Pre-commit full verification: `./gradlew check build --no-daemon` PASS.
 - [x] Pre-commit whitespace check: `git diff --check` PASS.
+- [x] Copilot RED: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.AuthSessionServiceTest.refreshRejectsConcurrentReuseWhenRevokeLosesRace' --no-daemon` failed because refresh issued a new token when revoke lost a concurrent race.
+- [x] Copilot fix focused: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.AuthSessionServiceTest' --no-daemon` PASS after `RefreshTokenRepository.revoke` started returning success/failure.
+- [x] Copilot fix adapters: `./gradlew test --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerTest' --tests 'com.studypot.aistudyleader.identity.adapter.out.persistence.IdentityJdbcSqlContractTest' --no-daemon` PASS.
+- [x] Copilot fix full verification: `./gradlew check build --no-daemon` PASS.
+- [x] Copilot fix whitespace check: `git diff --check` PASS.
