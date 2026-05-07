@@ -96,3 +96,8 @@ Implement SPT-25 identity session support: wire Google OAuth login to applicatio
 - [x] Copilot fix adapters: `./gradlew test --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerTest' --tests 'com.studypot.aistudyleader.identity.adapter.out.persistence.IdentityJdbcSqlContractTest' --no-daemon` PASS.
 - [x] Copilot fix full verification: `./gradlew check build --no-daemon` PASS.
 - [x] Copilot fix whitespace check: `git diff --check` PASS.
+- [x] Copilot second RED: `./gradlew test --tests 'com.studypot.aistudyleader.global.error.ProblemDetailFactoryTest.serviceUnavailableProblemUsesProblemDetailShape' --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerMissingServiceTest' --no-daemon` failed because auth service unavailable handling did not exist.
+- [x] Copilot second focused: `./gradlew test --tests 'com.studypot.aistudyleader.global.error.ProblemDetailFactoryTest.serviceUnavailableProblemUsesProblemDetailShape' --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerMissingServiceTest' --no-daemon` PASS.
+- [x] Copilot second auth/error scope: `./gradlew test --tests 'com.studypot.aistudyleader.identity.*' --tests 'com.studypot.aistudyleader.global.error.*' --no-daemon` PASS.
+- [x] Copilot second full verification: `./gradlew check build --no-daemon` PASS.
+- [x] Copilot second whitespace check: `git diff --check` PASS.

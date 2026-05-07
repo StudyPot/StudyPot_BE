@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.identity.application.AuthSessionMetadata;
 import com.studypot.aistudyleader.identity.application.AuthSessionRejectedException;
 import com.studypot.aistudyleader.identity.application.AuthSessionService;
+import com.studypot.aistudyleader.identity.application.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.identity.application.AuthTokenResult;
 import com.studypot.aistudyleader.identity.application.AuthenticatedUser;
 import com.studypot.aistudyleader.identity.application.GoogleOAuthLoginCommand;
@@ -66,7 +67,7 @@ class AuthController {
 
 	private AuthSessionService authSessionService() {
 		return authSessionService.getIfAvailable(() -> {
-			throw new AuthSessionRejectedException("auth service is not configured.");
+			throw new AuthServiceUnavailableException("auth service is not configured.");
 		});
 	}
 

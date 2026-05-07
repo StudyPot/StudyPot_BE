@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.global.error;
 
 import com.studypot.aistudyleader.identity.application.AuthSessionRejectedException;
+import com.studypot.aistudyleader.identity.application.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.identity.application.InvalidAuthRequestException;
 import com.studypot.aistudyleader.identity.application.OAuthLoginRejectedException;
 import jakarta.validation.ConstraintViolationException;
@@ -71,6 +72,12 @@ public class ApiExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleAuthSessionRejected(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 			.body(problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(AuthServiceUnavailableException.class)
+	public ResponseEntity<ProblemDetail> handleAuthServiceUnavailable(AuthServiceUnavailableException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
 	private static String parameterName(ParameterValidationResult result) {

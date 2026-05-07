@@ -28,4 +28,13 @@ class ProblemDetailFactoryTest {
 		assertThat(problemDetail.getTitle()).isEqualTo("Unauthorized");
 		assertThat(problemDetail.getDetail()).isEqualTo("Authentication is required.");
 	}
+
+	@Test
+	void serviceUnavailableProblemUsesProblemDetailShape() {
+		var problemDetail = factory.serviceUnavailable("Auth service is unavailable.");
+
+		assertThat(problemDetail.getStatus()).isEqualTo(503);
+		assertThat(problemDetail.getTitle()).isEqualTo("Service unavailable");
+		assertThat(problemDetail.getDetail()).isEqualTo("Auth service is unavailable.");
+	}
 }
