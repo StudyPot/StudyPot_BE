@@ -13,7 +13,7 @@ alter table study_group
 
 alter table group_member
   drop index group_member_group_user_uidx,
-  add column group_user_live_key varbinary(32) generated always as (case when deleted_at is null then concat(group_id, user_id) else null end) stored,
+  add column group_user_live_key varbinary(32) generated always as (case when deleted_at is null then concat(cast(group_id as binary(16)), cast(user_id as binary(16))) else null end) stored,
   add unique key group_member_group_user_live_uidx (group_user_live_key);
 
 alter table group_onboarding_response

@@ -108,6 +108,10 @@ Use test-driven implementation:
 - PASS after Copilot sixth review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --tests 'com.studypot.aistudyleader.global.persistence.UuidBinaryTest' --no-daemon`
 - PASS after Copilot sixth review fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot sixth review fixes: `./gradlew check build --no-daemon`
+- Copilot seventh review: latest-head seventh review received on PR #36 with 2 actionable threads. Enforced restored `deletedAt >= updatedAt` audit state and made the group/member live key expression explicitly concatenate two `BINARY(16)` values.
+- PASS after Copilot seventh review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.shared.domain.AuditMetadataTest' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot seventh review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot seventh review fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.

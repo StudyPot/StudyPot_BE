@@ -54,8 +54,16 @@ class AuditMetadataTest {
 				Instant.parse("2026-05-07T04:00:01Z"),
 				Instant.parse("2026-05-07T04:00:00Z"),
 				null
-				))
-				.withMessage("updatedAt must not be before createdAt");
+			))
+			.withMessage("updatedAt must not be before createdAt");
+
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> new AuditMetadata(
+				Instant.parse("2026-05-07T04:00:00Z"),
+				Instant.parse("2026-05-07T04:00:02Z"),
+				Instant.parse("2026-05-07T04:00:01Z")
+			))
+			.withMessage("deletedAt must not be before updatedAt");
 	}
 
 	@Test
