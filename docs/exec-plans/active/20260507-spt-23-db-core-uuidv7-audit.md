@@ -84,6 +84,10 @@ Use test-driven implementation:
 - PASS: `./gradlew test --no-daemon`
 - PASS: `bash scripts/tests/run.sh`
 - PASS: `./gradlew check build --no-daemon`
+- Copilot review: latest-head review received on PR #36 with 4 actionable threads. Addressed optional backtick handling for PK assertions, case-insensitive audit column presence checks, UUIDv7 ordering test semantics, and UUID binary conversion allocation.
+- PASS after Copilot fixes: `./gradlew test --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --tests 'com.studypot.aistudyleader.global.persistence.UuidBinaryTest' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.

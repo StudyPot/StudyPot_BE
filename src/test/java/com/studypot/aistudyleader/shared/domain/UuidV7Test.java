@@ -33,7 +33,7 @@ class UuidV7Test {
 		UUID second = UuidV7.generate(secondClock, new SplittableRandom(1));
 
 		assertThat(UuidV7.unixTimestampMillis(first)).isLessThan(UuidV7.unixTimestampMillis(second));
-		assertThat(first).isLessThan(second);
+		assertThat(compareUnsignedBytes(first, second)).isNegative();
 	}
 
 	@Test
@@ -45,5 +45,27 @@ class UuidV7Test {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> UuidV7.requireVersion7(UUID.randomUUID()))
 			.withMessage("uuid must be version 7");
+	}
+
+	private static int compareUnsignedBytes(UUID left, UUID right) {
+		for (int shift = Long.SIZE - Byte.SIZE; shift >= 0; shift -= Byte.SIZE) {
+			int comparison = Integer.compare(
+				(int) ((left.getMostSignificantBits() >>> shift) & 0xFF),
+				(int) ((right.getMostSignificantBits() >>> shift) & 0xFF)
+			);
+			if (comparison != 0) {
+				return comparison;
+			}
+		}
+		for (int shift = Long.SIZE - Byte.SIZE; shift >= 0; shift -= Byte.SIZE) {
+			int comparison = Integer.compare(
+				(int) ((left.getLeastSignificantBits() >>> shift) & 0xFF),
+				(int) ((right.getLeastSignificantBits() >>> shift) & 0xFF)
+			);
+			if (comparison != 0) {
+				return comparison;
+			}
+		}
+		return 0;
 	}
 }

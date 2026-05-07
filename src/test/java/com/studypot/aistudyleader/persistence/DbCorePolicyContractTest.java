@@ -29,7 +29,7 @@ class DbCorePolicyContractTest {
 			String body = createTableBody(migration, table);
 			assertThat(body)
 				.as("%s primary id", table)
-				.containsPattern("(?im)^\\s*id\\s+binary\\(16\\)\\s+not\\s+null\\b");
+				.containsPattern("(?im)^\\s*`?id`?\\s+binary\\(16\\)\\s+not\\s+null\\b");
 
 			for (String column : foreignKeyColumns(body)) {
 				assertThat(body)
@@ -45,20 +45,20 @@ class DbCorePolicyContractTest {
 
 		for (String table : tables(migration)) {
 			String body = createTableBody(migration, table);
-			if (body.contains("created_at")) {
+			if (containsColumn(body, "created_at")) {
 				assertThat(body)
 					.as("%s created_at", table)
-					.containsPattern("(?im)^\\s*created_at\\s+timestamp\\(6\\)\\s+not\\s+null\\s+default\\s+current_timestamp\\(6\\)");
+					.containsPattern("(?im)^\\s*`?created_at`?\\s+timestamp\\(6\\)\\s+not\\s+null\\s+default\\s+current_timestamp\\(6\\)");
 			}
-			if (body.contains("updated_at")) {
+			if (containsColumn(body, "updated_at")) {
 				assertThat(body)
 					.as("%s updated_at", table)
-					.containsPattern("(?im)^\\s*updated_at\\s+timestamp\\(6\\)\\s+not\\s+null\\s+default\\s+current_timestamp\\(6\\)\\s+on\\s+update\\s+current_timestamp\\(6\\)");
+					.containsPattern("(?im)^\\s*`?updated_at`?\\s+timestamp\\(6\\)\\s+not\\s+null\\s+default\\s+current_timestamp\\(6\\)\\s+on\\s+update\\s+current_timestamp\\(6\\)");
 			}
-			if (body.contains("deleted_at")) {
+			if (containsColumn(body, "deleted_at")) {
 				assertThat(body)
 					.as("%s deleted_at", table)
-					.containsPattern("(?im)^\\s*deleted_at\\s+timestamp\\(6\\)\\s+null\\b");
+					.containsPattern("(?im)^\\s*`?deleted_at`?\\s+timestamp\\(6\\)\\s+null\\b");
 			}
 		}
 	}
@@ -115,6 +115,12 @@ class DbCorePolicyContractTest {
 			return stripped.substring(1, stripped.length() - 1);
 		}
 		return stripped;
+	}
+
+	private static boolean containsColumn(String tableBody, String column) {
+		return Pattern.compile("^\\s*`?" + Pattern.quote(column) + "`?\\s+", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE)
+			.matcher(tableBody)
+			.find();
 	}
 
 	private static String createTableBody(String migration, String table) {
