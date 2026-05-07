@@ -14,6 +14,9 @@
 - `.github/workflows/codeql.yml`
   - Java/Kotlin source가 생기면 CodeQL 분석 실행
   - 구현 전 문서/하네스 상태에서는 pass 상태로 skip
+- `.github/workflows/jira-auto-done.yml`
+  - GitHub merge 후 Jira Task는 자동으로 완료 처리
+  - `pull_request.closed` 이벤트에서 merged PR, target `develop`, head `codex/*`, linked `SPT-*` key를 확인한 뒤 Jira REST API로 `완료` 전환
 - `.github/dependabot.yml`
   - GitHub Actions dependency update를 weekly로 확인
 
