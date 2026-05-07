@@ -3,9 +3,9 @@
 - Task slug: `spt-23-db-core-uuidv7-audit`
 - Base branch: `develop`
 - Feature branch: `codex/spt-23-db-core-uuidv7-audit`
-- Worktree: `/Users/hyunwoo/Documents/New project 3-worktrees/spt-23-db-core-uuidv7-audit`
+- Worktree: `<generated feature worktree>/spt-23-db-core-uuidv7-audit`
 - Port: `18080`
-- Log dir: `/Users/hyunwoo/Documents/New project 3-logs/spt-23-db-core-uuidv7-audit`
+- Log dir: `<generated task log dir>/spt-23-db-core-uuidv7-audit`
 - Jira issue: `SPT-23`
 - Jira URL: https://studypot.atlassian.net/browse/SPT-23
 - Jira summary: [db-core] UUIDv7/audit/soft delete 공통 정책
@@ -88,6 +88,10 @@ Use test-driven implementation:
 - PASS after Copilot fixes: `./gradlew test --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --tests 'com.studypot.aistudyleader.global.persistence.UuidBinaryTest' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
 - PASS after Copilot fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot fixes: `./gradlew check build --no-daemon`
+- Copilot re-review: latest-head re-review received on PR #36 with 3 actionable threads. Addressed local absolute path exposure in EXEC_PLAN, more tolerant `ENGINE =` schema parsing, and strict RFC variant validation for UUIDv7.
+- PASS after Copilot re-review fixes: `./gradlew test --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot re-review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot re-review fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.

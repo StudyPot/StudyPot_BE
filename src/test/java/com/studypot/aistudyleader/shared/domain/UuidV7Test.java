@@ -45,6 +45,11 @@ class UuidV7Test {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> UuidV7.requireVersion7(UUID.randomUUID()))
 			.withMessage("uuid must be version 7");
+
+		UUID nonRfcVariantV7 = new UUID((1_778_126_400_123L << 16) | (0x7L << 12), 0);
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> UuidV7.requireVersion7(nonRfcVariantV7))
+			.withMessage("uuid must use RFC 4122 variant");
 	}
 
 	private static int compareUnsignedBytes(UUID left, UUID right) {

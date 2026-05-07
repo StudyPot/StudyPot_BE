@@ -125,7 +125,7 @@ class DbCorePolicyContractTest {
 
 	private static String createTableBody(String migration, String table) {
 		var matcher = Pattern.compile(
-			"^create\\s+table\\s+`?" + Pattern.quote(table) + "`?\\s*\\((.*?)\\)\\s*engine=",
+			"^create\\s+table\\s+`?" + Pattern.quote(table) + "`?\\s*\\((.*?)\\)\\s*engine\\s*=",
 			Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL
 		).matcher(migration);
 

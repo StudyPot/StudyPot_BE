@@ -42,6 +42,9 @@ public final class UuidV7 {
 		if (uuid.version() != 7) {
 			throw new IllegalArgumentException("uuid must be version 7");
 		}
+		if (uuid.variant() != 2) {
+			throw new IllegalArgumentException("uuid must use RFC 4122 variant");
+		}
 		return uuid;
 	}
 }
