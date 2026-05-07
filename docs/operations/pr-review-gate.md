@@ -6,7 +6,7 @@
 1. feature 작업은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로 시작한다.
 2. 구현과 검증은 생성된 `codex/<slug>` worktree에서만 수행한다.
 3. commit 전 hook이 `EXEC_PLAN`, related docs, feature id, tests, verification을 확인한다.
-4. PR 생성은 `scripts/task/create-pr.sh`로 수행하며, 기본적으로 `gh pr edit <PR> --add-reviewer copilot`로 GitHub Copilot review를 요청한다.
+4. PR 생성은 `scripts/task/create-pr.sh`로 수행하며, 기본적으로 `gh pr edit <PR> --add-reviewer @copilot`로 GitHub Copilot review를 요청한다.
 5. GitHub Actions가 PR 품질 검사와 reviewdog feedback을 실행한다. `review-gate-pass`는 company role gate evidence가 없으면 실패 상태로 남는다.
 6. Codex review를 회사 역할 기반 gate로 수행한다. 작성자는 각 role의 actionable feedback을 수정한 뒤 다음 gate를 요청하고 최신 head evidence marker를 남긴다.
 7. GitHub Copilot review가 최신 head에 제출되면 actionable Copilot feedback을 코드, 테스트, 또는 문서로 반영하고 Copilot review thread를 모두 resolve한다.
