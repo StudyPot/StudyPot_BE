@@ -63,7 +63,7 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidAuthRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidAuthRequest(InvalidAuthRequestException exception) {
-		var fieldErrors = List.of(new FieldErrorResponse("request", messageOrDefault(exception.getMessage())));
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}

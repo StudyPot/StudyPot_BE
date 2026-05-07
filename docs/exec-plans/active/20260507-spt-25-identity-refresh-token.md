@@ -101,3 +101,8 @@ Implement SPT-25 identity session support: wire Google OAuth login to applicatio
 - [x] Copilot second auth/error scope: `./gradlew test --tests 'com.studypot.aistudyleader.identity.*' --tests 'com.studypot.aistudyleader.global.error.*' --no-daemon` PASS.
 - [x] Copilot second full verification: `./gradlew check build --no-daemon` PASS.
 - [x] Copilot second whitespace check: `git diff --check` PASS.
+- [x] Copilot third RED: `./gradlew test --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerTest.invalidGoogleLoginPayloadReturnsValidationProblem' --no-daemon` failed until invalid Google OAuth request errors returned a field-specific `redirectUri` path.
+- [x] Copilot third focused: `./gradlew test --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerTest.invalidGoogleLoginPayloadReturnsValidationProblem' --no-daemon` PASS after preserving the invalid auth field.
+- [x] Copilot third auth/error scope: `./gradlew test --tests 'com.studypot.aistudyleader.identity.adapter.in.web.AuthControllerTest' --tests 'com.studypot.aistudyleader.global.error.ProblemDetailFactoryTest' --no-daemon` PASS after removing duplicate `@TestPropertySource` auth settings.
+- [x] Copilot third full verification: `./gradlew check build --no-daemon` PASS.
+- [x] Copilot third whitespace check: `git diff --check` PASS.

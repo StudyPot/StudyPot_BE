@@ -44,17 +44,10 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(classes = {AiStudyLeaderApplication.class, AuthControllerTest.TestIdentityBeans.class})
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {
-	"studypot.auth.jwt.secret=0123456789abcdef0123456789abcdef",
-	"studypot.auth.jwt.issuer=https://api.studypot.example/test",
-	"studypot.auth.jwt.access-token-ttl=15m",
-	"studypot.auth.refresh-token-ttl=30d"
-})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AuthControllerTest {
 
@@ -133,11 +126,12 @@ class AuthControllerTest {
 		mockMvc.perform(post(GOOGLE_LOGIN_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"authorizationCode":" ","redirectUri":"notaurl"}
+					{"authorizationCode":"google-code","redirectUri":"notaurl"}
 					"""))
 			.andExpect(status().isUnprocessableEntity())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-			.andExpect(jsonPath("$.title").value("Invalid request payload"));
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("redirectUri"));
 	}
 
 	private JsonNode login() throws Exception {

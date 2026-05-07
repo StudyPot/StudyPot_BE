@@ -96,8 +96,19 @@ class AuthController {
 			try {
 				return new GoogleOAuthLoginCommand(authorizationCode, redirectUri, codeVerifier);
 			} catch (IllegalArgumentException exception) {
-				throw new InvalidAuthRequestException(exception.getMessage());
+				throw new InvalidAuthRequestException(fieldFrom(exception), exception.getMessage());
 			}
+		}
+
+		private static String fieldFrom(IllegalArgumentException exception) {
+			String message = exception.getMessage();
+			if (message != null && message.startsWith("redirectUri ")) {
+				return "redirectUri";
+			}
+			if (message != null && message.startsWith("authorizationCode ")) {
+				return "authorizationCode";
+			}
+			return "request";
 		}
 	}
 
