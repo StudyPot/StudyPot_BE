@@ -116,8 +116,34 @@ chmod +x "${fake_gh}"
 if PATH="${tmp}:${PATH}" \
   FAKE_COPILOT_REVIEW_COUNT=0 \
   FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=0 \
   "${gate_script}" 32 >/dev/null 2>&1; then
   fail "expected missing Copilot review activity to fail"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=1 \
+  FAKE_COPILOT_REVIEW_COMMIT=old-head \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=0 \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected stale-head Copilot review activity to fail by default"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=0 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=invalid \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected invalid Copilot review wait seconds to fail"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=0 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS=0 \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected invalid Copilot review poll interval to fail"
 fi
 
 if PATH="${tmp}:${PATH}" \

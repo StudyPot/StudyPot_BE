@@ -21,7 +21,7 @@ if [[ -z "${head_sha}" ]]; then
   head_sha="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
 fi
 
-if [[ "${STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW:-0}" == "1" ]]; then
+if [[ "${STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW:-1}" == "1" ]]; then
   review_filter=".author.login == \"${reviewer}\" and ((.commit.oid // \"\") == \"${head_sha}\")"
   review_error="latest-head Copilot review activity is required from ${reviewer} for head ${head_sha}."
 else
@@ -29,11 +29,26 @@ else
   review_error="Copilot review activity is required from ${reviewer} before manual merge notification."
 fi
 
-review_count="$(gh pr view "${pr}" --json reviews --jq "
-  [.reviews[]? | select(${review_filter})]
-  | length
-")"
-[[ "${review_count}" -gt 0 ]] || fail "${review_error}"
+wait_seconds="${STRICT_COPILOT_REVIEW_WAIT_SECONDS:-600}"
+poll_interval="${STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS:-30}"
+[[ "${wait_seconds}" =~ ^[0-9]+$ ]] || fail "STRICT_COPILOT_REVIEW_WAIT_SECONDS must be a non-negative integer."
+[[ "${poll_interval}" =~ ^[1-9][0-9]*$ ]] || fail "STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS must be a positive integer."
+deadline=$((SECONDS + wait_seconds))
+review_count=0
+while :; do
+  review_count="$(gh pr view "${pr}" --json reviews --jq "
+    [.reviews[]? | select(${review_filter})]
+    | length
+  ")"
+  if [[ "${review_count}" -gt 0 ]]; then
+    break
+  fi
+  if (( SECONDS >= deadline )); then
+    fail "${review_error}"
+  fi
+  printf 'Waiting for Copilot review from %s on PR %s head %s...\n' "${reviewer}" "${pr}" "${head_sha}"
+  sleep "${poll_interval}"
+done
 
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 owner="${repo_name%%/*}"
