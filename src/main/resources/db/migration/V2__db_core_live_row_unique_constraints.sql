@@ -1,6 +1,10 @@
 -- SPT-23 DB core live-row uniqueness policy.
 -- MySQL unique indexes allow multiple NULL values, so generated columns
 -- evaluate to a natural key only for rows where deleted_at is null.
+-- Rollout note: adding STORED generated columns and unique indexes may rebuild
+-- or lock populated InnoDB tables. This migration is intended for the MVP schema
+-- before production data; populated environments should schedule maintenance or
+-- split/online-DDL the changes according to the target MySQL version.
 
 alter table study_group
   drop index study_group_invite_code_uidx,

@@ -3,9 +3,8 @@ package com.studypot.aistudyleader.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,10 +15,8 @@ import org.junit.jupiter.api.Test;
 
 class DbCorePolicyContractTest {
 
-	private static final Path PROJECT_ROOT = projectRoot();
-	private static final Path MIGRATION_DIR = PROJECT_ROOT.resolve("src/main/resources/db/migration");
-	private static final Path V1_MIGRATION = MIGRATION_DIR.resolve("V1__erd_v0_8_mysql8_schema.sql");
-	private static final Path V2_MIGRATION = MIGRATION_DIR.resolve("V2__db_core_live_row_unique_constraints.sql");
+	private static final String V1_MIGRATION = "db/migration/V1__erd_v0_8_mysql8_schema.sql";
+	private static final String V2_MIGRATION = "db/migration/V2__db_core_live_row_unique_constraints.sql";
 
 	@Test
 	void allPrimaryAndForeignKeyColumnsUseUuidBinary16() throws IOException {
@@ -133,8 +130,13 @@ class DbCorePolicyContractTest {
 		return matcher.group(1);
 	}
 
-	private static String read(Path path) throws IOException {
-		return Files.readString(path, StandardCharsets.UTF_8);
+	private static String read(String resourcePath) throws IOException {
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		InputStream input = classLoader.getResourceAsStream(resourcePath);
+		assertThat(input).as("classpath resource %s", resourcePath).isNotNull();
+		try (input) {
+			return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+		}
 	}
 
 	private static String normalize(String sql) {
@@ -145,22 +147,4 @@ class DbCorePolicyContractTest {
 			.toLowerCase();
 	}
 
-	private static Path projectRoot() {
-		String projectDir = System.getProperty("studypot.projectDir");
-		if (projectDir != null && !projectDir.isBlank()) {
-			return Path.of(projectDir).toAbsolutePath().normalize();
-		}
-
-		Path current = Path.of("").toAbsolutePath().normalize();
-		while (current != null) {
-			if ((Files.isRegularFile(current.resolve("settings.gradle"))
-				|| Files.isRegularFile(current.resolve("settings.gradle.kts")))
-				&& Files.isRegularFile(current.resolve("docs/specs/db-schema-v1.sql"))) {
-				return current;
-			}
-			current = current.getParent();
-		}
-
-		throw new IllegalStateException("Unable to locate project root for DB core policy contract test.");
-	}
 }

@@ -96,6 +96,10 @@ Use test-driven implementation:
 - PASS after Copilot third review fixes: `./gradlew test --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
 - PASS after Copilot third review fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot third review fixes: `./gradlew check build --no-daemon`
+- Copilot fourth review: latest-head fourth review received on PR #36 with 4 actionable threads. Addressed migration contract tests reading Flyway SQL from the test runtime classpath and documented V2 generated-column/index DDL rollout locking risk.
+- PASS after Copilot fourth review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot fourth review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot fourth review fixes: `./gradlew clean check build --no-daemon` followed by `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.
