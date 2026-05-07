@@ -16,6 +16,12 @@ management:
         include: health,info
 
 studypot:
+  auth:
+    jwt:
+      secret: ${STUDYPOT_AUTH_JWT_SECRET:}
+      issuer: ${STUDYPOT_AUTH_JWT_ISSUER:https://api.studypot.example}
+      access-token-ttl: ${STUDYPOT_AUTH_JWT_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${STUDYPOT_AUTH_REFRESH_TOKEN_TTL:30d}
   oauth:
     google:
       client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:}
