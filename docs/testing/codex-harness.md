@@ -24,6 +24,7 @@
 
 ## GitHub Actions Review Gate 테스트
 - `PR Quality` workflow는 PR마다 하네스 테스트, ShellCheck/reviewdog, actionlint, OpenAPI parse, `db-schema-coverage`, backend check를 실행합니다.
+- `create-pr.sh`는 PR 생성 후 GitHub Copilot review를 요청하고, `finish-pr.sh`는 Copilot 최신-head review와 미해결 thread 0개를 확인한 뒤에만 Mattermost manual merge 알림을 보냅니다.
 - `CodeQL` workflow는 Java/Kotlin source가 생기면 분석을 실행하고, 구현 전에는 skip/pass 상태를 유지합니다.
 - `review-gate-pass` required check는 `scripts/task/verify-role-review-gates.sh`로 최신 head의 CTO/QA/Product/Final CTO evidence marker를 확인합니다.
 - `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker와 최신-head Copilot review activity, 미해결 Copilot review thread 0개가 확인되지 않으면 manual merge 알림을 보내지 않습니다.

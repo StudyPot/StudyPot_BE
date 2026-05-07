@@ -17,6 +17,7 @@ The working rules in this repository are not recommendations; they are the defau
 - Human-authored commit subjects and PR titles must follow the `[type] 한글 내용` format. `type` must be lowercase English, such as `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, or `revert`.
 - Human-facing Mattermost notifications, PR bodies, PR review comments, and role gate evidence must be written in Korean. Keep only machine-readable marker tokens such as `CTO Architecture Gate: PASS` and `Head: <sha>` in their required literal form.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
+- `scripts/task/create-pr.sh` requests a GitHub Copilot review by default; do not send Mattermost readiness until Copilot feedback has been received and addressed.
 - Do not auto-merge PRs. After passing the PR review gate, use `scripts/task/finish-pr.sh` to verify readiness and send the Mattermost manual-merge notification; the human user clicks the GitHub merge button.
 - After the human merge, GitHub Actions moves the linked Jira Task to Done; then run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and idempotent Jira state recording.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.

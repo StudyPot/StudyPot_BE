@@ -87,6 +87,7 @@ Follow-up scope after Copilot review:
 - [x] Update `FlywayMigrationContractTest` so future migrations can coexist with the V1 baseline.
 - [x] Resolve schema contract test paths from Gradle-provided project dir/fallback project-root discovery instead of assuming current working directory.
 - [x] Add a Copilot review gate script and tests so future Mattermost manual merge notifications require latest-head Copilot activity and no unresolved Copilot review threads.
+- [x] Make `create-pr.sh` request GitHub Copilot review by default via reviewer `copilot`.
 - [ ] Re-run local verification and PR gates after pushing the follow-up commit.
 
 Follow-up verification evidence:

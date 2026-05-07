@@ -74,6 +74,11 @@ pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --
 printf '%s\n' "${pr_url}"
 
 pr_number="${pr_url##*/}"
+if [[ "${STRICT_REQUEST_COPILOT_REVIEW:-1}" != "0" ]]; then
+  copilot_reviewer="${STRICT_COPILOT_REVIEW_REQUEST_REVIEWER:-copilot}"
+  gh pr edit "${pr_number}" --add-reviewer "${copilot_reviewer}" >/dev/null
+fi
+
 if [[ "${STRICT_AUTO_FINISH_PR:-0}" != "0" ]]; then
   "${SCRIPT_DIR}/finish-pr.sh" "${pr_number}"
 fi
