@@ -14,9 +14,6 @@ public record AuditMetadata(Instant createdAt, Instant updatedAt, Instant delete
 		if (updatedAt.isBefore(createdAt)) {
 			throw new IllegalArgumentException("updatedAt must not be before createdAt");
 		}
-		if (deletedAt != null && deletedAt.isBefore(createdAt)) {
-			throw new IllegalArgumentException("deletedAt must not be before createdAt");
-		}
 		if (deletedAt != null && deletedAt.isBefore(updatedAt)) {
 			throw new IllegalArgumentException("deletedAt must not be before updatedAt");
 		}

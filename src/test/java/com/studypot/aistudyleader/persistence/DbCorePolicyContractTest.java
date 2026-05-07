@@ -68,7 +68,7 @@ class DbCorePolicyContractTest {
 		assertThat(migration)
 			.contains("alter table study_group")
 			.contains("drop index study_group_invite_code_uidx")
-			.contains("add column invite_code_live_key varchar(80) generated always as (case when deleted_at is null then invite_code else null end) stored")
+			.contains("add column invite_code_live_key varchar(80) character set utf8mb4 collate utf8mb4_0900_ai_ci generated always as (case when deleted_at is null then invite_code else null end) stored")
 			.contains("add unique key study_group_invite_code_live_uidx (invite_code_live_key)");
 
 		assertThat(migration)

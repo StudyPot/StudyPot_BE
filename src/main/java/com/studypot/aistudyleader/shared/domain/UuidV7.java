@@ -26,9 +26,9 @@ public final class UuidV7 {
 			throw new IllegalArgumentException("uuid v7 timestamp must fit in 48 bits");
 		}
 
-		long randA = random.nextLong() & 0x0FFFL;
+		long randA = random.nextInt(1 << 12);
 		long mostSignificantBits = (timestampMillis << 16) | (0x7L << 12) | randA;
-		long leastSignificantBits = (random.nextLong() & 0x3FFF_FFFF_FFFF_FFFFL) | 0x8000_0000_0000_0000L;
+		long leastSignificantBits = (random.nextLong() >>> 2) | 0x8000_0000_0000_0000L;
 		return new UUID(mostSignificantBits, leastSignificantBits);
 	}
 

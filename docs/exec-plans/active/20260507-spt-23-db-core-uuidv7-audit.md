@@ -112,6 +112,10 @@ Use test-driven implementation:
 - PASS after Copilot seventh review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.shared.domain.AuditMetadataTest' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
 - PASS after Copilot seventh review fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot seventh review fixes: `./gradlew check build --no-daemon`
+- Copilot eighth review: latest-head eighth review received on PR #36 with 3 actionable threads. Preserved invite-code charset/collation on the generated live key, improved UUIDv7 random bit sourcing, and simplified overlapping audit delete timestamp validation.
+- PASS after Copilot eighth review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.shared.domain.AuditMetadataTest' --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot eighth review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot eighth review fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.
