@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.global.error;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,8 +17,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest(classes = {AiStudyLeaderApplication.class, ValidationProblemHandlerTest.TestValidationController.class})
@@ -42,12 +46,28 @@ class ValidationProblemHandlerTest {
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
 	}
 
+	@Test
+	void invalidQueryParameterReturnsUnprocessableProblemDetailWithFieldErrors() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/test/validation/query")
+				.param("pageSize", "0"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.status").value(422))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("pageSize"));
+	}
+
 	@RestController
 	static class TestValidationController {
 
 		@PostMapping(ApiPaths.V1 + "/test/validation")
 		TestValidationResponse validate(@Valid @RequestBody TestValidationRequest request) {
 			return new TestValidationResponse(request.name());
+		}
+
+		@GetMapping(ApiPaths.V1 + "/test/validation/query")
+		TestValidationResponse validateQuery(@RequestParam("pageSize") @Min(1) int pageSize) {
+			return new TestValidationResponse(String.valueOf(pageSize));
 		}
 	}
 
