@@ -43,10 +43,11 @@ while :; do
   if [[ "${review_count}" -gt 0 ]]; then
     break
   fi
-  if (( SECONDS >= deadline )); then
+  now="${SECONDS}"
+  if (( now >= deadline )); then
     fail "${review_error}"
   fi
-  remaining_seconds=$((deadline - SECONDS))
+  remaining_seconds=$((deadline - now))
   sleep_seconds="${poll_interval}"
   if (( sleep_seconds > remaining_seconds )); then
     sleep_seconds="${remaining_seconds}"
