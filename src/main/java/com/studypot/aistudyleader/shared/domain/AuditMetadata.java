@@ -25,7 +25,11 @@ public record AuditMetadata(Instant createdAt, Instant updatedAt, Instant delete
 	}
 
 	public AuditMetadata touch(Instant updatedAt) {
-		return new AuditMetadata(createdAt, updatedAt, deletedAt);
+		Instant timestamp = timestamp6(updatedAt, "updatedAt");
+		if (timestamp.isBefore(this.updatedAt)) {
+			throw new IllegalArgumentException("updatedAt must not be before current updatedAt");
+		}
+		return new AuditMetadata(createdAt, timestamp, deletedAt);
 	}
 
 	public AuditMetadata softDelete(Instant deletedAt) {
@@ -33,6 +37,9 @@ public record AuditMetadata(Instant createdAt, Instant updatedAt, Instant delete
 			return this;
 		}
 		Instant timestamp = timestamp6(deletedAt, "deletedAt");
+		if (timestamp.isBefore(updatedAt)) {
+			throw new IllegalArgumentException("deletedAt must not be before current updatedAt");
+		}
 		return new AuditMetadata(createdAt, timestamp, timestamp);
 	}
 

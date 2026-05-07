@@ -54,7 +54,20 @@ class AuditMetadataTest {
 				Instant.parse("2026-05-07T04:00:01Z"),
 				Instant.parse("2026-05-07T04:00:00Z"),
 				null
-			))
-			.withMessage("updatedAt must not be before createdAt");
+				))
+				.withMessage("updatedAt must not be before createdAt");
+	}
+
+	@Test
+	void auditMetadataRejectsMovingCurrentTimestampBackwards() {
+		AuditMetadata metadata = AuditMetadata.created(Instant.parse("2026-05-07T04:00:00Z"))
+			.touch(Instant.parse("2026-05-07T04:00:02Z"));
+
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> metadata.touch(Instant.parse("2026-05-07T04:00:01Z")))
+			.withMessage("updatedAt must not be before current updatedAt");
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> metadata.softDelete(Instant.parse("2026-05-07T04:00:01Z")))
+			.withMessage("deletedAt must not be before current updatedAt");
 	}
 }

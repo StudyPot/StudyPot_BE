@@ -1,21 +1,20 @@
 package com.studypot.aistudyleader.shared.domain;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
 public final class UuidV7 {
 
-	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 	private static final long MAX_UNIX_TIMESTAMP_MILLIS = 0xFFFF_FFFF_FFFFL;
 
 	private UuidV7() {
 	}
 
 	public static UUID generate() {
-		return generate(Clock.systemUTC(), SECURE_RANDOM);
+		return generate(Clock.systemUTC(), ThreadLocalRandom.current());
 	}
 
 	public static UUID generate(Clock clock, RandomGenerator random) {
