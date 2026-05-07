@@ -104,6 +104,10 @@ Use test-driven implementation:
 - PASS after Copilot fifth review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.shared.domain.AuditMetadataTest' --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --no-daemon`
 - PASS after Copilot fifth review fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot fifth review fixes: `./gradlew check build --no-daemon`
+- Copilot sixth review: latest-head sixth review received on PR #36 with 2 actionable threads. Made SQL normalization locale-independent and renamed the UUID binary fresh-array test.
+- PASS after Copilot sixth review fixes: `./gradlew cleanTest test --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --tests 'com.studypot.aistudyleader.global.persistence.UuidBinaryTest' --no-daemon`
+- PASS after Copilot sixth review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot sixth review fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.

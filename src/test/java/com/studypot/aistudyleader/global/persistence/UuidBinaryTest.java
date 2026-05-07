@@ -21,7 +21,7 @@ class UuidBinaryTest {
 	}
 
 	@Test
-	void conversionDefensivelyCopiesBytes() {
+	void toBytesReturnsNewArrayEachCall() {
 		UUID uuid = UUID.fromString("0196ad97-b27b-7f64-8e95-9b2541212d2f");
 		byte[] bytes = UuidBinary.toBytes(uuid);
 

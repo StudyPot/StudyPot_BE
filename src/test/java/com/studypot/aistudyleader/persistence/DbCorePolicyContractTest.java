@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -144,7 +145,7 @@ class DbCorePolicyContractTest {
 			.replace("\r\n", "\n")
 			.replaceAll("\\s+", " ")
 			.strip()
-			.toLowerCase();
+			.toLowerCase(Locale.ROOT);
 	}
 
 }
