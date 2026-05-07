@@ -40,14 +40,16 @@ owner="${repo_name%%/*}"
 name="${repo_name#*/}"
 
 # shellcheck disable=SC2016
-unresolved_count="$(gh api graphql \
+copilot_thread_summary="$(gh api graphql \
   -f query='query($owner:String!, $name:String!, $number:Int!) {
     repository(owner:$owner, name:$name) {
       pullRequest(number:$number) {
         reviewThreads(first:100) {
+          pageInfo { hasNextPage }
           nodes {
             isResolved
             comments(first:100) {
+              pageInfo { hasNextPage }
               nodes {
                 author { login }
               }
@@ -61,13 +63,22 @@ unresolved_count="$(gh api graphql \
   -F name="${name}" \
   -F number="${pr}" \
   --jq "
-    [
-      .data.repository.pullRequest.reviewThreads.nodes[]?
-      | select(.isResolved == false)
-      | select([.comments.nodes[]?.author.login] | index(\"${reviewer}\"))
-    ]
-    | length
+    .data.repository.pullRequest.reviewThreads as \$threads
+    | [
+        ([
+          \$threads.nodes[]?
+          | select(.isResolved == false)
+          | select([.comments.nodes[]?.author.login] | index(\"${reviewer}\"))
+        ] | length),
+        (\$threads.pageInfo.hasNextPage // false),
+        ([\$threads.nodes[]? | select((.comments.pageInfo.hasNextPage // false) == true)] | length)
+      ]
+    | @tsv
   ")"
+read -r unresolved_count has_more_threads threads_with_more_comments <<<"${copilot_thread_summary}"
+
+[[ "${has_more_threads}" != "true" ]] || fail "Copilot review gate cannot evaluate every review thread because reviewThreads has additional pages."
+[[ "${threads_with_more_comments}" == "0" ]] || fail "Copilot review gate cannot evaluate every thread comment because ${threads_with_more_comments} review thread(s) have additional comment pages."
 [[ "${unresolved_count}" == "0" ]] || fail "PR has unresolved Copilot review threads from ${reviewer}: ${unresolved_count}"
 
 printf 'Copilot review gate passed for PR %s at head %s.\n' "${pr}" "${head_sha}"

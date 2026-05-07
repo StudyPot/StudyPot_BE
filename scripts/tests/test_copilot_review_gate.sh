@@ -19,24 +19,92 @@ cat > "${fake_gh}" <<'STUB'
 
 set -euo pipefail
 
+apply_jq() {
+  local jq_filter="$1"
+  if [[ -n "${jq_filter}" ]]; then
+    jq -r "${jq_filter}"
+  else
+    cat
+  fi
+}
+
+jq_filter=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+  if [[ "${args[$i]}" == "--jq" ]]; then
+    jq_filter="${args[$((i + 1))]}"
+    break
+  fi
+done
+
 if [[ "$1" == "pr" && "$2" == "view" ]]; then
   if [[ "$*" == *"headRefOid"* ]]; then
-    printf '%s\n' "${FAKE_HEAD_SHA:-new-head}"
+    printf '{"headRefOid":"%s"}\n' "${FAKE_HEAD_SHA:-new-head}" | apply_jq "${jq_filter}"
     exit 0
   fi
   if [[ "$*" == *"reviews"* ]]; then
-    printf '%s\n' "${FAKE_COPILOT_REVIEW_COUNT:-0}"
+    if [[ "${FAKE_COPILOT_REVIEW_COUNT:-0}" == "0" ]]; then
+      printf '{"reviews":[]}\n'
+    else
+      cat <<JSON
+{
+  "reviews": [
+    {
+      "author": { "login": "copilot-pull-request-reviewer" },
+      "commit": { "oid": "${FAKE_COPILOT_REVIEW_COMMIT:-new-head}" },
+      "state": "COMMENTED"
+    }
+  ]
+}
+JSON
+    fi | apply_jq "${jq_filter}"
     exit 0
   fi
 fi
 
 if [[ "$1" == "repo" && "$2" == "view" ]]; then
-  printf 'StudyPot/StudyPot_BE\n'
+  printf '{"nameWithOwner":"StudyPot/StudyPot_BE"}\n' | apply_jq "${jq_filter}"
   exit 0
 fi
 
 if [[ "$1" == "api" && "$2" == "graphql" ]]; then
-  printf '%s\n' "${FAKE_COPILOT_UNRESOLVED_THREADS:-0}"
+  if [[ "${FAKE_COPILOT_UNRESOLVED_THREADS:-0}" == "0" ]]; then
+    nodes='[]'
+  else
+    nodes='[
+      {
+        "isResolved": false,
+        "comments": {
+          "pageInfo": { "hasNextPage": false },
+          "nodes": [
+            { "author": { "login": "copilot-pull-request-reviewer" } }
+          ]
+        }
+      }
+    ]'
+  fi
+
+  cat <<JSON | jq --argjson nodes "${nodes}" \
+    --argjson threadNext "${FAKE_COPILOT_THREAD_HAS_NEXT:-false}" \
+    --argjson commentNext "${FAKE_COPILOT_COMMENT_HAS_NEXT:-false}" \
+    '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage = $threadNext
+      | .data.repository.pullRequest.reviewThreads.nodes = $nodes
+      | if $commentNext and (($nodes | length) > 0) then
+          .data.repository.pullRequest.reviewThreads.nodes[0].comments.pageInfo.hasNextPage = true
+        else . end' | apply_jq "${jq_filter}"
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "pageInfo": { "hasNextPage": false },
+          "nodes": []
+        }
+      }
+    }
+  }
+}
+JSON
   exit 0
 fi
 
@@ -63,6 +131,22 @@ PATH="${tmp}:${PATH}" \
 FAKE_COPILOT_REVIEW_COUNT=1 \
 FAKE_COPILOT_UNRESOLVED_THREADS=0 \
   "${gate_script}" 32 >/dev/null
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=1 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  FAKE_COPILOT_THREAD_HAS_NEXT=true \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected paginated review threads to fail closed"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=1 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=1 \
+  FAKE_COPILOT_COMMENT_HAS_NEXT=true \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected paginated review thread comments to fail closed"
+fi
 
 STRICT_REQUIRE_COPILOT_REVIEW=0 \
 PATH="${tmp}:${PATH}" \

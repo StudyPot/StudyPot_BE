@@ -89,6 +89,7 @@ Follow-up scope after Copilot review:
 - [x] Add a Copilot review gate script and tests so future Mattermost manual merge notifications require latest-head Copilot activity and no unresolved Copilot review threads.
 - [x] Make `create-pr.sh` request GitHub Copilot review by default via reviewer `@copilot`.
 - [x] Keep latest-head Copilot re-review as an opt-in strict mode because GitHub's re-review request did not create a new review in this PR, while unresolved Copilot threads are still enforced.
+- [x] Address second Copilot review by failing closed when review thread/comment pagination is present and by testing `verify-copilot-review.sh` against realistic JSON plus `jq` filtering.
 - [ ] Re-run local verification and PR gates after pushing the follow-up commit.
 
 Follow-up verification evidence:
