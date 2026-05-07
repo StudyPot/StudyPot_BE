@@ -1,7 +1,7 @@
 package com.studypot.aistudyleader.identity.domain;
 
-import com.studypot.aistudyleader.shared.domain.AggregateRoot;
-import com.studypot.aistudyleader.shared.domain.AuditMetadata;
+import com.studypot.aistudyleader.global.domain.AggregateRoot;
+import com.studypot.aistudyleader.global.domain.AuditMetadata;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;

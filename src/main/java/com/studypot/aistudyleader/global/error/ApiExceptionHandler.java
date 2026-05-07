@@ -1,9 +1,9 @@
 package com.studypot.aistudyleader.global.error;
 
-import com.studypot.aistudyleader.identity.application.AuthSessionRejectedException;
-import com.studypot.aistudyleader.identity.application.AuthServiceUnavailableException;
-import com.studypot.aistudyleader.identity.application.InvalidAuthRequestException;
-import com.studypot.aistudyleader.identity.application.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.identity.service.AuthSessionRejectedException;
+import com.studypot.aistudyleader.identity.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.identity.service.InvalidAuthRequestException;
+import com.studypot.aistudyleader.identity.service.OAuthLoginRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
