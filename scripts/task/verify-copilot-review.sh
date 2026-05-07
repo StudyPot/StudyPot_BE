@@ -46,8 +46,13 @@ while :; do
   if (( SECONDS >= deadline )); then
     fail "${review_error}"
   fi
+  remaining_seconds=$((deadline - SECONDS))
+  sleep_seconds="${poll_interval}"
+  if (( sleep_seconds > remaining_seconds )); then
+    sleep_seconds="${remaining_seconds}"
+  fi
   printf 'Waiting for Copilot review from %s on PR %s head %s...\n' "${reviewer}" "${pr}" "${head_sha}"
-  sleep "${poll_interval}"
+  sleep "${sleep_seconds}"
 done
 
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
