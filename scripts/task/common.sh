@@ -7,6 +7,33 @@ fail() {
   exit 1
 }
 
+commit_subject_types() {
+  printf '%s\n' "feat fix chore docs test refactor ci build perf style revert"
+}
+
+commit_subject_contains_korean() {
+  SUBJECT_DESCRIPTION="$1" python3 - <<'PY'
+import os
+import sys
+
+description = os.environ["SUBJECT_DESCRIPTION"]
+sys.exit(0 if any("\uac00" <= char <= "\ud7a3" for char in description) else 1)
+PY
+}
+
+validate_commit_subject() {
+  local subject="$1"
+  local label="${2:-commit subject}"
+  local types_regex subject_regex description
+
+  types_regex="$(commit_subject_types | tr ' ' '|')"
+  subject_regex="^\\[(${types_regex})\\] .+"
+  [[ "${subject}" =~ ${subject_regex} ]] || fail "${label} must match '[type] 한글 내용' where type is one of: $(commit_subject_types)"
+
+  description="${subject#*] }"
+  commit_subject_contains_korean "${description}" || fail "${label} description must include Korean text."
+}
+
 repo_root() {
   if [[ -n "${STRICT_REPO_ROOT:-}" ]]; then
     (cd "${STRICT_REPO_ROOT}" && pwd)

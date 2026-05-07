@@ -1,69 +1,61 @@
-# Auth And Permissions v1
+# AI Study Leader Auth and Permissions v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Login: Google OAuth.
-- Discord: account/channel link for notification routing.
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 
-## Identity Model
-- `users` is the core application identity.
-- `user_oauth_accounts` stores Google OAuth identity.
-- `user_discord_accounts` stores linked Discord account identity.
-- Discord IDs are not stored on core study tables.
-
-## Authentication Rules
-- Anonymous users can only start and complete OAuth flows.
-- All `/api/v1` endpoints except OAuth require authenticated user context.
-- Session/cookie versus bearer token storage is selected during Spring security implementation, but endpoint behavior and permission checks are locked here.
-- Current user identity is always available through `GET /api/v1/users/me`.
-
-## Group Roles
-| Role | Meaning |
+## Roles and Statuses
+| Concept | Values |
 | --- | --- |
-| `owner` | Full group administration and archive authority. |
-| `manager` | Operational authority for sessions, invitations, goals, resources, AI generation, and Discord channel settings. |
-| `member` | Participation authority for attendance, notes, own action items, progress logs, and visible resources. |
+| Group permission | `OWNER`, `MEMBER` |
+| Group member status | `PENDING_ONBOARDING`, `ACTIVE`, `LEFT` |
+| Group status | `DRAFT`, `ONBOARDING`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
 
 ## Permission Matrix
-| Capability | Owner | Manager | Member |
-| --- | --- | --- | --- |
-| Read group | yes | yes | yes |
-| Update group name/description/timezone | yes | yes | no |
-| Update group rules/schedule defaults | yes | yes | no |
-| Archive group | yes | no | no |
-| Invite member | yes | yes | no |
-| Update member role | yes | no | no |
-| Remove member | yes | yes | no |
-| Create/update session | yes | yes | no |
-| Submit own attendance | yes | yes | yes |
-| Update another member attendance | yes | yes | no |
-| Submit own notes | yes | yes | yes |
-| Read group notes | yes | yes | yes |
-| Create action item for self | yes | yes | yes |
-| Assign action item to others | yes | yes | no |
-| Update own assigned action item | yes | yes | yes |
-| Manage goals | yes | yes | own member goal only |
-| Add resources | yes | yes | yes |
-| Generate AI preparation brief | yes | yes | no |
-| Generate AI feedback report | yes | yes | no |
-| Read group AI feedback | yes | yes | yes |
-| Read individual AI feedback for others | yes | yes | no |
-| Connect Discord channel | yes | yes | no |
-| Read notification logs | yes | yes | no |
+| Action | Anonymous | Authenticated Non-Member | Pending Member | Active Member | Owner |
+| --- | --- | --- | --- | --- | --- |
+| Exchange Google authorization code | yes | yes | yes | yes | yes |
+| Refresh application token | yes | yes | yes | yes | yes |
+| Logout current session | no | yes | yes | yes | yes |
+| Logout all sessions | no | yes | yes | yes | yes |
+| Read own user profile | no | yes | yes | yes | yes |
+| Create group | no | yes | yes | yes | yes |
+| Join group by invite | no | yes | yes | yes | yes |
+| Read group summary | no | no | yes | yes | yes |
+| Update group | no | no | no | no | yes |
+| Submit own onboarding | no | no | yes | yes | yes |
+| List member onboarding status | no | no | limited | yes | yes |
+| Start study | no | no | no | no | yes |
+| Read curriculum/current week | no | no | no | yes | yes |
+| Complete own task | no | no | no | yes | yes |
+| Submit own incomplete reason | no | no | no | yes | yes |
+| Request own retrospective | no | no | no | yes | yes |
+| Chat with AI team leader | no | no | no | yes | yes |
+| Read own notifications | no | yes | yes | yes | yes |
+| Mark own notifications read | no | yes | yes | yes | yes |
+| Read group notification logs | no | no | no | no | yes |
+| Read LLM usage logs | no | no | no | no | yes |
 
-## Access Failure Rules
-- No authentication: `401`.
-- Not a group member: `403`.
-- Soft-deleted resource: `404`.
-- Active member required but member is `left`, `removed`, or `paused`: `403`.
-- Private individual AI report requested by another member: `403`.
+## Data Visibility
+- Members can read their own onboarding response.
+- Owners can see onboarding completion status and aggregate summaries needed to start the study.
+- Owners should not receive raw private notes beyond what is needed for group operation unless the product explicitly exposes them.
+- Members can read their own retrospective and conversation records.
+- Members can read and acknowledge their own in-app notifications.
+- Owners can read group-level operational records such as notification logs and LLM usage logs, but cannot mark another member's notifications read.
 
-## Privacy Rules
-- Individual feedback is visible to:
-  - target member
-  - owner
-  - manager
-- Group feedback is visible to all active group members.
-- Discord channel messages never include individual feedback body.
-- Redacted AI snapshots are visible only through internal admin/debug tooling, not MVP user APIs.
+## State Rules
+- A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.
+- An `ACTIVE` member can participate in current/future weeks.
+- A `LEFT` member cannot create new progress, retrospective, conversation, or completion records.
+- `ARCHIVED` groups are read-only except for owner/admin audit access.
+
+## Security Requirements
+- Bearer token authentication is required for all `/api/v1` endpoints except explicit public auth endpoints and public invite metadata endpoints if added later.
+- `POST /api/v1/auth/oauth/google` and `POST /api/v1/auth/refresh` are explicit public auth endpoints.
+- `POST /api/v1/auth/logout` and `POST /api/v1/auth/logout-all` require bearer authentication.
+- Refresh tokens must be stored as hashes and rotated on refresh.
+- A refresh token used after rotation or revocation must be rejected.
+- Cross-group access must be rejected even if the resource ID exists.
+- Service logic must verify that member, week, task, retrospective, and conversation belong to the same group.

@@ -1,127 +1,134 @@
-# API Contract v1
+# AI Study Leader API Contract v1
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Machine contract: `docs/specs/openapi.yaml`
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 
-## API Baseline
-- Style: REST.
+## Global Contract
 - Base path: `/api/v1`.
-- Format: JSON.
-- OpenAPI: 3.1.0.
-- Auth: session or bearer token chosen during Spring scaffold, but endpoint behavior remains fixed.
-- Errors: RFC 7807 style `application/problem+json`.
-- Pagination: cursor pagination for list endpoints.
-- Time: RFC 3339 timestamps in UTC; clients may render with group/user timezone.
-- IDs: UUID strings generated as UUIDv7 by application code.
+- Authentication: bearer access token unless endpoint is explicitly anonymous.
+- Public auth endpoints: `POST /auth/oauth/google` and `POST /auth/refresh` do not require bearer authentication.
+- IDs: UUID strings at the API boundary; persistence stores UUIDv7 as `BINARY(16)`.
+- Error format: RFC 9457-style problem detail.
+- Pagination: cursor pagination for list endpoints that can grow.
+- JSON fields preserve the shapes defined in DB and AI contracts.
 
-## Common Response Rules
-| Case | Status | Body |
+## Resource Summary
+| Resource | Feature ID | Description |
 | --- | --- | --- |
-| Create | `201` | Created resource. |
-| Read/update | `200` | Resource or result body. |
-| Delete/archive | `204` | Empty body. |
-| Validation failure | `422` | `ProblemDetail` with `fieldErrors`. |
-| Conflict | `409` | `ProblemDetail`. |
-| Unauthorized | `401` | `ProblemDetail`. |
-| Forbidden | `403` | `ProblemDetail`. |
-| Not found | `404` | `ProblemDetail`. |
+| Auth/User | `identity-core` | Current user and application session identity. |
+| Study Group | `study-group-core` | Group creation, invite code, membership, status. |
+| Onboarding | `group-onboarding` | Group/member onboarding responses and availability slots. |
+| Curriculum | `curriculum-core` | Host-start generated curriculum, weeks, tasks. |
+| Weekly Todo | `weekly-todo` | Member week progress and task completion/incomplete reasons. |
+| Retrospective | `retrospective-feedback` | AI feedback and next-week adjustment. |
+| AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
+| Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage. |
 
-## Cursor Pagination
-List responses use:
-
-```json
-{
-  "items": [],
-  "pageInfo": {
-    "nextCursor": "opaque-cursor",
-    "hasNext": true
-  }
-}
-```
-
-Query params:
-- `cursor`: opaque cursor from prior page.
-- `limit`: default `20`, maximum `100`.
-
-## Endpoint Groups
-
-### Auth And User
-| Method | Path | Feature | Permission | Purpose |
+## Endpoint Index
+| Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/auth/oauth/google/authorize` | `identity-core` | anonymous | Start Google OAuth. |
-| `POST` | `/api/v1/auth/oauth/google/callback` | `identity-core` | anonymous | Complete OAuth callback. |
+| `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens. |
+| `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens. |
+| `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
+| `POST` | `/api/v1/auth/logout-all` | `identity-core` | authenticated | Revoke all refresh tokens for the current user. |
 | `GET` | `/api/v1/users/me` | `identity-core` | authenticated | Read current user. |
-| `POST` | `/api/v1/users/me/discord-link` | `identity-core` | authenticated | Link Discord account. |
-| `DELETE` | `/api/v1/users/me/discord-link` | `identity-core` | authenticated | Unlink Discord account. |
-
-### Study Groups
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
 | `GET` | `/api/v1/groups` | `study-group-core` | authenticated | List my groups. |
 | `POST` | `/api/v1/groups` | `study-group-core` | authenticated | Create group and owner membership. |
 | `GET` | `/api/v1/groups/{groupId}` | `study-group-core` | group member | Read group. |
-| `PATCH` | `/api/v1/groups/{groupId}` | `study-group-core`, `study-group-rules` | owner/manager | Update mutable group fields except slug. |
-| `DELETE` | `/api/v1/groups/{groupId}` | `study-group-core` | owner | Archive group. |
+| `PATCH` | `/api/v1/groups/{groupId}` | `study-group-core` | owner | Update mutable group fields before active lock. |
+| `POST` | `/api/v1/groups/{groupId}/join` | `study-group-core` | authenticated | Join by invite code/link. |
+| `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
+| `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
+| `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
+| `PUT` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Save draft/submitted onboarding response. |
+| `POST` | `/api/v1/groups/{groupId}/onboarding/me/submit` | `group-onboarding` | group member | Submit onboarding. |
+| `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
+| `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week with tasks and progress. |
+| `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
+| `PUT` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Update member week progress note/status. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me` | `weekly-todo` | group member | Complete, skip, or mark task incomplete. |
+| `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
+| `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
+| `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
+| `POST` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | Send message and get assistant response. |
+| `GET` | `/api/v1/users/me/notifications` | `notification` | authenticated | List my in-app notifications. |
+| `POST` | `/api/v1/notifications/{notificationId}/read` | `notification` | notification recipient | Mark one in-app notification as read. |
+| `POST` | `/api/v1/users/me/notifications/read-all` | `notification` | authenticated | Mark all my in-app notifications as read. |
+| `GET` | `/api/v1/groups/{groupId}/notifications` | `notification` | owner | List group notification logs for audit. |
+| `GET` | `/api/v1/groups/{groupId}/llm-usage` | `ai-team-leader` | owner | List LLM usage records. |
 
-### Members And Invitations
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members. |
-| `PATCH` | `/api/v1/groups/{groupId}/members/{memberId}` | `study-group-core` | owner/manager | Update member role/status. |
-| `GET` | `/api/v1/groups/{groupId}/invitations` | `study-group-core` | owner/manager | List invitations. |
-| `POST` | `/api/v1/groups/{groupId}/invitations` | `study-group-core` | owner/manager | Create invitation. |
-| `POST` | `/api/v1/invitations/{invitationId}/accept` | `study-group-core` | authenticated | Accept invitation. |
+## Key Request Shapes
+### Google OAuth Login
+```json
+{
+  "authorizationCode": "google-authorization-code",
+  "redirectUri": "https://app.studypot.example/auth/callback",
+  "codeVerifier": "pkce-code-verifier"
+}
+```
 
-### Sessions, Attendance, Notes, Action Items
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/groups/{groupId}/sessions` | `study-session-core` | group member | List sessions. |
-| `POST` | `/api/v1/groups/{groupId}/sessions` | `study-session-core` | owner/manager | Create session. |
-| `GET` | `/api/v1/sessions/{sessionId}` | `study-session-core` | group member | Read session. |
-| `PATCH` | `/api/v1/sessions/{sessionId}` | `study-session-core` | owner/manager | Update session. |
-| `GET` | `/api/v1/sessions/{sessionId}/attendance` | `study-session-core` | group member | List attendance. |
-| `PUT` | `/api/v1/sessions/{sessionId}/attendance/{memberId}` | `study-session-core` | self or manager | Upsert attendance. |
-| `GET` | `/api/v1/sessions/{sessionId}/notes` | `structured-notes` | group member | List notes. |
-| `POST` | `/api/v1/sessions/{sessionId}/notes` | `structured-notes` | group member | Submit note. |
-| `GET` | `/api/v1/sessions/{sessionId}/action-items` | `structured-notes` | group member | List action items. |
-| `POST` | `/api/v1/sessions/{sessionId}/action-items` | `structured-notes` | owner/manager or self-owned member | Create action item. |
-| `PATCH` | `/api/v1/action-items/{actionItemId}` | `structured-notes` | assignee or manager | Update action item. |
+### Refresh Token
+```json
+{
+  "refreshToken": "raw-refresh-token-issued-by-backend"
+}
+```
 
-### Goals And Resources
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/groups/{groupId}/goals` | `study-group-core` | group member | List goals. |
-| `POST` | `/api/v1/groups/{groupId}/goals` | `study-group-core` | owner/manager | Create goal. |
-| `PATCH` | `/api/v1/goals/{goalId}` | `study-group-core` | owner/manager or owner member | Update goal. |
-| `GET` | `/api/v1/groups/{groupId}/resources` | `study-group-core` | group member | List resources. |
-| `POST` | `/api/v1/groups/{groupId}/resources` | `study-group-core` | group member | Add resource. |
+### Create Group
+```json
+{
+  "name": "Backend Interview Study",
+  "topic": "Spring Boot",
+  "detailKeywords": ["JPA", "Security", "Testing"],
+  "maxMembers": 6,
+  "startsAt": "2026-05-06",
+  "endsAt": "2026-06-17"
+}
+```
 
-### AI
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/sessions/{sessionId}/ai/preparation-briefs` | `ai-prep-brief` | group member | List preparation briefs. |
-| `POST` | `/api/v1/sessions/{sessionId}/ai/preparation-briefs` | `ai-prep-brief` | owner/manager | Generate preparation brief. |
-| `GET` | `/api/v1/sessions/{sessionId}/ai/feedback-reports` | `ai-feedback-report` | group member with privacy rules | List feedback reports. |
-| `POST` | `/api/v1/sessions/{sessionId}/ai/feedback-reports` | `ai-feedback-report` | owner/manager | Generate feedback report. |
+### Submit Onboarding
+```json
+{
+  "keywordSkillLevels": {"JPA": 2, "Security": 1, "Testing": 3},
+  "taskPreferences": {"READING": 3, "PRACTICE": 5, "ASSIGNMENT": 4},
+  "additionalNote": "실습 과제 위주가 좋아요.",
+  "availabilitySlots": [
+    {"dayOfWeek": 2, "startTime": "20:00", "endTime": "22:00", "timezone": "Asia/Seoul"}
+  ]
+}
+```
 
-### Discord Notifications
-| Method | Path | Feature | Permission | Purpose |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/groups/{groupId}/discord/channels` | `discord-notifications` | owner/manager | List connected channels. |
-| `POST` | `/api/v1/groups/{groupId}/discord/channels` | `discord-notifications` | owner/manager | Connect channel. |
-| `PATCH` | `/api/v1/discord/channels/{channelId}` | `discord-notifications` | owner/manager | Update notification settings/status. |
-| `DELETE` | `/api/v1/discord/channels/{channelId}` | `discord-notifications` | owner/manager | Disable channel. |
-| `GET` | `/api/v1/groups/{groupId}/discord/notification-logs` | `discord-notifications` | owner/manager | List notification logs. |
+### Task Completion
+```json
+{
+  "status": "INCOMPLETE",
+  "completionNote": null,
+  "incompleteReason": "이번 주 개인 일정으로 실습을 못 끝냈습니다.",
+  "evidenceUrl": null
+}
+```
 
-## DTO Naming For Spring
-- Request DTOs: `<Action><Resource>Request`, for example `CreateStudyGroupRequest`.
-- Response DTOs: `<Resource>Response`, for example `StudyGroupResponse`.
-- Page DTOs: `CursorPageResponse<T>`.
-- Error DTO: `ProblemDetailResponse` if wrapping Spring's `ProblemDetail` is needed.
+## State Transition Rules
+- `refresh_token`: active -> revoked when used for logout, logout-all, or detected reuse after rotation.
+- `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
+- `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
+- `task_completion`: `TODO -> DONE`, `TODO -> INCOMPLETE`, `TODO -> SKIPPED`.
+- `retrospective`: `PENDING -> PROCESSING -> COMPLETED` or `FAILED`.
+- `notification`: `PENDING -> DELIVERED -> READ`; failed generation/delivery can become `FAILED` or `SKIPPED`.
 
-## Contract Boundaries
-- This API contract defines behavior and wire shape.
-- It does not create controllers, DTO classes, Spring Security config, or database migrations.
-- Any endpoint addition, removal, path change, enum change, or response shape change requires Change Request and ADR.
+## API Compatibility Rules
+- Adding/removing endpoints, changing request fields, response fields, enum values, or authorization behavior requires Change Request and ADR.
+- OpenAPI must parse before PR review.
+- API examples must match DB contract enum values.
+
+## Auth API Rules
+- MVP login provider is Google OAuth.
+- The client obtains the Google authorization code and sends it to `POST /auth/oauth/google`.
+- The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and returns an access/refresh token pair.
+- `POST /auth/refresh` rotates the refresh token; the old refresh token must not be accepted again.
+- `POST /auth/logout` revokes the submitted refresh token for the authenticated user.
+- `POST /auth/logout-all` revokes every active refresh token for the authenticated user.
+- Raw application refresh tokens, provider access tokens, provider refresh tokens, and OAuth client secrets must not be logged or returned outside the token issuance/rotation response.

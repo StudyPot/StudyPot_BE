@@ -1,57 +1,53 @@
 # AI Study Leader Product Brief
 
-## Provenance
-- Captured from the Claude share discussion provided by the user:
-  - `https://claude.ai/share/8872bb8c-2666-4000-9c22-fa369d279f50`
-- This document preserves the product and MVP decisions so future Codex sessions can recover the original project context.
-- If later source artifacts conflict with this summary, update this file and mirror the change into Obsidian.
+## Lock Status
+- Status: `LOCKED_FOR_IMPLEMENTATION`
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
+- Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
 
-## One-Line Definition
-AI Study Leader is an AI-assisted study team leader that helps small study groups prepare for meetings, run recurring study routines, and receive post-meeting feedback through a web backend and Discord notifications.
+## Product Summary
+AI Study Leader helps a host create a study group, collect member onboarding context, generate an AI curriculum, track weekly todos, and run weekly retrospective feedback through an AI team leader.
+
+The product replaces the manual study leader role for small groups. The leader does not need to schedule heavy synchronous sessions for MVP; instead, the system captures member skill, task preference, availability, progress, incomplete reasons, and AI feedback so the AI team leader can adjust the next week.
 
 ## Target Users
-- Bootcamp and SSAFY-style learners who study in short project or algorithm groups.
-- Side-study groups with 2 to 3 active participants.
-- Users who need a lightweight leader role but do not want one member to manually manage reminders, meeting prep, and feedback every time.
+- Study hosts who want to create a group and start a structured curriculum quickly.
+- Study members who need weekly tasks and feedback without a human manager chasing progress.
+- Small coding-study or project-study groups that use invite links and asynchronous communication.
 
-## MVP Scope
-- Web-based study group management.
-- Discord-based notifications and reminders.
-- Structured study meeting records.
-- AI-generated pre-meeting preparation support.
-- AI-generated post-meeting feedback.
-- Group rules and study preferences stored in flexible structured fields.
-- Backend specification targets Java 21, Gradle, Spring Boot, REST `/api/v1`, OpenAPI 3.1, PostgreSQL, UUIDv7, and JSONB.
+## MVP Value
+- Fast group creation with topic, detail keywords, max members, and period.
+- Invite link flow for bringing members into the group.
+- Member-specific onboarding for skill, task preference, availability, and notes.
+- Host start action that turns submitted onboarding responses into an AI curriculum.
+- Weekly todo completion and incomplete-reason capture.
+- AI team leader retrospective feedback and weekly next-week adjustment.
+- In-app notifications for onboarding, weekly deadlines, incomplete-reason prompts, and feedback readiness.
 
-## Explicit Non-Scope For MVP
-- Real-time STT.
-- Voice meeting transcription.
-- Real-time voice assistant behavior.
-- Heavy synchronous meeting automation.
-- Discord slash commands and Discord-first UX.
-- Billing, uploaded files, and rule-version history.
+## MVP Golden Path
+1. Host creates a group.
+2. System stores selected or directly entered detail keywords.
+3. System creates host membership in `PENDING_ONBOARDING`.
+4. Host shares invite link.
+5. Host and members submit onboarding responses.
+6. Host starts the study without requiring every invitee to finish onboarding.
+7. System creates curriculum and weekly tasks from submitted onboarding summaries.
+8. Members complete weekly todos or submit incomplete reasons.
+9. AI team leader produces feedback and next-week adjustment.
+10. Late joiners complete onboarding and join from the current week.
+11. Members receive in-app notifications when onboarding, todo deadlines, incomplete reasons, or AI feedback need attention.
 
-## Product Direction
-- The AI should act like a study leader, not just a passive summarizer.
-- The first version should focus on asynchronous and structured inputs rather than live audio.
-- Discord is treated as an important notification surface, while the backend remains the system of record.
-- Meeting notes become the main input for reflection, accountability, and next-step suggestions.
+## Explicitly Deferred
+- Heavy live meeting automation.
+- Voice transcription.
+- Full synchronous meeting assistant.
+- Rule version history.
+- Rich frontend wireframe implementation.
+- Automatic full curriculum regeneration for late joiners.
+- Discord integration, bot, channel delivery, and Discord token storage.
 
-## Core Workflow
-1. A user creates or joins a study group.
-2. The group defines study goals, rules, schedule, and operating preferences.
-3. The system sends Discord reminders before a study session.
-4. The AI prepares agenda or focus prompts based on group context and prior records.
-5. Members record structured notes, progress, blockers, and decisions after the meeting.
-6. The AI produces feedback, follow-up items, and next-session preparation material.
-
-## Locked V1 Decisions
-- Frontend is a separate client that consumes the backend REST API. This repository owns backend contracts only.
-- Backend implementation baseline is Java 21 + Gradle + Spring Boot.
-- AI provider and model are configurable, but AI output JSON schemas are fixed by `docs/specs/ai-contract-v1.md`.
-- Discord MVP is notification-only:
-  - session reminder
-  - preparation brief ready
-  - feedback ready
-  - action item due
-- V1 planning changes require the process in `docs/specs/change-control-v1.md`.
+## Technical Baseline
+- Backend: Java 21, Gradle, Spring Boot.
+- API: REST `/api/v1`, OpenAPI 3.1.
+- DB: MySQL8, UUIDv7 as `BINARY(16)`, flexible structured fields as `JSON`.
+- Source control workflow: Jira `SPT` task -> `codex/<slug>` worktree -> PR to `develop`.

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export TEST_ROOT
 
 fail() {
   echo "FAIL: $*" >&2
@@ -17,6 +18,12 @@ assert_contains() {
   local needle="$1"
   local haystack="$2"
   grep -Fq -- "${needle}" "${haystack}" || fail "expected '${needle}' in ${haystack}"
+}
+
+assert_not_contains() {
+  local needle="$1"
+  local haystack="$2"
+  ! grep -Fq -- "${needle}" "${haystack}" || fail "did not expect '${needle}' in ${haystack}"
 }
 
 setup_sandbox_repo() {
@@ -98,6 +105,31 @@ if [[ "${method}" == "POST" && "${path}" == /rest/api/3/issue/*/transitions ]]; 
     exit 1
   fi
   printf '{}\n'
+  exit 0
+fi
+
+if [[ "${method}" == "POST" && "${path}" == "/rest/api/3/search/jql" ]]; then
+  if [[ -n "${JIRA_FAKE_SEARCH_FILE:-}" ]]; then
+    cat "${JIRA_FAKE_SEARCH_FILE}"
+  else
+    cat <<JSON
+{
+  "isLast": true,
+  "issues": [
+    {
+      "key": "SPT-1",
+      "fields": {
+        "summary": "${summary}",
+        "issuetype": { "name": "${issue_type}" },
+        "status": { "name": "${status}", "statusCategory": { "key": "new" } },
+        "priority": { "name": "Medium" },
+        "labels": []
+      }
+    }
+  ]
+}
+JSON
+  fi
   exit 0
 fi
 

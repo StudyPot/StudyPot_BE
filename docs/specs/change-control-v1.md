@@ -2,8 +2,24 @@
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Locked date: `2026-04-29`
+- Original locked date: `2026-04-29`
+- Current lock refresh date: `2026-05-04`
 - Lock unit: full v1 planning package.
+
+## Current Approved Change
+- Change Request: [CR-20260506-auth-api-entrypoints](./change-requests/CR-20260506-auth-api-entrypoints.md)
+- ADR: [ADR-20260506-auth-api-entrypoints](./adr/ADR-20260506-auth-api-entrypoints.md)
+- Result: The MVP API includes explicit Google OAuth login, refresh, current-session logout, and all-session logout endpoints for `identity-core`.
+
+## Previous Approved Change
+- Change Request: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
+- ADR: [ADR-20260504-no-discord-inapp-notification](./adr/ADR-20260504-no-discord-inapp-notification.md)
+- Result: Discord integration is removed from MVP, notification is in-app first, and AI team leader owns weekly next-week adjustment.
+
+## Earlier Approved Change
+- Change Request: [CR-20260430-onboarding-mysql8-mvp](./change-requests/CR-20260430-onboarding-mysql8-mvp.md)
+- ADR: [ADR-20260430-onboarding-mysql8-mvp](./adr/ADR-20260430-onboarding-mysql8-mvp.md)
+- Result: v1 implementation source of truth is Requirements v0.3, ERD v0.8, MySQL8, and onboarding MVP.
 
 ## Locked Documents
 - `docs/specs/prd-v1.md`
@@ -15,19 +31,20 @@
 - `docs/specs/db-contract-v1.md`
 - `docs/specs/db-schema-v1.sql`
 - `docs/specs/ai-contract-v1.md`
-- `docs/specs/discord-contract-v1.md`
+- `docs/specs/notification-contract-v1.md`
 - `docs/specs/auth-permissions-v1.md`
 - `docs/specs/qa-acceptance-v1.md`
 - `docs/specs/feature-coverage-matrix.md`
 
 ## Change Rule
-After v1 lock, any change to product scope, feature behavior, API shape, DB shape, enum, AI schema, Discord behavior, permission rule, or QA acceptance requires:
+After v1 lock, any change to product scope, feature behavior, API shape, DB shape, enum, AI schema, notification behavior, permission rule, or QA acceptance requires:
 
 1. Change Request using `docs/specs/change-request-template.md`.
 2. ADR using `docs/specs/adr-template.md`.
 3. Update to affected source documents.
-4. Update to Obsidian mirror summary.
-5. Harness validation.
+4. Update to Confluence/Jira document references.
+5. Update to Obsidian mirror summary if the vault is in use.
+6. Harness validation.
 
 ## Allowed Without ADR
 - Typo fixes that do not change meaning.
@@ -40,9 +57,10 @@ After v1 lock, any change to product scope, feature behavior, API shape, DB shap
 - New table, removed table, column change, enum change, constraint change.
 - New feature_id or removal of a feature_id.
 - AI JSON schema change.
-- Discord notification type or delivery behavior change.
+- Notification type or delivery behavior change.
 - Permission matrix change.
 - MVP scope or non-scope change.
+- DBMS baseline change.
 
 ## Decision Owners
 - Product owner: user.
@@ -55,4 +73,4 @@ After v1 lock, any change to product scope, feature behavior, API shape, DB shap
 - The change lists affected docs.
 - The change has migration or compatibility notes when API/DB changes.
 - The feature coverage matrix is updated.
-- Obsidian `Current State` is updated.
+- Jira documentation issues link to the current source of truth.

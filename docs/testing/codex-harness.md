@@ -1,8 +1,9 @@
 # Codex Harness
 
 ## 표준 검증 계약
-- Codex의 기본 검증 명령은 `TODO: set verification command` 입니다.
-- Spring Boot 골격이 들어오면 표준 명령은 `./gradlew check build --no-daemon` 입니다.
+- Codex의 기본 검증 명령은 `./gradlew check build --no-daemon` 입니다.
+- commit-msg hook은 사람이 작성하는 제목을 `[type] 한글 내용` 형식으로 검증합니다.
+- 허용되는 `type`은 lowercase English token인 `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, `revert` 입니다.
 - stale build output 또는 파일 시스템 race가 의심되면 `./gradlew --stop` 후 `./gradlew clean check build --no-daemon`을 사용합니다.
 - 외부 의존성은 가능한 한 test profile, mock, fixture, 또는 local-only 설정으로 격리합니다.
 
@@ -10,6 +11,7 @@
 - 핵심 사용자 여정 테스트
 - domain/service regression 테스트
 - 구조 또는 layering guardrail 테스트
+- OpenAPI parse와 ERD v0.8 MySQL8 `db-schema-coverage` 계약 테스트
 
 ## 실패 시 확인 순서
 1. 현재 worktree와 branch가 `codex/<slug>`인지 확인합니다.
@@ -20,11 +22,22 @@
 6. 외부 서비스, secret, local-only dependency가 테스트를 막고 있지 않은지 확인합니다.
 7. PR 단계라면 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 checks/reviews/threads를 막고 있는지 확인합니다.
 
+## GitHub Actions Review Gate 테스트
+- `PR Quality` workflow는 PR마다 하네스 테스트, ShellCheck/reviewdog, actionlint, OpenAPI parse, `db-schema-coverage`, backend check를 실행합니다.
+- `create-pr.sh`는 PR 생성 후 GitHub Copilot review를 요청하고, `finish-pr.sh`는 최신 PR head Copilot review activity를 기본 최대 600초 동안 기다린 뒤 미해결 thread 0개를 확인해야 Mattermost manual merge 알림을 보냅니다.
+- `CodeQL` workflow는 Java/Kotlin source가 생기면 분석을 실행하고, 구현 전에는 skip/pass 상태를 유지합니다.
+- `review-gate-pass` required check는 `scripts/task/verify-role-review-gates.sh`로 최신 head의 CTO/QA/Product/Final CTO evidence marker를 확인합니다.
+- `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker, 최신 head Copilot review activity, 미해결 Copilot review thread 0개가 확인되지 않으면 manual merge 알림을 보내지 않습니다.
+- `jira-auto-done` workflow는 GitHub merge 후 Jira Task는 자동으로 완료 처리하는지 fake Jira API 테스트로 검증합니다.
+- static test는 workflow 파일 존재, required check 이름, role gate와 Copilot review gate 검증 스크립트 호출, PASS marker 문자열을 확인해야 합니다.
+
 ## 금지 사항
 - CI에서 테스트를 임의로 제외하기
 - 실서비스 secret을 테스트에 요구하기
 - 실패한 검증을 통과한 것으로 기록하기
 - review activity 없이 green CI만 보고 merge하기
+- GitHub Actions Review Gate marker 없이 manual merge 알림 보내기
+- CTO/QA/Product/Final CTO evidence marker 없이 required `review-gate-pass`를 통과시키기
 - dirty 또는 locked worktree를 cleanup 대상으로 삼기
 - Jira Board 전환 실패를 무시하고 작업 시작/완료 처리하기
 

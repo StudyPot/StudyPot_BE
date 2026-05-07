@@ -2,84 +2,59 @@
 
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
-- Locked date: `2026-04-29`
+- Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Change rule: after lock, product scope changes require a Change Request and ADR as defined in `docs/specs/change-control-v1.md`.
-- Source package:
-  - `docs/specs/product-brief.md`
-  - `docs/specs/requirements-v1.md`
-  - `docs/specs/domain-erd.md`
-  - `docs/specs/api-contract-v1.md`
-  - `docs/specs/openapi.yaml`
-  - `docs/specs/ai-contract-v1.md`
-  - `docs/specs/discord-contract-v1.md`
-  - `docs/specs/auth-permissions-v1.md`
-  - `docs/specs/qa-acceptance-v1.md`
+
+## Objective
+Deliver the backend MVP for an AI-assisted study leader that turns group setup and member onboarding into a weekly curriculum, todo tracking, and retrospective feedback loop.
 
 ## Problem
-Small study groups often fail because the leader role is repetitive and fragile. Someone must remind members, prepare the agenda, collect progress, notice blockers, and summarize follow-up items. When that person gets busy, the group loses rhythm.
+Study groups lose momentum because the leader role is manual: collecting member levels, assigning tasks, tracking completion, asking why work was not done, and reflecting that feedback into the next week. The MVP automates that loop without making meetings a hard dependency.
 
-AI Study Leader provides a backend system that makes the leader role repeatable. It stores group rules, sessions, structured notes, Discord notification settings, and AI preparation/feedback outputs so study teams can keep moving without relying on one human coordinator.
+## Goals
+- A host can create a study group with topic, detail keywords, max members, and study period.
+- A host can share an invite link.
+- Every group member, including the host, can submit onboarding.
+- A host can start the study even if not every invitee has completed onboarding.
+- AI curriculum generation uses onboarding responses submitted at start time.
+- Members can complete weekly todo items or provide incomplete reasons.
+- AI team leader feedback can be requested through retrospective and chat flows.
+- AI team leader feedback can adjust the next week's difficulty, todo shape, and support materials.
+- Late joiners can complete onboarding and join from the current week.
+- In-app notifications help members notice onboarding, weekly deadlines, incomplete reasons, retrospective readiness, and AI feedback.
 
-## Target Users
-- Bootcamp and SSAFY-style learners in small algorithm, CS, or project study groups.
-- Side-study groups with 2 to 6 members, optimized for 2 to 3 active members.
-- Members who want accountability and practical feedback without running live voice automation.
+## Non-Goals
+- Live meeting assistant.
+- Voice meeting transcription.
+- Full frontend design.
+- Calendar scheduling optimization.
+- Automatic full curriculum regeneration every time a late member joins.
+- Discord integration, bot, channel delivery, and Discord token storage.
+- Payment, billing, or enterprise administration.
 
-## Product Goals
-- Help a group create a stable study operating rhythm.
-- Make every session have clear preparation prompts and follow-up actions.
-- Reduce manual reminder work through Discord notifications.
-- Preserve structured meeting history for AI feedback and progress tracking.
-- Keep MVP backend implementation bounded and testable.
+## Personas
+| Persona | Need |
+| --- | --- |
+| Host | Create the group, invite members, start the curriculum, monitor progress. |
+| Member | Submit onboarding, follow weekly todos, complete or explain incomplete work, receive feedback. |
+| AI Team Leader | Suggest detail keywords, create curriculum, summarize progress, produce retrospective feedback, and propose next-week adjustments every week. |
+
+## MVP Flow
+| Step | Product Behavior | Primary Data |
+| --- | --- | --- |
+| Group creation | Host enters name, topic, detail keywords, max members, period. | `study_group` |
+| Invite | System exposes invite code/link and creates member on join. | `study_group.invite_code`, `group_member` |
+| Onboarding | Member submits skill, task preference, availability, note. | `group_onboarding_response`, `member_availability_slot` |
+| Host start | Group becomes active and AI curriculum is generated. | `curriculum`, `curriculum_week`, `weekly_task` |
+| Weekly execution | Member completes tasks or submits incomplete reason. | `member_week_progress`, `task_completion` |
+| Retrospective | AI feedback and next-week adjustment are stored. | `retrospective`, `ai_conversation` |
+| Notification | Reminders and status events are delivered in-app and tracked with read state. | `notification` |
 
 ## Success Criteria
-- A user can sign in with Google and link a Discord account.
-- A group owner can create a study group, invite members, set rules, and connect a Discord notification channel.
-- A group can schedule sessions and record attendance, notes, action items, goals, and resources.
-- The system can persist AI preparation briefs and AI feedback reports using provider-neutral schemas.
-- Discord notification logs record delivery attempts and failures.
-- Every MVP feature maps to `feature_id`, API endpoints, DB tables, and QA scenarios.
-
-## MVP Scope
-| Area | Included |
-| --- | --- |
-| Identity | Google OAuth login, current user profile, Discord account link/unlink. |
-| Groups | Create/update/archive groups, member roles, invitations, JSONB rules, schedule defaults. |
-| Sessions | Schedule/update sessions, attendance, structured notes, action items. |
-| Learning | Goals, member progress logs, shared resources. |
-| AI | Preparation brief and feedback report contracts with persisted prompt runs. |
-| Discord | Channel connection, notification settings, notification logs, retryable failure state. |
-| QA | Feature-level acceptance scenarios and release checklist. |
-
-## Non-Scope
-| Area | Reason |
-| --- | --- |
-| Real-time STT and voice transcription | MVP focuses on structured asynchronous inputs. |
-| Live meeting assistant | Requires a separate latency and UX model. |
-| Discord slash commands | Notification-only MVP keeps Discord integration small. |
-| Billing | No monetization requirement for v1. |
-| Uploaded files | URL-based study resources are sufficient for v1. |
-| Group rule version history | Rules live in `study_groups.rules JSONB`; version history is post-MVP. |
-| Frontend implementation | Backend contracts are defined here; UI is a separate client. |
-
-## Platform Decisions
-- Backend: Java 21, Gradle, Spring Boot.
-- API: REST `/api/v1`, OpenAPI 3.1, JSON.
-- Error format: `application/problem+json`.
-- Database: PostgreSQL, UUIDv7 supplied by application code, JSONB for flexible structured values.
-- Auth: Google OAuth for app login; Discord account link for notifications.
-- AI: provider-neutral contract, fixed JSON schemas, configurable provider/model.
-- Discord: notification-only MVP.
-
-## User Roles
-- `owner`: full group administration, member management, Discord channel management, destructive group actions.
-- `manager`: session, invitation, goal, resource, AI generation, and notification configuration within a group.
-- `member`: session participation, notes, attendance, own action items, own progress logs, and visible group resources.
-
-## Release Readiness
-V1 is ready for backend implementation when:
-- OpenAPI parses successfully.
-- DDL draft has all 18 ERD tables.
-- Feature matrix maps every feature to PRD, requirements, API, DB, and QA.
-- No unlocked scope questions remain in v1 docs.
-- Obsidian `Current State` points to the locked source documents.
+- A group can reach `ACTIVE` through the full onboarding start path.
+- Curriculum generation records the onboarding summary used.
+- Weekly todo completion and incomplete reason flows are auditable.
+- AI feedback and chat records are linked to member/week context.
+- AI feedback can propose audited next-week adjustments after every week.
+- In-app notifications surface onboarding, todo deadline, incomplete reason, retrospective, and AI feedback events.
+- Jira implementation tasks reference the same source documents and labels.
