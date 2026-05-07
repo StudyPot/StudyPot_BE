@@ -13,8 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class GoogleOAuthLoginService {
 
-	private static final int MAX_NICKNAME_LENGTH = 80;
-
 	private final GoogleOAuthCodeExchangePort googleOAuth;
 	private final IdentityAccountRepository repository;
 	private final Clock clock;
@@ -91,11 +89,7 @@ public class GoogleOAuthLoginService {
 		if (candidate == null || candidate.isBlank()) {
 			candidate = localPart(profile.email());
 		}
-		String normalized = candidate.strip();
-		if (normalized.length() > MAX_NICKNAME_LENGTH) {
-			return normalized.substring(0, MAX_NICKNAME_LENGTH);
-		}
-		return normalized;
+		return candidate.strip();
 	}
 
 	private static String localPart(EmailAddress email) {

@@ -45,6 +45,7 @@
 - User decision on 2026-05-07: the real Google Cloud OAuth client can be created by the user; backend implementation proceeds with env/config placeholders and test doubles until real `client_id`, `client_secret`, and redirect URI are available.
 - Google docs confirm Web application OAuth credentials require a client ID, client secret, and authorized redirect URI, and the redirect URI must exactly match the configured URI.
 - Google OpenID Connect docs identify the discovery document and current token/userinfo endpoint metadata; production code should keep endpoint URIs configurable while defaulting to the documented Google endpoints.
+- Copilot review on PR #38 found duplicate nickname length policy in `GoogleOAuthLoginService`; fixed by keeping candidate selection in the service and centralizing length/normalization in `IdentityUser`.
 
 ## Goal
 Implement the identity-core Google OAuth login core for SPT-24: exchange a Google authorization code, map the verified Google profile, create or update the live `users` row, create or update the live `oauth_account` row, and keep raw provider tokens out of stored domain state and responses.
@@ -88,3 +89,6 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] Focused: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.GoogleOAuthLoginServiceTest' --tests 'com.studypot.aistudyleader.identity.adapter.out.google.GoogleOAuthClientTest' --tests 'com.studypot.aistudyleader.identity.adapter.out.persistence.IdentityJdbcSqlContractTest' --no-daemon` PASS.
 - [x] Full verification initially failed because `GoogleOAuthConfiguration` required a `RestClient.Builder` bean that the existing test context does not provide; root cause fixed by using `ObjectProvider<RestClient.Builder>` with `RestClient.builder()` fallback.
 - [x] Full verification after fix: `./gradlew check build --no-daemon` PASS.
+- [x] Copilot review fix: added `IdentityUserTest` to pin domain-owned nickname normalization/length policy.
+- [x] Copilot review fix: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.GoogleOAuthLoginServiceTest' --tests 'com.studypot.aistudyleader.identity.domain.IdentityUserTest' --no-daemon` PASS.
+- [x] Copilot review fix: `./gradlew check build --no-daemon` PASS.
