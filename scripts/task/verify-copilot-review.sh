@@ -21,11 +21,19 @@ if [[ -z "${head_sha}" ]]; then
   head_sha="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
 fi
 
+if [[ "${STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW:-0}" == "1" ]]; then
+  review_filter=".author.login == \"${reviewer}\" and ((.commit.oid // \"\") == \"${head_sha}\")"
+  review_error="latest-head Copilot review activity is required from ${reviewer} for head ${head_sha}."
+else
+  review_filter=".author.login == \"${reviewer}\""
+  review_error="Copilot review activity is required from ${reviewer} before manual merge notification."
+fi
+
 review_count="$(gh pr view "${pr}" --json reviews --jq "
-  [.reviews[]? | select(.author.login == \"${reviewer}\" and ((.commit.oid // \"\") == \"${head_sha}\"))]
+  [.reviews[]? | select(${review_filter})]
   | length
 ")"
-[[ "${review_count}" -gt 0 ]] || fail "latest-head Copilot review activity is required from ${reviewer} for head ${head_sha}."
+[[ "${review_count}" -gt 0 ]] || fail "${review_error}"
 
 repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 owner="${repo_name%%/*}"

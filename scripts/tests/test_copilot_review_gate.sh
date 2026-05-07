@@ -49,7 +49,7 @@ if PATH="${tmp}:${PATH}" \
   FAKE_COPILOT_REVIEW_COUNT=0 \
   FAKE_COPILOT_UNRESOLVED_THREADS=0 \
   "${gate_script}" 32 >/dev/null 2>&1; then
-  fail "expected missing latest-head Copilot review activity to fail"
+  fail "expected missing Copilot review activity to fail"
 fi
 
 if PATH="${tmp}:${PATH}" \

@@ -88,6 +88,7 @@ Follow-up scope after Copilot review:
 - [x] Resolve schema contract test paths from Gradle-provided project dir/fallback project-root discovery instead of assuming current working directory.
 - [x] Add a Copilot review gate script and tests so future Mattermost manual merge notifications require latest-head Copilot activity and no unresolved Copilot review threads.
 - [x] Make `create-pr.sh` request GitHub Copilot review by default via reviewer `@copilot`.
+- [x] Keep latest-head Copilot re-review as an opt-in strict mode because GitHub's re-review request did not create a new review in this PR, while unresolved Copilot threads are still enforced.
 - [ ] Re-run local verification and PR gates after pushing the follow-up commit.
 
 Follow-up verification evidence:
