@@ -22,7 +22,7 @@
 
 ## 계층 규칙
 - 기존 프로젝트의 계층과 모듈 경계를 우선한다.
-- public API, domain/service, persistence, configuration 책임을 섞지 않는다.
+- public API, domain/service, repository, infrastructure, configuration 책임을 섞지 않는다.
 - shared code 변경은 테스트와 문서 갱신을 함께 수행한다.
 - DB/API/AI/알림/권한 변경은 `docs/specs/change-control-v1.md`의 Change Request + ADR 기록을 먼저 확인한다.
 
