@@ -14,3 +14,11 @@ management:
     web:
       exposure:
         include: health,info
+
+studypot:
+  oauth:
+    google:
+      client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:}
+      client-secret: ${STUDYPOT_GOOGLE_CLIENT_SECRET:}
+      token-uri: ${STUDYPOT_GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
+      userinfo-uri: ${STUDYPOT_GOOGLE_USERINFO_URI:https://openidconnect.googleapis.com/v1/userinfo}
