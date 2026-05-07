@@ -7,7 +7,7 @@ import com.studypot.aistudyleader.identity.application.IdentityAccountRepository
 import com.studypot.aistudyleader.identity.application.RefreshTokenRepository;
 import com.studypot.aistudyleader.shared.domain.UuidV7;
 import java.time.Clock;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 class AuthSessionConfiguration {
 
 	@Bean
-	@ConditionalOnBean({GoogleOAuthLoginService.class, IdentityAccountRepository.class, RefreshTokenRepository.class, AccessTokenIssuer.class})
+	@ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 	AuthSessionService authSessionService(
 		GoogleOAuthLoginService googleOAuthLoginService,
 		IdentityAccountRepository identityRepository,
