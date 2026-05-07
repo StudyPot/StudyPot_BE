@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./testlib.sh
+# shellcheck source=scripts/tests/testlib.sh
 source "${SCRIPT_DIR}/testlib.sh"
 
 tmp="$(mktemp -d)"
@@ -49,9 +49,9 @@ fi
 
 bad_evidence="${tmp}/bad.md"
 cat > "${bad_evidence}" <<'EOF'
-## Evidence
-- User Decision: no new user decision was needed.
-- Architecture Reviewed: package boundaries checked
+## 증거
+- 사용자 결정: 추가 사용자 결정은 필요하지 않습니다.
+- 아키텍처 검토: package boundary 확인
 EOF
 
 if PATH="${tmp}:${PATH}" "${TEST_ROOT}/scripts/task/post-role-review-pass.sh" 7 cto-architecture "${bad_evidence}" >/dev/null 2>&1; then
@@ -60,11 +60,11 @@ fi
 
 empty_evidence="${tmp}/empty.md"
 cat > "${empty_evidence}" <<'EOF'
-## Evidence
-- User Decision:
-- Architecture Reviewed:
-- Work Breakdown:
-- Risks:
+## 증거
+- 사용자 결정:
+- 아키텍처 검토:
+- 작업 분해:
+- 위험:
 EOF
 
 if PATH="${tmp}:${PATH}" "${TEST_ROOT}/scripts/task/post-role-review-pass.sh" 7 cto-architecture "${empty_evidence}" >/dev/null 2>&1; then
@@ -78,38 +78,38 @@ write_evidence() {
   case "${gate}" in
     cto-architecture)
       cat > "${target}" <<'EOF'
-## Evidence
-- User Decision: no new user decision was needed.
-- Architecture Reviewed: domain/API boundaries checked.
-- Work Breakdown: implementation, tests, and docs reviewed.
-- Risks: no untracked API/DB contract drift found.
+## 증거
+- 사용자 결정: 추가 사용자 결정은 필요하지 않습니다.
+- 아키텍처 검토: domain/API 경계를 확인했습니다.
+- 작업 분해: 구현, 테스트, 문서 변경을 함께 검토했습니다.
+- 위험: 추적되지 않은 API/DB 계약 drift는 발견하지 못했습니다.
 EOF
       ;;
     qa-verification)
       cat > "${target}" <<'EOF'
-## Evidence
-- User Decision: no new user decision was needed.
-- Commands Run: ./gradlew check build --no-daemon
-- Scenarios Tested: happy path, validation, and regression checks.
-- Results: all reviewed checks passed.
+## 증거
+- 사용자 결정: 추가 사용자 결정은 필요하지 않습니다.
+- 실행한 명령: ./gradlew check build --no-daemon
+- 검증 시나리오: happy path, validation, regression check를 확인했습니다.
+- 결과: 검토한 check가 모두 통과했습니다.
 EOF
       ;;
     product-value)
       cat > "${target}" <<'EOF'
-## Evidence
-- User Decision: no new user decision was needed.
-- User Value: supports the intended user workflow.
-- Retention Impact: no harmful churn risk identified.
-- Scope Decision: follow-up ideas are separated from this PR.
+## 증거
+- 사용자 결정: 추가 사용자 결정은 필요하지 않습니다.
+- 사용자 가치: 의도한 사용자 workflow를 지원합니다.
+- 리텐션 영향: 해로운 이탈 위험은 발견하지 못했습니다.
+- 범위 결정: 후속 아이디어는 이 PR 범위에서 분리했습니다.
 EOF
       ;;
     final-cto-merge)
       cat > "${target}" <<'EOF'
-## Evidence
-- User Decision: no new user decision was needed.
-- Prior Gates Checked: CTO, QA, and Product gates reviewed.
-- Unresolved Threads: none open at final review time.
-- Merge Decision: approved for merge.
+## 증거
+- 사용자 결정: 추가 사용자 결정은 필요하지 않습니다.
+- 이전 게이트 확인: CTO, QA, Product gate를 확인했습니다.
+- 미해결 스레드: final review 시점에 열린 thread가 없습니다.
+- merge 결정: merge 진행을 승인합니다.
 EOF
       ;;
     *)
@@ -125,7 +125,8 @@ for gate in cto-architecture qa-verification product-value final-cto-merge; do
   GH_FAKE_COMMENT_FILE="${comment}" PATH="${tmp}:${PATH}" \
     "${TEST_ROOT}/scripts/task/post-role-review-pass.sh" 7 "${gate}" "${evidence}" >/dev/null
   assert_contains "Head: fake-head-sha" "${comment}"
-  assert_contains "## Evidence" "${comment}"
+  assert_contains "## 증거" "${comment}"
+  assert_contains "범위:" "${comment}"
 done
 
 assert_contains "CTO Architecture Gate: PASS" "${tmp}/cto-architecture.comment"

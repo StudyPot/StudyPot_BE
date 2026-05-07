@@ -11,9 +11,9 @@ gate="${2:-}"
 evidence_file="${3:-}"
 
 [[ -n "${pr}" && -n "${gate}" ]] || fail "usage: post-role-review-pass.sh <PR_NUMBER> <GATE> <evidence_file>"
-[[ -n "${evidence_file}" ]] || fail "evidence file is required."
-[[ -f "${evidence_file}" ]] || fail "evidence file does not exist: ${evidence_file}"
-[[ -s "${evidence_file}" ]] || fail "evidence file is empty: ${evidence_file}"
+[[ -n "${evidence_file}" ]] || fail "증거 파일이 필요합니다."
+[[ -f "${evidence_file}" ]] || fail "증거 파일이 없습니다: ${evidence_file}"
+[[ -s "${evidence_file}" ]] || fail "증거 파일이 비어 있습니다: ${evidence_file}"
 command -v gh >/dev/null 2>&1 || fail "gh CLI is required."
 
 company_review_marker() {
@@ -39,16 +39,16 @@ company_review_marker() {
 company_review_scope() {
   case "$1" in
     cto-architecture)
-      printf 'CTO architecture and work breakdown'
+      printf 'CTO 아키텍처 및 작업 분해'
       ;;
     qa-verification)
-      printf 'QA browser/API verification'
+      printf 'QA 브라우저/API 검증'
       ;;
     product-value)
-      printf 'Product/CBO value and retention review'
+      printf 'Product/CBO 가치 및 리텐션 검토'
       ;;
     final-cto-merge)
-      printf 'Final CTO merge approval'
+      printf 'Final CTO merge 승인'
       ;;
     *)
       fail "unknown company review gate: $1"
@@ -59,7 +59,7 @@ company_review_scope() {
 require_evidence_label() {
   local file="$1"
   local label="$2"
-  grep -Fq "${label}" "${file}" || fail "evidence file must include '${label}'."
+  grep -Fq "${label}" "${file}" || fail "증거 파일에 '${label}' 항목이 필요합니다."
 }
 
 require_evidence_entry() {
@@ -76,35 +76,35 @@ require_evidence_entry() {
     END {
       exit found ? 0 : 1
     }
-  ' "${file}" || fail "evidence file must include a non-empty '${label}' entry."
+  ' "${file}" || fail "증거 파일에는 비어 있지 않은 '${label}' 항목이 필요합니다."
 }
 
 validate_evidence_file() {
   local gate="$1"
   local file="$2"
 
-  require_evidence_label "${file}" "## Evidence"
-  require_evidence_entry "${file}" "User Decision"
+  require_evidence_label "${file}" "## 증거"
+  require_evidence_entry "${file}" "사용자 결정"
   case "${gate}" in
     cto-architecture)
-      require_evidence_entry "${file}" "Architecture Reviewed"
-      require_evidence_entry "${file}" "Work Breakdown"
-      require_evidence_entry "${file}" "Risks"
+      require_evidence_entry "${file}" "아키텍처 검토"
+      require_evidence_entry "${file}" "작업 분해"
+      require_evidence_entry "${file}" "위험"
       ;;
     qa-verification)
-      require_evidence_entry "${file}" "Commands Run"
-      require_evidence_entry "${file}" "Scenarios Tested"
-      require_evidence_entry "${file}" "Results"
+      require_evidence_entry "${file}" "실행한 명령"
+      require_evidence_entry "${file}" "검증 시나리오"
+      require_evidence_entry "${file}" "결과"
       ;;
     product-value)
-      require_evidence_entry "${file}" "User Value"
-      require_evidence_entry "${file}" "Retention Impact"
-      require_evidence_entry "${file}" "Scope Decision"
+      require_evidence_entry "${file}" "사용자 가치"
+      require_evidence_entry "${file}" "리텐션 영향"
+      require_evidence_entry "${file}" "범위 결정"
       ;;
     final-cto-merge)
-      require_evidence_entry "${file}" "Prior Gates Checked"
-      require_evidence_entry "${file}" "Unresolved Threads"
-      require_evidence_entry "${file}" "Merge Decision"
+      require_evidence_entry "${file}" "이전 게이트 확인"
+      require_evidence_entry "${file}" "미해결 스레드"
+      require_evidence_entry "${file}" "merge 결정"
       ;;
     *)
       fail "unknown company review gate: ${gate}"
@@ -122,7 +122,7 @@ trap 'rm -f "${body:-}"' EXIT
 {
   printf '%s\n' "${review_marker}"
   printf 'Head: %s\n' "${head_sha}"
-  printf 'Scope: %s\n' "${scope}"
+  printf '범위: %s\n' "${scope}"
   printf '\n'
   sed -n '1,220p' "${evidence_file}"
 } > "${body}"
