@@ -1,4 +1,4 @@
-package com.studypot.aistudyleader.identity.service;
+package com.studypot.aistudyleader.identity.repository;
 
 public class IdentityUniquenessConflictException extends RuntimeException {
 

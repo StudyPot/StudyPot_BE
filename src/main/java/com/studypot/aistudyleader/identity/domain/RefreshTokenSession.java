@@ -1,4 +1,4 @@
-package com.studypot.aistudyleader.identity.service;
+package com.studypot.aistudyleader.identity.domain;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -35,4 +35,4 @@
 - Prefer existing patterns over new abstractions.
 - Keep tests close to changed behavior.
 - Record cross-module decisions in `EXEC_PLAN -> Doc Notes`.
-- `LayeredArchitectureTest` enforces domain/service dependency direction, production controller placement, and removal of legacy `adapter` package naming.
+- `LayeredArchitectureTest` enforces domain/service/repository dependency direction, production controller placement, and removal of legacy `adapter` package naming.

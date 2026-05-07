@@ -30,9 +30,9 @@ class LayeredArchitectureTest {
 		.should().dependOnClassesThat().resideInAnyPackage("..controller..", "..infrastructure..");
 
 	@ArchTest
-	static final ArchRule repositoryCodeDoesNotDependOnControllers = noClasses()
+	static final ArchRule repositoryCodeDoesNotDependOnControllersOrServices = noClasses()
 		.that().resideInAPackage("..repository..")
-		.should().dependOnClassesThat().resideInAnyPackage("..controller..");
+		.should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..");
 
 	@ArchTest
 	static final ArchRule productionControllersLiveInControllerPackages = classes()

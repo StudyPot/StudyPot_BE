@@ -19,7 +19,7 @@ import com.studypot.aistudyleader.identity.service.GoogleOAuthLoginService;
 import com.studypot.aistudyleader.identity.service.GoogleOAuthProfile;
 import com.studypot.aistudyleader.identity.repository.IdentityAccountRepository;
 import com.studypot.aistudyleader.identity.repository.RefreshTokenRepository;
-import com.studypot.aistudyleader.identity.service.RefreshTokenSession;
+import com.studypot.aistudyleader.identity.domain.RefreshTokenSession;
 import com.studypot.aistudyleader.identity.domain.EmailAddress;
 import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import com.studypot.aistudyleader.identity.domain.OAuthAccount;

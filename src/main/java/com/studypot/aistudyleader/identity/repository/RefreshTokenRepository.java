@@ -1,6 +1,6 @@
 package com.studypot.aistudyleader.identity.repository;
 
-import com.studypot.aistudyleader.identity.service.RefreshTokenSession;
+import com.studypot.aistudyleader.identity.domain.RefreshTokenSession;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;

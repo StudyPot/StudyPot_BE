@@ -1,13 +1,11 @@
 package com.studypot.aistudyleader.identity.repository;
 
+import com.studypot.aistudyleader.global.domain.AuditMetadata;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
-import com.studypot.aistudyleader.identity.repository.IdentityAccountRepository;
-import com.studypot.aistudyleader.identity.service.IdentityUniquenessConflictException;
 import com.studypot.aistudyleader.identity.domain.EmailAddress;
 import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import com.studypot.aistudyleader.identity.domain.OAuthAccount;
 import com.studypot.aistudyleader.identity.domain.OAuthProvider;
-import com.studypot.aistudyleader.global.domain.AuditMetadata;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;

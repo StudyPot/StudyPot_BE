@@ -5,6 +5,7 @@ import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import com.studypot.aistudyleader.identity.domain.OAuthAccount;
 import com.studypot.aistudyleader.identity.domain.OAuthProvider;
 import com.studypot.aistudyleader.identity.repository.IdentityAccountRepository;
+import com.studypot.aistudyleader.identity.repository.IdentityUniquenessConflictException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;

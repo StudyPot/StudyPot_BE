@@ -7,6 +7,7 @@ import com.studypot.aistudyleader.identity.domain.EmailAddress;
 import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import com.studypot.aistudyleader.identity.domain.OAuthAccount;
 import com.studypot.aistudyleader.identity.domain.OAuthProvider;
+import com.studypot.aistudyleader.identity.domain.RefreshTokenSession;
 import com.studypot.aistudyleader.identity.repository.IdentityAccountRepository;
 import com.studypot.aistudyleader.identity.repository.RefreshTokenRepository;
 import java.time.Clock;

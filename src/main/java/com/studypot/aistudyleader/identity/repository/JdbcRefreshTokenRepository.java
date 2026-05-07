@@ -1,8 +1,7 @@
 package com.studypot.aistudyleader.identity.repository;
 
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
-import com.studypot.aistudyleader.identity.repository.RefreshTokenRepository;
-import com.studypot.aistudyleader.identity.service.RefreshTokenSession;
+import com.studypot.aistudyleader.identity.domain.RefreshTokenSession;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;

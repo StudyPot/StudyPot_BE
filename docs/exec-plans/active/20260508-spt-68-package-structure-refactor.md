@@ -46,6 +46,7 @@ Make the source tree match the user's preferred style: `global` for common cross
 5. Move Google OAuth and JWT/security technical implementations from `identity.adapter.out.*` to `identity.infrastructure.*`.
 6. Move small shared kernel types from `shared.*` to `global.*`.
 7. Update all imports, package declarations, tests, and architecture docs without changing behavior.
+8. Address Copilot feedback by enforcing `repository` not depending on `service`, moving refresh token session state into `domain`, and moving repository uniqueness conflicts into `repository`.
 
 ## Step Plan
 - [x] RED: update architecture tests to require the new package structure and confirm they fail before the move.
@@ -70,3 +71,9 @@ Make the source tree match the user's preferred style: `global` for common cross
 - PASS: `./gradlew test --tests 'com.studypot.aistudyleader.architecture.*' --tests 'com.studypot.aistudyleader.identity.*' --tests 'com.studypot.aistudyleader.global.domain.*' --no-daemon`.
 - PASS: `./gradlew check build --no-daemon`.
 - PASS: `bash scripts/tests/run.sh`.
+- Copilot review: latest-head review received on PR #49 with 1 actionable thread. Addressed repository-to-service dependency leakage by moving `RefreshTokenSession` to `identity.domain`, moving `IdentityUniquenessConflictException` to `identity.repository`, and adding an ArchUnit repository dependency rule.
+- RED after Copilot feedback: `./gradlew test --tests 'com.studypot.aistudyleader.architecture.LayeredArchitectureTest' --no-daemon` failed before the dependency cleanup because repository code depended on service types.
+- PASS after Copilot feedback: `./gradlew test --tests 'com.studypot.aistudyleader.architecture.LayeredArchitectureTest' --no-daemon`.
+- PASS after Copilot feedback: `./gradlew test --tests 'com.studypot.aistudyleader.architecture.*' --tests 'com.studypot.aistudyleader.identity.*' --tests 'com.studypot.aistudyleader.global.domain.*' --no-daemon`.
+- PASS after Copilot feedback: `./gradlew check build --no-daemon`.
+- PASS after Copilot feedback: `bash scripts/tests/run.sh`.
