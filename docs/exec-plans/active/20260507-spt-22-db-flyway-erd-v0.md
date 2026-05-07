@@ -54,6 +54,7 @@
 - Copilot PR #32 feedback: allow future `V2+` Flyway migrations to coexist while keeping `V1__erd_v0_8_mysql8_schema.sql` as the lowest baseline version, and avoid brittle test paths tied only to the JVM working directory.
 - Copilot PR #34 feedback: clamp the Copilot review poll sleep to the remaining wait deadline so `STRICT_COPILOT_REVIEW_WAIT_SECONDS` is a real upper bound even when poll interval is larger.
 - Copilot PR #34 second feedback: read Bash `SECONDS` once per polling loop so deadline comparison and remaining sleep calculation cannot drift across a tick.
+- Reviewdog PR #34 feedback: avoid SC2016 in `test_pr_scripts_static.sh` by using double quotes with escaped interpolation for the static `now="${SECONDS}"` assertion.
 
 ## Goal
 Apply the locked ERD v0.8 MySQL8 schema as the backend's first Flyway migration, add runtime dependencies/configuration needed for Flyway-managed MySQL migrations, and add tests that prevent drift between the locked schema document and the executable migration.
@@ -97,6 +98,7 @@ Follow-up scope after Copilot review:
 - [x] Re-run local verification for the Copilot latest-head wait follow-up.
 - [x] Address PR #34 Copilot feedback by capping sleep to the remaining wait deadline and covering the wait < poll case in tests.
 - [x] Address PR #34 second Copilot feedback by fixing one-time `SECONDS` reads per poll loop and adding a static contract guard.
+- [x] Address PR #34 reviewdog shellcheck feedback on the static assertion quoting.
 - [ ] Push the follow-up commit, request Copilot review again, then re-run PR gates and manual merge notification.
 
 Follow-up verification evidence:
@@ -114,6 +116,7 @@ Follow-up verification evidence:
 - Standard verification after user correction: `./gradlew check build --no-daemon` passed.
 - Copilot feedback regression test after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh` passed.
 - Copilot second feedback regression checks after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh`, `bash scripts/tests/test_pr_scripts_static.sh`, `bash scripts/tests/run.sh`, and `./gradlew check build --no-daemon` passed.
+- Reviewdog feedback regression checks after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh`, `bash scripts/tests/test_pr_scripts_static.sh`, `bash scripts/tests/run.sh`, and `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - Flyway migration exists under `src/main/resources/db/migration/` and is named as a first-version schema migration.

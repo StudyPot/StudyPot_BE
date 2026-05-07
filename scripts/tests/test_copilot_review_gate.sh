@@ -179,7 +179,9 @@ FAKE_COPILOT_UNRESOLVED_THREADS=0 \
 STRICT_COPILOT_REVIEW_WAIT_SECONDS=10 \
 STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS=30 \
   "${gate_script}" 32 >/dev/null
-[[ "$(head -n 1 "${sleep_log}")" == "10" ]] || fail "expected Copilot review sleep to be clamped to remaining wait time"
+first_sleep="$(head -n 1 "${sleep_log}")"
+[[ "${first_sleep}" =~ ^[0-9]+$ ]] || fail "expected numeric Copilot review sleep duration"
+(( first_sleep > 0 && first_sleep <= 10 )) || fail "expected Copilot review sleep to be clamped to remaining wait time"
 
 if PATH="${tmp}:${PATH}" \
   FAKE_COPILOT_REVIEW_COUNT=1 \

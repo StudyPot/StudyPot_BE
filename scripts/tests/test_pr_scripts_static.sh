@@ -32,7 +32,7 @@ assert_contains "STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW" "${TEST_ROOT}/script
 assert_contains "STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW:-1" "${TEST_ROOT}/scripts/task/verify-copilot-review.sh"
 assert_contains "STRICT_COPILOT_REVIEW_WAIT_SECONDS:-600" "${TEST_ROOT}/scripts/task/verify-copilot-review.sh"
 assert_contains "STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS:-30" "${TEST_ROOT}/scripts/task/verify-copilot-review.sh"
-assert_contains 'now="${SECONDS}"' "${TEST_ROOT}/scripts/task/verify-copilot-review.sh"
+assert_contains "now=\"\${SECONDS}\"" "${TEST_ROOT}/scripts/task/verify-copilot-review.sh"
 assert_contains "test_copilot_review_gate.sh" "${TEST_ROOT}/scripts/tests/run.sh"
 assert_contains "GitHub Actions Review Gate: PASS" "${TEST_ROOT}/scripts/task/finish-pr.sh"
 assert_contains "STRICT_REQUIRE_GITHUB_ACTIONS_REVIEW_PASS" "${TEST_ROOT}/scripts/task/finish-pr.sh"
