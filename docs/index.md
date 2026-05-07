@@ -40,6 +40,7 @@
 - [Codex 테스트 하네스](./testing/codex-harness.md)
 - [PR 리뷰 게이트](./operations/pr-review-gate.md)
 - [GitHub Actions 리뷰 게이트](./operations/github-actions-review-gate.md)
+- [Local Development](./operations/local-development.md)
 - [Jira Board Sync](./operations/jira-board-sync.md)
 - [Error Ledger](./operations/error-ledger.md)
 - [Obsidian 에러 레저 운영](./operations/obsidian-error-ledger.md)

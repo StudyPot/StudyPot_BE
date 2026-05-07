@@ -10,12 +10,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@ConditionalOnBean(JdbcTemplate.class)
 class JdbcRefreshTokenRepository implements RefreshTokenRepository {
 
 	private final JdbcTemplate jdbcTemplate;

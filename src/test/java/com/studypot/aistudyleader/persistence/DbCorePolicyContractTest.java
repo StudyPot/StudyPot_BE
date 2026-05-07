@@ -90,6 +90,23 @@ class DbCorePolicyContractTest {
 			.contains("add unique key curriculum_group_live_uidx (group_live_key)");
 	}
 
+	@Test
+	void v2AddsForeignKeySupportingIndexesBeforeDroppingUniqueIndexesUsedByForeignKeys() throws IOException {
+		String migration = normalize(read(V2_MIGRATION));
+
+		assertThat(migration)
+			.contains("add key onboarding_member_fk_idx (member_id)")
+			.contains("drop index onboarding_member_uidx");
+		assertThat(migration.indexOf("add key onboarding_member_fk_idx (member_id)"))
+			.isLessThan(migration.indexOf("drop index onboarding_member_uidx"));
+
+		assertThat(migration)
+			.contains("add key curriculum_group_fk_idx (group_id)")
+			.contains("drop index curriculum_group_uidx");
+		assertThat(migration.indexOf("add key curriculum_group_fk_idx (group_id)"))
+			.isLessThan(migration.indexOf("drop index curriculum_group_uidx"));
+	}
+
 	private static List<String> tables(String migration) {
 		return Pattern.compile("^create\\s+table\\s+`?([a-z0-9_]+)`?\\s*\\(", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE)
 			.matcher(migration)
