@@ -1,7 +1,11 @@
 package com.studypot.aistudyleader.global.error;
 
+import com.studypot.aistudyleader.identity.application.AuthSessionRejectedException;
+import com.studypot.aistudyleader.identity.application.InvalidAuthRequestException;
+import com.studypot.aistudyleader.identity.application.OAuthLoginRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
+import java.util.List;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -54,6 +58,19 @@ public class ApiExceptionHandler {
 
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidAuthRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidAuthRequest(InvalidAuthRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse("request", messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler({AuthSessionRejectedException.class, OAuthLoginRejectedException.class})
+	public ResponseEntity<ProblemDetail> handleAuthSessionRejected(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+			.body(problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage())));
 	}
 
 	private static String parameterName(ParameterValidationResult result) {

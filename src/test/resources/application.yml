@@ -3,3 +3,11 @@ spring:
     exclude:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
       - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+
+studypot:
+  auth:
+    jwt:
+      secret: 0123456789abcdef0123456789abcdef
+      issuer: https://api.studypot.example/test
+      access-token-ttl: 15m
+    refresh-token-ttl: 30d

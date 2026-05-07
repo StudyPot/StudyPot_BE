@@ -53,6 +53,34 @@ class IdentityJdbcSqlContractTest {
 			.doesNotContain("refresh_token_enc");
 	}
 
+	@Test
+	void refreshTokenSqlStoresHashesAndSupportsRevocationOnly() {
+		assertThat(normalize(RefreshTokenJdbcSql.INSERT_REFRESH_TOKEN))
+			.contains("insert into refresh_token")
+			.contains("token_hash")
+			.contains("device_info")
+			.contains("ip_address")
+			.contains("expires_at")
+			.contains("created_at")
+			.doesNotContain("raw_token")
+			.doesNotContain("token_value");
+
+		assertThat(normalize(RefreshTokenJdbcSql.FIND_REFRESH_TOKEN_BY_HASH))
+			.contains("from refresh_token")
+			.contains("where token_hash = ?");
+
+		assertThat(normalize(RefreshTokenJdbcSql.REVOKE_REFRESH_TOKEN))
+			.contains("update refresh_token")
+			.contains("set revoked_at = ?")
+			.contains("where id = ?")
+			.contains("revoked_at is null");
+
+		assertThat(normalize(RefreshTokenJdbcSql.REVOKE_ACTIVE_REFRESH_TOKENS_BY_USER))
+			.contains("update refresh_token")
+			.contains("where user_id = ?")
+			.contains("revoked_at is null");
+	}
+
 	private static String normalize(String sql) {
 		return sql
 			.replaceAll("\\s+", " ")
