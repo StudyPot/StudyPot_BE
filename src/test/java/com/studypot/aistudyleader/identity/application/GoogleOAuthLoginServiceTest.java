@@ -126,6 +126,31 @@ class GoogleOAuthLoginServiceTest {
 	}
 
 	@Test
+	void concurrentEmailInsertConflictRetriesByReadingExistingLiveUser() {
+		repository.conflictOnNextUserSave = true;
+		google.nextProfile = verifiedProfile("google-123", "member@example.com", "Study Member");
+
+		GoogleOAuthLoginResult result = service.login(command("code-123"));
+
+		assertThat(result.userId()).isEqualTo(FIRST_USER_ID);
+		assertThat(repository.usersById).hasSize(1);
+		assertThat(repository.onlyActiveAccount().userId()).isEqualTo(FIRST_USER_ID);
+	}
+
+	@Test
+	void concurrentOAuthAccountInsertConflictRetriesByReadingExistingLiveAccount() {
+		repository.conflictOnNextAccountSave = true;
+		google.nextProfile = verifiedProfile("google-123", "member@example.com", "Study Member");
+
+		GoogleOAuthLoginResult result = service.login(command("code-123"));
+
+		assertThat(result.userId()).isEqualTo(FIRST_USER_ID);
+		assertThat(repository.usersById).hasSize(1);
+		assertThat(repository.onlyActiveAccount().providerUserId()).isEqualTo("google-123");
+		assertThat(repository.onlyActiveAccount().lastSyncedAt()).contains(NOW);
+	}
+
+	@Test
 	void loginRejectsBlankCodeInvalidRedirectAndUnverifiedGoogleEmail() {
 		assertThatThrownBy(() -> new GoogleOAuthLoginCommand(" ", "https://app.studypot.example/auth/callback", null))
 			.isInstanceOf(IllegalArgumentException.class)
@@ -189,6 +214,8 @@ class GoogleOAuthLoginServiceTest {
 		private final Map<String, UUID> userIdsByEmailLiveKey = new HashMap<>();
 		private final Map<String, OAuthAccount> activeAccounts = new HashMap<>();
 		private final List<String> deletedProviderAccountKeys = new ArrayList<>();
+		private boolean conflictOnNextUserSave;
+		private boolean conflictOnNextAccountSave;
 
 		@Override
 		public Optional<IdentityUser> findActiveUser(UUID userId) {
@@ -208,6 +235,19 @@ class GoogleOAuthLoginServiceTest {
 
 		@Override
 		public IdentityUser save(IdentityUser user) {
+			if (conflictOnNextUserSave) {
+				conflictOnNextUserSave = false;
+				IdentityUser concurrentUser = IdentityUser.create(
+					FIRST_USER_ID,
+					user.email(),
+					"Concurrent Member",
+					null,
+					NOW
+				);
+				usersById.put(concurrentUser.id(), concurrentUser);
+				userIdsByEmailLiveKey.put(concurrentUser.email().liveKey(), concurrentUser.id());
+				throw new IdentityUniquenessConflictException("users.email_live_key");
+			}
 			usersById.put(user.id(), user);
 			userIdsByEmailLiveKey.put(user.email().liveKey(), user.id());
 			return user;
@@ -215,6 +255,21 @@ class GoogleOAuthLoginServiceTest {
 
 		@Override
 		public OAuthAccount save(OAuthAccount account) {
+			if (conflictOnNextAccountSave) {
+				conflictOnNextAccountSave = false;
+				IdentityUser concurrentUser = usersById.get(account.userId());
+				activeAccounts.put(account.providerAccountLiveKey(), OAuthAccount.connect(
+					FIRST_ACCOUNT_ID,
+					concurrentUser.id(),
+					account.provider(),
+					account.providerUserId(),
+					concurrentUser.email(),
+					account.tokenExpiresAt().orElse(null),
+					account.scope().orElse(null),
+					NOW
+				));
+				throw new IdentityUniquenessConflictException("oauth_account.provider_account_live_key");
+			}
 			activeAccounts.put(account.providerAccountLiveKey(), account);
 			return account;
 		}

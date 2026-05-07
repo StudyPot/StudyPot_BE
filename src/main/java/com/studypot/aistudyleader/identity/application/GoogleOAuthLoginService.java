@@ -40,9 +40,7 @@ public class GoogleOAuthLoginService {
 		}
 
 		Instant now = clock.instant();
-		IdentityUser user = repository.findActiveOAuthAccount(OAuthProvider.GOOGLE, profile.providerUserId())
-			.map(account -> updateExistingAccount(account, profile, now))
-			.orElseGet(() -> createOrLinkAccount(profile, now));
+		IdentityUser user = loginWithProfile(profile, now, true);
 
 		return new GoogleOAuthLoginResult(
 			user.id(),
@@ -50,6 +48,19 @@ public class GoogleOAuthLoginService {
 			user.nickname(),
 			user.profileImage().orElse(null)
 		);
+	}
+
+	private IdentityUser loginWithProfile(GoogleOAuthProfile profile, Instant now, boolean retryOnConflict) {
+		try {
+			return repository.findActiveOAuthAccount(OAuthProvider.GOOGLE, profile.providerUserId())
+				.map(account -> updateExistingAccount(account, profile, now))
+				.orElseGet(() -> createOrLinkAccount(profile, now));
+		} catch (IdentityUniquenessConflictException exception) {
+			if (!retryOnConflict) {
+				throw exception;
+			}
+			return loginWithProfile(profile, now, false);
+		}
 	}
 
 	private IdentityUser updateExistingAccount(OAuthAccount account, GoogleOAuthProfile profile, Instant now) {

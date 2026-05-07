@@ -47,6 +47,7 @@
 - Google docs confirm Web application OAuth credentials require a client ID, client secret, and authorized redirect URI, and the redirect URI must exactly match the configured URI.
 - Google OpenID Connect docs identify the discovery document and current token/userinfo endpoint metadata; production code should keep endpoint URIs configurable while defaulting to the documented Google endpoints.
 - Copilot review on PR #38 found duplicate nickname length policy in `GoogleOAuthLoginService`; fixed by keeping candidate selection in the service and centralizing length/normalization in `IdentityUser`.
+- Copilot review on PR #38 found a concurrent first-login race where DB live-key uniqueness conflicts could surface as 5xx responses; fix by translating duplicate-key errors to an application conflict and retrying login once against the freshly committed live row.
 
 ## Goal
 Implement the identity-core Google OAuth login core for SPT-24: exchange a Google authorization code, map the verified Google profile, create or update the live `users` row, create or update the live `oauth_account` row, and keep raw provider tokens out of stored domain state and responses.
@@ -75,6 +76,7 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] Relogin by the same Google provider user updates the existing OAuth account and user login timestamp without duplicating live rows.
 - [x] Blank/invalid command input and unverified Google email profiles are rejected by tests.
 - [x] Soft-deleted provider account rows do not block recreating a live provider link.
+- [x] Concurrent first-login uniqueness conflicts retry against live user/provider-account state instead of leaking duplicate-key failures.
 - [x] Google OAuth client config stays secret-safe; raw provider tokens are not logged, returned, or stored by the SPT-24 core.
 - [x] Focused tests and `./gradlew check build --no-daemon` pass.
 - [ ] PR review gate, Copilot feedback, role gate evidence, Mattermost manual merge notification, and post-merge cleanup are completed through the harness.
@@ -95,3 +97,6 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] Copilot review fix: `./gradlew check build --no-daemon` PASS.
 - [x] Local Google config: added `.gitignore` entries for `src/main/resources/application-local.yml` and `.yaml`; created ignored local file with client id and env-backed client secret.
 - [x] Local profile check: `./gradlew test --tests 'com.studypot.aistudyleader.AiStudyLeaderApplicationTests' --no-daemon -Dspring.profiles.active=local` PASS.
+- [x] RED: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.GoogleOAuthLoginServiceTest' --no-daemon` failed because `IdentityUniquenessConflictException` did not exist for the new concurrent-login regression tests.
+- [x] Copilot concurrency fix: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.GoogleOAuthLoginServiceTest' --no-daemon` PASS.
+- [x] Copilot concurrency fix: `./gradlew check build --no-daemon` PASS.

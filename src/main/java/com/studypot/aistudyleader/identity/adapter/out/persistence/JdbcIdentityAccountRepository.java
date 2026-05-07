@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.identity.adapter.out.persistence;
 
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.identity.application.IdentityAccountRepository;
+import com.studypot.aistudyleader.identity.application.IdentityUniquenessConflictException;
 import com.studypot.aistudyleader.identity.domain.EmailAddress;
 import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import com.studypot.aistudyleader.identity.domain.OAuthAccount;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -45,58 +47,66 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 
 	@Override
 	public IdentityUser save(IdentityUser user) {
-		int updatedRows = jdbcTemplate.update(
-			IdentityJdbcSql.UPDATE_USER_LOGIN,
-			user.email().value(),
-			user.email().liveKey(),
-			user.nickname(),
-			user.profileImage().orElse(null),
-			timestamp(user.lastLoginAt().orElse(null)),
-			timestamp(user.auditMetadata().updatedAt()),
-			UuidBinary.toBytes(user.id())
-		);
-		if (updatedRows == 0) {
-			jdbcTemplate.update(
-				IdentityJdbcSql.INSERT_USER,
-				UuidBinary.toBytes(user.id()),
+		try {
+			int updatedRows = jdbcTemplate.update(
+				IdentityJdbcSql.UPDATE_USER_LOGIN,
 				user.email().value(),
 				user.email().liveKey(),
 				user.nickname(),
 				user.profileImage().orElse(null),
 				timestamp(user.lastLoginAt().orElse(null)),
-				timestamp(user.auditMetadata().createdAt()),
-				timestamp(user.auditMetadata().updatedAt())
+				timestamp(user.auditMetadata().updatedAt()),
+				UuidBinary.toBytes(user.id())
 			);
+			if (updatedRows == 0) {
+				jdbcTemplate.update(
+					IdentityJdbcSql.INSERT_USER,
+					UuidBinary.toBytes(user.id()),
+					user.email().value(),
+					user.email().liveKey(),
+					user.nickname(),
+					user.profileImage().orElse(null),
+					timestamp(user.lastLoginAt().orElse(null)),
+					timestamp(user.auditMetadata().createdAt()),
+					timestamp(user.auditMetadata().updatedAt())
+				);
+			}
+			return user;
+		} catch (DuplicateKeyException exception) {
+			throw new IdentityUniquenessConflictException("Live identity user already exists.", exception);
 		}
-		return user;
 	}
 
 	@Override
 	public OAuthAccount save(OAuthAccount account) {
-		int updatedRows = jdbcTemplate.update(
-			IdentityJdbcSql.UPDATE_OAUTH_ACCOUNT_SYNC,
-			account.email().map(EmailAddress::value).orElse(null),
-			timestamp(account.tokenExpiresAt().orElse(null)),
-			account.scope().orElse(null),
-			timestamp(account.lastSyncedAt().orElse(null)),
-			UuidBinary.toBytes(account.id())
-		);
-		if (updatedRows == 0) {
-			jdbcTemplate.update(
-				IdentityJdbcSql.INSERT_OAUTH_ACCOUNT,
-				UuidBinary.toBytes(account.id()),
-				UuidBinary.toBytes(account.userId()),
-				account.provider().name(),
-				account.providerUserId(),
-				account.providerAccountLiveKey(),
+		try {
+			int updatedRows = jdbcTemplate.update(
+				IdentityJdbcSql.UPDATE_OAUTH_ACCOUNT_SYNC,
 				account.email().map(EmailAddress::value).orElse(null),
 				timestamp(account.tokenExpiresAt().orElse(null)),
 				account.scope().orElse(null),
-				timestamp(account.connectedAt()),
-				timestamp(account.lastSyncedAt().orElse(null))
+				timestamp(account.lastSyncedAt().orElse(null)),
+				UuidBinary.toBytes(account.id())
 			);
+			if (updatedRows == 0) {
+				jdbcTemplate.update(
+					IdentityJdbcSql.INSERT_OAUTH_ACCOUNT,
+					UuidBinary.toBytes(account.id()),
+					UuidBinary.toBytes(account.userId()),
+					account.provider().name(),
+					account.providerUserId(),
+					account.providerAccountLiveKey(),
+					account.email().map(EmailAddress::value).orElse(null),
+					timestamp(account.tokenExpiresAt().orElse(null)),
+					account.scope().orElse(null),
+					timestamp(account.connectedAt()),
+					timestamp(account.lastSyncedAt().orElse(null))
+				);
+			}
+			return account;
+		} catch (DuplicateKeyException exception) {
+			throw new IdentityUniquenessConflictException("Live OAuth account already exists.", exception);
 		}
-		return account;
 	}
 
 	private IdentityUser mapUser(ResultSet resultSet, int rowNumber) throws SQLException {
