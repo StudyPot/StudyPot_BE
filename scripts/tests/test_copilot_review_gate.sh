@@ -43,7 +43,19 @@ if [[ "$1" == "pr" && "$2" == "view" ]]; then
     exit 0
   fi
   if [[ "$*" == *"reviews"* ]]; then
-    if [[ "${FAKE_COPILOT_REVIEW_COUNT:-0}" == "0" ]]; then
+    review_count="${FAKE_COPILOT_REVIEW_COUNT:-0}"
+    if [[ "${FAKE_COPILOT_REVIEW_AFTER_FIRST_POLL:-0}" == "1" ]]; then
+      state_file="${FAKE_GH_STATE_DIR:-${TMPDIR:-/tmp}}/review_calls"
+      calls="0"
+      [[ -f "${state_file}" ]] && calls="$(cat "${state_file}")"
+      calls="$((calls + 1))"
+      printf '%s\n' "${calls}" > "${state_file}"
+      if [[ "${calls}" -gt 1 ]]; then
+        review_count="1"
+      fi
+    fi
+
+    if [[ "${review_count}" == "0" ]]; then
       printf '{"reviews":[]}\n'
     else
       cat <<JSON
@@ -113,12 +125,63 @@ exit 1
 STUB
 chmod +x "${fake_gh}"
 
+fake_sleep="${tmp}/sleep"
+cat > "${fake_sleep}" <<'STUB'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ -n "${FAKE_SLEEP_LOG:-}" ]]; then
+  printf '%s\n' "$1" >> "${FAKE_SLEEP_LOG}"
+fi
+STUB
+chmod +x "${fake_sleep}"
+
 if PATH="${tmp}:${PATH}" \
   FAKE_COPILOT_REVIEW_COUNT=0 \
   FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=0 \
   "${gate_script}" 32 >/dev/null 2>&1; then
   fail "expected missing Copilot review activity to fail"
 fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=1 \
+  FAKE_COPILOT_REVIEW_COMMIT=old-head \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=0 \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected stale-head Copilot review activity to fail by default"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=0 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_WAIT_SECONDS=invalid \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected invalid Copilot review wait seconds to fail"
+fi
+
+if PATH="${tmp}:${PATH}" \
+  FAKE_COPILOT_REVIEW_COUNT=0 \
+  FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+  STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS=0 \
+  "${gate_script}" 32 >/dev/null 2>&1; then
+  fail "expected invalid Copilot review poll interval to fail"
+fi
+
+sleep_log="${tmp}/sleep.log"
+PATH="${tmp}:${PATH}" \
+FAKE_GH_STATE_DIR="${tmp}" \
+FAKE_SLEEP_LOG="${sleep_log}" \
+FAKE_COPILOT_REVIEW_AFTER_FIRST_POLL=1 \
+FAKE_COPILOT_UNRESOLVED_THREADS=0 \
+STRICT_COPILOT_REVIEW_WAIT_SECONDS=10 \
+STRICT_COPILOT_REVIEW_POLL_INTERVAL_SECONDS=30 \
+  "${gate_script}" 32 >/dev/null
+first_sleep="$(head -n 1 "${sleep_log}")"
+[[ "${first_sleep}" =~ ^[0-9]+$ ]] || fail "expected numeric Copilot review sleep duration"
+(( first_sleep > 0 && first_sleep <= 10 )) || fail "expected Copilot review sleep to be clamped to remaining wait time"
 
 if PATH="${tmp}:${PATH}" \
   FAKE_COPILOT_REVIEW_COUNT=1 \

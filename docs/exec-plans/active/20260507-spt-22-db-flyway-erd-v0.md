@@ -50,7 +50,11 @@
 - PR flow requires `create-pr.sh`, latest-head GitHub Actions Review Gate and role gate evidence, human merge, then `finish-pr.sh cleanup-merged`.
 - User decision on 2026-05-07: address every actionable GitHub Copilot PR review comment on PR #32 before re-sending Mattermost manual merge readiness.
 - User decision on 2026-05-07: future PRs must wait for latest-head Copilot review activity and all Copilot review threads to be addressed before Mattermost manual merge notification.
+- User correction on 2026-05-07: GitHub Copilot review usually appears after about 5-10 minutes, so the harness must wait for latest-head Copilot review by default instead of treating missing review activity as optional.
 - Copilot PR #32 feedback: allow future `V2+` Flyway migrations to coexist while keeping `V1__erd_v0_8_mysql8_schema.sql` as the lowest baseline version, and avoid brittle test paths tied only to the JVM working directory.
+- Copilot PR #34 feedback: clamp the Copilot review poll sleep to the remaining wait deadline so `STRICT_COPILOT_REVIEW_WAIT_SECONDS` is a real upper bound even when poll interval is larger.
+- Copilot PR #34 second feedback: read Bash `SECONDS` once per polling loop so deadline comparison and remaining sleep calculation cannot drift across a tick.
+- Reviewdog PR #34 feedback: avoid SC2016 in `test_pr_scripts_static.sh` by using double quotes with escaped interpolation for the static `now="${SECONDS}"` assertion.
 
 ## Goal
 Apply the locked ERD v0.8 MySQL8 schema as the backend's first Flyway migration, add runtime dependencies/configuration needed for Flyway-managed MySQL migrations, and add tests that prevent drift between the locked schema document and the executable migration.
@@ -88,9 +92,14 @@ Follow-up scope after Copilot review:
 - [x] Resolve schema contract test paths from Gradle-provided project dir/fallback project-root discovery instead of assuming current working directory.
 - [x] Add a Copilot review gate script and tests so future Mattermost manual merge notifications require latest-head Copilot activity and no unresolved Copilot review threads.
 - [x] Make `create-pr.sh` request GitHub Copilot review by default via reviewer `@copilot`.
-- [x] Keep latest-head Copilot re-review as an opt-in strict mode because GitHub's re-review request did not create a new review in this PR, while unresolved Copilot threads are still enforced.
+- [x] Require latest-head Copilot review by default and wait up to 600 seconds before failing the manual merge notification gate.
 - [x] Address second Copilot review by failing closed when review thread/comment pagination is present and by testing `verify-copilot-review.sh` against realistic JSON plus `jq` filtering.
-- [ ] Re-run local verification and PR gates after pushing the follow-up commit.
+- [x] Add harness coverage for stale-head Copilot reviews and invalid Copilot wait/poll configuration.
+- [x] Re-run local verification for the Copilot latest-head wait follow-up.
+- [x] Address PR #34 Copilot feedback by capping sleep to the remaining wait deadline and covering the wait < poll case in tests.
+- [x] Address PR #34 second Copilot feedback by fixing one-time `SECONDS` reads per poll loop and adding a static contract guard.
+- [x] Address PR #34 reviewdog shellcheck feedback on the static assertion quoting.
+- [ ] Push the follow-up commit, request Copilot review again, then re-run PR gates and manual merge notification.
 
 Follow-up verification evidence:
 - Copilot gate test: `bash scripts/tests/test_copilot_review_gate.sh` passed.
@@ -101,6 +110,13 @@ Follow-up verification evidence:
 - Stale build output failure: `./gradlew check build --no-daemon` initially failed because ignored `build/classes/java/main/com/studypot 2/...` stale output created a duplicate main class candidate. Recorded in `docs/operations/error-ledger.md`.
 - Clean recovery: `./gradlew clean check build --no-daemon` passed.
 - Standard verification after clean: `./gradlew check build --no-daemon` passed.
+- Copilot wait gate test after user correction: `bash scripts/tests/test_copilot_review_gate.sh` passed.
+- PR static harness test after user correction: `bash scripts/tests/test_pr_scripts_static.sh` passed.
+- Harness suite after user correction: `bash scripts/tests/run.sh` passed.
+- Standard verification after user correction: `./gradlew check build --no-daemon` passed.
+- Copilot feedback regression test after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh` passed.
+- Copilot second feedback regression checks after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh`, `bash scripts/tests/test_pr_scripts_static.sh`, `bash scripts/tests/run.sh`, and `./gradlew check build --no-daemon` passed.
+- Reviewdog feedback regression checks after PR #34 review: `bash scripts/tests/test_copilot_review_gate.sh`, `bash scripts/tests/test_pr_scripts_static.sh`, `bash scripts/tests/run.sh`, and `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - Flyway migration exists under `src/main/resources/db/migration/` and is named as a first-version schema migration.
