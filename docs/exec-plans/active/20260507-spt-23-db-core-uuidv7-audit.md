@@ -92,6 +92,10 @@ Use test-driven implementation:
 - PASS after Copilot re-review fixes: `./gradlew test --tests 'com.studypot.aistudyleader.shared.domain.UuidV7Test' --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
 - PASS after Copilot re-review fixes: `bash scripts/tests/run.sh`
 - PASS after Copilot re-review fixes: `./gradlew check build --no-daemon`
+- Copilot third review: latest-head third review received on PR #36 with 2 actionable threads. Addressed whitespace-tolerant V2 SQL assertions and Gradle Kotlin DSL root detection.
+- PASS after Copilot third review fixes: `./gradlew test --tests 'com.studypot.aistudyleader.persistence.DbCorePolicyContractTest' --no-daemon`
+- PASS after Copilot third review fixes: `bash scripts/tests/run.sh`
+- PASS after Copilot third review fixes: `./gradlew check build --no-daemon`
 
 ## Done Criteria
 - UUIDv7 generation produces RFC 9562 version 7, RFC variant UUIDs with millisecond timestamp ordering and injectable clock/randomness for tests.

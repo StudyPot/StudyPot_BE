@@ -140,7 +140,7 @@ class DbCorePolicyContractTest {
 	private static String normalize(String sql) {
 		return sql
 			.replace("\r\n", "\n")
-			.replaceAll("[ \\t]+\\n", "\n")
+			.replaceAll("\\s+", " ")
 			.strip()
 			.toLowerCase();
 	}
@@ -153,7 +153,8 @@ class DbCorePolicyContractTest {
 
 		Path current = Path.of("").toAbsolutePath().normalize();
 		while (current != null) {
-			if (Files.isRegularFile(current.resolve("settings.gradle"))
+			if ((Files.isRegularFile(current.resolve("settings.gradle"))
+				|| Files.isRegularFile(current.resolve("settings.gradle.kts")))
 				&& Files.isRegularFile(current.resolve("docs/specs/db-schema-v1.sql"))) {
 				return current;
 			}
