@@ -43,6 +43,7 @@
 - Jira SPT-25 owns `refresh_token`, current-user lookup, token revocation, and refresh-token reuse protection. This task must not invent refresh-token persistence or rotation behavior ahead of SPT-25.
 - Locked API/ADR already decide that the frontend obtains the Google authorization code and calls the backend with JSON. Backend-owned OAuth redirect/callback routes stay out of MVP.
 - User decision on 2026-05-07: the real Google Cloud OAuth client can be created by the user; backend implementation proceeds with env/config placeholders and test doubles until real `client_id`, `client_secret`, and redirect URI are available.
+- User provided local Google OAuth client id `110233154142-08aes5h6jedkhkdfnl0th26qvefeijfj.apps.googleusercontent.com`; store it only in ignored `src/main/resources/application-local.yml`, and keep `client-secret` in local env/deployment secret.
 - Google docs confirm Web application OAuth credentials require a client ID, client secret, and authorized redirect URI, and the redirect URI must exactly match the configured URI.
 - Google OpenID Connect docs identify the discovery document and current token/userinfo endpoint metadata; production code should keep endpoint URIs configurable while defaulting to the documented Google endpoints.
 - Copilot review on PR #38 found duplicate nickname length policy in `GoogleOAuthLoginService`; fixed by keeping candidate selection in the service and centralizing length/normalization in `IdentityUser`.
@@ -92,3 +93,5 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] Copilot review fix: added `IdentityUserTest` to pin domain-owned nickname normalization/length policy.
 - [x] Copilot review fix: `./gradlew test --tests 'com.studypot.aistudyleader.identity.application.GoogleOAuthLoginServiceTest' --tests 'com.studypot.aistudyleader.identity.domain.IdentityUserTest' --no-daemon` PASS.
 - [x] Copilot review fix: `./gradlew check build --no-daemon` PASS.
+- [x] Local Google config: added `.gitignore` entries for `src/main/resources/application-local.yml` and `.yaml`; created ignored local file with client id and env-backed client secret.
+- [x] Local profile check: `./gradlew test --tests 'com.studypot.aistudyleader.AiStudyLeaderApplicationTests' --no-daemon -Dspring.profiles.active=local` PASS.
