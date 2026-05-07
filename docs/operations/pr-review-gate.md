@@ -6,15 +6,16 @@
 1. feature 작업은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로 시작한다.
 2. 구현과 검증은 생성된 `codex/<slug>` worktree에서만 수행한다.
 3. commit 전 hook이 `EXEC_PLAN`, related docs, feature id, tests, verification을 확인한다.
-4. PR 생성은 `scripts/task/create-pr.sh`로 수행한다.
+4. PR 생성은 `scripts/task/create-pr.sh`로 수행하며, 기본적으로 `gh pr edit <PR> --add-reviewer @copilot`로 GitHub Copilot review를 요청한다.
 5. GitHub Actions가 PR 품질 검사와 reviewdog feedback을 실행한다. `review-gate-pass`는 company role gate evidence가 없으면 실패 상태로 남는다.
 6. Codex review를 회사 역할 기반 gate로 수행한다. 작성자는 각 role의 actionable feedback을 수정한 뒤 다음 gate를 요청하고 최신 head evidence marker를 남긴다.
-7. role gate marker가 모두 최신 head에 있으면 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun한다. 통과한 `review-gate-pass`는 GitHub Actions Review Gate pass marker를 남긴다.
-8. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태를 검증한다.
-9. `scripts/task/finish-pr.sh <PR_NUMBER>`는 최신 head와 review gate를 재검증하고 Mattermost incoming webhook으로 manual merge 알림을 보낸다.
-10. 사용자가 GitHub에서 직접 merge 버튼을 누른다.
-11. GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
-12. merge 이후 `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>`가 develop sync, worktree cleanup, branch cleanup, Jira 상태 기록을 수행한다.
+7. GitHub Copilot review가 제출되면 actionable Copilot feedback을 코드, 테스트, 또는 문서로 반영하고 Copilot review thread를 모두 resolve한다.
+8. role gate marker가 모두 최신 head에 있으면 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun한다. 통과한 `review-gate-pass`는 GitHub Actions Review Gate pass marker를 남긴다.
+9. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태와 Copilot review/thread 상태를 검증한다.
+10. `scripts/task/finish-pr.sh <PR_NUMBER>`는 최신 head와 review gate를 재검증하고 Mattermost incoming webhook으로 manual merge 알림을 보낸다.
+11. 사용자가 GitHub에서 직접 merge 버튼을 누른다.
+12. GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
+13. merge 이후 `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>`가 develop sync, worktree cleanup, branch cleanup, Jira 상태 기록을 수행한다.
 
 ## 작업 지속 및 사용자 결정 계약
 - 구현이 시작된 feature는 코드, 테스트, review feedback 수정, PR ready notification, user-confirmed merge, post-merge cleanup 경로까지 완료되기 전에는 중간 완료로 멈추지 않는다.
@@ -40,6 +41,7 @@
   - GitHub Actions Review Gate checklist
   - CTO Architecture / QA Verification / Product Value / Final CTO Merge checklist
 - `create-pr.sh`는 기본적으로 PR 생성 후 자동 finish를 하지 않는다.
+- `create-pr.sh`는 기본적으로 Copilot review를 요청한다. 예외가 필요한 bootstrap/harness 작업만 `STRICT_REQUEST_COPILOT_REVIEW=0`을 명시할 수 있다.
 - `STRICT_AUTO_FINISH_PR=1`을 명시한 경우에도 `finish-pr.sh`는 자동 merge하지 않고, ready 검증과 Mattermost manual merge 알림까지만 수행한다.
 
 ## Merge 전 차단 조건
@@ -49,6 +51,8 @@
 - draft PR
 - review decision이 `CHANGES_REQUESTED`
 - review/comment activity가 없음
+- GitHub Copilot review activity가 없음
+- 미해결 GitHub Copilot review thread가 있음
 - pending/failing/cancelled checks
 - required GitHub Actions check가 없음
 - 최신 PR head에 대한 company role gate pass marker가 없음
@@ -77,6 +81,7 @@ Head: <current_pr_head_sha>
 - `STUDYPOT_MM_MENTIONS`: 알림에 포함할 Mattermost mention 문자열. 기본 운영 값은 로컬 환경에서 관리한다.
 - 알림에는 PR 번호/URL, head SHA, ready status, GitHub에서 사람이 직접 merge 버튼을 눌러야 한다는 안내, merge 후 cleanup 명령을 포함한다.
 - 알림에는 GitHub merge 후 Jira Task는 자동으로 완료 처리되며, local cleanup은 별도로 실행해야 한다는 안내를 포함한다.
+- 알림 전 `verify-copilot-review.sh`가 `copilot-pull-request-reviewer` activity와 미해결 Copilot review thread 0개를 확인한다. 최신 head re-review를 강제해야 하는 경우 `STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW=1`을 명시한다.
 - GitHub branch protection이 사람 리뷰 전 `BLOCKED`를 반환할 수 있으므로 manual merge 알림 모드에서는 checks/pass marker/thread 조건이 통과했고 `CHANGES_REQUESTED`가 없으면 `BLOCKED`를 사람 확인 대기 상태로 허용한다.
 - webhook URL이 없으면 secret-safe error로 실패한다. URL 값은 로그/문서/PR body에 출력하지 않는다.
 

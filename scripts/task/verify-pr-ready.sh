@@ -22,6 +22,8 @@ review_decision="$(gh pr view "${pr}" --json reviewDecision --jq '.reviewDecisio
 activity_count="$(gh pr view "${pr}" --json comments,reviews --jq '(.comments | length) + (.reviews | length)')"
 [[ "${activity_count}" -gt 0 ]] || fail "PR has no review/comment activity."
 
+"${SCRIPT_DIR}/verify-copilot-review.sh" "${pr}"
+
 rollup_count="$(gh pr view "${pr}" --json statusCheckRollup --jq '(.statusCheckRollup // []) | length')"
 if [[ "${rollup_count}" -gt 0 && "${STRICT_SKIP_CHECK_WATCH:-0}" != "1" ]]; then
   gh pr checks "${pr}" --watch --fail-fast >/dev/null || fail "PR checks are pending, failing, or cancelled."

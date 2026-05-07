@@ -17,6 +17,7 @@ The working rules in this repository are not recommendations; they are the defau
 - Human-authored commit subjects and PR titles must follow the `[type] 한글 내용` format. `type` must be lowercase English, such as `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, or `revert`.
 - Human-facing Mattermost notifications, PR bodies, PR review comments, and role gate evidence must be written in Korean. Keep only machine-readable marker tokens such as `CTO Architecture Gate: PASS` and `Head: <sha>` in their required literal form.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
+- `scripts/task/create-pr.sh` requests a GitHub Copilot review by default; do not send Mattermost readiness until Copilot feedback has been received and addressed.
 - Do not auto-merge PRs. After passing the PR review gate, use `scripts/task/finish-pr.sh` to verify readiness and send the Mattermost manual-merge notification; the human user clicks the GitHub merge button.
 - After the human merge, GitHub Actions moves the linked Jira Task to Done; then run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and idempotent Jira state recording.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.
@@ -58,6 +59,7 @@ The working rules in this repository are not recommendations; they are the defau
 - The PR body must include the Jira issue key/URL.
 - The default PR target is `develop`.
 - Do not consider a PR ready to merge until the GitHub Actions Review Gate has posted a PASS comment for the latest PR head.
+- Do not send the Mattermost manual-merge notification until GitHub Copilot has reviewed the latest PR head and every Copilot review thread is resolved after actionable fixes.
 - Address reviewdog/actionlint feedback and every actionable review comment through code, tests, or docs, then resolve the review threads.
 - Codex review follows a company-style role pipeline by default: CTO Architecture, QA Verification, Product Value, and Final CTO Merge gates.
 - Address actionable feedback from each role before requesting the next gate.

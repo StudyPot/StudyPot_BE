@@ -8,7 +8,7 @@
   - `shellcheck-reviewdog`: shell script ShellCheck feedback을 reviewdog으로 PR에 남김
   - `workflow-lint`: GitHub Actions workflow를 actionlint로 검사
   - `openapi-parse`: `docs/specs/openapi.yaml` 문법과 최소 필수 필드 확인
-  - `db-schema-coverage`: `docs/specs/db-contract-v1.md`의 ERD v0.8 테이블과 `docs/specs/db-schema-v1.sql`의 MySQL8 schema coverage 확인
+  - `db-schema-coverage`: `docs/specs/db-contract-v1.md`의 ERD v0.8 테이블, `docs/specs/db-schema-v1.sql`, Flyway `V1` migration의 MySQL8 schema coverage와 parity 확인
   - `backend-check`: Spring/Gradle scaffold가 생기면 `./gradlew check build --no-daemon`
   - `review-gate-pass`: 선행 job과 최신-head company role gate evidence를 통과한 뒤 PASS marker comment 작성
 - `.github/workflows/codeql.yml`
@@ -45,7 +45,7 @@ Head: <current_pr_head_sha>
 - workflow 실패: GitHub Actions log에서 실패 job을 확인하고 코드/스크립트/문서를 수정한다.
 - reviewdog comment: ShellCheck 또는 actionlint feedback을 반영하고 thread를 resolve한다.
 - OpenAPI 실패: `docs/specs/openapi.yaml`이 YAML로 파싱되고 `openapi`, `info.title`, `paths`가 있는지 확인한다.
-- db-schema-coverage 실패: ERD v0.8 entity set과 `docs/specs/db-schema-v1.sql`의 `create table` 목록, `BINARY(16)` ID, MySQL8 JSON/TIMESTAMP 계약을 확인한다.
+- db-schema-coverage 실패: ERD v0.8 entity set, `docs/specs/db-schema-v1.sql`, Flyway `V1` migration의 `create table` 목록, `BINARY(16)` ID, MySQL8 JSON/TIMESTAMP 계약을 확인한다.
 - backend-check 실패: scaffold 이후 `./gradlew` 실행 권한과 `./gradlew check build --no-daemon` 결과를 확인한다.
 - company role gate 실패: 한글 `## 증거` 파일을 준비하고 `scripts/task/post-role-review-pass.sh <PR_NUMBER> <GATE> <evidence_file>`로 최신 head marker를 남긴 뒤 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun한다.
 - marker 누락: `review-gate-pass` job이 성공했는지 확인하고 PR head가 marker의 `Head`와 같은지 확인한다.

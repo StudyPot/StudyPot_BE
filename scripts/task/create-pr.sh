@@ -58,6 +58,7 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- "- 시각: \`%s\`\n" "${LAST_VERIFY_AT:-unknown}"
   printf '\n## 리뷰 게이트 체크리스트\n\n'
   printf -- '- [ ] 최신 head에 GitHub Actions Review Gate PASS marker 게시\n'
+  printf -- '- [ ] 최신 head에 Copilot review 수신 및 Copilot review thread 해결\n'
   printf -- '- [ ] 필수 GitHub Actions checks 통과\n'
   printf -- '- [ ] reviewdog/actionlint 피드백 반영\n'
   printf -- '- [ ] 완료 또는 문서화된 blocker까지 작업 연속성 유지\n'
@@ -73,6 +74,11 @@ pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --
 printf '%s\n' "${pr_url}"
 
 pr_number="${pr_url##*/}"
+if [[ "${STRICT_REQUEST_COPILOT_REVIEW:-1}" != "0" ]]; then
+  copilot_reviewer="${STRICT_COPILOT_REVIEW_REQUEST_REVIEWER:-@copilot}"
+  gh pr edit "${pr_number}" --add-reviewer "${copilot_reviewer}" >/dev/null
+fi
+
 if [[ "${STRICT_AUTO_FINISH_PR:-0}" != "0" ]]; then
   "${SCRIPT_DIR}/finish-pr.sh" "${pr_number}"
 fi

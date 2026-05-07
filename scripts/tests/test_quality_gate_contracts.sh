@@ -28,9 +28,26 @@ import sys
 root = Path(".")
 contract = (root / "docs/specs/db-contract-v1.md").read_text()
 schema = (root / "docs/specs/db-schema-v1.sql").read_text()
+migration_path = root / "src/main/resources/db/migration/V1__erd_v0_8_mysql8_schema.sql"
+
+if not migration_path.is_file():
+    print(f"missing Flyway ERD baseline migration: {migration_path}", file=sys.stderr)
+    sys.exit(1)
+
+migration = migration_path.read_text()
+
+def normalize_sql(value):
+    value = value.replace("\r\n", "\n")
+    value = re.sub(r"[ \t]+\n", "\n", value)
+    return value.strip()
+
+if normalize_sql(migration) != normalize_sql(schema):
+    print("Flyway migration must match docs/specs/db-schema-v1.sql", file=sys.stderr)
+    sys.exit(1)
 
 expected = re.findall(r"^\|\s*\d+\s*\|\s*`([^`]+)`\s*\|", contract, flags=re.MULTILINE)
 actual = re.findall(r"(?im)^create\s+table\s+`?([a-z0-9_]+)`?\s*\(", schema)
+migration_actual = re.findall(r"(?im)^create\s+table\s+`?([a-z0-9_]+)`?\s*\(", migration)
 
 if len(expected) != 19:
     print(f"expected DB contract to list 19 ERD tables, found {len(expected)}", file=sys.stderr)
@@ -42,10 +59,17 @@ if missing or extra:
     print(f"DB schema coverage mismatch: missing={missing}, extra={extra}", file=sys.stderr)
     sys.exit(1)
 
+if set(migration_actual) != set(expected):
+    print(
+        f"Flyway migration coverage mismatch: missing={sorted(set(expected) - set(migration_actual))}, extra={sorted(set(migration_actual) - set(expected))}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
 for table in expected:
     match = re.search(
         rf"(?is)^create\s+table\s+`?{re.escape(table)}`?\s*\((.*?)\)\s*engine=",
-        schema,
+        migration,
         flags=re.MULTILINE,
     )
     if not match:

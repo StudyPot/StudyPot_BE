@@ -4,6 +4,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    baseline-on-migrate: false
 
 management:
   endpoints:
