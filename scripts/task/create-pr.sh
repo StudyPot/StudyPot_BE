@@ -47,6 +47,7 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf 'Closes #%s\n\n' "${issue_number}"
   if [[ -n "${JIRA_ISSUE_KEY:-}" ]]; then
     printf 'Jira: [%s](%s)\n\n' "${JIRA_ISSUE_KEY}" "${JIRA_ISSUE_URL}"
+    printf 'Jira-Key: %s\n\n' "${JIRA_ISSUE_KEY}"
   fi
   printf '## 실행 계획\n\n'
   printf -- "- 경로: \`%s\`\n\n" "${EXEC_PLAN}"

@@ -44,6 +44,7 @@ lines.extend(
         f"- Head: `{head_sha}`",
         f"- 상태: `{status}`",
         "- 필요한 작업: GitHub에서 변경 내용을 확인한 뒤 사람이 직접 merge 버튼을 눌러주세요.",
+        "- Jira 처리: GitHub merge 후 연결된 Jira Task는 자동으로 완료 처리됩니다.",
         f"- merge 후 정리: `scripts/task/finish-pr.sh cleanup-merged {pr}`",
     ]
 )

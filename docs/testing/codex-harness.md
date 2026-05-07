@@ -27,6 +27,7 @@
 - `CodeQL` workflow는 Java/Kotlin source가 생기면 분석을 실행하고, 구현 전에는 skip/pass 상태를 유지합니다.
 - `review-gate-pass` required check는 `scripts/task/verify-role-review-gates.sh`로 최신 head의 CTO/QA/Product/Final CTO evidence marker를 확인합니다.
 - `finish-pr.sh`는 최신 PR head에 대한 `GitHub Actions Review Gate: PASS` marker가 없으면 manual merge 알림을 보내지 않습니다.
+- `jira-auto-done` workflow는 GitHub merge 후 Jira Task는 자동으로 완료 처리하는지 fake Jira API 테스트로 검증합니다.
 - static test는 workflow 파일 존재, required check 이름, role gate 검증 스크립트 호출, PASS marker 문자열을 확인해야 합니다.
 
 ## 금지 사항

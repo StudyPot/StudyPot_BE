@@ -1,0 +1,27 @@
+name: Jira Auto Done
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  jira-auto-done:
+    name: jira-auto-done
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mark linked Jira task done
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          STRICT_JIRA_BASE_URL: https://studypot.atlassian.net
+          STRICT_JIRA_PROJECT_KEY: SPT
+        run: bash scripts/task/mark-jira-done-from-pr.sh

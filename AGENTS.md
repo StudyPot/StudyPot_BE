@@ -18,7 +18,7 @@ The working rules in this repository are not recommendations; they are the defau
 - Human-facing Mattermost notifications, PR bodies, PR review comments, and role gate evidence must be written in Korean. Keep only machine-readable marker tokens such as `CTO Architecture Gate: PASS` and `Head: <sha>` in their required literal form.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
 - Do not auto-merge PRs. After passing the PR review gate, use `scripts/task/finish-pr.sh` to verify readiness and send the Mattermost manual-merge notification; the human user clicks the GitHub merge button.
-- After the human merge, run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and Jira Done transition.
+- After the human merge, GitHub Actions moves the linked Jira Task to Done; then run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and idempotent Jira state recording.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.
 - The v1 planning/API/DB/AI/notification/permission/QA specs are `LOCKED_FOR_IMPLEMENTATION`. Changes are forbidden without the Change Request + ADR process in `docs/specs/change-control-v1.md`.
 
@@ -68,7 +68,7 @@ The working rules in this repository are not recommendations; they are the defau
   - `Head: <current_pr_head_sha>`
 - The final merge gate also requires latest-head `CTO Architecture Gate`, `QA Verification Gate`, `Product Value Gate`, and `Final CTO Merge Gate` PASS markers unless explicitly disabled for harness/bootstrap exceptions; without them, the GitHub merge button remains blocked by the required `review-gate-pass` check.
 - `scripts/task/finish-pr.sh` verifies that the PR head did not change during verification and sends a Mattermost notification instead of merging.
-- `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` transitions the Jira Task to the done status after the human merge and cleanup are complete.
+- GitHub Actions transitions the linked Jira Task to the done status after the human merge; `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` remains required for local cleanup and idempotent Jira state recording.
 
 ## Related Documents
 - Architecture summary: `ARCHITECTURE.md`

@@ -13,7 +13,8 @@
 8. merge 전 `scripts/task/verify-pr-ready.sh <PR_NUMBER>`가 PR 상태를 검증한다.
 9. `scripts/task/finish-pr.sh <PR_NUMBER>`는 최신 head와 review gate를 재검증하고 Mattermost incoming webhook으로 manual merge 알림을 보낸다.
 10. 사용자가 GitHub에서 직접 merge 버튼을 누른다.
-11. merge 이후 `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>`가 develop sync, worktree cleanup, branch cleanup, Jira Done 전환을 수행한다.
+11. GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
+12. merge 이후 `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>`가 develop sync, worktree cleanup, branch cleanup, Jira 상태 기록을 수행한다.
 
 ## 작업 지속 및 사용자 결정 계약
 - 구현이 시작된 feature는 코드, 테스트, review feedback 수정, PR ready notification, user-confirmed merge, post-merge cleanup 경로까지 완료되기 전에는 중간 완료로 멈추지 않는다.
@@ -75,6 +76,7 @@ Head: <current_pr_head_sha>
 - `STUDYPOT_MM_WEBHOOK_URL`: Mattermost incoming webhook URL. 로컬 Keychain 또는 환경변수로만 제공하며 repo에 저장하지 않는다.
 - `STUDYPOT_MM_MENTIONS`: 알림에 포함할 Mattermost mention 문자열. 기본 운영 값은 로컬 환경에서 관리한다.
 - 알림에는 PR 번호/URL, head SHA, ready status, GitHub에서 사람이 직접 merge 버튼을 눌러야 한다는 안내, merge 후 cleanup 명령을 포함한다.
+- 알림에는 GitHub merge 후 Jira Task는 자동으로 완료 처리되며, local cleanup은 별도로 실행해야 한다는 안내를 포함한다.
 - GitHub branch protection이 사람 리뷰 전 `BLOCKED`를 반환할 수 있으므로 manual merge 알림 모드에서는 checks/pass marker/thread 조건이 통과했고 `CHANGES_REQUESTED`가 없으면 `BLOCKED`를 사람 확인 대기 상태로 허용한다.
 - webhook URL이 없으면 secret-safe error로 실패한다. URL 값은 로그/문서/PR body에 출력하지 않는다.
 
@@ -161,6 +163,7 @@ Final CTO Merge Gate:
 
 ## Jira Board Sync
 - `finish-pr.sh <PR_NUMBER>`는 자동 merge하지 않는다.
-- `finish-pr.sh cleanup-merged <PR_NUMBER>`는 사용자의 GitHub merge, develop sync, branch cleanup, worktree cleanup이 모두 확인된 뒤 Jira Task를 `완료`로 전환한다.
+- GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
+- `finish-pr.sh cleanup-merged <PR_NUMBER>`는 사용자의 GitHub merge, develop sync, branch cleanup, worktree cleanup이 모두 확인된 뒤 Jira 상태를 idempotent하게 기록한다.
 - Jira 전환 실패는 finish 실패로 처리한다.
 - 자세한 상태 매핑과 복구 절차는 `docs/operations/jira-board-sync.md`를 따른다.

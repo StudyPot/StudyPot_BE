@@ -8,7 +8,8 @@
 - 사용자가 "다음에 할 것"을 추천해 달라고 하면 먼저 Jira 전체 작업 맥락을 읽고 약 세 개의 다음 후보를 추천한다.
 - 작업 시작은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로만 수행한다.
 - 작업 시작 시 Jira 이슈는 `해야 할 일`에서 `진행 중`으로 이동한다.
-- 사용자가 GitHub에서 직접 PR을 merge하고 `finish-pr.sh cleanup-merged` local cleanup이 끝난 뒤 Jira 이슈는 `완료`로 이동한다.
+- 사용자가 GitHub에서 직접 PR을 merge하면 GitHub Actions가 연결된 Jira 이슈를 `완료`로 이동한다.
+- `finish-pr.sh cleanup-merged` local cleanup은 develop sync, branch/worktree cleanup, Jira 상태 기록을 idempotent하게 수행한다.
 - Jira 전환 실패는 하네스 실패다.
 
 ## 인증 환경변수
@@ -26,7 +27,8 @@ export STRICT_JIRA_PROJECT_KEY="SPT"
 | --- | --- |
 | Task selected but not started | `해야 할 일` |
 | `init-task.sh --jira` succeeds | `진행 중` |
-| Human merge + `finish-pr.sh cleanup-merged` cleanup succeeds | `완료` |
+| Human GitHub merge triggers `.github/workflows/jira-auto-done.yml` | `완료` |
+| `finish-pr.sh cleanup-merged` cleanup succeeds | `완료` recorded locally/idempotently |
 
 The script discovers transition IDs from each issue's available transitions. It does not hardcode transition IDs.
 
@@ -69,21 +71,30 @@ scripts/task/jira-board.sh recommend-next --limit 3
 - `create-pr.sh` requires Jira task state.
 - PR body includes:
   - `Jira: [SPT-123](https://studypot.atlassian.net/browse/SPT-123)`
+  - `Jira-Key: SPT-123`
   - `EXEC_PLAN`
   - verification evidence
   - review gate checklist
 - `finish-pr.sh <PR_NUMBER>` verifies PR readiness and sends the Korean Mattermost manual merge notification without changing Jira to `완료`.
-- `finish-pr.sh cleanup-merged <PR_NUMBER>` transitions Jira to `완료` only after the human PR merge, develop sync, branch cleanup, and worktree cleanup succeed.
+- GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
+- `finish-pr.sh cleanup-merged <PR_NUMBER>` is still required after merge for local cleanup and idempotent Jira state recording.
 
 ## Failure And Recovery
 - If Jira is already `완료`, `init-task.sh --jira` fails.
 - If Jira cannot transition to `진행 중`, task start fails.
-- If Jira cannot transition to `완료`, `finish-pr.sh cleanup-merged` fails after local cleanup and reports the Jira error.
+- If Jira cannot transition to `완료`, `.github/workflows/jira-auto-done.yml` fails and reports the Jira error.
+- If Jira is already `완료`, `finish-pr.sh cleanup-merged` can record the state without another transition.
 - Manual recovery:
   1. Inspect Jira issue status in the board.
   2. Fix missing env or Jira permissions.
   3. Re-run the failing harness command.
   4. Do not manually mark Done unless PR merge actually succeeded.
+
+## GitHub Merge Auto Done
+- `.github/workflows/jira-auto-done.yml` runs on `pull_request.closed` for `develop`.
+- The workflow only transitions Jira when the PR is merged, the head branch starts with `codex/`, and the PR contains a linked `SPT-*` key.
+- `scripts/task/create-pr.sh` writes `Jira-Key: SPT-123` into PR bodies for deterministic parsing.
+- Repository secrets `JIRA_EMAIL` and `JIRA_API_TOKEN` must be configured in GitHub Actions.
 
 ## Test Mode
 Tests use `STRICT_JIRA_API_STUB` to route Jira calls to a fake API script.
