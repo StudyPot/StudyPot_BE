@@ -28,6 +28,7 @@
 - [x] docs/operations/pr-review-gate.md
 - [x] docs/operations/github-actions-review-gate.md
 - [x] docs/operations/jira-board-sync.md
+- [x] docs/operations/error-ledger.md
 - [x] docs/operations/obsidian-error-ledger.md
 
 ## Related Feature IDs
@@ -47,6 +48,9 @@
 - Application-generated UUIDv7 values are stored as `BINARY(16)`, time values use `TIMESTAMP(6)`, flexible structured values use MySQL `JSON`, and charset is `utf8mb4`.
 - Deferred meeting/session/invitation/external notification tables must not be added in this task.
 - PR flow requires `create-pr.sh`, latest-head GitHub Actions Review Gate and role gate evidence, human merge, then `finish-pr.sh cleanup-merged`.
+- User decision on 2026-05-07: address every actionable GitHub Copilot PR review comment on PR #32 before re-sending Mattermost manual merge readiness.
+- User decision on 2026-05-07: future PRs must wait for latest-head Copilot review activity and all Copilot review threads to be addressed before Mattermost manual merge notification.
+- Copilot PR #32 feedback: allow future `V2+` Flyway migrations to coexist while keeping `V1__erd_v0_8_mysql8_schema.sql` as the lowest baseline version, and avoid brittle test paths tied only to the JVM working directory.
 
 ## Goal
 Apply the locked ERD v0.8 MySQL8 schema as the backend's first Flyway migration, add runtime dependencies/configuration needed for Flyway-managed MySQL migrations, and add tests that prevent drift between the locked schema document and the executable migration.
@@ -78,6 +82,22 @@ Verification evidence:
 - Full test suite: `./gradlew test --no-daemon` passed.
 - Harness suite: `bash scripts/tests/run.sh` passed.
 - Standard verification: `./gradlew check build --no-daemon` passed.
+
+Follow-up scope after Copilot review:
+- [x] Update `FlywayMigrationContractTest` so future migrations can coexist with the V1 baseline.
+- [x] Resolve schema contract test paths from Gradle-provided project dir/fallback project-root discovery instead of assuming current working directory.
+- [x] Add a Copilot review gate script and tests so future Mattermost manual merge notifications require latest-head Copilot activity and no unresolved Copilot review threads.
+- [ ] Re-run local verification and PR gates after pushing the follow-up commit.
+
+Follow-up verification evidence:
+- Copilot gate test: `bash scripts/tests/test_copilot_review_gate.sh` passed.
+- Flyway contract test: `./gradlew test --tests com.studypot.aistudyleader.persistence.FlywayMigrationContractTest --no-daemon` passed.
+- PR static harness test: `bash scripts/tests/test_pr_scripts_static.sh` passed.
+- DB schema coverage harness test: `bash scripts/tests/test_quality_gate_contracts.sh` passed.
+- Harness suite: `bash scripts/tests/run.sh` passed.
+- Stale build output failure: `./gradlew check build --no-daemon` initially failed because ignored `build/classes/java/main/com/studypot 2/...` stale output created a duplicate main class candidate. Recorded in `docs/operations/error-ledger.md`.
+- Clean recovery: `./gradlew clean check build --no-daemon` passed.
+- Standard verification after clean: `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - Flyway migration exists under `src/main/resources/db/migration/` and is named as a first-version schema migration.

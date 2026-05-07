@@ -22,6 +22,14 @@ Each entry must include:
 
 ## Entries
 
+### 2026-05-07 - Stale Gradle Classes Created Duplicate Main Class
+- Work / feature id: `SPT-22`, `n/a-harness`
+- Symptom: `./gradlew check build --no-daemon` failed at `:resolveMainClassName` with two candidates: `com.studypot.aistudyleader.AiStudyLeaderApplication` and stale `com.studypot 2.aistudyleader.AiStudyLeaderApplication`.
+- Cause: Ignored `build/classes/java/main/com/studypot 2/...` output remained from a previous local build state; `src/main` contained only the valid package path.
+- Fix: Run `./gradlew clean check build --no-daemon`, then rerun the standard `./gradlew check build --no-daemon` successfully.
+- Prevent next time: If Boot main class discovery reports a package containing a space or duplicate suffix, inspect `build/classes` for stale output before changing source code.
+- Next checkpoint: After a stale-output clean, rerun the exact standard verification command once more so hooks and PR evidence can stay on `./gradlew check build --no-daemon`.
+
 ### 2026-05-06 - Role Gates Only Enforced In Finish Script
 - Work / feature id: `SPT-61`, `n/a-harness`
 - Symptom: Company role gates were required by `finish-pr.sh`, but a user could still bypass the harness and click GitHub's merge button if branch protection only saw green checks.

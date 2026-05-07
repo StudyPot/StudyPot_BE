@@ -6,33 +6,40 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class FlywayMigrationContractTest {
 
-	private static final Path LOCKED_SCHEMA = Path.of("docs/specs/db-schema-v1.sql");
-	private static final Path DB_CONTRACT = Path.of("docs/specs/db-contract-v1.md");
-	private static final Path MIGRATION_DIR = Path.of("src/main/resources/db/migration");
+	private static final Path PROJECT_ROOT = projectRoot();
+	private static final Path LOCKED_SCHEMA = PROJECT_ROOT.resolve("docs/specs/db-schema-v1.sql");
+	private static final Path DB_CONTRACT = PROJECT_ROOT.resolve("docs/specs/db-contract-v1.md");
+	private static final Path MIGRATION_DIR = PROJECT_ROOT.resolve("src/main/resources/db/migration");
 	private static final Path V1_MIGRATION = MIGRATION_DIR.resolve("V1__erd_v0_8_mysql8_schema.sql");
+	private static final Pattern MIGRATION_NAME_PATTERN = Pattern.compile("V([1-9][0-9]*)__[a-z0-9_]+\\.sql");
 
 	@Test
-	void firstMigrationUsesLockedErdV08MySql8BaselineName() throws IOException {
+	void firstMigrationUsesLockedErdV08MySql8BaselineAsLowestVersion() throws IOException {
 		assertThat(MIGRATION_DIR).isDirectory();
 
-		List<String> migrationNames;
+		List<FlywayMigration> migrations;
 		try (var paths = Files.list(MIGRATION_DIR)) {
-			migrationNames = paths
+			migrations = paths
 				.filter(Files::isRegularFile)
 				.map(path -> path.getFileName().toString())
 				.sorted()
+				.map(FlywayMigration::from)
 				.toList();
 		}
 
-		assertThat(migrationNames).containsExactly("V1__erd_v0_8_mysql8_schema.sql");
-		assertThat(migrationNames)
-			.allMatch(name -> name.matches("V\\d+__[a-z0-9_]+\\.sql"));
+		assertThat(migrations)
+			.extracting(FlywayMigration::fileName)
+			.contains("V1__erd_v0_8_mysql8_schema.sql");
+		assertThat(migrations.stream().min(Comparator.comparingInt(FlywayMigration::version)))
+			.hasValueSatisfying(migration -> assertThat(migration.fileName())
+				.isEqualTo("V1__erd_v0_8_mysql8_schema.sql"));
 	}
 
 	@Test
@@ -102,5 +109,34 @@ class FlywayMigrationContractTest {
 
 		assertThat(matcher.find()).as("create table block for %s", table).isTrue();
 		return matcher.group(1);
+	}
+
+	private static Path projectRoot() {
+		String projectDir = System.getProperty("studypot.projectDir");
+		if (projectDir != null && !projectDir.isBlank()) {
+			return Path.of(projectDir).toAbsolutePath().normalize();
+		}
+
+		Path current = Path.of("").toAbsolutePath().normalize();
+		while (current != null) {
+			if (Files.isRegularFile(current.resolve("settings.gradle"))
+				&& Files.isRegularFile(current.resolve("docs/specs/db-schema-v1.sql"))) {
+				return current;
+			}
+			current = current.getParent();
+		}
+
+		throw new IllegalStateException("Unable to locate project root for Flyway migration contract test.");
+	}
+
+	private record FlywayMigration(int version, String fileName) {
+
+		private static FlywayMigration from(String fileName) {
+			var matcher = MIGRATION_NAME_PATTERN.matcher(fileName);
+			assertThat(matcher.matches())
+				.as("Flyway migration name %s must match V<positive version>__<snake_case>.sql", fileName)
+				.isTrue();
+			return new FlywayMigration(Integer.parseInt(matcher.group(1)), fileName);
+		}
 	}
 }

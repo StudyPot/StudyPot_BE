@@ -58,6 +58,7 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- "- 시각: \`%s\`\n" "${LAST_VERIFY_AT:-unknown}"
   printf '\n## 리뷰 게이트 체크리스트\n\n'
   printf -- '- [ ] 최신 head에 GitHub Actions Review Gate PASS marker 게시\n'
+  printf -- '- [ ] 최신 head에 Copilot review 수신 및 Copilot review thread 해결\n'
   printf -- '- [ ] 필수 GitHub Actions checks 통과\n'
   printf -- '- [ ] reviewdog/actionlint 피드백 반영\n'
   printf -- '- [ ] 완료 또는 문서화된 blocker까지 작업 연속성 유지\n'
