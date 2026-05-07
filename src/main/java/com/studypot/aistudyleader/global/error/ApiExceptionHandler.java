@@ -2,12 +2,16 @@ package com.studypot.aistudyleader.global.error;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -25,7 +29,7 @@ public class ApiExceptionHandler {
 			.sorted(Comparator.comparing(FieldErrorResponse::field))
 			.toList();
 
-		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
 
@@ -36,8 +40,43 @@ public class ApiExceptionHandler {
 			.sorted(Comparator.comparing(FieldErrorResponse::field))
 			.toList();
 
-		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(HandlerMethodValidationException.class)
+	public ResponseEntity<ProblemDetail> handleHandlerMethodValidation(HandlerMethodValidationException exception) {
+		var fieldErrors = exception.getParameterValidationResults().stream()
+			.flatMap(result -> result.getResolvableErrors().stream()
+				.map(error -> new FieldErrorResponse(parameterName(result), messageOrDefault(error.getDefaultMessage()))))
+			.sorted(Comparator.comparing(FieldErrorResponse::field))
+			.toList();
+
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	private static String parameterName(ParameterValidationResult result) {
+		MethodParameter methodParameter = result.getMethodParameter();
+		RequestParam requestParam = methodParameter.getParameterAnnotation(RequestParam.class);
+		if (requestParam != null) {
+			return annotationName(requestParam.name(), requestParam.value(), methodParameter);
+		}
+
+		String parameterName = methodParameter.getParameterName();
+		return parameterName == null || parameterName.isBlank() ? methodParameter.getParameter().getName() : parameterName;
+	}
+
+	private static String annotationName(String name, String value, MethodParameter methodParameter) {
+		if (!name.isBlank()) {
+			return name;
+		}
+		if (!value.isBlank()) {
+			return value;
+		}
+
+		String parameterName = methodParameter.getParameterName();
+		return parameterName == null || parameterName.isBlank() ? methodParameter.getParameter().getName() : parameterName;
 	}
 
 	private static String messageOrDefault(String message) {

@@ -16,7 +16,7 @@ public class ProblemDetailFactory {
 
 	public ProblemDetail validationProblem(List<FieldErrorResponse> fieldErrors) {
 		ProblemDetail problemDetail = create(
-			HttpStatus.UNPROCESSABLE_ENTITY,
+			HttpStatus.UNPROCESSABLE_CONTENT,
 			"Invalid request payload",
 			"Request validation failed.",
 			VALIDATION_ERROR_TYPE
