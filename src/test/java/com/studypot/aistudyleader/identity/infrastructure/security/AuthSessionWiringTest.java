@@ -21,6 +21,7 @@ import org.springframework.jdbc.datasource.AbstractDataSource;
 		"spring.autoconfigure.exclude=org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration",
 		"spring.datasource.url=jdbc:studypot-test",
 		"studypot.auth.jwt.secret=0123456789abcdef0123456789abcdef",
+		"studypot.auth.oauth2.backend-callback-uri=https://api.studypot.local/api/login/oauth2/code/google",
 		"studypot.oauth.google.client-id=test-client-id",
 		"studypot.oauth.google.client-secret=test-client-secret"
 	}

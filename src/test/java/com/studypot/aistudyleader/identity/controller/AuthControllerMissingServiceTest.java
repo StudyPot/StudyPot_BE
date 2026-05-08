@@ -12,7 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest(classes = AiStudyLeaderApplication.class)
 @AutoConfigureMockMvc
@@ -31,11 +33,20 @@ class AuthControllerMissingServiceTest {
 	void missingAuthSessionServiceReturnsServiceUnavailable() throws Exception {
 		mockMvc.perform(post(REFRESH_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
+				.with(xsrf("refresh-xsrf"))
 				.content("""
 					{"refreshToken":"refresh-token"}
 					"""))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.title").value("Service unavailable"));
+	}
+
+	private static RequestPostProcessor xsrf(String value) {
+		return request -> {
+			request.setCookies(new MockCookie("XSRF-TOKEN", value));
+			request.addHeader("X-XSRF-TOKEN", value);
+			return request;
+		};
 	}
 }

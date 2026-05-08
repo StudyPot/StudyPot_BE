@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.identity.infrastructure.security;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -21,7 +22,7 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 		jwt = jwt == null ? new Jwt(null, DEFAULT_ISSUER, DEFAULT_ACCESS_TOKEN_TTL) : jwt;
 		refreshTokenTtl = positiveOrDefault(refreshTokenTtl, DEFAULT_REFRESH_TOKEN_TTL);
 		cookie = cookie == null ? new Cookie(null, null, null, null, null, null) : cookie;
-		oauth2 = oauth2 == null ? new OAuth2(null, null) : oauth2;
+		oauth2 = oauth2 == null ? new OAuth2(null, null, null) : oauth2;
 	}
 
 	public record Jwt(String secret, String issuer, Duration accessTokenTtl) {
@@ -51,9 +52,10 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 		}
 	}
 
-	public record OAuth2(URI frontendSuccessUri, URI frontendFailureUri) {
+	public record OAuth2(String backendCallbackUri, URI frontendSuccessUri, URI frontendFailureUri) {
 
 		public OAuth2 {
+			backendCallbackUri = validateOptionalHttpUri(backendCallbackUri, "backendCallbackUri");
 			frontendSuccessUri = frontendSuccessUri == null ? DEFAULT_FRONTEND_SUCCESS_URI : frontendSuccessUri;
 			frontendFailureUri = frontendFailureUri == null ? DEFAULT_FRONTEND_FAILURE_URI : frontendFailureUri;
 		}
@@ -78,5 +80,22 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 			return null;
 		}
 		return value.strip();
+	}
+
+	private static String validateOptionalHttpUri(String value, String field) {
+		String normalized = blankToNull(value);
+		if (normalized == null) {
+			return null;
+		}
+		try {
+			URI uri = new URI(normalized);
+			String scheme = uri.getScheme();
+			if (!uri.isAbsolute() || scheme == null || (!scheme.equals("https") && !scheme.equals("http"))) {
+				throw new IllegalArgumentException("studypot.auth.oauth2." + field + " must be an absolute http(s) URI.");
+			}
+			return normalized;
+		} catch (URISyntaxException exception) {
+			throw new IllegalArgumentException("studypot.auth.oauth2." + field + " must be a valid URI.", exception);
+		}
 	}
 }

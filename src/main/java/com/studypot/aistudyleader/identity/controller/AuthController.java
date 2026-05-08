@@ -5,9 +5,9 @@ import com.studypot.aistudyleader.identity.service.AuthSessionMetadata;
 import com.studypot.aistudyleader.identity.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.identity.service.AuthSessionService;
 import com.studypot.aistudyleader.identity.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.identity.service.AuthTokenCookiePort;
 import com.studypot.aistudyleader.identity.service.AuthTokenResult;
 import com.studypot.aistudyleader.identity.service.AuthenticatedUser;
-import com.studypot.aistudyleader.identity.infrastructure.security.AuthTokenCookieIssuer;
 import com.studypot.aistudyleader.identity.service.GoogleOAuthLoginCommand;
 import com.studypot.aistudyleader.identity.service.InvalidAuthRequestException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,18 +28,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 class AuthController {
 
 	private final ObjectProvider<AuthSessionService> authSessionService;
-	private final ObjectProvider<AuthTokenCookieIssuer> tokenCookieIssuer;
-
-	AuthController(
-		ObjectProvider<AuthSessionService> authSessionService,
-		ObjectProvider<AuthTokenCookieIssuer> tokenCookieIssuer
-	) {
-		this.authSessionService = authSessionService;
-		this.tokenCookieIssuer = tokenCookieIssuer;
-	}
+	private final ObjectProvider<AuthTokenCookiePort> tokenCookiePort;
 
 	@PostMapping(ApiPaths.V1 + "/auth/oauth/google")
 	AuthTokenResponse loginWithGoogle(
@@ -47,7 +41,7 @@ class AuthController {
 		HttpServletResponse servletResponse
 	) {
 		AuthTokenResult result = authSessionService().loginWithGoogle(request.toCommand(), metadata(servletRequest));
-		tokenCookieIssuer.ifAvailable(issuer -> issuer.addTokenCookies(servletResponse, result));
+		tokenCookiePort.ifAvailable(port -> port.addTokenCookies(servletResponse, result));
 		return AuthTokenResponse.from(result);
 	}
 
@@ -58,7 +52,7 @@ class AuthController {
 		HttpServletResponse servletResponse
 	) {
 		AuthTokenResult result = authSessionService().refresh(refreshTokenFrom(request, servletRequest), metadata(servletRequest));
-		tokenCookieIssuer.ifAvailable(issuer -> issuer.addTokenCookies(servletResponse, result));
+		tokenCookiePort.ifAvailable(port -> port.addTokenCookies(servletResponse, result));
 		return AuthTokenResponse.from(result);
 	}
 
@@ -71,14 +65,14 @@ class AuthController {
 		HttpServletResponse servletResponse
 	) {
 		authSessionService().logout(authenticatedUserId(jwt), refreshTokenFrom(request, servletRequest));
-		tokenCookieIssuer.ifAvailable(issuer -> issuer.clearTokenCookies(servletResponse));
+		tokenCookiePort.ifAvailable(port -> port.clearTokenCookies(servletResponse));
 	}
 
 	@PostMapping(ApiPaths.V1 + "/auth/logout-all")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void logoutAll(@AuthenticationPrincipal Jwt jwt, HttpServletResponse servletResponse) {
 		authSessionService().logoutAll(authenticatedUserId(jwt));
-		tokenCookieIssuer.ifAvailable(issuer -> issuer.clearTokenCookies(servletResponse));
+		tokenCookiePort.ifAvailable(port -> port.clearTokenCookies(servletResponse));
 	}
 
 	@GetMapping(ApiPaths.V1 + "/users/me")
@@ -108,15 +102,15 @@ class AuthController {
 	}
 
 	private String refreshTokenFrom(RefreshTokenRequest request, HttpServletRequest servletRequest) {
-		String refreshToken = request == null ? null : request.refreshToken();
-		if (refreshToken == null || refreshToken.isBlank()) {
-			refreshToken = refreshTokenCookie(servletRequest).orElse(null);
-		}
-		return requireRefreshToken(refreshToken);
+		return refreshTokenFrom(request == null ? null : request.refreshToken(), servletRequest);
 	}
 
 	private String refreshTokenFrom(LogoutRequest request, HttpServletRequest servletRequest) {
-		String refreshToken = request == null ? null : request.refreshToken();
+		return refreshTokenFrom(request == null ? null : request.refreshToken(), servletRequest);
+	}
+
+	private String refreshTokenFrom(String requestRefreshToken, HttpServletRequest servletRequest) {
+		String refreshToken = requestRefreshToken;
 		if (refreshToken == null || refreshToken.isBlank()) {
 			refreshToken = refreshTokenCookie(servletRequest).orElse(null);
 		}
@@ -124,8 +118,8 @@ class AuthController {
 	}
 
 	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
-		AuthTokenCookieIssuer issuer = tokenCookieIssuer.getIfAvailable();
-		return issuer == null ? Optional.empty() : issuer.refreshToken(servletRequest);
+		AuthTokenCookiePort port = tokenCookiePort.getIfAvailable();
+		return port == null ? Optional.empty() : port.refreshToken(servletRequest);
 	}
 
 	private static String requireRefreshToken(String refreshToken) {

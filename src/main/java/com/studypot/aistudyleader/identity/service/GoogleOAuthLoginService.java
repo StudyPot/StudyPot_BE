@@ -37,6 +37,13 @@ public class GoogleOAuthLoginService {
 		Objects.requireNonNull(command, "command must not be null");
 
 		GoogleOAuthProfile profile = Objects.requireNonNull(googleOAuth.exchange(command), "Google OAuth profile must not be null");
+		return login(profile);
+	}
+
+	@Transactional
+	public GoogleOAuthLoginResult login(GoogleOAuthProfile profile) {
+		Objects.requireNonNull(profile, "profile must not be null");
+
 		if (!profile.emailVerified()) {
 			throw new OAuthLoginRejectedException("Google OAuth login requires a verified Google email.");
 		}

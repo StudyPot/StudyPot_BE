@@ -1,6 +1,8 @@
 package com.studypot.aistudyleader.identity.infrastructure.google;
 
-public class OAuthProviderResponseException extends RuntimeException {
+import com.studypot.aistudyleader.identity.service.OAuthLoginRejectedException;
+
+public class OAuthProviderResponseException extends OAuthLoginRejectedException {
 
 	public OAuthProviderResponseException(String message) {
 		super(message);

@@ -127,11 +127,38 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.email").value("member@example.com"));
 
 		MvcResult refreshResult = mockMvc.perform(post(REFRESH_PATH)
-				.with(cookie("studypot_refresh_token", refreshCookie)))
+				.with(cookie("studypot_refresh_token", refreshCookie))
+				.with(xsrf("refresh-xsrf")))
 			.andExpect(status().isOk())
 			.andReturn();
 		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_access_token")).isNotBlank();
 		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_refresh_token")).isNotBlank();
+	}
+
+	@Test
+	void cookieBackedStateChangingRequestsRequireCsrfToken() throws Exception {
+		MvcResult loginResult = loginResult();
+		String accessCookie = cookieValueFromSetCookie(loginResult, "studypot_access_token");
+		String refreshCookie = cookieValueFromSetCookie(loginResult, "studypot_refresh_token");
+
+		mockMvc.perform(post(LOGOUT_ALL_PATH)
+				.with(cookie("studypot_access_token", accessCookie)))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(post(REFRESH_PATH)
+				.with(cookie("studypot_refresh_token", refreshCookie)))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void cookieBackedStateChangingRequestsAcceptCsrfToken() throws Exception {
+		MvcResult loginResult = loginResult();
+		String accessCookie = cookieValueFromSetCookie(loginResult, "studypot_access_token");
+
+		mockMvc.perform(post(LOGOUT_ALL_PATH)
+				.with(cookie("studypot_access_token", accessCookie))
+				.with(xsrf("logout-xsrf")))
+			.andExpect(status().isNoContent());
 	}
 
 	@Test
@@ -194,7 +221,8 @@ class AuthControllerTest {
 	private JsonNode refresh(String refreshToken, org.springframework.test.web.servlet.ResultMatcher status) throws Exception {
 		String response = mockMvc.perform(post(REFRESH_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+				.content("{\"refreshToken\":\"" + refreshToken + "\"}")
+				.with(xsrf("refresh-xsrf")))
 			.andExpect(status)
 			.andReturn()
 			.getResponse()
@@ -224,6 +252,19 @@ class AuthControllerTest {
 		};
 	}
 
+	private static RequestPostProcessor xsrf(String value) {
+		return request -> {
+			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
+			jakarta.servlet.http.Cookie[] cookies = existingCookies == null
+				? new jakarta.servlet.http.Cookie[1]
+				: java.util.Arrays.copyOf(existingCookies, existingCookies.length + 1);
+			cookies[cookies.length - 1] = new MockCookie("XSRF-TOKEN", value);
+			request.setCookies(cookies);
+			request.addHeader("X-XSRF-TOKEN", value);
+			return request;
+		};
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestIdentityBeans {
 
@@ -237,15 +278,20 @@ class AuthControllerTest {
 		@Bean
 		@Primary
 		GoogleOAuthCodeExchangePort testGoogleOAuthCodeExchangePort() {
-			return command -> new GoogleOAuthProfile(
-				"google-123",
-				EmailAddress.from("member@example.com"),
-				true,
-				"Study Member",
-				"https://cdn.example.com/member.png",
-				NOW.plus(Duration.ofHours(1)),
-				"openid email profile"
-			);
+			return command -> {
+				if (command.authorizationCode().equals("provider-bug")) {
+					throw new IllegalArgumentException("provider bug");
+				}
+				return new GoogleOAuthProfile(
+					"google-123",
+					EmailAddress.from("member@example.com"),
+					true,
+					"Study Member",
+					"https://cdn.example.com/member.png",
+					NOW.plus(Duration.ofHours(1)),
+					"openid email profile"
+				);
+			};
 		}
 
 		@Bean
