@@ -23,6 +23,19 @@ This page records the local backend smoke contract for real development work.
 - `STUDYPOT_LOCAL_DB_PASSWORD`
 - `STUDYPOT_LOCAL_CONFIG` if the local config lives outside `config/application-local.yml`.
 
+## Google Login
+- Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.
+- If local HTTPS is not enabled, use the matching HTTP URL and register the matching callback URL in Google Cloud.
+- Google OAuth Authorized redirect URI:
+  - HTTPS local: `https://localhost:8080/api/login/oauth2/code/google`
+  - HTTP local fallback: `http://localhost:8080/api/login/oauth2/code/google`
+- Frontend redirect targets are configured with:
+  - `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`
+  - `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`
+- Frontend origins allowed to send credentialed requests are configured with `STUDYPOT_CORS_ALLOWED_ORIGINS`, for example `https://localhost:3000`.
+- Token cookies are HttpOnly. Browser JavaScript should call backend APIs with credentials included rather than reading token values directly.
+- For plain HTTP-only local smoke runs, set `STUDYPOT_AUTH_COOKIE_SECURE=false`; keep it `true` for HTTPS local and production-like testing.
+
 ## Smoke Verification
 Run:
 

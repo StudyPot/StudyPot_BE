@@ -87,7 +87,9 @@ class GoogleOAuthClientTest {
 			"",
 			"client-secret",
 			"https://oauth2.googleapis.com/token",
-			"https://openidconnect.googleapis.com/v1/userinfo"
+			"https://openidconnect.googleapis.com/v1/userinfo",
+			null,
+			null
 		);
 		GoogleOAuthClient client = new GoogleOAuthClient(restClientBuilder, properties, CLOCK);
 
@@ -106,7 +108,9 @@ class GoogleOAuthClientTest {
 			"client-id",
 			"client-secret",
 			"https://oauth2.googleapis.com/token",
-			"https://openidconnect.googleapis.com/v1/userinfo"
+			"https://openidconnect.googleapis.com/v1/userinfo",
+			null,
+			null
 		);
 	}
 }

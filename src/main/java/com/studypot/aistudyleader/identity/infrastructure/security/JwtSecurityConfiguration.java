@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AuthProperties.class)
@@ -42,6 +43,16 @@ class JwtSecurityConfiguration {
 	@Bean
 	AccessTokenIssuer accessTokenIssuer(JwtEncoder jwtEncoder, AuthProperties properties) {
 		return new JwtAccessTokenIssuer(jwtEncoder, properties);
+	}
+
+	@Bean
+	AuthTokenCookieIssuer authTokenCookieIssuer(AuthProperties properties) {
+		return new AuthTokenCookieIssuer(properties);
+	}
+
+	@Bean
+	BearerTokenResolver bearerTokenResolver(AuthTokenCookieIssuer authTokenCookieIssuer) {
+		return new CookieBearerTokenResolver(authTokenCookieIssuer);
 	}
 
 	@Bean

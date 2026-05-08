@@ -43,8 +43,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest(classes = {AiStudyLeaderApplication.class, AuthControllerTest.TestIdentityBeans.class})
 @AutoConfigureMockMvc
@@ -100,6 +103,38 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void googleLoginSetsHttpOnlyCookiesAndCookieAccessTokenAuthenticates() throws Exception {
+		MvcResult loginResult = loginResult();
+		String accessCookie = cookieValueFromSetCookie(loginResult, "studypot_access_token");
+		String refreshCookie = cookieValueFromSetCookie(loginResult, "studypot_refresh_token");
+
+		assertThat(accessCookie).isNotBlank();
+		assertThat(refreshCookie).isNotBlank();
+		assertThat(loginResult.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+			.anySatisfy(cookie -> assertThat(cookie)
+				.contains("studypot_access_token=")
+				.contains("HttpOnly")
+				.contains("SameSite=Lax"))
+			.anySatisfy(cookie -> assertThat(cookie)
+				.contains("studypot_refresh_token=")
+				.contains("HttpOnly")
+				.contains("SameSite=Lax"));
+
+		mockMvc.perform(get(ME_PATH)
+				.with(cookie("studypot_access_token", accessCookie)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(TestIdentityBeans.FIRST_USER_ID.toString()))
+			.andExpect(jsonPath("$.email").value("member@example.com"));
+
+		MvcResult refreshResult = mockMvc.perform(post(REFRESH_PATH)
+				.with(cookie("studypot_refresh_token", refreshCookie)))
+			.andExpect(status().isOk())
+			.andReturn();
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_access_token")).isNotBlank();
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_refresh_token")).isNotBlank();
+	}
+
+	@Test
 	void protectedCurrentUserRequiresBearerAccessToken() throws Exception {
 		mockMvc.perform(get(ME_PATH))
 			.andExpect(status().isUnauthorized())
@@ -135,7 +170,14 @@ class AuthControllerTest {
 	}
 
 	private JsonNode login() throws Exception {
-		String response = mockMvc.perform(post(GOOGLE_LOGIN_PATH)
+		String response = loginResult()
+			.getResponse()
+			.getContentAsString();
+		return objectMapper.readTree(response);
+	}
+
+	private MvcResult loginResult() throws Exception {
+		return mockMvc.perform(post(GOOGLE_LOGIN_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
@@ -146,10 +188,7 @@ class AuthControllerTest {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-			.andReturn()
-			.getResponse()
-			.getContentAsString();
-		return objectMapper.readTree(response);
+			.andReturn();
 	}
 
 	private JsonNode refresh(String refreshToken, org.springframework.test.web.servlet.ResultMatcher status) throws Exception {
@@ -165,6 +204,24 @@ class AuthControllerTest {
 
 	private static String bearer(String accessToken) {
 		return "Bearer " + accessToken;
+	}
+
+	private static String cookieValueFromSetCookie(MvcResult result, String name) {
+		String prefix = name + "=";
+		String setCookie = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE)
+			.stream()
+			.filter(header -> header.startsWith(prefix))
+			.findFirst()
+			.orElseThrow();
+		int end = setCookie.indexOf(';');
+		return end < 0 ? setCookie.substring(prefix.length()) : setCookie.substring(prefix.length(), end);
+	}
+
+	private static RequestPostProcessor cookie(String name, String value) {
+		return request -> {
+			request.setCookies(new MockCookie(name, value));
+			return request;
+		};
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
