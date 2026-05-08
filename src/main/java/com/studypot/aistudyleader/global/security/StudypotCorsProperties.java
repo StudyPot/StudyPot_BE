@@ -26,7 +26,9 @@ public record StudypotCorsProperties(
 		"Content-Type",
 		"Accept",
 		"Origin",
-		"X-Requested-With"
+		"X-Requested-With",
+		"X-XSRF-TOKEN",
+		"X-CSRF-TOKEN"
 	);
 	private static final List<String> DEFAULT_EXPOSED_HEADERS = List.of("Location");
 

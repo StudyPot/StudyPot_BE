@@ -47,7 +47,7 @@ studypot:
   cors:
     allowed-origins: ${STUDYPOT_CORS_ALLOWED_ORIGINS:http://localhost:3000,https://localhost:3000}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD
-    allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With
+    allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With,X-XSRF-TOKEN,X-CSRF-TOKEN
     exposed-headers: Location
   auth:
     jwt:

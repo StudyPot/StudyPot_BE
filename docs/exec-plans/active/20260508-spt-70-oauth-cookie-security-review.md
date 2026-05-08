@@ -40,6 +40,7 @@
 - Existing CR/ADR for backend OAuth cookie login already covers this behavior family; this task hardens implementation details without changing endpoint shape or DB schema.
 - User decision update: replace hand-rolled Google redirect/callback code with Spring Security `oauth2-client` and `AuthenticationSuccessHandler`/`AuthenticationFailureHandler`. Prefer framework/library behavior for authorization request creation, state handling, PKCE, callback processing, token exchange, and user-info loading.
 - User decision update: use Lombok and other focused library support where it removes boilerplate without changing the locked API behavior.
+- CI finding: CodeQL flagged globally disabled Spring CSRF after OAuth2 Login introduced session-backed browser flow. Re-enable Spring CSRF token support and add a browser CSRF guard for non-bearer unsafe requests while keeping bearer API requests compatible.
 
 ## Goal
 Harden the backend-owned Google OAuth cookie login implementation by moving browser OAuth login onto Spring Security `oauth2-client` handlers, using a configured callback URI, tightening controller dependencies and exception handling, and reducing duplicate refresh-token fallback code.
@@ -53,6 +54,7 @@ Harden the backend-owned Google OAuth cookie login implementation by moving brow
 6. Keep the locked JSON OAuth API compatible for existing clients.
 7. Update local/example configuration and docs for the library-backed OAuth login flow.
 8. Run focused auth tests, full Gradle verification, harness tests, and PR workflow.
+9. Address CI CodeQL feedback by requiring `XSRF-TOKEN`/`X-XSRF-TOKEN` for cookie-backed unsafe browser requests and allowing the CSRF headers through CORS.
 
 ## Step Plan
 - [x] RED: add Spring Security OAuth2 Login redirect and handler tests.
@@ -63,6 +65,7 @@ Harden the backend-owned Google OAuth cookie login implementation by moving brow
 - [x] Deduplicate refresh-token fallback logic.
 - [x] Update local config/docs.
 - [x] Run focused auth tests.
+- [x] Address CodeQL CSRF alert for cookie-backed browser requests.
 - [x] Run `./gradlew check build --no-daemon`.
 - [x] Run `bash scripts/tests/run.sh`.
 - [ ] Create PR and complete review gate/Copilot feedback flow.

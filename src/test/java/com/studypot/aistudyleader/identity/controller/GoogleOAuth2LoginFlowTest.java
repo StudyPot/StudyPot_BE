@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.identity.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -89,10 +90,12 @@ class GoogleOAuth2LoginFlowTest {
 	void corsPreflightAllowsConfiguredFrontendOriginWithCredentials() throws Exception {
 		mockMvc.perform(options("/api/v1/users/me")
 				.header(HttpHeaders.ORIGIN, "https://frontend.studypot.local")
-				.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+				.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+				.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "X-XSRF-TOKEN"))
 			.andExpect(status().isOk())
 			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://frontend.studypot.local"))
-			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
+			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, containsString("X-XSRF-TOKEN")));
 	}
 
 	private MvcResult startGoogleLogin() throws Exception {
