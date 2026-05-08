@@ -47,13 +47,13 @@ class JwtSecurityConfiguration {
 	}
 
 	@Bean
-	AuthTokenCookiePort authTokenCookiePort(AuthProperties properties) {
+	AuthTokenCookieIssuer authTokenCookieIssuer(AuthProperties properties) {
 		return new AuthTokenCookieIssuer(properties);
 	}
 
 	@Bean
-	BearerTokenResolver bearerTokenResolver(AuthTokenCookiePort authTokenCookiePort) {
-		return new CookieBearerTokenResolver(authTokenCookiePort);
+	BearerTokenResolver bearerTokenResolver(AuthTokenCookieIssuer authTokenCookieIssuer) {
+		return new CookieBearerTokenResolver(authTokenCookieIssuer);
 	}
 
 	@Bean

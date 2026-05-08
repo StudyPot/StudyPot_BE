@@ -47,17 +47,14 @@ public class AuthTokenCookieIssuer implements AuthTokenCookiePort {
 			.toString());
 	}
 
-	@Override
 	public Optional<String> accessToken(HttpServletRequest request) {
 		return cookieValue(request, properties.cookie().accessTokenName());
 	}
 
-	@Override
 	public Optional<String> refreshToken(HttpServletRequest request) {
 		return cookieValue(request, properties.cookie().refreshTokenName());
 	}
 
-	@Override
 	public Optional<String> cookieValue(HttpServletRequest request, String name) {
 		if (request.getCookies() == null) {
 			return Optional.empty();

@@ -5,6 +5,7 @@ import com.studypot.aistudyleader.identity.service.AuthSessionMetadata;
 import com.studypot.aistudyleader.identity.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.identity.service.AuthSessionService;
 import com.studypot.aistudyleader.identity.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.identity.infrastructure.security.AuthTokenCookieIssuer;
 import com.studypot.aistudyleader.identity.service.AuthTokenCookiePort;
 import com.studypot.aistudyleader.identity.service.AuthTokenResult;
 import com.studypot.aistudyleader.identity.service.AuthenticatedUser;
@@ -119,7 +120,10 @@ class AuthController {
 
 	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
 		AuthTokenCookiePort port = tokenCookiePort.getIfAvailable();
-		return port == null ? Optional.empty() : port.refreshToken(servletRequest);
+		if (!(port instanceof AuthTokenCookieIssuer issuer)) {
+			return Optional.empty();
+		}
+		return issuer.refreshToken(servletRequest);
 	}
 
 	private static String requireRefreshToken(String refreshToken) {
