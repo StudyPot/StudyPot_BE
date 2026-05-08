@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.identity.infrastructure.security;
 
 import com.studypot.aistudyleader.identity.service.AccessTokenIssuer;
+import com.studypot.aistudyleader.identity.service.AuthTokenCookiePort;
 import java.nio.charset.StandardCharsets;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -46,13 +47,13 @@ class JwtSecurityConfiguration {
 	}
 
 	@Bean
-	AuthTokenCookieIssuer authTokenCookieIssuer(AuthProperties properties) {
+	AuthTokenCookiePort authTokenCookiePort(AuthProperties properties) {
 		return new AuthTokenCookieIssuer(properties);
 	}
 
 	@Bean
-	BearerTokenResolver bearerTokenResolver(AuthTokenCookieIssuer authTokenCookieIssuer) {
-		return new CookieBearerTokenResolver(authTokenCookieIssuer);
+	BearerTokenResolver bearerTokenResolver(AuthTokenCookiePort authTokenCookiePort) {
+		return new CookieBearerTokenResolver(authTokenCookiePort);
 	}
 
 	@Bean

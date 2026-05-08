@@ -62,6 +62,7 @@ studypot:
       secure: ${STUDYPOT_AUTH_COOKIE_SECURE:true}
       same-site: Lax
     oauth2:
+      backend-callback-uri: ${STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI:https://localhost:8080/api/login/oauth2/code/google}
       frontend-success-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI:https://localhost:3000/auth/success}
       frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI:https://localhost:3000/auth/failure}
   oauth:
@@ -69,4 +70,6 @@ studypot:
       client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:replace-with-google-client-id}
       client-secret: ${STUDYPOT_GOOGLE_CLIENT_SECRET:replace-with-google-client-secret}
       authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+      token-uri: https://oauth2.googleapis.com/token
+      userinfo-uri: https://openidconnect.googleapis.com/v1/userinfo
       scopes: openid,email,profile

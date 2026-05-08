@@ -4,21 +4,18 @@ import com.studypot.aistudyleader.identity.service.AccessTokenIssuer;
 import com.studypot.aistudyleader.identity.service.IssuedAccessToken;
 import com.studypot.aistudyleader.identity.domain.IdentityUser;
 import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 
+@RequiredArgsConstructor
 class JwtAccessTokenIssuer implements AccessTokenIssuer {
 
 	private final JwtEncoder jwtEncoder;
 	private final AuthProperties properties;
-
-	JwtAccessTokenIssuer(JwtEncoder jwtEncoder, AuthProperties properties) {
-		this.jwtEncoder = jwtEncoder;
-		this.properties = properties;
-	}
 
 	@Override
 	public IssuedAccessToken issue(IdentityUser user, Instant now) {

@@ -1,6 +1,8 @@
 package com.studypot.aistudyleader.global.security;
 
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -11,8 +13,12 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -29,15 +35,24 @@ public class SecurityConfiguration {
 		ProblemDetailAccessDeniedHandler accessDeniedHandler,
 		CorsConfigurationSource corsConfigurationSource,
 		BearerTokenResolver bearerTokenResolver,
+		ObjectProvider<ClientRegistrationRepository> clientRegistrationRepository,
+		ObjectProvider<OAuth2AuthorizationRequestResolver> authorizationRequestResolver,
+		@Qualifier("googleOAuth2LoginSuccessHandler") ObjectProvider<AuthenticationSuccessHandler> googleOAuth2LoginSuccessHandler,
+		@Qualifier("googleOAuth2LoginFailureHandler") ObjectProvider<AuthenticationFailureHandler> googleOAuth2LoginFailureHandler,
 		@Value("${studypot.openapi.public-docs-enabled:false}") boolean publicOpenApiDocsEnabled
 	) throws Exception {
-		return http
+		ClientRegistrationRepository oauth2Registrations = clientRegistrationRepository.getIfAvailable();
+		SessionCreationPolicy sessionCreationPolicy = oauth2Registrations == null
+			? SessionCreationPolicy.STATELESS
+			: SessionCreationPolicy.IF_REQUIRED;
+
+		http
 			.csrf(AbstractHttpConfigurer::disable)
 			.cors(cors -> cors.configurationSource(corsConfigurationSource))
 			.formLogin(AbstractHttpConfigurer::disable)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.sessionManagement(session -> session.sessionCreationPolicy(sessionCreationPolicy))
 			.exceptionHandling(exceptions -> exceptions
 				.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler))
@@ -50,18 +65,30 @@ public class SecurityConfiguration {
 						.requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
 						.requestMatchers(HttpMethod.HEAD, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll();
 				}
-					authorize
-						.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/oauth/google").permitAll()
-						.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/refresh").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/oauth2/authorization/google").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/login/oauth2/code/google").permitAll()
-						.requestMatchers(ApiPaths.V1 + "/**").authenticated()
-						.anyRequest().denyAll();
+				authorize
+					.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/oauth/google").permitAll()
+					.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/refresh").permitAll()
+					.requestMatchers(HttpMethod.GET, "/api/oauth2/authorization/google").permitAll()
+					.requestMatchers(HttpMethod.GET, "/api/login/oauth2/code/google").permitAll()
+					.requestMatchers(ApiPaths.V1 + "/**").authenticated()
+					.anyRequest().denyAll();
 				})
 				.oauth2ResourceServer(oauth2 -> oauth2
 					.bearerTokenResolver(bearerTokenResolver)
-					.jwt(Customizer.withDefaults()))
-				.build();
+					.jwt(Customizer.withDefaults()));
+
+		if (oauth2Registrations != null) {
+			http.oauth2Login(oauth2 -> oauth2
+				.clientRegistrationRepository(oauth2Registrations)
+				.authorizationEndpoint(endpoint -> endpoint
+					.baseUri("/api/oauth2/authorization")
+					.authorizationRequestResolver(authorizationRequestResolver.getObject()))
+				.redirectionEndpoint(endpoint -> endpoint.baseUri("/api/login/oauth2/code/*"))
+				.successHandler(googleOAuth2LoginSuccessHandler.getObject())
+				.failureHandler(googleOAuth2LoginFailureHandler.getObject()));
+		}
+
+		return http.build();
 	}
 
 	@Bean

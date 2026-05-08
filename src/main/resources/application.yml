@@ -80,6 +80,7 @@ studypot:
       secure: ${STUDYPOT_AUTH_COOKIE_SECURE:true}
       same-site: ${STUDYPOT_AUTH_COOKIE_SAME_SITE:Lax}
     oauth2:
+      backend-callback-uri: ${STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI:}
       frontend-success-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI:http://localhost:3000/auth/success}
       frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI:http://localhost:3000/auth/failure}
   oauth:

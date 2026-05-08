@@ -237,15 +237,20 @@ class AuthControllerTest {
 		@Bean
 		@Primary
 		GoogleOAuthCodeExchangePort testGoogleOAuthCodeExchangePort() {
-			return command -> new GoogleOAuthProfile(
-				"google-123",
-				EmailAddress.from("member@example.com"),
-				true,
-				"Study Member",
-				"https://cdn.example.com/member.png",
-				NOW.plus(Duration.ofHours(1)),
-				"openid email profile"
-			);
+			return command -> {
+				if (command.authorizationCode().equals("provider-bug")) {
+					throw new IllegalArgumentException("provider bug");
+				}
+				return new GoogleOAuthProfile(
+					"google-123",
+					EmailAddress.from("member@example.com"),
+					true,
+					"Study Member",
+					"https://cdn.example.com/member.png",
+					NOW.plus(Duration.ofHours(1)),
+					"openid email profile"
+				);
+			};
 		}
 
 		@Bean

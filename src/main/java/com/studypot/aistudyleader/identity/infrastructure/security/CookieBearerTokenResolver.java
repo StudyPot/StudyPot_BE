@@ -1,17 +1,16 @@
 package com.studypot.aistudyleader.identity.infrastructure.security;
 
+import com.studypot.aistudyleader.identity.service.AuthTokenCookiePort;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 
+@RequiredArgsConstructor
 class CookieBearerTokenResolver implements BearerTokenResolver {
 
 	private final DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
-	private final AuthTokenCookieIssuer tokenCookieIssuer;
-
-	CookieBearerTokenResolver(AuthTokenCookieIssuer tokenCookieIssuer) {
-		this.tokenCookieIssuer = tokenCookieIssuer;
-	}
+	private final AuthTokenCookiePort tokenCookiePort;
 
 	@Override
 	public String resolve(HttpServletRequest request) {
@@ -19,6 +18,6 @@ class CookieBearerTokenResolver implements BearerTokenResolver {
 		if (headerToken != null) {
 			return headerToken;
 		}
-		return tokenCookieIssuer.accessToken(request).orElse(null);
+		return tokenCookiePort.accessToken(request).orElse(null);
 	}
 }

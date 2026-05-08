@@ -25,10 +25,12 @@ This page records the local backend smoke contract for real development work.
 
 ## Google Login
 - Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.
+- Browser OAuth authorization, state storage, PKCE, callback handling, Google token exchange, and Google user-info loading are handled by Spring Security `oauth2-client`.
 - If local HTTPS is not enabled, use the matching HTTP URL and register the matching callback URL in Google Cloud.
 - Google OAuth Authorized redirect URI:
   - HTTPS local: `https://localhost:8080/api/login/oauth2/code/google`
   - HTTP local fallback: `http://localhost:8080/api/login/oauth2/code/google`
+- The backend sends Google the fixed callback URI from `STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI`; do not derive it from request `Host` headers.
 - Frontend redirect targets are configured with:
   - `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`
   - `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`

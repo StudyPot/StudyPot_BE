@@ -54,6 +54,13 @@ public class AuthSessionService {
 	}
 
 	@Transactional
+	public AuthTokenResult loginWithGoogleProfile(GoogleOAuthProfile profile, AuthSessionMetadata metadata) {
+		GoogleOAuthLoginResult loginResult = googleOAuthLoginService.login(profile);
+		IdentityUser user = findActiveUser(loginResult.userId());
+		return issueTokenPair(user, metadata);
+	}
+
+	@Transactional
 	public AuthTokenResult refresh(String rawRefreshToken, AuthSessionMetadata metadata) {
 		Instant now = clock.instant();
 		RefreshTokenSession currentSession = requireActiveRefreshToken(rawRefreshToken, now);
