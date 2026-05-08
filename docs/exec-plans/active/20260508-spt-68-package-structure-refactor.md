@@ -24,7 +24,6 @@
 - [x] docs/architecture/backend-map.md
 
 ## Related Feature IDs
-- [ ] n/a-harness
 - [x] identity-core
 
 ## Doc Notes
@@ -55,7 +54,7 @@ Make the source tree match the user's preferred style: `global` for common cross
 - [x] Update architecture documentation to describe `controller/service/domain/repository/infrastructure`.
 - [x] Run focused architecture/identity tests.
 - [x] Run `./gradlew check build --no-daemon`.
-- [ ] Create PR through the harness and address review feedback.
+- [x] Create PR through the harness and address review feedback.
 
 ## Done Criteria
 - No production or test Java source remains under `identity.adapter.*`, `identity.application.*`, or `shared.*`.

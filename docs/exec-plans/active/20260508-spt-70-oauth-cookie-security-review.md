@@ -29,7 +29,6 @@
 - [x] docs/specs/change-requests/CR-20260508-oauth2-cookie-login.md
 
 ## Related Feature IDs
-- [ ] n/a-harness
 - [x] identity-core
 
 ## Doc Notes

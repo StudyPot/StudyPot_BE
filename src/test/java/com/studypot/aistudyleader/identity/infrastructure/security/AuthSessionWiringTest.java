@@ -1,11 +1,10 @@
 package com.studypot.aistudyleader.identity.infrastructure.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.identity.service.AuthSessionService;
-import java.sql.Connection;
-import java.sql.SQLException;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +12,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.jdbc.datasource.AbstractDataSource;
 
 @SpringBootTest(
 	classes = {AiStudyLeaderApplication.class, AuthSessionWiringTest.TestDataSourceConfiguration.class},
@@ -46,17 +44,7 @@ class AuthSessionWiringTest {
 
 		@Bean
 		DataSource dataSource() {
-			return new AbstractDataSource() {
-				@Override
-				public Connection getConnection() throws SQLException {
-					throw new SQLException("test data source should not be queried");
-				}
-
-				@Override
-				public Connection getConnection(String username, String password) throws SQLException {
-					throw new SQLException("test data source should not be queried");
-				}
-			};
+			return mock(DataSource.class);
 		}
 	}
 }

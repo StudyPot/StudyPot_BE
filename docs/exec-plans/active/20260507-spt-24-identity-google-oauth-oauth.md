@@ -68,7 +68,7 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] RED: write JDBC SQL contract tests for live-key/deleted-row filters and insert/update column coverage.
 - [x] GREEN: implement JDBC identity repository adapter.
 - [x] Run focused tests, then `./gradlew check build --no-daemon`.
-- [ ] Commit, create PR through `scripts/task/create-pr.sh`, address CI/Copilot comments with the agreed max-review-loop cap, post role gates, and finish to manual merge notification.
+- [x] Commit, create PR through `scripts/task/create-pr.sh`, address CI/Copilot comments with the agreed max-review-loop cap, post role gates, and finish to manual merge notification.
 
 ## Done Criteria
 - [x] SPT-24 Jira scope is implemented without changing locked API/DB specs.
@@ -79,7 +79,7 @@ Implement the identity-core Google OAuth login core for SPT-24: exchange a Googl
 - [x] Concurrent first-login uniqueness conflicts retry against live user/provider-account state instead of leaking duplicate-key failures.
 - [x] Google OAuth client config stays secret-safe; raw provider tokens are not logged, returned, or stored by the SPT-24 core.
 - [x] Focused tests and `./gradlew check build --no-daemon` pass.
-- [ ] PR review gate, Copilot feedback, role gate evidence, Mattermost manual merge notification, and post-merge cleanup are completed through the harness.
+- [x] PR review gate, Copilot feedback, role gate evidence, Mattermost manual merge notification, and post-merge cleanup are completed through the harness.
 
 ## Verification Log
 - [x] Baseline: `./gradlew check build --no-daemon` PASS before SPT-24 implementation.

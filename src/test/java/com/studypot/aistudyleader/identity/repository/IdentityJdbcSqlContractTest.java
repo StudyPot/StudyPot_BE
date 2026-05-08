@@ -45,12 +45,43 @@ class IdentityJdbcSqlContractTest {
 			.doesNotContain("refresh_token_enc")
 			.doesNotContain("deleted_at");
 
+		assertThat(normalize(IdentityJdbcSql.UPDATE_ACTIVE_USER))
+			.contains("update users")
+			.contains("where id = ?")
+			.contains("deleted_at is null");
+
 		assertThat(normalize(IdentityJdbcSql.UPDATE_OAUTH_ACCOUNT_SYNC))
 			.contains("update oauth_account")
 			.contains("where id = ?")
 			.contains("deleted_at is null")
 			.doesNotContain("access_token_enc")
 			.doesNotContain("refresh_token_enc");
+	}
+
+	@Test
+	void upsertGuardsCanDetectSoftDeletedRowsBeforeInsert() {
+		assertThat(normalize(IdentityJdbcSql.EXISTS_USER_BY_ID))
+			.contains("from users")
+			.contains("where id = ?")
+			.doesNotContain("deleted_at is null");
+		assertThat(normalize(IdentityJdbcSql.EXISTS_ACTIVE_USER_BY_ID))
+			.contains("from users")
+			.contains("where id = ?")
+			.contains("deleted_at is null");
+		assertThat(normalize(IdentityJdbcSql.EXISTS_USER_BY_EMAIL))
+			.contains("from users")
+			.contains("where email_live_key = ?");
+		assertThat(normalize(IdentityJdbcSql.EXISTS_OAUTH_ACCOUNT_BY_ID))
+			.contains("from oauth_account")
+			.contains("where id = ?")
+			.doesNotContain("deleted_at is null");
+		assertThat(normalize(IdentityJdbcSql.EXISTS_ACTIVE_OAUTH_ACCOUNT_BY_ID))
+			.contains("from oauth_account")
+			.contains("where id = ?")
+			.contains("deleted_at is null");
+		assertThat(normalize(IdentityJdbcSql.EXISTS_OAUTH_ACCOUNT_BY_PROVIDER_KEY))
+			.contains("from oauth_account")
+			.contains("where provider_account_live_key = ?");
 	}
 
 	@Test
@@ -67,7 +98,8 @@ class IdentityJdbcSqlContractTest {
 
 		assertThat(normalize(RefreshTokenJdbcSql.FIND_REFRESH_TOKEN_BY_HASH))
 			.contains("from refresh_token")
-			.contains("where token_hash = ?");
+			.contains("where token_hash = ?")
+			.contains("revoked_at is null");
 
 		assertThat(normalize(RefreshTokenJdbcSql.REVOKE_REFRESH_TOKEN))
 			.contains("update refresh_token")

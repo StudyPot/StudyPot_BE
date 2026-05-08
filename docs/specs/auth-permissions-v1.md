@@ -54,11 +54,12 @@
 - `ARCHIVED` groups are read-only except for owner/admin audit access.
 
 ## Security Requirements
+- Cookie authentication changes in this locked document are approved by `CR-20260508-oauth2-cookie-login` and `ADR-20260508-oauth2-cookie-login`; future changes still require the Change Request + ADR flow in `docs/specs/change-control-v1.md`.
 - Bearer token authentication or `studypot_access_token` HttpOnly cookie authentication is required for all `/api/v1` endpoints except explicit public auth endpoints and public invite metadata endpoints if added later.
 - `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `POST /api/v1/auth/oauth/google`, and `POST /api/v1/auth/refresh` are explicit public auth endpoints.
 - `POST /api/v1/auth/logout` and `POST /api/v1/auth/logout-all` require authenticated access via bearer token or access-token cookie.
-- Browser login token cookies must be HttpOnly. Production cookies should also be Secure and use a SameSite policy compatible with the deployed frontend/API domains.
-- OAuth callback state mismatch must not issue application token cookies.
+- Browser login token cookies must be HttpOnly. Production cookies must also be Secure and must use a SameSite policy compatible with the deployed frontend/API domains.
+- OAuth callback state mismatch must not issue application token cookies under any condition.
 - Refresh tokens must be stored as hashes and rotated on refresh.
 - A refresh token used after rotation or revocation must be rejected.
 - Cross-group access must be rejected even if the resource ID exists.

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -85,5 +86,26 @@ class BrowserCsrfProtectionFilterTest {
 		filter.doFilter(request, response, filterChain);
 
 		verify(filterChain).doFilter(request, response);
+		verify(accessDeniedHandler, never()).handle(any(), any(), any());
+	}
+
+	@Test
+	void requestPassesThroughWhenCsrfParameterMatches() throws Exception {
+		when(request.getCookies()).thenReturn(new Cookie[]{new Cookie("XSRF-TOKEN", "abc123")});
+		when(request.getHeader("X-XSRF-TOKEN")).thenReturn(null);
+		when(request.getHeader("X-CSRF-TOKEN")).thenReturn(null);
+		when(request.getParameter("_csrf")).thenReturn("abc123");
+
+		filter.doFilter(request, response, filterChain);
+
+		verify(filterChain).doFilter(request, response);
+		verify(accessDeniedHandler, never()).handle(any(), any(), any());
+	}
+
+	@Test
+	void constructorRejectsMissingRequirementMatcher() {
+		assertThatNullPointerException()
+			.isThrownBy(() -> new BrowserCsrfProtectionFilter(accessDeniedHandler, null))
+			.withMessage("requirementMatcher must not be null");
 	}
 }

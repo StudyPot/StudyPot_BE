@@ -35,7 +35,7 @@ public class ProblemDetailFactory {
 	}
 
 	public ProblemDetail serviceUnavailable(String detail) {
-		return create(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable", detail, SERVICE_UNAVAILABLE_TYPE);
+		return create(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", detail, SERVICE_UNAVAILABLE_TYPE);
 	}
 
 	private static ProblemDetail create(HttpStatusCode status, String title, String detail, URI type) {

@@ -43,7 +43,7 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 	public IdentityUser save(IdentityUser user) {
 		try {
 			int updatedRows = jdbcTemplate.update(
-				IdentityJdbcSql.UPDATE_USER_LOGIN,
+				IdentityJdbcSql.UPDATE_ACTIVE_USER,
 				user.email().value(),
 				user.email().liveKey(),
 				user.nickname(),
@@ -53,6 +53,10 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 				UuidBinary.toBytes(user.id())
 			);
 			if (updatedRows == 0) {
+				if (exists(IdentityJdbcSql.EXISTS_ACTIVE_USER_BY_ID, UuidBinary.toBytes(user.id()))) {
+					return user;
+				}
+				rejectSoftDeletedUserOverwrite(user);
 				jdbcTemplate.update(
 					IdentityJdbcSql.INSERT_USER,
 					UuidBinary.toBytes(user.id()),
@@ -67,7 +71,7 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 			}
 			return user;
 		} catch (DuplicateKeyException exception) {
-			throw new IdentityUniquenessConflictException("Live identity user already exists.", exception);
+			throw userConflict(user, exception);
 		}
 	}
 
@@ -83,6 +87,10 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 				UuidBinary.toBytes(account.id())
 			);
 			if (updatedRows == 0) {
+				if (exists(IdentityJdbcSql.EXISTS_ACTIVE_OAUTH_ACCOUNT_BY_ID, UuidBinary.toBytes(account.id()))) {
+					return account;
+				}
+				rejectSoftDeletedOAuthAccountOverwrite(account);
 				jdbcTemplate.update(
 					IdentityJdbcSql.INSERT_OAUTH_ACCOUNT,
 					UuidBinary.toBytes(account.id()),
@@ -99,8 +107,40 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 			}
 			return account;
 		} catch (DuplicateKeyException exception) {
-			throw new IdentityUniquenessConflictException("Live OAuth account already exists.", exception);
+			throw oauthAccountConflict(account, exception);
 		}
+	}
+
+	private void rejectSoftDeletedUserOverwrite(IdentityUser user) {
+		if (exists(IdentityJdbcSql.EXISTS_USER_BY_ID, UuidBinary.toBytes(user.id()))) {
+			throw new IdentityUniquenessConflictException("Identity user is soft-deleted and cannot be overwritten.");
+		}
+	}
+
+	private void rejectSoftDeletedOAuthAccountOverwrite(OAuthAccount account) {
+		if (exists(IdentityJdbcSql.EXISTS_OAUTH_ACCOUNT_BY_ID, UuidBinary.toBytes(account.id()))) {
+			throw new IdentityUniquenessConflictException("OAuth account is soft-deleted and cannot be overwritten.");
+		}
+	}
+
+	private IdentityUniquenessConflictException userConflict(IdentityUser user, DuplicateKeyException exception) {
+		if (exists(IdentityJdbcSql.EXISTS_USER_BY_EMAIL, user.email().liveKey())) {
+			return new IdentityUniquenessConflictException(
+				"Identity user email is already reserved by an existing or soft-deleted user.",
+				exception
+			);
+		}
+		return new IdentityUniquenessConflictException("Identity user uniqueness conflict.", exception);
+	}
+
+	private IdentityUniquenessConflictException oauthAccountConflict(OAuthAccount account, DuplicateKeyException exception) {
+		if (exists(IdentityJdbcSql.EXISTS_OAUTH_ACCOUNT_BY_PROVIDER_KEY, account.providerAccountLiveKey())) {
+			return new IdentityUniquenessConflictException(
+				"OAuth provider account is already reserved by an existing or soft-deleted account.",
+				exception
+			);
+		}
+		return new IdentityUniquenessConflictException("OAuth account uniqueness conflict.", exception);
 	}
 
 	private IdentityUser mapUser(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -123,7 +163,7 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 		return OAuthAccount.rehydrate(
 			uuid(resultSet, "id"),
 			uuid(resultSet, "user_id"),
-			OAuthProvider.valueOf(resultSet.getString("provider")),
+			OAuthProvider.fromPersistence(resultSet.getString("provider")),
 			resultSet.getString("provider_user_id"),
 			email == null ? null : EmailAddress.from(email),
 			instant(resultSet, "token_expires_at"),
@@ -137,6 +177,10 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 	private <T> Optional<T> queryOne(String sql, ThrowingRowMapper<T> mapper, Object... args) {
 		List<T> results = jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapper.map(resultSet, rowNumber), args);
 		return results.stream().findFirst();
+	}
+
+	private boolean exists(String sql, Object... args) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, Boolean.class, args));
 	}
 
 	private static UUID uuid(ResultSet resultSet, String column) throws SQLException {

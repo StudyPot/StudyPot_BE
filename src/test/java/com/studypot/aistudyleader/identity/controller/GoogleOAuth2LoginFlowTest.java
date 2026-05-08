@@ -37,7 +37,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 		"studypot.auth.oauth2.frontend-failure-uri=https://frontend.studypot.local/auth/failure",
 		"studypot.auth.cookie.secure=true",
 		"studypot.auth.cookie.same-site=Lax",
-		"studypot.cors.allowed-origins=https://frontend.studypot.local"
+		"studypot.cors.allowed-origins=https://frontend.studypot.local",
+		"studypot.cors.allow-credentials=true"
 	})
 class GoogleOAuth2LoginFlowTest {
 

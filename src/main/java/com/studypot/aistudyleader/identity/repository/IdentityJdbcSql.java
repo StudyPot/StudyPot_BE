@@ -30,7 +30,7 @@ final class IdentityJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
-	static final String UPDATE_USER_LOGIN = """
+	static final String UPDATE_ACTIVE_USER = """
 		update users
 		set email = ?,
 		    email_live_key = ?,
@@ -40,6 +40,31 @@ final class IdentityJdbcSql {
 		    updated_at = ?
 		where id = ?
 		  and deleted_at is null
+		""";
+
+	static final String EXISTS_USER_BY_ID = """
+		select exists(
+		  select 1
+		  from users
+		  where id = ?
+		)
+		""";
+
+	static final String EXISTS_ACTIVE_USER_BY_ID = """
+		select exists(
+		  select 1
+		  from users
+		  where id = ?
+		    and deleted_at is null
+		)
+		""";
+
+	static final String EXISTS_USER_BY_EMAIL = """
+		select exists(
+		  select 1
+		  from users
+		  where email_live_key = ?
+		)
 		""";
 
 	static final String INSERT_OAUTH_ACCOUNT = """
@@ -57,6 +82,31 @@ final class IdentityJdbcSql {
 		    last_synced_at = ?
 		where id = ?
 		  and deleted_at is null
+		""";
+
+	static final String EXISTS_OAUTH_ACCOUNT_BY_ID = """
+		select exists(
+		  select 1
+		  from oauth_account
+		  where id = ?
+		)
+		""";
+
+	static final String EXISTS_ACTIVE_OAUTH_ACCOUNT_BY_ID = """
+		select exists(
+		  select 1
+		  from oauth_account
+		  where id = ?
+		    and deleted_at is null
+		)
+		""";
+
+	static final String EXISTS_OAUTH_ACCOUNT_BY_PROVIDER_KEY = """
+		select exists(
+		  select 1
+		  from oauth_account
+		  where provider_account_live_key = ?
+		)
 		""";
 
 	private IdentityJdbcSql() {

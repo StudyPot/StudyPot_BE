@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.models.Operation;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +27,13 @@ import org.springframework.context.annotation.Configuration;
 	scheme = "bearer",
 	bearerFormat = "JWT"
 )
+@Slf4j
 class OpenApiConfiguration {
+
+	private static final List<String> PUBLIC_AUTH_PATHS = List.of(
+		ApiPaths.V1 + "/auth/oauth/google",
+		ApiPaths.V1 + "/auth/refresh"
+	);
 
 	@Bean
 	OpenApiCustomizer publicAuthEndpointCustomizer() {
@@ -34,14 +41,14 @@ class OpenApiConfiguration {
 			if (openApi.getPaths() == null) {
 				return;
 			}
-			List.of(
-				ApiPaths.V1 + "/auth/oauth/google",
-				ApiPaths.V1 + "/auth/refresh"
-			).stream()
-				.map(path -> openApi.getPaths().get(path))
-				.filter(pathItem -> pathItem != null)
-				.flatMap(pathItem -> pathItem.readOperations().stream())
-				.forEach(OpenApiConfiguration::clearSecurity);
+			for (String path : PUBLIC_AUTH_PATHS) {
+				var pathItem = openApi.getPaths().get(path);
+				if (pathItem == null) {
+					log.warn("OpenAPI public auth path was not found: {}", path);
+					continue;
+				}
+				pathItem.readOperations().forEach(OpenApiConfiguration::clearSecurity);
+			}
 		};
 	}
 

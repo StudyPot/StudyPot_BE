@@ -89,7 +89,7 @@ public class GoogleOAuthLoginService {
 				nicknameFrom(profile),
 				profile.picture(),
 				now
-			));
+			).recordLogin(now));
 		IdentityUser savedUser = repository.save(user);
 		repository.save(OAuthAccount.connect(
 			idGenerator.get(),

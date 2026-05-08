@@ -5,19 +5,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.global.error.ApiExceptionHandler;
+import com.studypot.aistudyleader.global.error.ProblemDetailFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-@SpringBootTest(classes = AiStudyLeaderApplication.class)
-@AutoConfigureMockMvc
+@WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({ApiExceptionHandler.class, ProblemDetailFactory.class})
 class AuthControllerMissingServiceTest {
 
 	private static final String REFRESH_PATH = ApiPaths.V1 + "/auth/refresh";
@@ -39,7 +42,7 @@ class AuthControllerMissingServiceTest {
 					"""))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-			.andExpect(jsonPath("$.title").value("Service unavailable"));
+			.andExpect(jsonPath("$.title").value("Service Unavailable"));
 	}
 
 	private static RequestPostProcessor xsrf(String value) {

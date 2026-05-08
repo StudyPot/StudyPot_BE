@@ -9,7 +9,8 @@ public record StudypotCorsProperties(
 	List<String> allowedOriginPatterns,
 	List<String> allowedMethods,
 	List<String> allowedHeaders,
-	List<String> exposedHeaders
+	List<String> exposedHeaders,
+	Boolean allowCredentials
 ) {
 
 	private static final List<String> DEFAULT_ALLOWED_METHODS = List.of(
@@ -38,6 +39,7 @@ public record StudypotCorsProperties(
 		allowedMethods = defaultIfEmpty(allowedMethods, DEFAULT_ALLOWED_METHODS);
 		allowedHeaders = defaultIfEmpty(allowedHeaders, DEFAULT_ALLOWED_HEADERS);
 		exposedHeaders = defaultIfEmpty(exposedHeaders, DEFAULT_EXPOSED_HEADERS);
+		allowCredentials = Boolean.TRUE.equals(allowCredentials);
 	}
 
 	private static List<String> defaultIfEmpty(List<String> values, List<String> defaultValues) {

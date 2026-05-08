@@ -25,7 +25,8 @@ public class GoogleOAuth2LoginFailureHandler implements AuthenticationFailureHan
 		HttpServletResponse response,
 		AuthenticationException exception
 	) throws IOException, ServletException {
-		log.info("Google OAuth2 login failed: {}", exception.getMessage());
+		log.warn("Google OAuth2 login failed");
+		log.debug("Google OAuth2 failure details", exception);
 		invalidateSession(request);
 		redirectStrategy.sendRedirect(request, response, properties.oauth2().frontendFailureUri().toString());
 	}

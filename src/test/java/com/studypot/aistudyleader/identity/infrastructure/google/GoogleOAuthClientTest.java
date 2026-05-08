@@ -8,15 +8,18 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.studypot.aistudyleader.identity.service.GoogleOAuthLoginCommand;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -89,7 +92,9 @@ class GoogleOAuthClientTest {
 			"https://oauth2.googleapis.com/token",
 			"https://openidconnect.googleapis.com/v1/userinfo",
 			null,
-			null
+			null,
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(10)
 		);
 		GoogleOAuthClient client = new GoogleOAuthClient(restClientBuilder, properties, CLOCK);
 
@@ -103,6 +108,87 @@ class GoogleOAuthClientTest {
 			.hasMessageNotContaining("client-secret");
 	}
 
+	@Test
+	void tokenHttpErrorsAreTranslatedWithoutLeakingSecrets() {
+		RestClient.Builder restClientBuilder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+		GoogleOAuthClient client = new GoogleOAuthClient(restClientBuilder, properties(), CLOCK);
+
+		server.expect(requestTo("https://oauth2.googleapis.com/token"))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"invalid_grant\"}"));
+
+		assertThatThrownBy(() -> client.exchange(new GoogleOAuthLoginCommand(
+			"google-code",
+			"https://app.studypot.example/auth/callback",
+			"pkce-verifier"
+		)))
+			.isInstanceOf(OAuthProviderResponseException.class)
+			.hasMessageContaining("Google OAuth token request failed: status 400")
+			.hasMessageContaining("invalid_grant")
+			.hasMessageNotContaining("client-secret")
+			.hasMessageNotContaining("pkce-verifier")
+			.hasMessageNotContaining("google-code");
+		server.verify();
+	}
+
+	@Test
+	void userinfoHttpErrorsAreTranslated() {
+		RestClient.Builder restClientBuilder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+		GoogleOAuthClient client = new GoogleOAuthClient(restClientBuilder, properties(), CLOCK);
+
+		server.expect(requestTo("https://oauth2.googleapis.com/token"))
+			.andRespond(withSuccess("""
+				{
+				  "access_token": "provider-access-token",
+				  "expires_in": 3600,
+				  "scope": "openid email profile",
+				  "token_type": "Bearer"
+				}
+				""", MediaType.APPLICATION_JSON));
+		server.expect(requestTo("https://openidconnect.googleapis.com/v1/userinfo"))
+			.andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"invalid_token\"}"));
+
+		assertThatThrownBy(() -> client.exchange(new GoogleOAuthLoginCommand(
+			"google-code",
+			"https://app.studypot.example/auth/callback",
+			null
+		)))
+			.isInstanceOf(OAuthProviderResponseException.class)
+			.hasMessageContaining("Google userinfo request failed: status 401")
+			.hasMessageContaining("invalid_token")
+			.hasMessageNotContaining("provider-access-token");
+		server.verify();
+	}
+
+	@Test
+	void propertiesToStringMasksClientSecret() {
+		assertThat(properties().toString())
+			.contains("clientId=client-id")
+			.contains("clientSecret=****")
+			.doesNotContain("client-secret");
+	}
+
+	@Test
+	void rejectsInsecureProviderEndpointsBeforeRequestingGoogle() {
+		assertThatThrownBy(() -> new GoogleOAuthProperties(
+			"client-id",
+			"client-secret",
+			"http://oauth2.googleapis.com/token",
+			"https://openidconnect.googleapis.com/v1/userinfo",
+			null,
+			null,
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(10)
+		))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("studypot.oauth.google.token-uri");
+	}
+
 	private static GoogleOAuthProperties properties() {
 		return new GoogleOAuthProperties(
 			"client-id",
@@ -110,7 +196,9 @@ class GoogleOAuthClientTest {
 			"https://oauth2.googleapis.com/token",
 			"https://openidconnect.googleapis.com/v1/userinfo",
 			null,
-			null
+			null,
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(10)
 		);
 	}
 }

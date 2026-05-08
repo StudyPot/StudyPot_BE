@@ -32,11 +32,13 @@ assert_contains "public-docs-enabled: true" "${TEST_ROOT}/config/application-loc
 assert_contains "logging:" "${TEST_ROOT}/config/application-local.example.yml"
 assert_contains "management:" "${TEST_ROOT}/config/application-local.example.yml"
 
+export TEST_ROOT
 python3 - <<'PY'
+import os
 from pathlib import Path
 import sys
 
-path = Path("config/application-local.example.yml")
+path = Path(os.environ["TEST_ROOT"]) / "config" / "application-local.example.yml"
 text = path.read_text()
 for forbidden in ("apps.googleusercontent.com", "GOCSPX-", "client-secret: \"\"", "password: \"\""):
     if forbidden in text:

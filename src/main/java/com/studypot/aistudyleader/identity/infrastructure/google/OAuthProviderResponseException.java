@@ -7,4 +7,8 @@ public class OAuthProviderResponseException extends OAuthLoginRejectedException 
 	public OAuthProviderResponseException(String message) {
 		super(message);
 	}
+
+	public OAuthProviderResponseException(String message, Throwable cause) {
+		super(message, cause);
+	}
 }

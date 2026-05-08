@@ -2,7 +2,12 @@ openapi: 3.1.0
 info:
   title: AI Study Leader API
   version: 1.0.0
-  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend with in-app notification.
+  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend with in-app notification. OAuth cookie login changes are approved by CR-20260508-oauth2-cookie-login and ADR-20260508-oauth2-cookie-login.
+  x-change-control:
+    status: LOCKED_FOR_IMPLEMENTATION
+    approvedChanges:
+      - CR-20260508-oauth2-cookie-login
+      - ADR-20260508-oauth2-cookie-login
 servers:
   - url: /api/v1
 security:
@@ -18,13 +23,13 @@ paths:
       security: []
       responses:
         '302':
-          description: Redirects the browser to Google OAuth and sets temporary HttpOnly OAuth cookies
+          description: Redirects the browser to Google OAuth. PKCE verifier state is persisted server-side, keyed by oauth_state, and is not sent to the browser.
           headers:
             Location:
               schema: {type: string, format: uri}
             Set-Cookie:
               schema: {type: string}
-              description: Temporary HttpOnly OAuth state, PKCE verifier, and callback redirect URI cookies.
+              description: Optional short-lived HttpOnly OAuth state correlation cookie. PKCE verifier state stays server-side.
   /api/login/oauth2/code/google:
     get:
       servers:
@@ -47,13 +52,13 @@ paths:
           schema: {type: string}
       responses:
         '302':
-          description: Redirects to frontend success or failure URI; success sets HttpOnly token cookies and never returns tokens in the URL
+          description: Redirects to frontend success or failure URI; success sets HttpOnly token cookies, clears OAuth state, and never returns tokens in the URL
           headers:
             Location:
               schema: {type: string, format: uri}
             Set-Cookie:
               schema: {type: string}
-              description: HttpOnly token cookies on success and cleared temporary OAuth cookies.
+              description: HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies on success and cleared temporary OAuth state cookies when present.
   /auth/oauth/google:
     post:
       tags: [Auth]
@@ -71,7 +76,7 @@ paths:
           headers:
             Set-Cookie:
               schema: {type: string}
-              description: HttpOnly access-token and refresh-token cookies.
+              description: HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies.
           content:
             application/json:
               schema:
@@ -93,7 +98,7 @@ paths:
           headers:
             Set-Cookie:
               schema: {type: string}
-              description: Rotated HttpOnly access-token and refresh-token cookies.
+              description: Rotated HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies.
           content:
             application/json:
               schema:
@@ -498,6 +503,10 @@ components:
       type: apiKey
       in: cookie
       name: studypot_access_token
+    cookieRefreshToken:
+      type: apiKey
+      in: cookie
+      name: studypot_refresh_token
   parameters:
     GroupId:
       name: groupId
@@ -546,12 +555,10 @@ components:
         codeVerifier: {type: string}
     RefreshTokenRequest:
       type: object
-      required: [refreshToken]
       properties:
         refreshToken: {type: string, minLength: 1}
     LogoutRequest:
       type: object
-      required: [refreshToken]
       properties:
         refreshToken: {type: string, minLength: 1}
     AuthTokenResponse:

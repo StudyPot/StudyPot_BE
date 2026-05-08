@@ -2,11 +2,16 @@ package com.studypot.aistudyleader.identity.infrastructure.security;
 
 import com.studypot.aistudyleader.identity.infrastructure.google.GoogleOAuthConfigurationException;
 import com.studypot.aistudyleader.identity.infrastructure.google.GoogleOAuthProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
+import org.springframework.boot.autoconfigure.condition.SpringBootCondition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.ConditionContext;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -23,18 +28,23 @@ class GoogleOAuth2ClientConfiguration {
 	private static final String AUTHORIZATION_BASE_URI = "/api/oauth2/authorization";
 
 	@Bean
-	@ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${studypot.oauth.google.client-id:}')")
+	@ConditionalOnProperty(prefix = "studypot.oauth.google", name = "client-id", matchIfMissing = false)
+	@Conditional(GoogleOAuthClientIdHasTextCondition.class)
 	ClientRegistrationRepository googleClientRegistrationRepository(
 		GoogleOAuthProperties google,
 		AuthProperties auth
 	) {
+		AuthProperties.OAuth2 oauth2 = auth.oauth2();
+		if (oauth2 == null) {
+			throw new GoogleOAuthConfigurationException("OAuth2 properties are not configured.");
+		}
 		ClientRegistration registration = CommonOAuth2Provider.GOOGLE.getBuilder(GOOGLE_REGISTRATION_ID)
 			.clientId(require(google.clientId(), "Google OAuth client id is not configured."))
 			.clientSecret(require(google.clientSecret(), "Google OAuth client secret is not configured."))
 			.authorizationUri(google.authorizationUri())
 			.tokenUri(google.tokenUri())
 			.userInfoUri(google.userinfoUri())
-			.redirectUri(require(auth.oauth2().backendCallbackUri(), "OAuth backend callback URI is not configured."))
+			.redirectUri(require(oauth2.backendCallbackUri(), "OAuth backend callback URI is not configured."))
 			.scope(google.scopes())
 			.clientName("Google")
 			.build();
@@ -57,5 +67,16 @@ class GoogleOAuth2ClientConfiguration {
 			throw new GoogleOAuthConfigurationException(message);
 		}
 		return value.strip();
+	}
+
+	static final class GoogleOAuthClientIdHasTextCondition extends SpringBootCondition {
+
+		@Override
+		public ConditionOutcome getMatchOutcome(ConditionContext context, AnnotatedTypeMetadata metadata) {
+			String clientId = context.getEnvironment().getProperty("studypot.oauth.google.client-id");
+			return clientId == null || clientId.isBlank()
+				? ConditionOutcome.noMatch("studypot.oauth.google.client-id is blank")
+				: ConditionOutcome.match("studypot.oauth.google.client-id is configured");
+		}
 	}
 }

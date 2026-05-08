@@ -72,7 +72,18 @@ public final class OAuthAccount {
 
 	public OAuthAccount sync(EmailAddress email, Instant tokenExpiresAt, String scope, Instant now) {
 		Objects.requireNonNull(now, "now must not be null");
+		if (deletedAt != null) {
+			throw new IllegalStateException("deleted OAuth account cannot be synced");
+		}
 		return new OAuthAccount(id, userId, provider, providerUserId, email, tokenExpiresAt, scope, connectedAt, now, deletedAt);
+	}
+
+	public OAuthAccount softDelete(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		if (deletedAt != null) {
+			throw new IllegalStateException("OAuth account is already deleted");
+		}
+		return new OAuthAccount(id, userId, provider, providerUserId, email, tokenExpiresAt, scope, connectedAt, lastSyncedAt, now);
 	}
 
 	public UUID id() {
@@ -117,6 +128,19 @@ public final class OAuthAccount {
 
 	public Optional<Instant> deletedAt() {
 		return Optional.ofNullable(deletedAt);
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		return other instanceof OAuthAccount account && id.equals(account.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hashCode(id);
 	}
 
 	private static String requireProviderUserId(String providerUserId) {

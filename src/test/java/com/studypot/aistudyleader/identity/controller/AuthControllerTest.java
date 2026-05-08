@@ -136,6 +136,21 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void refreshCookieTakesPrecedenceWhenBodyAlsoContainsRefreshToken() throws Exception {
+		MvcResult loginResult = loginResult();
+		String refreshCookie = cookieValueFromSetCookie(loginResult, "studypot_refresh_token");
+
+		mockMvc.perform(post(REFRESH_PATH)
+				.with(cookie("studypot_refresh_token", refreshCookie))
+				.with(xsrf("refresh-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"refreshToken":"not-the-cookie-token"}
+					"""))
+			.andExpect(status().isOk());
+	}
+
+	@Test
 	void cookieBackedStateChangingRequestsRequireCsrfToken() throws Exception {
 		MvcResult loginResult = loginResult();
 		String accessCookie = cookieValueFromSetCookie(loginResult, "studypot_access_token");
@@ -247,7 +262,12 @@ class AuthControllerTest {
 
 	private static RequestPostProcessor cookie(String name, String value) {
 		return request -> {
-			request.setCookies(new MockCookie(name, value));
+			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
+			jakarta.servlet.http.Cookie[] cookies = existingCookies == null
+				? new jakarta.servlet.http.Cookie[1]
+				: java.util.Arrays.copyOf(existingCookies, existingCookies.length + 1);
+			cookies[cookies.length - 1] = new MockCookie(name, value);
+			request.setCookies(cookies);
 			return request;
 		};
 	}

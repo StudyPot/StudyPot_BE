@@ -41,7 +41,7 @@ public final class IdentityUser extends AggregateRoot<UUID> {
 		Instant now
 	) {
 		Objects.requireNonNull(now, "now must not be null");
-		return new IdentityUser(id, email, nickname, profileImage, now, AuditMetadata.created(now));
+		return new IdentityUser(id, email, nickname, profileImage, null, AuditMetadata.created(now));
 	}
 
 	public static IdentityUser rehydrate(
@@ -86,7 +86,9 @@ public final class IdentityUser extends AggregateRoot<UUID> {
 		}
 		String normalized = nickname.strip();
 		if (normalized.length() > MAX_NICKNAME_LENGTH) {
-			return normalized.substring(0, MAX_NICKNAME_LENGTH);
+			throw new IllegalArgumentException(
+				"nickname length must be <= " + MAX_NICKNAME_LENGTH + ": " + normalized.length()
+			);
 		}
 		return normalized;
 	}

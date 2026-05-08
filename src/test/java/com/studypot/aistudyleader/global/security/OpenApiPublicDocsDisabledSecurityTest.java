@@ -15,8 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(classes = AiStudyLeaderApplication.class)
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-	"springdoc.api-docs.enabled=false",
-	"springdoc.swagger-ui.enabled=false",
+	"springdoc.api-docs.enabled=true",
+	"springdoc.swagger-ui.enabled=true",
 	"studypot.openapi.public-docs-enabled=false"
 })
 class OpenApiPublicDocsDisabledSecurityTest {
