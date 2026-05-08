@@ -119,6 +119,9 @@ public class AuthSessionService {
 	}
 
 	private RefreshTokenSession requireActiveRefreshToken(String rawRefreshToken, Instant now) {
+		if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+			throw new RefreshTokenRejectedException("refresh token is required.");
+		}
 		String tokenHash = RefreshTokenHasher.sha256Hex(rawRefreshToken);
 		RefreshTokenSession session = refreshTokenRepository.findByTokenHash(tokenHash)
 			.orElseThrow(() -> new RefreshTokenRejectedException("refresh token is invalid."));

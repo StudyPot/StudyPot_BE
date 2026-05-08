@@ -12,6 +12,10 @@ public enum OAuthProvider {
 		if (providerUserId == null || providerUserId.isBlank()) {
 			throw new IllegalArgumentException("providerUserId must not be blank");
 		}
-		return providerUserId.strip();
+		String normalized = providerUserId.strip();
+		if (normalized.contains(":")) {
+			throw new IllegalArgumentException("providerUserId must not contain ':'");
+		}
+		return normalized;
 	}
 }

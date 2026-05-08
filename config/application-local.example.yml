@@ -49,6 +49,7 @@ studypot:
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD
     allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With,X-XSRF-TOKEN,X-CSRF-TOKEN
     exposed-headers: Location
+    allow-credentials: true
   auth:
     jwt:
       secret: ${STUDYPOT_AUTH_JWT_SECRET:replace-with-at-least-32-character-local-secret}
@@ -73,3 +74,5 @@ studypot:
       token-uri: https://oauth2.googleapis.com/token
       userinfo-uri: https://openidconnect.googleapis.com/v1/userinfo
       scopes: openid,email,profile
+      connect-timeout: 5s
+      read-timeout: 10s

@@ -11,10 +11,10 @@
 
 ## Decision
 - Add `GET /api/oauth2/authorization/google` as the browser login entrypoint.
-- Generate OAuth `state` and PKCE verifier on the backend and store them in short-lived HttpOnly cookies.
+- Generate OAuth `state` and PKCE verifier on the backend. The PKCE verifier is stored server-side, keyed by `oauth_state`, and is never sent to the browser; a short-lived HttpOnly `oauth_state` cookie may be used only for request correlation.
 - Add `GET /api/login/oauth2/code/google` as the Google callback endpoint.
-- On callback success, reuse `AuthSessionService` to issue the application access/refresh token pair, set them as HttpOnly cookies, clear temporary OAuth cookies, and redirect to `studypot.auth.oauth2.frontend-success-uri`.
-- On callback failure or state mismatch, clear temporary OAuth cookies, do not issue token cookies, and redirect to `studypot.auth.oauth2.frontend-failure-uri`.
+- On callback success, reuse `AuthSessionService` to issue the application access/refresh token pair, set them as HttpOnly cookies, clear temporary OAuth state/browser cookies and server-side PKCE state, and redirect to `studypot.auth.oauth2.frontend-success-uri`.
+- On callback failure or state mismatch, clear temporary OAuth state/browser cookies and server-side PKCE state, do not issue token cookies, and redirect to `studypot.auth.oauth2.frontend-failure-uri`.
 - Keep `POST /api/v1/auth/oauth/google` returning the existing JSON token response for compatibility, but also set the same HttpOnly token cookies.
 - Keep bearer header authentication and add access-token cookie authentication as an alternative for protected APIs.
 

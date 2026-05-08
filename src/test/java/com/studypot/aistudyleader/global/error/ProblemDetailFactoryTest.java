@@ -34,7 +34,7 @@ class ProblemDetailFactoryTest {
 		var problemDetail = factory.serviceUnavailable("Auth service is unavailable.");
 
 		assertThat(problemDetail.getStatus()).isEqualTo(503);
-		assertThat(problemDetail.getTitle()).isEqualTo("Service unavailable");
+		assertThat(problemDetail.getTitle()).isEqualTo("Service Unavailable");
 		assertThat(problemDetail.getDetail()).isEqualTo("Auth service is unavailable.");
 	}
 }

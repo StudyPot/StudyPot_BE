@@ -10,16 +10,15 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 
 	private static final Duration DEFAULT_ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
 	private static final Duration DEFAULT_REFRESH_TOKEN_TTL = Duration.ofDays(30);
-	private static final String DEFAULT_ISSUER = "https://api.studypot.example";
 	private static final String DEFAULT_ACCESS_TOKEN_COOKIE = "studypot_access_token";
 	private static final String DEFAULT_REFRESH_TOKEN_COOKIE = "studypot_refresh_token";
 	private static final String DEFAULT_COOKIE_PATH = "/";
 	private static final String DEFAULT_COOKIE_SAME_SITE = "Lax";
-	private static final URI DEFAULT_FRONTEND_SUCCESS_URI = URI.create("http://localhost:3000/auth/success");
-	private static final URI DEFAULT_FRONTEND_FAILURE_URI = URI.create("http://localhost:3000/auth/failure");
 
 	public AuthProperties {
-		jwt = jwt == null ? new Jwt(null, DEFAULT_ISSUER, DEFAULT_ACCESS_TOKEN_TTL) : jwt;
+		if (jwt == null) {
+			throw new IllegalArgumentException("studypot.auth.jwt must be configured.");
+		}
 		refreshTokenTtl = positiveOrDefault(refreshTokenTtl, DEFAULT_REFRESH_TOKEN_TTL);
 		cookie = cookie == null ? new Cookie(null, null, null, null, null, null) : cookie;
 		oauth2 = oauth2 == null ? new OAuth2(null, null, null) : oauth2;
@@ -28,7 +27,14 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 	public record Jwt(String secret, String issuer, Duration accessTokenTtl) {
 
 		public Jwt {
-			issuer = issuer == null || issuer.isBlank() ? DEFAULT_ISSUER : issuer.strip();
+			if (secret == null || secret.isBlank()) {
+				throw new IllegalArgumentException("studypot.auth.jwt.secret must not be blank");
+			}
+			secret = secret.strip();
+			if (issuer == null || issuer.isBlank()) {
+				throw new IllegalArgumentException("studypot.auth.jwt.issuer must not be blank");
+			}
+			issuer = issuer.strip();
 			accessTokenTtl = positiveOrDefault(accessTokenTtl, DEFAULT_ACCESS_TOKEN_TTL);
 		}
 	}
@@ -56,8 +62,8 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 
 		public OAuth2 {
 			backendCallbackUri = validateOptionalHttpUri(backendCallbackUri, "backendCallbackUri");
-			frontendSuccessUri = frontendSuccessUri == null ? DEFAULT_FRONTEND_SUCCESS_URI : frontendSuccessUri;
-			frontendFailureUri = frontendFailureUri == null ? DEFAULT_FRONTEND_FAILURE_URI : frontendFailureUri;
+			frontendSuccessUri = requireHttpUri(frontendSuccessUri, "frontend-success-uri");
+			frontendFailureUri = requireHttpUri(frontendFailureUri, "frontend-failure-uri");
 		}
 	}
 
@@ -97,5 +103,16 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 		} catch (URISyntaxException exception) {
 			throw new IllegalArgumentException("studypot.auth.oauth2." + field + " must be a valid URI.", exception);
 		}
+	}
+
+	private static URI requireHttpUri(URI uri, String property) {
+		if (uri == null) {
+			throw new IllegalArgumentException("studypot.auth.oauth2." + property + " must be configured.");
+		}
+		String scheme = uri.getScheme();
+		if (!uri.isAbsolute() || scheme == null || (!scheme.equals("https") && !scheme.equals("http"))) {
+			throw new IllegalArgumentException("studypot.auth.oauth2." + property + " must be an absolute http(s) URI.");
+		}
+		return uri;
 	}
 }

@@ -11,3 +11,6 @@ studypot:
       issuer: https://api.studypot.example/test
       access-token-ttl: 15m
     refresh-token-ttl: 30d
+    oauth2:
+      frontend-success-uri: https://app.studypot.example/auth/success
+      frontend-failure-uri: https://app.studypot.example/auth/failure

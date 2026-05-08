@@ -22,7 +22,7 @@ public record GoogleOAuthProfile(
 		email = Objects.requireNonNull(email, "email must not be null");
 		name = blankToNull(name);
 		picture = blankToNull(picture);
-		scope = blankToNull(scope);
+		scope = scope == null ? null : scope.strip();
 	}
 
 	private static String blankToNull(String value) {

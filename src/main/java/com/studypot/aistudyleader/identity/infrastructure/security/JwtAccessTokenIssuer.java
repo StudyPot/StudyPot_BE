@@ -25,8 +25,6 @@ class JwtAccessTokenIssuer implements AccessTokenIssuer {
 			.issuedAt(now)
 			.expiresAt(expiresAt)
 			.subject(user.id().toString())
-			.claim("email", user.email().value())
-			.claim("nickname", user.nickname())
 			.build();
 		JwsHeader headers = JwsHeader.with(MacAlgorithm.HS256)
 			.type("JWT")

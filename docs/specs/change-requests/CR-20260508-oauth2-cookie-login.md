@@ -38,4 +38,4 @@
 ## Decision
 - Approved by: Product owner request in Codex session
 - Date: 2026-05-08
-- Linked ADR: [ADR-20260508-oauth2-cookie-login](../adr/ADR-20260508-oauth2-cookie-login.md)
+~ Linked ADR: [ADR-20260508-oauth2-cookie-login](../adr/ADR-20260508-oauth2-cookie-login.md)

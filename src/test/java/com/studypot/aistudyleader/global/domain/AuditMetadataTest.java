@@ -39,7 +39,7 @@ class AuditMetadataTest {
 		AuditMetadata deleted = metadata.softDelete(Instant.parse("2026-05-07T04:00:02.000000999Z"));
 
 		assertThat(deleted.deleted()).isTrue();
-		assertThat(deleted.deletedAt()).isEqualTo(Instant.parse("2026-05-07T04:00:02Z"));
+		assertThat(deleted.deletedAt()).isEqualTo(Instant.parse("2026-05-07T04:00:02.000000Z"));
 		assertThat(deleted.softDelete(Instant.parse("2026-05-07T04:00:03Z"))).isSameAs(deleted);
 	}
 

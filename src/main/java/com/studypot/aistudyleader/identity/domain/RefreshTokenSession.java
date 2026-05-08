@@ -34,6 +34,13 @@ public final class RefreshTokenSession {
 		this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
 		this.revokedAt = revokedAt;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+		if (!this.expiresAt.isAfter(this.createdAt)) {
+			throw new IllegalArgumentException("expiresAt must be after createdAt");
+		}
+		if (this.revokedAt != null
+			&& (this.revokedAt.isBefore(this.createdAt) || this.revokedAt.isAfter(this.expiresAt))) {
+			throw new IllegalArgumentException("revokedAt must be between createdAt and expiresAt");
+		}
 	}
 
 	public static RefreshTokenSession create(

@@ -22,10 +22,11 @@ class JwtSecurityConfiguration {
 	@Bean
 	SecretKey studypotJwtSecretKey(AuthProperties properties) {
 		String secret = properties.jwt().secret();
-		if (secret == null || secret.isBlank() || secret.length() < 32) {
-			throw new IllegalStateException("studypot.auth.jwt.secret must be at least 32 characters.");
+		byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+		if (secretBytes.length < 32) {
+			throw new IllegalStateException("studypot.auth.jwt.secret must be at least 32 bytes.");
 		}
-		return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+		return new SecretKeySpec(secretBytes, "HmacSHA256");
 	}
 
 	@Bean

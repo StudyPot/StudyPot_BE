@@ -3,7 +3,7 @@
 - Task slug: `refactor-csrf-filter-cookie-port`
 - Base branch: `develop`
 - Feature branch: `codex/refactor-csrf-filter-cookie-port`
-- Status: `in_progress`
+- Status: `verified`
 
 ## Required Reads
 - [x] AGENTS.md

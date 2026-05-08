@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.global.security;
 
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +90,23 @@ class SecurityConfigurationTest {
 
 		mockMvc.perform(post("/actuator/health").with(user("member")))
 			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void corsRejectsWildcardOriginsWhenCredentialsAreAllowed() {
+		SecurityConfiguration configuration = new SecurityConfiguration();
+		StudypotCorsProperties properties = new StudypotCorsProperties(
+			List.of("*"),
+			List.of(),
+			List.of("GET"),
+			List.of("Authorization"),
+			List.of("Location"),
+			true
+		);
+
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> configuration.corsConfigurationSource(properties))
+			.withMessage("studypot.cors.allowed-origins cannot contain '*' when credentials are allowed; use allowed-origin-patterns instead.");
 	}
 
 	@RestController

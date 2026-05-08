@@ -39,7 +39,7 @@ class AuthControllerMissingServiceTest {
 					"""))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-			.andExpect(jsonPath("$.title").value("Service unavailable"));
+			.andExpect(jsonPath("$.title").value("Service Unavailable"));
 	}
 
 	private static RequestPostProcessor xsrf(String value) {

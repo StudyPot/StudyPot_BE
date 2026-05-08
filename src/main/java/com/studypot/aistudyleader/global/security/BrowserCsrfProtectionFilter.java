@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -26,7 +27,7 @@ class BrowserCsrfProtectionFilter extends OncePerRequestFilter {
 
 	BrowserCsrfProtectionFilter(AccessDeniedHandler accessDeniedHandler, CsrfRequirementMatcher requirementMatcher) {
 		this.accessDeniedHandler = accessDeniedHandler == null ? new AccessDeniedHandlerImpl() : accessDeniedHandler;
-		this.requirementMatcher = requirementMatcher;
+		this.requirementMatcher = Objects.requireNonNull(requirementMatcher, "requirementMatcher must not be null");
 	}
 
 	@FunctionalInterface

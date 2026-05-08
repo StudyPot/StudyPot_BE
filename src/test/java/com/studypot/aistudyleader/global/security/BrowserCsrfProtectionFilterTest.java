@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -85,5 +86,13 @@ class BrowserCsrfProtectionFilterTest {
 		filter.doFilter(request, response, filterChain);
 
 		verify(filterChain).doFilter(request, response);
+		verify(accessDeniedHandler, never()).handle(any(), any(), any());
+	}
+
+	@Test
+	void constructorRejectsMissingRequirementMatcher() {
+		assertThatNullPointerException()
+			.isThrownBy(() -> new BrowserCsrfProtectionFilter(accessDeniedHandler, null))
+			.withMessage("requirementMatcher must not be null");
 	}
 }

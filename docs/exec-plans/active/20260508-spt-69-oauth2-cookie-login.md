@@ -28,7 +28,6 @@
 - [x] docs/architecture/backend-map.md
 
 ## Related Feature IDs
-- [ ] n/a-harness
 - [x] identity-core
 
 ## Doc Notes

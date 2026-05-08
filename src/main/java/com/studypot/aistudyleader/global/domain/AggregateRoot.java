@@ -19,12 +19,16 @@ public abstract class AggregateRoot<ID> {
 	}
 
 	public List<DomainEvent> pullDomainEvents() {
-		var events = List.copyOf(domainEvents);
-		domainEvents.clear();
-		return events;
+		synchronized (domainEvents) {
+			var events = List.copyOf(domainEvents);
+			domainEvents.clear();
+			return events;
+		}
 	}
 
 	protected void registerEvent(DomainEvent domainEvent) {
-		domainEvents.add(Objects.requireNonNull(domainEvent, "domainEvent must not be null"));
+		synchronized (domainEvents) {
+			domainEvents.add(Objects.requireNonNull(domainEvent, "domainEvent must not be null"));
+		}
 	}
 }

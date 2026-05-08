@@ -125,7 +125,19 @@ public class GoogleOAuth2LoginSuccessHandler implements AuthenticationSuccessHan
 	}
 
 	private static AuthSessionMetadata metadata(HttpServletRequest request) {
-		return new AuthSessionMetadata(request.getHeader("User-Agent"), request.getRemoteAddr());
+		return new AuthSessionMetadata(request.getHeader("User-Agent"), clientIp(request));
+	}
+
+	private static String clientIp(HttpServletRequest request) {
+		String forwardedFor = request.getHeader("X-Forwarded-For");
+		if (forwardedFor != null) {
+			for (String value : forwardedFor.split(",")) {
+				if (!value.isBlank()) {
+					return value.strip();
+				}
+			}
+		}
+		return request.getRemoteAddr();
 	}
 
 	private static void invalidateSession(HttpServletRequest request) {

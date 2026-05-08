@@ -5,7 +5,6 @@ import com.studypot.aistudyleader.identity.service.AuthSessionMetadata;
 import com.studypot.aistudyleader.identity.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.identity.service.AuthSessionService;
 import com.studypot.aistudyleader.identity.service.AuthServiceUnavailableException;
-import com.studypot.aistudyleader.identity.infrastructure.security.AuthTokenCookieIssuer;
 import com.studypot.aistudyleader.identity.service.AuthTokenCookiePort;
 import com.studypot.aistudyleader.identity.service.AuthTokenResult;
 import com.studypot.aistudyleader.identity.service.AuthenticatedUser;
@@ -15,6 +14,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -99,7 +100,19 @@ class AuthController {
 	}
 
 	private static AuthSessionMetadata metadata(HttpServletRequest request) {
-		return new AuthSessionMetadata(request.getHeader("User-Agent"), request.getRemoteAddr());
+		return new AuthSessionMetadata(request.getHeader("User-Agent"), clientIp(request));
+	}
+
+	private static String clientIp(HttpServletRequest request) {
+		String forwardedFor = request.getHeader("X-Forwarded-For");
+		if (forwardedFor != null) {
+			for (String value : forwardedFor.split(",")) {
+				if (!value.isBlank()) {
+					return value.strip();
+				}
+			}
+		}
+		return request.getRemoteAddr();
 	}
 
 	private String refreshTokenFrom(RefreshTokenRequest request, HttpServletRequest servletRequest) {
@@ -111,19 +124,13 @@ class AuthController {
 	}
 
 	private String refreshTokenFrom(String requestRefreshToken, HttpServletRequest servletRequest) {
-		String refreshToken = requestRefreshToken;
-		if (refreshToken == null || refreshToken.isBlank()) {
-			refreshToken = refreshTokenCookie(servletRequest).orElse(null);
-		}
+		String refreshToken = refreshTokenCookie(servletRequest).orElse(requestRefreshToken);
 		return requireRefreshToken(refreshToken);
 	}
 
 	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
 		AuthTokenCookiePort port = tokenCookiePort.getIfAvailable();
-		if (!(port instanceof AuthTokenCookieIssuer issuer)) {
-			return Optional.empty();
-		}
-		return issuer.refreshToken(servletRequest);
+		return port == null ? Optional.empty() : port.refreshToken(servletRequest);
 	}
 
 	private static String requireRefreshToken(String refreshToken) {
@@ -140,22 +147,26 @@ class AuthController {
 	) {
 
 		private GoogleOAuthLoginCommand toCommand() {
-			try {
-				return new GoogleOAuthLoginCommand(authorizationCode, redirectUri, codeVerifier);
-			} catch (IllegalArgumentException exception) {
-				throw new InvalidAuthRequestException(fieldFrom(exception), exception.getMessage());
+			if (authorizationCode == null || authorizationCode.isBlank()) {
+				throw new InvalidAuthRequestException("authorizationCode", "authorizationCode must not be blank");
 			}
+			validateRedirectUri(redirectUri);
+			return new GoogleOAuthLoginCommand(authorizationCode, redirectUri, codeVerifier);
 		}
 
-		private static String fieldFrom(IllegalArgumentException exception) {
-			String message = exception.getMessage();
-			if (message != null && message.startsWith("redirectUri ")) {
-				return "redirectUri";
+		private static void validateRedirectUri(String value) {
+			if (value == null || value.isBlank()) {
+				throw new InvalidAuthRequestException("redirectUri", "redirectUri must not be blank");
 			}
-			if (message != null && message.startsWith("authorizationCode ")) {
-				return "authorizationCode";
+			try {
+				URI uri = new URI(value.strip());
+				String scheme = uri.getScheme();
+				if (!uri.isAbsolute() || scheme == null || (!scheme.equals("https") && !scheme.equals("http"))) {
+					throw new InvalidAuthRequestException("redirectUri", "redirectUri must be an absolute http(s) URI");
+				}
+			} catch (URISyntaxException exception) {
+				throw new InvalidAuthRequestException("redirectUri", "redirectUri must be a valid URI");
 			}
-			return "request";
 		}
 	}
 

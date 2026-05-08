@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.identity.service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class GoogleOAuthLoginCommand {
@@ -26,6 +27,28 @@ public final class GoogleOAuthLoginCommand {
 
 	public Optional<String> codeVerifier() {
 		return Optional.ofNullable(codeVerifier);
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		return other instanceof GoogleOAuthLoginCommand command
+			&& authorizationCode.equals(command.authorizationCode)
+			&& redirectUri.equals(command.redirectUri)
+			&& Objects.equals(codeVerifier, command.codeVerifier);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(authorizationCode, redirectUri, codeVerifier);
+	}
+
+	@Override
+	public String toString() {
+		return "GoogleOAuthLoginCommand[authorizationCode=****, redirectUri=%s, codeVerifier=%s]"
+			.formatted(redirectUri, codeVerifier == null ? "null" : "****");
 	}
 
 	private static String requireNonBlank(String field, String value) {

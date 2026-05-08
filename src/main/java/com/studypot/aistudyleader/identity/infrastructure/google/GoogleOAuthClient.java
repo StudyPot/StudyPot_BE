@@ -5,14 +5,19 @@ import com.studypot.aistudyleader.identity.service.GoogleOAuthCodeExchangePort;
 import com.studypot.aistudyleader.identity.service.GoogleOAuthLoginCommand;
 import com.studypot.aistudyleader.identity.service.GoogleOAuthProfile;
 import com.studypot.aistudyleader.identity.domain.EmailAddress;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 public class GoogleOAuthClient implements GoogleOAuthCodeExchangePort {
 
@@ -56,12 +61,24 @@ public class GoogleOAuthClient implements GoogleOAuthCodeExchangePort {
 		form.add("redirect_uri", command.redirectUri().toString());
 		command.codeVerifier().ifPresent(codeVerifier -> form.add("code_verifier", codeVerifier));
 
-		TokenResponse response = restClient.post()
-			.uri(properties.tokenUri())
-			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body(form)
-			.retrieve()
-			.body(TokenResponse.class);
+		TokenResponse response;
+		try {
+			response = restClient.post()
+				.uri(properties.tokenUri())
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.body(form)
+				.retrieve()
+				.onStatus(HttpStatusCode::isError, (request, providerResponse) -> {
+					throw new OAuthProviderResponseException(
+						"Google OAuth token request failed: " + responseSummary(providerResponse)
+					);
+				})
+				.body(TokenResponse.class);
+		} catch (OAuthProviderResponseException exception) {
+			throw exception;
+		} catch (RestClientException exception) {
+			throw new OAuthProviderResponseException("Google OAuth token request failed.", exception);
+		}
 
 		if (response == null || response.accessToken() == null || response.accessToken().isBlank()) {
 			throw new OAuthProviderResponseException("Google OAuth token response did not include an access token.");
@@ -70,11 +87,23 @@ public class GoogleOAuthClient implements GoogleOAuthCodeExchangePort {
 	}
 
 	private UserinfoResponse requestUserinfo(String accessToken) {
-		UserinfoResponse response = restClient.get()
-			.uri(properties.userinfoUri())
-			.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-			.retrieve()
-			.body(UserinfoResponse.class);
+		UserinfoResponse response;
+		try {
+			response = restClient.get()
+				.uri(properties.userinfoUri())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+				.retrieve()
+				.onStatus(HttpStatusCode::isError, (request, providerResponse) -> {
+					throw new OAuthProviderResponseException(
+						"Google userinfo request failed: " + responseSummary(providerResponse)
+					);
+				})
+				.body(UserinfoResponse.class);
+		} catch (OAuthProviderResponseException exception) {
+			throw exception;
+		} catch (RestClientException exception) {
+			throw new OAuthProviderResponseException("Google userinfo request failed.", exception);
+		}
 
 		if (response == null) {
 			throw new OAuthProviderResponseException("Google userinfo response was empty.");
@@ -96,6 +125,12 @@ public class GoogleOAuthClient implements GoogleOAuthCodeExchangePort {
 		if (properties.clientSecret() == null) {
 			throw new GoogleOAuthConfigurationException("Google OAuth client secret is not configured.");
 		}
+		if (properties.tokenUri() == null) {
+			throw new GoogleOAuthConfigurationException("Google OAuth token URI is not configured.");
+		}
+		if (properties.userinfoUri() == null) {
+			throw new GoogleOAuthConfigurationException("Google OAuth userinfo URI is not configured.");
+		}
 	}
 
 	private static String required(String field, String value) {
@@ -103,6 +138,17 @@ public class GoogleOAuthClient implements GoogleOAuthCodeExchangePort {
 			throw new OAuthProviderResponseException("Google userinfo response did not include " + field + ".");
 		}
 		return value.strip();
+	}
+
+	private static String responseSummary(ClientHttpResponse response) throws IOException {
+		String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8)
+			.replaceAll("\\s+", " ")
+			.strip();
+		if (body.length() > 200) {
+			body = body.substring(0, 200) + "...";
+		}
+		String status = "status " + response.getStatusCode().value();
+		return body.isEmpty() ? status : status + ", body: " + body;
 	}
 
 	private record TokenResponse(

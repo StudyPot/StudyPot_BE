@@ -6,6 +6,7 @@ final class RefreshTokenJdbcSql {
 		select id, user_id, token_hash, device_info, ip_address, expires_at, revoked_at, created_at
 		from refresh_token
 		where token_hash = ?
+		  and revoked_at is null
 		""";
 
 	static final String INSERT_REFRESH_TOKEN = """

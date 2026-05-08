@@ -91,14 +91,25 @@ public class SecurityConfiguration {
 				);
 
 		if (oauth2Registrations != null) {
-			http.oauth2Login(oauth2 -> oauth2
-				.clientRegistrationRepository(oauth2Registrations)
-				.authorizationEndpoint(endpoint -> endpoint
-					.baseUri("/api/oauth2/authorization")
-					.authorizationRequestResolver(authorizationRequestResolver.getObject()))
-				.redirectionEndpoint(endpoint -> endpoint.baseUri("/api/login/oauth2/code/*"))
-				.successHandler(googleOAuth2LoginSuccessHandler.getObject())
-				.failureHandler(googleOAuth2LoginFailureHandler.getObject()));
+			OAuth2AuthorizationRequestResolver requestResolver = authorizationRequestResolver.getIfAvailable();
+			AuthenticationSuccessHandler successHandler = googleOAuth2LoginSuccessHandler.getIfAvailable();
+			AuthenticationFailureHandler failureHandler = googleOAuth2LoginFailureHandler.getIfAvailable();
+			http.oauth2Login(oauth2 -> {
+				oauth2.clientRegistrationRepository(oauth2Registrations);
+				oauth2.authorizationEndpoint(endpoint -> {
+					endpoint.baseUri("/api/oauth2/authorization");
+					if (requestResolver != null) {
+						endpoint.authorizationRequestResolver(requestResolver);
+					}
+				});
+				oauth2.redirectionEndpoint(endpoint -> endpoint.baseUri("/api/login/oauth2/code/*"));
+				if (successHandler != null) {
+					oauth2.successHandler(successHandler);
+				}
+				if (failureHandler != null) {
+					oauth2.failureHandler(failureHandler);
+				}
+			});
 		}
 
 		return http.build();
@@ -128,7 +139,12 @@ public class SecurityConfiguration {
 		configuration.setAllowedMethods(properties.allowedMethods());
 		configuration.setAllowedHeaders(properties.allowedHeaders());
 		configuration.setExposedHeaders(properties.exposedHeaders());
-		configuration.setAllowCredentials(true);
+		configuration.setAllowCredentials(properties.allowCredentials());
+		if (Boolean.TRUE.equals(configuration.getAllowCredentials()) && configuration.getAllowedOrigins().contains("*")) {
+			throw new IllegalArgumentException(
+				"studypot.cors.allowed-origins cannot contain '*' when credentials are allowed; use allowed-origin-patterns instead."
+			);
+		}
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", configuration);

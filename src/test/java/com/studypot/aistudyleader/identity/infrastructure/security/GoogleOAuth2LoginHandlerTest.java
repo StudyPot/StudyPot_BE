@@ -71,6 +71,7 @@ class GoogleOAuth2LoginHandlerTest {
 			.doesNotContain("refresh")
 			.doesNotContain("token");
 		assertThat(response.getHeaders(HttpHeaders.SET_COOKIE))
+			.hasSize(2)
 			.anySatisfy(cookie -> assertThat(cookie)
 				.contains("studypot_access_token=access-token")
 				.contains("HttpOnly")
