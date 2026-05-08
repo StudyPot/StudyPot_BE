@@ -8,8 +8,8 @@
 
 ## Global Contract
 - Base path: `/api/v1`.
-- Authentication: bearer access token unless endpoint is explicitly anonymous.
-- Public auth endpoints: `POST /auth/oauth/google` and `POST /auth/refresh` do not require bearer authentication.
+- Authentication: bearer access token or `studypot_access_token` HttpOnly cookie unless endpoint is explicitly anonymous.
+- Public auth endpoints: `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `POST /auth/oauth/google`, and `POST /auth/refresh` do not require bearer authentication.
 - IDs: UUID strings at the API boundary; persistence stores UUIDv7 as `BINARY(16)`.
 - Error format: RFC 9457-style problem detail.
 - Pagination: cursor pagination for list endpoints that can grow.
@@ -30,6 +30,8 @@
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
+| `GET` | `/api/oauth2/authorization/google` | `identity-core` | anonymous/browser | Start backend-owned Google OAuth2 login and redirect to Google. |
+| `GET` | `/api/login/oauth2/code/google` | `identity-core` | Google OAuth/browser | Complete Google OAuth2 login, issue HttpOnly token cookies, and redirect to frontend. |
 | `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens. |
 | `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens. |
 | `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
@@ -61,6 +63,13 @@
 | `GET` | `/api/v1/groups/{groupId}/llm-usage` | `ai-team-leader` | owner | List LLM usage records. |
 
 ## Key Request Shapes
+### Backend-Owned Google OAuth Login
+- Browser starts login with `GET /api/oauth2/authorization/google`.
+- Backend redirects to Google and stores OAuth `state`, PKCE verifier, and callback redirect URI in short-lived HttpOnly cookies.
+- Google returns to `GET /api/login/oauth2/code/google`.
+- On success, backend sets `studypot_access_token` and `studypot_refresh_token` HttpOnly cookies, clears temporary OAuth cookies, and redirects to the configured frontend success URI without token query parameters.
+- On failure or state mismatch, backend clears temporary OAuth cookies, does not issue token cookies, and redirects to the configured frontend failure URI.
+
 ### Google OAuth Login
 ```json
 {
@@ -76,6 +85,7 @@
   "refreshToken": "raw-refresh-token-issued-by-backend"
 }
 ```
+`POST /api/v1/auth/refresh` may also omit the request body when the `studypot_refresh_token` HttpOnly cookie is present.
 
 ### Create Group
 ```json
@@ -126,9 +136,10 @@
 
 ## Auth API Rules
 - MVP login provider is Google OAuth.
-- The client obtains the Google authorization code and sends it to `POST /auth/oauth/google`.
-- The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and returns an access/refresh token pair.
-- `POST /auth/refresh` rotates the refresh token; the old refresh token must not be accepted again.
-- `POST /auth/logout` revokes the submitted refresh token for the authenticated user.
+- Browser clients should start Google login at `GET /api/oauth2/authorization/google`; backend-owned callback handling must not expose access or refresh token values in redirect URLs.
+- Compatibility clients may still obtain the Google authorization code themselves and send it to `POST /auth/oauth/google`.
+- The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and issues an access/refresh token pair as both the existing JSON response and HttpOnly cookies where applicable.
+- `POST /auth/refresh` rotates the refresh token; the old refresh token must not be accepted again. The refresh token may come from the JSON body or `studypot_refresh_token` HttpOnly cookie.
+- `POST /auth/logout` revokes the submitted refresh token or refresh-token cookie for the authenticated user.
 - `POST /auth/logout-all` revokes every active refresh token for the authenticated user.
-- Raw application refresh tokens, provider access tokens, provider refresh tokens, and OAuth client secrets must not be logged or returned outside the token issuance/rotation response.
+- Raw application refresh tokens, provider access tokens, provider refresh tokens, and OAuth client secrets must not be logged or exposed in frontend-readable locations. JSON token responses remain only for compatibility clients.

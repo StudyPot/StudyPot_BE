@@ -7,11 +7,14 @@ import com.studypot.aistudyleader.identity.service.AuthSessionService;
 import com.studypot.aistudyleader.identity.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.identity.service.AuthTokenResult;
 import com.studypot.aistudyleader.identity.service.AuthenticatedUser;
+import com.studypot.aistudyleader.identity.infrastructure.security.AuthTokenCookieIssuer;
 import com.studypot.aistudyleader.identity.service.GoogleOAuthLoginCommand;
 import com.studypot.aistudyleader.identity.service.InvalidAuthRequestException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
@@ -27,37 +30,55 @@ import org.springframework.web.bind.annotation.RestController;
 class AuthController {
 
 	private final ObjectProvider<AuthSessionService> authSessionService;
+	private final ObjectProvider<AuthTokenCookieIssuer> tokenCookieIssuer;
 
-	AuthController(ObjectProvider<AuthSessionService> authSessionService) {
+	AuthController(
+		ObjectProvider<AuthSessionService> authSessionService,
+		ObjectProvider<AuthTokenCookieIssuer> tokenCookieIssuer
+	) {
 		this.authSessionService = authSessionService;
+		this.tokenCookieIssuer = tokenCookieIssuer;
 	}
 
 	@PostMapping(ApiPaths.V1 + "/auth/oauth/google")
 	AuthTokenResponse loginWithGoogle(
 		@Valid @RequestBody GoogleOAuthLoginRequest request,
-		HttpServletRequest servletRequest
+		HttpServletRequest servletRequest,
+		HttpServletResponse servletResponse
 	) {
-		return AuthTokenResponse.from(authSessionService().loginWithGoogle(request.toCommand(), metadata(servletRequest)));
+		AuthTokenResult result = authSessionService().loginWithGoogle(request.toCommand(), metadata(servletRequest));
+		tokenCookieIssuer.ifAvailable(issuer -> issuer.addTokenCookies(servletResponse, result));
+		return AuthTokenResponse.from(result);
 	}
 
 	@PostMapping(ApiPaths.V1 + "/auth/refresh")
 	AuthTokenResponse refresh(
-		@Valid @RequestBody RefreshTokenRequest request,
-		HttpServletRequest servletRequest
+		@Valid @RequestBody(required = false) RefreshTokenRequest request,
+		HttpServletRequest servletRequest,
+		HttpServletResponse servletResponse
 	) {
-		return AuthTokenResponse.from(authSessionService().refresh(request.refreshToken(), metadata(servletRequest)));
+		AuthTokenResult result = authSessionService().refresh(refreshTokenFrom(request, servletRequest), metadata(servletRequest));
+		tokenCookieIssuer.ifAvailable(issuer -> issuer.addTokenCookies(servletResponse, result));
+		return AuthTokenResponse.from(result);
 	}
 
 	@PostMapping(ApiPaths.V1 + "/auth/logout")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void logout(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody LogoutRequest request) {
-		authSessionService().logout(authenticatedUserId(jwt), request.refreshToken());
+	void logout(
+		@AuthenticationPrincipal Jwt jwt,
+		@Valid @RequestBody(required = false) LogoutRequest request,
+		HttpServletRequest servletRequest,
+		HttpServletResponse servletResponse
+	) {
+		authSessionService().logout(authenticatedUserId(jwt), refreshTokenFrom(request, servletRequest));
+		tokenCookieIssuer.ifAvailable(issuer -> issuer.clearTokenCookies(servletResponse));
 	}
 
 	@PostMapping(ApiPaths.V1 + "/auth/logout-all")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void logoutAll(@AuthenticationPrincipal Jwt jwt) {
+	void logoutAll(@AuthenticationPrincipal Jwt jwt, HttpServletResponse servletResponse) {
 		authSessionService().logoutAll(authenticatedUserId(jwt));
+		tokenCookieIssuer.ifAvailable(issuer -> issuer.clearTokenCookies(servletResponse));
 	}
 
 	@GetMapping(ApiPaths.V1 + "/users/me")
@@ -84,6 +105,34 @@ class AuthController {
 
 	private static AuthSessionMetadata metadata(HttpServletRequest request) {
 		return new AuthSessionMetadata(request.getHeader("User-Agent"), request.getRemoteAddr());
+	}
+
+	private String refreshTokenFrom(RefreshTokenRequest request, HttpServletRequest servletRequest) {
+		String refreshToken = request == null ? null : request.refreshToken();
+		if (refreshToken == null || refreshToken.isBlank()) {
+			refreshToken = refreshTokenCookie(servletRequest).orElse(null);
+		}
+		return requireRefreshToken(refreshToken);
+	}
+
+	private String refreshTokenFrom(LogoutRequest request, HttpServletRequest servletRequest) {
+		String refreshToken = request == null ? null : request.refreshToken();
+		if (refreshToken == null || refreshToken.isBlank()) {
+			refreshToken = refreshTokenCookie(servletRequest).orElse(null);
+		}
+		return requireRefreshToken(refreshToken);
+	}
+
+	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
+		AuthTokenCookieIssuer issuer = tokenCookieIssuer.getIfAvailable();
+		return issuer == null ? Optional.empty() : issuer.refreshToken(servletRequest);
+	}
+
+	private static String requireRefreshToken(String refreshToken) {
+		if (refreshToken == null || refreshToken.isBlank()) {
+			throw new InvalidAuthRequestException("refreshToken", "refreshToken must not be blank");
+		}
+		return refreshToken.strip();
 	}
 
 	private record GoogleOAuthLoginRequest(
