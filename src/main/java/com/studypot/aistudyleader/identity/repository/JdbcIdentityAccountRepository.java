@@ -163,7 +163,7 @@ class JdbcIdentityAccountRepository implements IdentityAccountRepository {
 		return OAuthAccount.rehydrate(
 			uuid(resultSet, "id"),
 			uuid(resultSet, "user_id"),
-			OAuthProvider.valueOf(resultSet.getString("provider")),
+			OAuthProvider.fromPersistence(resultSet.getString("provider")),
 			resultSet.getString("provider_user_id"),
 			email == null ? null : EmailAddress.from(email),
 			instant(resultSet, "token_expires_at"),

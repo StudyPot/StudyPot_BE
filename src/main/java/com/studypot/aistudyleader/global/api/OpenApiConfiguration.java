@@ -32,9 +32,7 @@ class OpenApiConfiguration {
 
 	private static final List<String> PUBLIC_AUTH_PATHS = List.of(
 		ApiPaths.V1 + "/auth/oauth/google",
-		ApiPaths.V1 + "/auth/refresh",
-		"/auth/oauth/google",
-		"/auth/refresh"
+		ApiPaths.V1 + "/auth/refresh"
 	);
 
 	@Bean

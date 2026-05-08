@@ -39,6 +39,22 @@ class AuthPropertiesTest {
 	}
 
 	@Test
+	void authPropertiesRequiresOAuth2Configuration() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> new AuthProperties(
+				new AuthProperties.Jwt(
+					"0123456789abcdef0123456789abcdef",
+					"https://api.studypot.example",
+					Duration.ofMinutes(15)
+				),
+				Duration.ofDays(30),
+				null,
+				null
+			))
+			.withMessage("studypot.auth.oauth2 must be configured.");
+	}
+
+	@Test
 	void jwtSecretIsStrippedAfterValidation() {
 		AuthProperties.Jwt jwt = new AuthProperties.Jwt(
 			"  0123456789abcdef0123456789abcdef  ",

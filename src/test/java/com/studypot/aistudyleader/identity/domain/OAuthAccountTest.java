@@ -92,6 +92,15 @@ class OAuthAccountTest {
 			.withMessage("providerUserId must not contain ':'");
 	}
 
+	@Test
+	void providerFromPersistenceRejectsUnsupportedValues() {
+		assertThat(OAuthProvider.fromPersistence(" GOOGLE ")).isEqualTo(OAuthProvider.GOOGLE);
+
+		assertThatIllegalStateException()
+			.isThrownBy(() -> OAuthProvider.fromPersistence("NAVER"))
+			.withMessage("Unsupported OAuth provider from persistence: NAVER");
+	}
+
 	private static OAuthAccount account(UUID id, String providerUserId) {
 		return OAuthAccount.connect(
 			id,

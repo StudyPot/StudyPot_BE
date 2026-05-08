@@ -21,7 +21,9 @@ public record AuthProperties(Jwt jwt, Duration refreshTokenTtl, Cookie cookie, O
 		}
 		refreshTokenTtl = positiveOrDefault(refreshTokenTtl, DEFAULT_REFRESH_TOKEN_TTL);
 		cookie = cookie == null ? new Cookie(null, null, null, null, null, null) : cookie;
-		oauth2 = oauth2 == null ? new OAuth2(null, null, null) : oauth2;
+		if (oauth2 == null) {
+			throw new IllegalArgumentException("studypot.auth.oauth2 must be configured.");
+		}
 	}
 
 	public record Jwt(String secret, String issuer, Duration accessTokenTtl) {

@@ -39,7 +39,7 @@ public record StudypotCorsProperties(
 		allowedMethods = defaultIfEmpty(allowedMethods, DEFAULT_ALLOWED_METHODS);
 		allowedHeaders = defaultIfEmpty(allowedHeaders, DEFAULT_ALLOWED_HEADERS);
 		exposedHeaders = defaultIfEmpty(exposedHeaders, DEFAULT_EXPOSED_HEADERS);
-		allowCredentials = allowCredentials == null || allowCredentials;
+		allowCredentials = Boolean.TRUE.equals(allowCredentials);
 	}
 
 	private static List<String> defaultIfEmpty(List<String> values, List<String> defaultValues) {

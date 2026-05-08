@@ -49,6 +49,12 @@
 - Verification: `scripts/tests/test_local_dev_verification_contracts.sh` passed on 2026-05-08 after the `TEST_ROOT` fix.
 - Verification: `./gradlew check build --no-daemon` passed on 2026-05-08T12:42:46+0900 after final follow-up fixes.
 - Verification: `git diff --check` passed after final follow-up fixes.
+- PR created: https://github.com/StudyPot/StudyPot_BE/pull/56.
+- Post-PR CodeRabbit run: `/tmp/studypot-coderabbit-review-post-pr-final.ndjson`; additional valid items addressed in a follow-up commit: OAuth2 config null handling, Google client secret empty defaults, secure CORS default, localhost-only HTTP redirect URIs, CSRF `_csrf` parameter fallback test, local example HTTP cookie settings, canonical auth paths in docs, server-side PKCE key wording, provider enum persistence parsing, and removal of manual `X-Forwarded-For` trust.
+- False-positive note: CodeRabbit suggested adding `@Override` to `AuthTokenCookieIssuer.accessToken`, but `AuthTokenCookiePort` intentionally exposes only refresh-token cookie reading; adding the annotation fails compilation and was reverted.
+- False-positive note: CodeRabbit continued to suggest Spring Boot 3 `AutoConfigureMockMvc` imports. Boot 4.0.6 provides `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`, and the current imports compile and pass tests.
+- False-positive / deferred architecture note: HS256 remains in place because this service currently signs and verifies its own tokens through a single configured secret. Moving to RS256/JWKS is an architecture decision outside the CodeRabbit fix scope and should go through a separate task if multi-service token verification is required.
+- PR status note: local and PR Quality checks passed, but `review-gate-pass` remains blocked until all latest-head role gate markers exist. Copilot review was requested but `scripts/task/verify-copilot-review.sh 56 0e80d9c7ce6d0117046ad11615a16d4a6582f721` timed out after 600 seconds without latest-head Copilot review activity.
 
 ## Goal
 Resolve the latest CodeRabbit findings for the `identity-core` authentication/authorization surface, including compile errors, security hardening, documentation consistency, and focused regression tests.

@@ -90,6 +90,19 @@ class BrowserCsrfProtectionFilterTest {
 	}
 
 	@Test
+	void requestPassesThroughWhenCsrfParameterMatches() throws Exception {
+		when(request.getCookies()).thenReturn(new Cookie[]{new Cookie("XSRF-TOKEN", "abc123")});
+		when(request.getHeader("X-XSRF-TOKEN")).thenReturn(null);
+		when(request.getHeader("X-CSRF-TOKEN")).thenReturn(null);
+		when(request.getParameter("_csrf")).thenReturn("abc123");
+
+		filter.doFilter(request, response, filterChain);
+
+		verify(filterChain).doFilter(request, response);
+		verify(accessDeniedHandler, never()).handle(any(), any(), any());
+	}
+
+	@Test
 	void constructorRejectsMissingRequirementMatcher() {
 		assertThatNullPointerException()
 			.isThrownBy(() -> new BrowserCsrfProtectionFilter(accessDeniedHandler, null))

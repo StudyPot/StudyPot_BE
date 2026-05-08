@@ -47,6 +47,17 @@ class IdentityValueObjectTest {
 	}
 
 	@Test
+	void googleOAuthLoginCommandAllowsHttpOnlyForLocalRedirects() {
+		assertThat(new GoogleOAuthLoginCommand("code", "HTTP://localhost:3000/auth/callback", null)
+			.redirectUri()
+			.getScheme()).isEqualTo("HTTP");
+
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> new GoogleOAuthLoginCommand("code", "http://app.studypot.example/auth/callback", null))
+			.withMessage("redirectUri must be HTTPS unless it targets localhost");
+	}
+
+	@Test
 	void googleOAuthLoginResultToStringDoesNotExposePii() {
 		GoogleOAuthLoginResult result = new GoogleOAuthLoginResult(
 			java.util.UUID.fromString("018f0000-0000-7000-8000-000000000201"),

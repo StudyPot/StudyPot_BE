@@ -10,7 +10,7 @@
 ## Global Contract
 - Base path: `/api/v1`.
 - Authentication: bearer access token or `studypot_access_token` HttpOnly cookie unless endpoint is explicitly anonymous.
-- Public auth endpoints: `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `POST /auth/oauth/google`, and `POST /auth/refresh` are explicitly anonymous and do not require authentication.
+- Public auth endpoints: `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `POST /api/v1/auth/oauth/google`, and `POST /api/v1/auth/refresh` are explicitly anonymous and do not require authentication.
 - IDs: UUID strings at the API boundary; persistence stores UUIDv7 as `BINARY(16)`.
 - Error format: RFC 9457-style problem detail.
 - Pagination: cursor pagination for list endpoints that can grow.
@@ -67,8 +67,8 @@
 ### Backend-Owned Google OAuth Login
 - Approved by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md).
 - Browser starts login with `GET /api/oauth2/authorization/google`.
-- Backend redirects to Google through Spring Security OAuth2 Login. The PKCE verifier must be persisted server-side, such as in the short-lived server session or Redis entry keyed by `oauth_state`, for about 10 minutes and cleared when the callback completes; it must not be sent to the browser as an `oauth_pkce_verifier` cookie.
-- A temporary `oauth_state` browser cookie may be used only for request correlation. If present, it is short-lived, HttpOnly, Secure in production, SameSite=Lax, Path=/, and expires within 10 minutes.
+- Backend redirects to Google through Spring Security OAuth2 Login. The PKCE verifier must be persisted server-side, such as in the short-lived server session or Redis entry keyed by the OAuth `state` parameter value, for about 10 minutes and cleared when the callback completes; it must not be sent to the browser as an `oauth_pkce_verifier` cookie.
+- A temporary `oauth_state` browser cookie may be used only as an optional client-server correlation check for the same OAuth `state` value. If present, it is short-lived, HttpOnly, Secure in production, SameSite=Lax, Path=/, and expires within 10 minutes.
 - Google returns to `GET /api/login/oauth2/code/google`.
 - On success, backend sets `studypot_access_token` and `studypot_refresh_token` HttpOnly cookies, clears temporary OAuth state/browser cookies and server-side PKCE state, and redirects to the configured frontend success URI without token query parameters.
 - Token cookies use Secure in production, HttpOnly, Path=/, configured SameSite policy, and Max-Age matching the access-token TTL and refresh-token TTL respectively.
@@ -145,8 +145,8 @@ If both the JSON `refreshToken` and the `studypot_refresh_token` cookie are prov
 - Browser clients should start Google login at `GET /api/oauth2/authorization/google`; backend-owned callback handling must not expose access or refresh token values in redirect URLs.
 - Compatibility clients may still obtain the Google authorization code themselves and send it to `POST /auth/oauth/google`.
 - The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and issues an access/refresh token pair. Backend-owned OAuth callback (`GET /api/login/oauth2/code/google`) issues tokens as HttpOnly cookies only; compatibility endpoint (`POST /api/v1/auth/oauth/google`) returns the JSON token response and also sets the same HttpOnly cookies.
-- `POST /auth/refresh` rotates the refresh token; the old refresh token must not be accepted again. The refresh token may come from the JSON body or `studypot_refresh_token` HttpOnly cookie.
+- `POST /api/v1/auth/refresh` rotates the refresh token; the old refresh token must not be accepted again. The refresh token may come from the JSON body or `studypot_refresh_token` HttpOnly cookie.
 - `studypot_access_token` and `studypot_refresh_token` cookies are HttpOnly, Path=/, Secure in production, use the configured SameSite policy, and expire with the corresponding token TTL.
-- `POST /auth/logout` revokes the submitted refresh token or refresh-token cookie for the authenticated user.
+- `POST /api/v1/auth/logout` revokes the submitted refresh token or refresh-token cookie for the authenticated user.
 - `POST /auth/logout-all` revokes every active refresh token for the authenticated user.
 - Raw application refresh tokens, provider access tokens, provider refresh tokens, and OAuth client secrets must not be logged or exposed in frontend-readable locations. JSON token responses remain only for compatibility clients.

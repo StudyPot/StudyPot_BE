@@ -66,7 +66,7 @@ studypot:
     allowed-methods: ${STUDYPOT_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD}
     allowed-headers: ${STUDYPOT_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With,X-XSRF-TOKEN,X-CSRF-TOKEN}
     exposed-headers: ${STUDYPOT_CORS_EXPOSED_HEADERS:Location}
-    allow-credentials: ${STUDYPOT_CORS_ALLOW_CREDENTIALS:true}
+	    allow-credentials: ${STUDYPOT_CORS_ALLOW_CREDENTIALS:false}
   auth:
     jwt:
       secret: ${STUDYPOT_AUTH_JWT_SECRET}
@@ -84,12 +84,10 @@ studypot:
       backend-callback-uri: ${STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI:}
       frontend-success-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI}
       frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI}
-  oauth:
-    google:
-      client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:}
-      client-secret: ${STUDYPOT_GOOGLE_CLIENT_SECRET:}
-      token-uri: ${STUDYPOT_GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
-      userinfo-uri: ${STUDYPOT_GOOGLE_USERINFO_URI:https://openidconnect.googleapis.com/v1/userinfo}
+	  oauth:
+	    google:
+	      token-uri: ${STUDYPOT_GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
+	      userinfo-uri: ${STUDYPOT_GOOGLE_USERINFO_URI:https://openidconnect.googleapis.com/v1/userinfo}
       authorization-uri: ${STUDYPOT_GOOGLE_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}
       scopes: ${STUDYPOT_GOOGLE_SCOPES:openid,email,profile}
       connect-timeout: ${STUDYPOT_GOOGLE_CONNECT_TIMEOUT:5s}
