@@ -58,15 +58,12 @@ trap 'rm -f "${pr_body:-}"' EXIT
   printf -- "- 시각: \`%s\`\n" "${LAST_VERIFY_AT:-unknown}"
   printf '\n## 리뷰 게이트 체크리스트\n\n'
   printf -- '- [ ] 최신 head에 GitHub Actions Review Gate PASS marker 게시\n'
-  printf -- '- [ ] 최신 head에 Copilot review 수신 및 Copilot review thread 해결\n'
+  printf -- '- [ ] CodeRabbit subagent review 1회 실행\n'
+  printf -- '- [ ] 최신 head에 CodeRabbit Subagent Review PASS 또는 ADDRESSED marker 게시\n'
   printf -- '- [ ] 필수 GitHub Actions checks 통과\n'
   printf -- '- [ ] reviewdog/actionlint 피드백 반영\n'
   printf -- '- [ ] 완료 또는 문서화된 blocker까지 작업 연속성 유지\n'
   printf -- '- [ ] 예상 밖 범위 또는 의견 의존 tradeoff의 사용자 결정 기록\n'
-  printf -- '- [ ] 최신 head에 CTO Architecture Gate 증거 포함 marker 게시\n'
-  printf -- '- [ ] 최신 head에 QA Verification Gate 증거 포함 marker 게시\n'
-  printf -- '- [ ] 최신 head에 Product Value Gate 증거 포함 marker 게시\n'
-  printf -- '- [ ] 최신 head에 Final CTO Merge Gate 증거 포함 marker 게시\n'
   printf -- '- [ ] 리뷰 thread 해결\n'
 } > "${pr_body}"
 
@@ -74,7 +71,7 @@ pr_url="$(gh pr create --base "${base}" --head "${branch}" --title "${title}" --
 printf '%s\n' "${pr_url}"
 
 pr_number="${pr_url##*/}"
-if [[ "${STRICT_REQUEST_COPILOT_REVIEW:-1}" != "0" ]]; then
+if [[ "${STRICT_REQUEST_COPILOT_REVIEW:-0}" != "0" ]]; then
   copilot_reviewer="${STRICT_COPILOT_REVIEW_REQUEST_REVIEWER:-@copilot}"
   gh pr edit "${pr_number}" --add-reviewer "${copilot_reviewer}" >/dev/null
 fi
