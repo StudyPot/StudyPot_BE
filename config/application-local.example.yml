@@ -53,19 +53,19 @@ studypot:
   auth:
     jwt:
       secret: ${STUDYPOT_AUTH_JWT_SECRET:replace-with-at-least-32-character-local-secret}
-	      issuer: ${STUDYPOT_AUTH_JWT_ISSUER:http://localhost:8080}
+      issuer: ${STUDYPOT_AUTH_JWT_ISSUER:http://localhost:8080}
       access-token-ttl: ${STUDYPOT_AUTH_JWT_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${STUDYPOT_AUTH_REFRESH_TOKEN_TTL:30d}
     cookie:
       access-token-name: studypot_access_token
       refresh-token-name: studypot_refresh_token
       path: /
-	      secure: ${STUDYPOT_AUTH_COOKIE_SECURE:false}
+      secure: ${STUDYPOT_AUTH_COOKIE_SECURE:false}
       same-site: Lax
     oauth2:
-	      backend-callback-uri: ${STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI:http://localhost:8080/api/login/oauth2/code/google}
-	      frontend-success-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI:http://localhost:3000/auth/success}
-	      frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI:http://localhost:3000/auth/failure}
+      backend-callback-uri: ${STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI:http://localhost:8080/api/login/oauth2/code/google}
+      frontend-success-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI:http://localhost:3000/auth/success}
+      frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI:http://localhost:3000/auth/failure}
   oauth:
     google:
       client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:replace-with-google-client-id}

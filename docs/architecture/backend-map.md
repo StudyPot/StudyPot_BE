@@ -15,7 +15,7 @@
   - `global.persistence`: persistence helpers such as UUID binary conversion.
   - `global.security`: stateless Spring Security scaffold with ProblemDetail authentication/authorization failures.
 - Bounded contexts:
-  - `identity`
+  - `auth`
   - `studygroup`
   - `onboarding`
   - `curriculum`

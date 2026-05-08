@@ -75,7 +75,6 @@ public class SecurityConfiguration {
 						.requestMatchers(HttpMethod.HEAD, "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll();
 				}
 				authorize
-					.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/oauth/google").permitAll()
 					.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/refresh").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/oauth2/authorization/google").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/login/oauth2/code/google").permitAll()
@@ -117,13 +116,7 @@ public class SecurityConfiguration {
 
 	private static boolean requiresCsrfProtection(HttpServletRequest request) {
 		return !CSRF_SAFE_METHODS.contains(request.getMethod())
-			&& !hasBearerAuthorization(request)
-			&& !isGoogleCodeLoginRequest(request);
-	}
-
-	private static boolean isGoogleCodeLoginRequest(HttpServletRequest request) {
-		return request.getMethod().equals(HttpMethod.POST.name())
-			&& request.getRequestURI().equals(ApiPaths.V1 + "/auth/oauth/google");
+			&& !hasBearerAuthorization(request);
 	}
 
 	private static boolean hasBearerAuthorization(HttpServletRequest request) {

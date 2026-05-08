@@ -41,6 +41,6 @@ class LayeredArchitectureTest {
 		.allowEmptyShould(true);
 
 	@ArchTest
-	static final ArchRule legacyHexagonalAndSharedPackagesAreNotUsed = noClasses()
-		.should().resideInAnyPackage("..adapter..", "..identity.application..", "..shared..");
+	static final ArchRule legacyHexagonalAuthAndSharedPackagesAreNotUsed = noClasses()
+		.should().resideInAnyPackage("..adapter..", "..identity..", "..shared..");
 }
