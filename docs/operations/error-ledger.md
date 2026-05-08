@@ -36,7 +36,7 @@ Each entry must include:
 - Cause: CTO/QA/Product/Final CTO evidence validation lived in the local finish path, not in a required GitHub status check.
 - Fix: Add `scripts/task/verify-role-review-gates.sh` and run it inside the required `review-gate-pass` GitHub Actions job before the Actions PASS marker is posted.
 - Prevent next time: Merge-critical review contracts must live in a required status check, not only in local helper scripts.
-- Next checkpoint: 최신 head role gate marker를 게시한 뒤 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun하고, required check가 green인지 확인한 뒤 Mattermost 수동 merge 알림을 보낸다.
+- Next checkpoint: 최신 head review marker를 게시한 뒤 실패한 `review-gate-pass` job 또는 `PR Quality` workflow를 rerun하고, required check가 green인지 확인한 뒤 Mattermost 수동 merge 알림을 보낸다.
 
 ### 2026-05-06 - Manual Merge Notification Blocked By Human Review Protection
 - Work / feature id: `SPT-61`, `n/a-harness`
@@ -58,9 +58,9 @@ Each entry must include:
 - Work / feature id: `SPT-20`, `n/a-harness`
 - Symptom: `scripts/task/finish-pr.sh 8` failed with `PR merge state is blocked: BEHIND`.
 - Cause: `develop` advanced after the PR was created, and the repository uses strict required checks against the latest base branch.
-- Fix: Rebase the feature branch onto `origin/develop`, rerun local verification, force-push with lease, rerun CI, repost latest-head role gate markers, and rerun `verify-pr-ready.sh`.
+- Fix: Rebase the feature branch onto `origin/develop`, rerun local verification, force-push with lease, rerun CI, repost latest-head review markers, and rerun `verify-pr-ready.sh`.
 - Prevent next time: Check `gh pr view <number> --json mergeStateStatus,headRefOid,baseRefOid` immediately before finish.
-- Next checkpoint: If merge state is `BEHIND`, update the feature branch before posting final role gates because role gate markers are head-specific.
+- Next checkpoint: If merge state is `BEHIND`, update the feature branch before posting final review markers because review markers are head-specific.
 
 ### 2026-05-06 - reviewdog ShellCheck `SC1091` Source Hint
 - Work / feature id: `SPT-20`, `SPT-56`, `n/a-harness`
