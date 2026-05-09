@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
@@ -76,6 +77,12 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(AuthServiceUnavailableException.class)
 	public ResponseEntity<ProblemDetail> handleAuthServiceUnavailable(AuthServiceUnavailableException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupServiceUnavailableException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupServiceUnavailable(StudyGroupServiceUnavailableException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
