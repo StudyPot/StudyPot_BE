@@ -43,8 +43,7 @@ public class OnboardingService {
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(exception);
 		}
-		repository.saveDraft(response);
-		return repository.findResponseByMemberId(context.memberId()).orElse(response);
+		return repository.saveDraft(response);
 	}
 
 	@Transactional(readOnly = true)

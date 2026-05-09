@@ -179,8 +179,9 @@ class OnboardingControllerTest {
 			}
 
 			@Override
-			public void saveDraft(GroupOnboardingResponse response) {
+			public GroupOnboardingResponse saveDraft(GroupOnboardingResponse response) {
 				this.response = response;
+				return response;
 			}
 		}
 	}

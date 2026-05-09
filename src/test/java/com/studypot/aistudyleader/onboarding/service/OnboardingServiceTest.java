@@ -162,23 +162,38 @@ class OnboardingServiceTest {
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
+			requireExpectedGroupId(groupId);
 			return groupExists;
 		}
 
 		@Override
 		public Optional<OnboardingMemberContext> findMemberContext(UUID groupId, UUID userId) {
+			requireExpectedGroupId(groupId);
+			if (!USER_ID.equals(userId)) {
+				throw new AssertionError("unexpected userId: " + userId);
+			}
 			return Optional.ofNullable(memberContext);
 		}
 
 		@Override
 		public Optional<GroupOnboardingResponse> findResponseByMemberId(UUID memberId) {
+			if (!MEMBER_ID.equals(memberId)) {
+				throw new AssertionError("unexpected memberId: " + memberId);
+			}
 			return Optional.ofNullable(existingResponse);
 		}
 
 		@Override
-		public void saveDraft(GroupOnboardingResponse response) {
+		public GroupOnboardingResponse saveDraft(GroupOnboardingResponse response) {
 			this.savedResponse = response;
 			this.existingResponse = response;
+			return response;
+		}
+
+		private static void requireExpectedGroupId(UUID groupId) {
+			if (!GROUP_ID.equals(groupId)) {
+				throw new AssertionError("unexpected groupId: " + groupId);
+			}
 		}
 	}
 }

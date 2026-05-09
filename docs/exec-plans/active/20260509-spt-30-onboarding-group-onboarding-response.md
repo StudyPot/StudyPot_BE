@@ -83,3 +83,11 @@ SPT-30의 목표는 SPT-29에서 스터디 그룹에 가입된 멤버가 자기 
 ## Verification Evidence
 - `./gradlew test --tests 'com.studypot.aistudyleader.onboarding.*' --no-daemon` -> PASS.
 - `./gradlew check build --no-daemon` -> PASS.
+- CodeRabbit review `NEEDS_FIX` 5건 대응:
+  - 저장소 empty/null 입력 edge test 추가.
+  - keyword score 상한 검증 test 추가.
+  - `OnboardingMemberContext` null guard 정리.
+  - draft 저장 후 재조회 대신 `OnboardingRepository.saveDraft` 반환값 사용.
+  - service fake repository가 group/user/member ID를 검증하도록 보강.
+- Review fix 후 `./gradlew test --tests 'com.studypot.aistudyleader.onboarding.*' --no-daemon` -> PASS.
+- Review fix 후 `./gradlew check build --no-daemon` -> PASS.

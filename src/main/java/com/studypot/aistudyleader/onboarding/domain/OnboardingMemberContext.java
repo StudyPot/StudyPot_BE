@@ -13,10 +13,7 @@ public record OnboardingMemberContext(
 	public OnboardingMemberContext {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(memberId, "memberId must not be null");
-		if (detailKeywords == null) {
-			throw new IllegalArgumentException("detailKeywords must not be null");
-		}
-		detailKeywords = List.copyOf(detailKeywords.stream()
+		detailKeywords = List.copyOf(Objects.requireNonNull(detailKeywords, "detailKeywords must not be null").stream()
 			.map(OnboardingMemberContext::requireKeyword)
 			.toList());
 	}

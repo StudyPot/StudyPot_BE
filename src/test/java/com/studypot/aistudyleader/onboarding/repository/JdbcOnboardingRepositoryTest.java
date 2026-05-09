@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.onboarding.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -49,6 +50,21 @@ class JdbcOnboardingRepositoryTest {
 	}
 
 	@Test
+	void existsStudyGroupReturnsFalseWhenGroupDoesNotExist() {
+		when(jdbcTemplate.queryForObject(eq(OnboardingJdbcSql.EXISTS_STUDY_GROUP), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(false);
+
+		assertThat(repository.existsStudyGroup(GROUP_ID)).isFalse();
+	}
+
+	@Test
+	void existsStudyGroupRejectsNullGroupId() {
+		assertThatThrownBy(() -> repository.existsStudyGroup(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("groupId must not be null");
+	}
+
+	@Test
 	void findMemberContextReturnsCurrentMemberContext() {
 		when(jdbcTemplate.query(eq(OnboardingJdbcSql.SELECT_MEMBER_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of(CONTEXT));
@@ -63,6 +79,24 @@ class JdbcOnboardingRepositoryTest {
 	}
 
 	@Test
+	void findMemberContextReturnsEmptyWhenCurrentMemberDoesNotExist() {
+		when(jdbcTemplate.query(eq(OnboardingJdbcSql.SELECT_MEMBER_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		assertThat(repository.findMemberContext(GROUP_ID, USER_ID)).isEmpty();
+	}
+
+	@Test
+	void findMemberContextRejectsNullIds() {
+		assertThatThrownBy(() -> repository.findMemberContext(null, USER_ID))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("groupId must not be null");
+		assertThatThrownBy(() -> repository.findMemberContext(GROUP_ID, null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("userId must not be null");
+	}
+
+	@Test
 	void findResponseByMemberIdReturnsStoredResponse() {
 		GroupOnboardingResponse response = response();
 		when(jdbcTemplate.query(eq(OnboardingJdbcSql.SELECT_RESPONSE_BY_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
@@ -72,11 +106,27 @@ class JdbcOnboardingRepositoryTest {
 	}
 
 	@Test
+	void findResponseByMemberIdReturnsEmptyWhenResponseDoesNotExist() {
+		when(jdbcTemplate.query(eq(OnboardingJdbcSql.SELECT_RESPONSE_BY_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		assertThat(repository.findResponseByMemberId(MEMBER_ID)).isEmpty();
+	}
+
+	@Test
+	void findResponseByMemberIdRejectsNullMemberId() {
+		assertThatThrownBy(() -> repository.findResponseByMemberId(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("memberId must not be null");
+	}
+
+	@Test
 	void saveDraftUpsertsResponseJsonFields() {
 		GroupOnboardingResponse response = response();
 
-		repository.saveDraft(response);
+		GroupOnboardingResponse saved = repository.saveDraft(response);
 
+		assertThat(saved).isSameAs(response);
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.UPSERT_ONBOARDING_RESPONSE_DRAFT), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(RESPONSE_ID));
@@ -86,6 +136,13 @@ class JdbcOnboardingRepositoryTest {
 		assertThat(args.getValue()[4]).isEqualTo("{\"READING\":4}");
 		assertThat(args.getValue()[5]).isEqualTo("실습 위주가 좋아요.");
 		assertThat(args.getValue()[6]).isEqualTo("DRAFT");
+	}
+
+	@Test
+	void saveDraftRejectsNullResponse() {
+		assertThatThrownBy(() -> repository.saveDraft(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("response must not be null");
 	}
 
 	private static GroupOnboardingResponse response() {

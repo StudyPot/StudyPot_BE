@@ -13,5 +13,5 @@ public interface OnboardingRepository {
 
 	Optional<GroupOnboardingResponse> findResponseByMemberId(UUID memberId);
 
-	void saveDraft(GroupOnboardingResponse response);
+	GroupOnboardingResponse saveDraft(GroupOnboardingResponse response);
 }

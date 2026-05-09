@@ -99,4 +99,18 @@ class GroupOnboardingResponseTest {
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("keywordSkillLevels score must be between 1 and 5: JPA=0");
 	}
+
+	@Test
+	void draftRejectsScoreAboveFive() {
+		assertThatThrownBy(() -> GroupOnboardingResponse.draft(
+				RESPONSE_ID,
+				CONTEXT,
+				Map.of("JPA", 6),
+				Map.of(),
+				null,
+				NOW
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("keywordSkillLevels score must be between 1 and 5: JPA=6");
+	}
 }

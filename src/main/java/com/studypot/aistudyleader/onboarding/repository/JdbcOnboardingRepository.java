@@ -35,21 +35,26 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 
 	@Override
 	public boolean existsStudyGroup(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(OnboardingJdbcSql.EXISTS_STUDY_GROUP, Boolean.class, uuid(groupId)));
 	}
 
 	@Override
 	public Optional<OnboardingMemberContext> findMemberContext(UUID groupId, UUID userId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
 		return queryOne(OnboardingJdbcSql.SELECT_MEMBER_CONTEXT, this::mapMemberContext, uuid(groupId), uuid(userId));
 	}
 
 	@Override
 	public Optional<GroupOnboardingResponse> findResponseByMemberId(UUID memberId) {
+		Objects.requireNonNull(memberId, "memberId must not be null");
 		return queryOne(OnboardingJdbcSql.SELECT_RESPONSE_BY_MEMBER, this::mapResponse, uuid(memberId));
 	}
 
 	@Override
-	public void saveDraft(GroupOnboardingResponse response) {
+	public GroupOnboardingResponse saveDraft(GroupOnboardingResponse response) {
+		Objects.requireNonNull(response, "response must not be null");
 		jdbcTemplate.update(
 			OnboardingJdbcSql.UPSERT_ONBOARDING_RESPONSE_DRAFT,
 			uuid(response.id()),
@@ -63,6 +68,7 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			timestamp(response.auditMetadata().createdAt()),
 			timestamp(response.auditMetadata().updatedAt())
 		);
+		return response;
 	}
 
 	private OnboardingMemberContext mapMemberContext(ResultSet resultSet, int rowNumber) throws SQLException {
