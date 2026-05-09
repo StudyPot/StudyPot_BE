@@ -22,5 +22,8 @@ public record CreateStudyGroupCommand(
 		detailKeywords = List.copyOf(detailKeywords);
 		Objects.requireNonNull(startsAt, "startsAt must not be null");
 		Objects.requireNonNull(endsAt, "endsAt must not be null");
+		if (endsAt.isBefore(startsAt)) {
+			throw new IllegalArgumentException("endsAt must be on or after startsAt");
+		}
 	}
 }

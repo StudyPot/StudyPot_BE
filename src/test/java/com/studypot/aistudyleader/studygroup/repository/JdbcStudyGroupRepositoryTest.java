@@ -70,8 +70,6 @@ class JdbcStudyGroupRepositoryTest {
 	void saveCreatedGroupTranslatesInviteCodeDuplicateIntoRetryableConflict() {
 		when(jdbcTemplate.update(eq(StudyGroupJdbcSql.INSERT_STUDY_GROUP), any(Object[].class)))
 			.thenThrow(new DuplicateKeyException("study_group_invite_code_live_uidx"));
-		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.EXISTS_ACTIVE_GROUP_BY_INVITE_CODE), eq(Boolean.class), any(Object[].class)))
-			.thenReturn(true);
 
 		assertThatThrownBy(() -> repository.saveCreatedGroup(group(), owner(group())))
 			.isInstanceOf(StudyGroupInviteCodeConflictException.class)

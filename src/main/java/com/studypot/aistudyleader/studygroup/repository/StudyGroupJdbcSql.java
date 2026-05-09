@@ -17,15 +17,6 @@ final class StudyGroupJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
-	static final String EXISTS_ACTIVE_GROUP_BY_INVITE_CODE = """
-		select exists(
-		  select 1
-		  from study_group
-		  where invite_code = ?
-		    and deleted_at is null
-		)
-		""";
-
 	private StudyGroupJdbcSql() {
 	}
 }

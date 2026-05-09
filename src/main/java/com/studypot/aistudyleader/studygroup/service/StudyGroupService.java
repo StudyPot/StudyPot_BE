@@ -45,9 +45,7 @@ public class StudyGroupService {
 				repository.saveCreatedGroup(result.group(), result.ownerMember());
 				return result;
 			} catch (StudyGroupInviteCodeConflictException exception) {
-				if (attempt == inviteCodeMaxAttempts - 1) {
-					throw new StudyGroupServiceUnavailableException("could not allocate a unique invite code.");
-				}
+				// Try another generated invite code until the bounded retry budget is exhausted.
 			}
 		}
 		throw new StudyGroupServiceUnavailableException("could not allocate a unique invite code.");

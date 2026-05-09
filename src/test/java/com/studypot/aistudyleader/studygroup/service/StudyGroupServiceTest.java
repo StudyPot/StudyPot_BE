@@ -95,6 +95,22 @@ class StudyGroupServiceTest {
 		assertThat(repository.attempts()).isEqualTo(3);
 	}
 
+	@Test
+	void createCommandRejectsEndDateBeforeStartDate() {
+		assertThatThrownBy(() -> new CreateStudyGroupCommand(
+				USER_ID,
+				"Backend Interview Study",
+				"Spring Boot",
+				List.of("JPA", "Security"),
+				6,
+				LocalDate.parse("2026-06-21"),
+				LocalDate.parse("2026-05-10"),
+				null
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("endsAt must be on or after startsAt");
+	}
+
 	private static StudyGroupService service(CapturingRepository repository, List<String> inviteCodes, UUID... ids) {
 		Queue<String> codes = new ArrayDeque<>(inviteCodes);
 		Queue<UUID> uuidQueue = new ArrayDeque<>(List.of(ids));

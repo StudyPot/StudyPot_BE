@@ -9,10 +9,12 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 class JdbcStudyGroupRepository implements StudyGroupRepository {
 
@@ -25,6 +27,7 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	@Transactional
 	public void saveCreatedGroup(StudyGroup group, GroupMember ownerMember) {
 		insertStudyGroup(group);
 		insertOwnerMember(ownerMember);
@@ -52,7 +55,7 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 				timestamp(group.auditMetadata().updatedAt())
 			);
 		} catch (DuplicateKeyException exception) {
-			if (existsActiveGroupByInviteCode(group.inviteCode())) {
+			if (isInviteCodeConflict(exception)) {
 				throw new StudyGroupInviteCodeConflictException("study group invite code is already reserved.");
 			}
 			throw new StudyGroupPersistenceException("study group uniqueness conflict.", exception);
@@ -76,18 +79,25 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		);
 	}
 
-	private boolean existsActiveGroupByInviteCode(String inviteCode) {
-		return Boolean.TRUE.equals(
-			jdbcTemplate.queryForObject(StudyGroupJdbcSql.EXISTS_ACTIVE_GROUP_BY_INVITE_CODE, Boolean.class, inviteCode)
-		);
-	}
-
 	private String detailKeywordsJson(StudyGroup group) {
 		try {
 			return objectMapper.writeValueAsString(group.detailKeywords());
 		} catch (JsonProcessingException exception) {
 			throw new StudyGroupPersistenceException("study group detail keywords could not be serialized.", exception);
 		}
+	}
+
+	private static boolean isInviteCodeConflict(DuplicateKeyException exception) {
+		String message = (exception.getMostSpecificCause() == null ? exception : exception.getMostSpecificCause())
+			.getMessage();
+		if (message == null) {
+			message = exception.getMessage();
+		}
+		String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
+		return normalized.contains("study_group_invite_code_live_uidx")
+			|| normalized.contains("study_group_invite_code_uidx")
+			|| normalized.contains("invite_code_live_key")
+			|| normalized.contains("invite_code");
 	}
 
 	private static byte[] uuid(UUID uuid) {
