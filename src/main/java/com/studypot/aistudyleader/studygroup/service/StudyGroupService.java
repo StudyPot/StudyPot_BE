@@ -2,6 +2,8 @@ package com.studypot.aistudyleader.studygroup.service;
 
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.repository.GroupMemberDuplicateMembershipException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupInviteCodeConflictException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
 import java.time.Clock;
@@ -49,6 +51,34 @@ public class StudyGroupService {
 			}
 		}
 		throw new StudyGroupServiceUnavailableException("could not allocate a unique invite code.");
+	}
+
+	@Transactional
+	public StudyGroupJoinResult joinGroup(JoinStudyGroupCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		StudyGroupJoinTarget target = repository.findJoinTargetByIdForUpdate(command.groupId())
+			.orElseThrow(() -> new StudyGroupNotFoundException("study group was not found."));
+
+		if (!target.matchesInviteCode(command.inviteCode())) {
+			throw new StudyGroupJoinRejectedException("invite code does not match the study group.");
+		}
+		if (!target.isAcceptingJoins()) {
+			throw new StudyGroupJoinRejectedException("study group is not accepting new members.");
+		}
+		if (repository.existsActiveOrOnboardingMember(target.id(), command.authenticatedUserId())) {
+			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
+		}
+		if (!target.hasCapacity(repository.countActiveOrOnboardingMembers(target.id()))) {
+			throw new StudyGroupJoinRejectedException("study group member capacity has been reached.");
+		}
+
+		GroupMember member = GroupMember.member(idGenerator.get(), target.id(), command.authenticatedUserId(), null, clock.instant());
+		try {
+			repository.saveJoinedMember(member);
+		} catch (GroupMemberDuplicateMembershipException exception) {
+			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
+		}
+		return new StudyGroupJoinResult(member);
 	}
 
 	private StudyGroupCreationResult createCandidate(CreateStudyGroupCommand command) {

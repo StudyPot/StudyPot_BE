@@ -17,6 +17,33 @@ final class StudyGroupJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	static final String SELECT_STUDY_GROUP_JOIN_TARGET = """
+		select id, status, max_members, invite_code
+		from study_group
+		where id = ?
+		  and deleted_at is null
+		for update
+		""";
+
+	static final String EXISTS_ACTIVE_OR_ONBOARDING_MEMBER = """
+		select exists (
+		  select 1
+		  from group_member
+		  where group_id = ?
+		    and user_id = ?
+		    and status in ('PENDING_ONBOARDING', 'ACTIVE')
+		    and deleted_at is null
+		)
+		""";
+
+	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS = """
+		select count(*)
+		from group_member
+		where group_id = ?
+		  and status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and deleted_at is null
+		""";
+
 	private StudyGroupJdbcSql() {
 	}
 }

@@ -61,6 +61,22 @@ public final class GroupMember extends AggregateRoot<UUID> {
 		);
 	}
 
+	public static GroupMember member(UUID id, UUID groupId, UUID userId, String displayName, Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new GroupMember(
+			id,
+			groupId,
+			userId,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.PENDING_ONBOARDING,
+			displayName,
+			now,
+			null,
+			null,
+			AuditMetadata.created(now)
+		);
+	}
+
 	public UUID groupId() {
 		return groupId;
 	}

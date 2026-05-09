@@ -13,6 +13,8 @@ public class ProblemDetailFactory {
 	private static final URI VALIDATION_ERROR_TYPE = URI.create("https://api.studypot.com/problems/validation-error");
 	private static final URI UNAUTHORIZED_TYPE = URI.create("https://api.studypot.com/problems/unauthorized");
 	private static final URI FORBIDDEN_TYPE = URI.create("https://api.studypot.com/problems/forbidden");
+	private static final URI NOT_FOUND_TYPE = URI.create("https://api.studypot.com/problems/not-found");
+	private static final URI CONFLICT_TYPE = URI.create("https://api.studypot.com/problems/conflict");
 	private static final URI SERVICE_UNAVAILABLE_TYPE = URI.create("https://api.studypot.com/problems/service-unavailable");
 
 	public ProblemDetail validationProblem(List<FieldErrorResponse> fieldErrors) {
@@ -32,6 +34,14 @@ public class ProblemDetailFactory {
 
 	public ProblemDetail forbidden(String detail) {
 		return create(HttpStatus.FORBIDDEN, "Forbidden", detail, FORBIDDEN_TYPE);
+	}
+
+	public ProblemDetail notFound(String detail) {
+		return create(HttpStatus.NOT_FOUND, "Not Found", detail, NOT_FOUND_TYPE);
+	}
+
+	public ProblemDetail conflict(String detail) {
+		return create(HttpStatus.CONFLICT, "Conflict", detail, CONFLICT_TYPE);
 	}
 
 	public ProblemDetail serviceUnavailable(String detail) {
