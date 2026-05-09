@@ -1,0 +1,49 @@
+package com.studypot.aistudyleader.onboarding.repository;
+
+final class OnboardingJdbcSql {
+
+	static final String EXISTS_STUDY_GROUP = """
+		select exists (
+		  select 1
+		  from study_group
+		  where id = ?
+		    and deleted_at is null
+		)
+		""";
+
+	static final String SELECT_MEMBER_CONTEXT = """
+		select sg.id as group_id, gm.id as member_id, sg.detail_keywords
+		from study_group sg
+		join group_member gm on gm.group_id = sg.id
+		where sg.id = ?
+		  and gm.user_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	static final String SELECT_RESPONSE_BY_MEMBER = """
+		select id, group_id, member_id, keyword_skill_levels, task_preferences,
+		       additional_note, status, submitted_at, created_at, updated_at
+		from group_onboarding_response
+		where member_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String UPSERT_ONBOARDING_RESPONSE_DRAFT = """
+		insert into group_onboarding_response (
+		  id, group_id, member_id, keyword_skill_levels, task_preferences,
+		  additional_note, status, submitted_at, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		on duplicate key update
+		  keyword_skill_levels = values(keyword_skill_levels),
+		  task_preferences = values(task_preferences),
+		  additional_note = values(additional_note),
+		  status = values(status),
+		  submitted_at = null,
+		  updated_at = values(updated_at)
+		""";
+
+	private OnboardingJdbcSql() {
+	}
+}
