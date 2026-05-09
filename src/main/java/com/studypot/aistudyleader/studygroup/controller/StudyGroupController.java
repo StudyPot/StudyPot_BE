@@ -2,10 +2,15 @@ package com.studypot.aistudyleader.studygroup.controller;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import jakarta.validation.Valid;
@@ -23,6 +28,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -39,6 +45,16 @@ class StudyGroupController {
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
 		return StudyGroupResponse.from(result.group());
+	}
+
+	@PostMapping(ApiPaths.V1 + "/groups/{groupId}/join")
+	GroupMemberResponse joinGroup(
+		Authentication authentication,
+		@PathVariable UUID groupId,
+		@Valid @RequestBody JoinGroupRequest request
+	) {
+		StudyGroupJoinResult result = service().joinGroup(request.toCommand(authenticatedUserId(authentication), groupId));
+		return GroupMemberResponse.from(result.member());
 	}
 
 	private StudyGroupService service() {
@@ -131,6 +147,37 @@ class StudyGroupController {
 				group.inviteCode(),
 				group.startsAt(),
 				group.endsAt()
+			);
+		}
+	}
+
+	private record JoinGroupRequest(
+		@NotBlank
+		String inviteCode
+	) {
+
+		JoinStudyGroupCommand toCommand(UUID authenticatedUserId, UUID groupId) {
+			return new JoinStudyGroupCommand(authenticatedUserId, groupId, inviteCode);
+		}
+	}
+
+	private record GroupMemberResponse(
+		UUID id,
+		UUID groupId,
+		UUID userId,
+		GroupMemberPermission permission,
+		GroupMemberStatus status,
+		String displayName
+	) {
+
+		private static GroupMemberResponse from(GroupMember member) {
+			return new GroupMemberResponse(
+				member.id(),
+				member.groupId(),
+				member.userId(),
+				member.permission(),
+				member.status(),
+				member.displayName().orElse(null)
 			);
 		}
 	}

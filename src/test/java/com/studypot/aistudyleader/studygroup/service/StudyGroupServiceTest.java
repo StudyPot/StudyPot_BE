@@ -7,7 +7,9 @@ import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
+import com.studypot.aistudyleader.studygroup.repository.GroupMemberDuplicateMembershipException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupInviteCodeConflictException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
 import java.time.Clock;
@@ -26,12 +28,14 @@ import org.junit.jupiter.api.Test;
 class StudyGroupServiceTest {
 
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002821");
+	private static final UUID JOINER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002820");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002822");
 	private static final UUID OWNER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002823");
 	private static final UUID RETRY_GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002824");
 	private static final UUID RETRY_OWNER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002825");
 	private static final UUID THIRD_GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002826");
 	private static final UUID THIRD_OWNER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002827");
+	private static final UUID JOINED_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002828");
 	private static final Instant NOW = Instant.parse("2026-05-09T01:30:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -96,6 +100,96 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void joinGroupPersistsPendingMemberWhenInviteCodeMatchesAndCapacityAvailable() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		StudyGroupJoinResult result = service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, " INVITE-0001 "));
+
+		assertThat(result.member()).isSameAs(repository.savedJoinedMember());
+		assertThat(result.member().id()).isEqualTo(JOINED_MEMBER_ID);
+		assertThat(result.member().groupId()).isEqualTo(GROUP_ID);
+		assertThat(result.member().userId()).isEqualTo(JOINER_ID);
+		assertThat(result.member().permission()).isEqualTo(GroupMemberPermission.MEMBER);
+		assertThat(result.member().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
+		assertThat(result.member().joinedAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void joinGroupRejectsMissingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+	}
+
+	@Test
+	void joinGroupRejectsMismatchedInviteCode() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "WRONG-CODE")))
+			.isInstanceOf(StudyGroupJoinRejectedException.class)
+			.hasMessage("invite code does not match the study group.");
+		assertThat(repository.savedJoinedMember()).isNull();
+	}
+
+	@Test
+	void joinGroupRejectsGroupThatIsNotOnboarding() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 3, "INVITE-0001");
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
+			.isInstanceOf(StudyGroupJoinRejectedException.class)
+			.hasMessage("study group is not accepting new members.");
+		assertThat(repository.savedJoinedMember()).isNull();
+	}
+
+	@Test
+	void joinGroupRejectsDuplicateActiveOrOnboardingMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
+		repository.existingActiveOrOnboardingMember = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
+			.isInstanceOf(StudyGroupJoinRejectedException.class)
+			.hasMessage("user is already a member of this study group.");
+		assertThat(repository.savedJoinedMember()).isNull();
+	}
+
+	@Test
+	void joinGroupRejectsWhenCapacityIsFull() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 2, "INVITE-0001");
+		repository.currentMemberCount = 2;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
+			.isInstanceOf(StudyGroupJoinRejectedException.class)
+			.hasMessage("study group member capacity has been reached.");
+		assertThat(repository.savedJoinedMember()).isNull();
+	}
+
+	@Test
+	void joinGroupTranslatesRacingDuplicateMembershipConflict() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
+		repository.throwDuplicateMembershipOnJoin = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
+			.isInstanceOf(StudyGroupJoinRejectedException.class)
+			.hasMessage("user is already a member of this study group.");
+	}
+
+	@Test
 	void createCommandRejectsEndDateBeforeStartDate() {
 		assertThatThrownBy(() -> new CreateStudyGroupCommand(
 				USER_ID,
@@ -109,6 +203,13 @@ class StudyGroupServiceTest {
 			))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("endsAt must be on or after startsAt");
+	}
+
+	@Test
+	void joinCommandRejectsBlankInviteCode() {
+		assertThatThrownBy(() -> new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, " "))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("inviteCode must not be blank");
 	}
 
 	private static StudyGroupService service(CapturingRepository repository, List<String> inviteCodes, UUID... ids) {
@@ -153,8 +254,13 @@ class StudyGroupServiceTest {
 
 		private final Set<String> collidingCodes;
 		private final AtomicInteger attempts = new AtomicInteger();
+		private StudyGroupJoinTarget joinTarget;
+		private int currentMemberCount;
+		private boolean existingActiveOrOnboardingMember;
+		private boolean throwDuplicateMembershipOnJoin;
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
+		private GroupMember savedJoinedMember;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -170,6 +276,32 @@ class StudyGroupServiceTest {
 			this.savedOwnerMember = ownerMember;
 		}
 
+		@Override
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetById(UUID groupId) {
+			if (joinTarget == null) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(joinTarget);
+		}
+
+		@Override
+		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
+			return existingActiveOrOnboardingMember;
+		}
+
+		@Override
+		public int countActiveOrOnboardingMembers(UUID groupId) {
+			return currentMemberCount;
+		}
+
+		@Override
+		public void saveJoinedMember(GroupMember member) {
+			if (throwDuplicateMembershipOnJoin) {
+				throw new GroupMemberDuplicateMembershipException("group member already exists.");
+			}
+			this.savedJoinedMember = member;
+		}
+
 		int attempts() {
 			return attempts.get();
 		}
@@ -180,6 +312,10 @@ class StudyGroupServiceTest {
 
 		GroupMember savedOwnerMember() {
 			return savedOwnerMember;
+		}
+
+		GroupMember savedJoinedMember() {
+			return savedJoinedMember;
 		}
 	}
 }

@@ -4,6 +4,8 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
@@ -85,6 +87,18 @@ public class ApiExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleStudyGroupServiceUnavailable(StudyGroupServiceUnavailableException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupNotFoundException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupNotFound(StudyGroupNotFoundException exception) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupJoinRejectedException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupJoinRejected(StudyGroupJoinRejectedException exception) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
 	}
 
 	private static String parameterName(ParameterValidationResult result) {

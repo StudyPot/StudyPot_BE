@@ -13,11 +13,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -76,6 +79,79 @@ class JdbcStudyGroupRepositoryTest {
 			.hasMessage("study group invite code is already reserved.");
 
 		verify(jdbcTemplate, never()).update(eq(StudyGroupJdbcSql.INSERT_GROUP_MEMBER), any(Object[].class));
+	}
+
+	@Test
+	void findJoinTargetByIdMapsActiveStudyGroupSnapshot() {
+		StudyGroupJoinTarget joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 6, "INVITE-2026");
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(joinTarget));
+
+		Optional<StudyGroupJoinTarget> result = repository.findJoinTargetById(GROUP_ID);
+
+		assertThat(result).contains(joinTarget);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+	}
+
+	@Test
+	void findJoinTargetByIdReturnsEmptyWhenNoGroupExists() {
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		assertThat(repository.findJoinTargetById(GROUP_ID)).isEmpty();
+	}
+
+	@Test
+	void countActiveOrOnboardingMembersUsesCapacityStatuses() {
+		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS), eq(Integer.class), any(Object[].class)))
+			.thenReturn(2);
+
+		assertThat(repository.countActiveOrOnboardingMembers(GROUP_ID)).isEqualTo(2);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).queryForObject(eq(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS), eq(Integer.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+	}
+
+	@Test
+	void existsActiveOrOnboardingMemberChecksCurrentMembershipOnly() {
+		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(true);
+
+		assertThat(repository.existsActiveOrOnboardingMember(GROUP_ID, USER_ID)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).queryForObject(eq(StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER), eq(Boolean.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void saveJoinedMemberInsertsMemberRow() {
+		GroupMember member = GroupMember.member(MEMBER_ID, GROUP_ID, USER_ID, null, NOW);
+
+		repository.saveJoinedMember(member);
+
+		ArgumentCaptor<Object[]> memberArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(StudyGroupJdbcSql.INSERT_GROUP_MEMBER), memberArgs.capture());
+		assertThat((byte[]) memberArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		assertThat((byte[]) memberArgs.getValue()[1]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) memberArgs.getValue()[2]).containsExactly(UuidBinary.toBytes(USER_ID));
+		assertThat(memberArgs.getValue()[3]).isEqualTo("MEMBER");
+		assertThat(memberArgs.getValue()[4]).isEqualTo("PENDING_ONBOARDING");
+		assertThat(memberArgs.getValue()[6]).isEqualTo(Timestamp.from(NOW));
+	}
+
+	@Test
+	void saveJoinedMemberTranslatesDuplicateMembershipConflict() {
+		when(jdbcTemplate.update(eq(StudyGroupJdbcSql.INSERT_GROUP_MEMBER), any(Object[].class)))
+			.thenThrow(new DuplicateKeyException("group_member_group_user_live_uidx"));
+
+		assertThatThrownBy(() -> repository.saveJoinedMember(GroupMember.member(MEMBER_ID, GROUP_ID, USER_ID, null, NOW)))
+			.isInstanceOf(GroupMemberDuplicateMembershipException.class)
+			.hasMessage("group member already exists.");
 	}
 
 	private static StudyGroup group() {

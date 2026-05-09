@@ -30,6 +30,24 @@ class ProblemDetailFactoryTest {
 	}
 
 	@Test
+	void notFoundProblemUsesProblemDetailShape() {
+		var problemDetail = factory.notFound("Study group was not found.");
+
+		assertThat(problemDetail.getStatus()).isEqualTo(404);
+		assertThat(problemDetail.getTitle()).isEqualTo("Not Found");
+		assertThat(problemDetail.getDetail()).isEqualTo("Study group was not found.");
+	}
+
+	@Test
+	void conflictProblemUsesProblemDetailShape() {
+		var problemDetail = factory.conflict("Invite code does not match.");
+
+		assertThat(problemDetail.getStatus()).isEqualTo(409);
+		assertThat(problemDetail.getTitle()).isEqualTo("Conflict");
+		assertThat(problemDetail.getDetail()).isEqualTo("Invite code does not match.");
+	}
+
+	@Test
 	void serviceUnavailableProblemUsesProblemDetailShape() {
 		var problemDetail = factory.serviceUnavailable("Auth service is unavailable.");
 
