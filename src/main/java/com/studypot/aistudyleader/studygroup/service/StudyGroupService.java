@@ -56,7 +56,7 @@ public class StudyGroupService {
 	@Transactional
 	public StudyGroupJoinResult joinGroup(JoinStudyGroupCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
-		StudyGroupJoinTarget target = repository.findJoinTargetById(command.groupId())
+		StudyGroupJoinTarget target = repository.findJoinTargetByIdForUpdate(command.groupId())
 			.orElseThrow(() -> new StudyGroupNotFoundException("study group was not found."));
 
 		if (!target.matchesInviteCode(command.inviteCode())) {

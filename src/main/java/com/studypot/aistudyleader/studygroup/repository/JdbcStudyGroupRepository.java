@@ -86,7 +86,7 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
-	public Optional<StudyGroupJoinTarget> findJoinTargetById(UUID groupId) {
+	public Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId) {
 		return queryOne(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET, JdbcStudyGroupRepository::mapJoinTarget, uuid(groupId));
 	}
 

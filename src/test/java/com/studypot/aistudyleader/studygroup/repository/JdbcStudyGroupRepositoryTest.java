@@ -82,12 +82,12 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
-	void findJoinTargetByIdMapsActiveStudyGroupSnapshot() {
+	void findJoinTargetByIdForUpdateMapsOnboardingStudyGroupSnapshot() {
 		StudyGroupJoinTarget joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 6, "INVITE-2026");
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of(joinTarget));
 
-		Optional<StudyGroupJoinTarget> result = repository.findJoinTargetById(GROUP_ID);
+		Optional<StudyGroupJoinTarget> result = repository.findJoinTargetByIdForUpdate(GROUP_ID);
 
 		assertThat(result).contains(joinTarget);
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
@@ -96,11 +96,16 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
-	void findJoinTargetByIdReturnsEmptyWhenNoGroupExists() {
+	void findJoinTargetByIdForUpdateReturnsEmptyWhenNoGroupExists() {
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of());
 
-		assertThat(repository.findJoinTargetById(GROUP_ID)).isEmpty();
+		assertThat(repository.findJoinTargetByIdForUpdate(GROUP_ID)).isEmpty();
+	}
+
+	@Test
+	void joinTargetQueryLocksGroupRowForCapacityCheck() {
+		assertThat(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET).contains("for update");
 	}
 
 	@Test

@@ -277,7 +277,7 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
-		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetById(UUID groupId) {
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId) {
 			if (joinTarget == null) {
 				return java.util.Optional.empty();
 			}

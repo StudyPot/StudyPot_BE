@@ -10,7 +10,7 @@ public interface StudyGroupRepository {
 
 	void saveCreatedGroup(StudyGroup group, GroupMember ownerMember);
 
-	Optional<StudyGroupJoinTarget> findJoinTargetById(UUID groupId);
+	Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId);
 
 	boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId);
 

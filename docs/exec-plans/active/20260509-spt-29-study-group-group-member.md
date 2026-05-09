@@ -39,6 +39,7 @@
 - Group status validation is scoped to the MVP onboarding join path: only `ONBOARDING` groups accept this SPT-29 join flow. Late joiner handling for already active groups remains deferred per the user goal.
 - Capacity is counted with live `PENDING_ONBOARDING` and `ACTIVE` members so the owner created by SPT-28 is included in `maxMembers`.
 - Duplicate joining is rejected before insert for existing live `PENDING_ONBOARDING` or `ACTIVE` membership and also guarded by the DB live unique key for race conditions.
+- The service locks the target `study_group` row during join validation so capacity check and member insert are serialized per group.
 
 ## Goal
 SPT-29의 목표는 SPT-28에서 생성된 `study_group.invite_code`를 사용해 인증된 사용자가 스터디 그룹에 `MEMBER` 권한과 `PENDING_ONBOARDING` 상태로 가입하는 백엔드 수직 흐름을 완성하는 것이다. 구현 범위는 초대 코드 검증, 그룹 존재/상태 검증, 정원 제한 검증, 중복 가입 방지, 멤버 생성, 저장소, 서비스, API 응답, 테스트까지 포함한다.

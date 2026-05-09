@@ -22,6 +22,7 @@ final class StudyGroupJdbcSql {
 		from study_group
 		where id = ?
 		  and deleted_at is null
+		for update
 		""";
 
 	static final String EXISTS_ACTIVE_OR_ONBOARDING_MEMBER = """
