@@ -72,7 +72,7 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			timestamp(response.auditMetadata().createdAt()),
 			timestamp(response.auditMetadata().updatedAt())
 		);
-		jdbcTemplate.update(OnboardingJdbcSql.DELETE_AVAILABILITY_SLOTS_BY_RESPONSE, uuid(response.id()));
+		jdbcTemplate.update(OnboardingJdbcSql.SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE, uuid(response.id()));
 		for (MemberAvailabilitySlot slot : response.availabilitySlots()) {
 			jdbcTemplate.update(
 				OnboardingJdbcSql.INSERT_AVAILABILITY_SLOT,

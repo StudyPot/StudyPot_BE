@@ -86,16 +86,19 @@ public class OnboardingService {
 		Instant now
 	) {
 		return commands.stream()
-			.map(command -> MemberAvailabilitySlot.create(
-				idGenerator.get(),
-				responseId,
-				memberId,
-				command.dayOfWeek(),
-				command.startTime(),
-				command.endTime(),
-				command.timezone(),
-				now
-			))
+			.map(command -> {
+				command.validate();
+				return MemberAvailabilitySlot.create(
+					idGenerator.get(),
+					responseId,
+					memberId,
+					command.dayOfWeek(),
+					command.startTime(),
+					command.endTime(),
+					command.timezone(),
+					now
+				);
+			})
 			.toList();
 	}
 }

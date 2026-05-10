@@ -15,6 +15,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -112,10 +113,13 @@ class OnboardingController {
 		@Max(6)
 		Integer dayOfWeek,
 		@NotBlank
+		@Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "must use HH:mm format")
 		String startTime,
 		@NotBlank
+		@Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "must use HH:mm format")
 		String endTime,
 		@NotBlank
+		@ValidTimezone
 		String timezone
 	) {
 

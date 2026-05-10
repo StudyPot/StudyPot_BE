@@ -146,7 +146,7 @@ class JdbcOnboardingRepositoryTest {
 		assertThat(args.getValue()[6]).isEqualTo("DRAFT");
 
 		ArgumentCaptor<Object[]> deleteArgs = ArgumentCaptor.forClass(Object[].class);
-		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.DELETE_AVAILABILITY_SLOTS_BY_RESPONSE), deleteArgs.capture());
+		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE), deleteArgs.capture());
 		assertThat((byte[]) deleteArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(RESPONSE_ID));
 
 		ArgumentCaptor<Object[]> insertArgs = ArgumentCaptor.forClass(Object[].class);

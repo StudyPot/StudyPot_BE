@@ -53,9 +53,12 @@ final class OnboardingJdbcSql {
 		  updated_at = values(updated_at)
 		""";
 
-	static final String DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """
-		delete from member_availability_slot
+	static final String SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """
+		update member_availability_slot
+		set deleted_at = current_timestamp(6),
+		    updated_at = current_timestamp(6)
 		where onboarding_response_id = ?
+		  and deleted_at is null
 		""";
 
 	static final String INSERT_AVAILABILITY_SLOT = """

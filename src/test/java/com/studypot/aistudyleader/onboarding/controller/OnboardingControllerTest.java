@@ -82,6 +82,48 @@ class OnboardingControllerTest {
 	}
 
 	@Test
+	void saveMyOnboardingRejectsMalformedAvailabilityTime() throws Exception {
+		mockMvc.perform(put(ONBOARDING_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("onboarding-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "keywordSkillLevels": {"JPA": 2},
+					  "taskPreferences": {"READING": 4},
+					  "availabilitySlots": [
+					    {"dayOfWeek": 1, "startTime": "8pm", "endTime": "21:00", "timezone": "Asia/Seoul"}
+					  ]
+					}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors").isArray());
+	}
+
+	@Test
+	void saveMyOnboardingRejectsInvalidAvailabilityTimezone() throws Exception {
+		mockMvc.perform(put(ONBOARDING_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("onboarding-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "keywordSkillLevels": {"JPA": 2},
+					  "taskPreferences": {"READING": 4},
+					  "availabilitySlots": [
+					    {"dayOfWeek": 1, "startTime": "20:00", "endTime": "21:00", "timezone": "Mars/Base"}
+					  ]
+					}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors").isArray());
+	}
+
+	@Test
 	void saveMyOnboardingReturnsDraftResponse() throws Exception {
 		mockMvc.perform(put(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
