@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.global.domain.AggregateRoot;
 import com.studypot.aistudyleader.global.domain.AuditMetadata;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,6 +17,7 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 	private final Map<String, Integer> keywordSkillLevels;
 	private final Map<String, Integer> taskPreferences;
 	private final String additionalNote;
+	private final List<MemberAvailabilitySlot> availabilitySlots;
 	private final GroupOnboardingStatus status;
 	private final Instant submittedAt;
 	private final AuditMetadata auditMetadata;
@@ -27,6 +29,7 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 		Map<String, Integer> keywordSkillLevels,
 		Map<String, Integer> taskPreferences,
 		String additionalNote,
+		List<MemberAvailabilitySlot> availabilitySlots,
 		GroupOnboardingStatus status,
 		Instant submittedAt,
 		AuditMetadata auditMetadata
@@ -37,6 +40,7 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 		this.keywordSkillLevels = Map.copyOf(keywordSkillLevels);
 		this.taskPreferences = Map.copyOf(taskPreferences);
 		this.additionalNote = blankToNull(additionalNote);
+		this.availabilitySlots = validateAvailabilitySlots(id, memberId, availabilitySlots);
 		this.status = Objects.requireNonNull(status, "status must not be null");
 		this.submittedAt = submittedAt;
 		this.auditMetadata = Objects.requireNonNull(auditMetadata, "auditMetadata must not be null");
@@ -59,6 +63,7 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 			validateKeywordSkillLevels(context, keywordSkillLevels),
 			validateTaskPreferences(taskPreferences),
 			additionalNote,
+			List.of(),
 			GroupOnboardingStatus.DRAFT,
 			null,
 			AuditMetadata.created(now)
@@ -84,6 +89,7 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 			Map.copyOf(Objects.requireNonNull(keywordSkillLevels, "keywordSkillLevels must not be null")),
 			Map.copyOf(Objects.requireNonNull(taskPreferences, "taskPreferences must not be null")),
 			additionalNote,
+			List.of(),
 			status,
 			submittedAt,
 			new AuditMetadata(createdAt, updatedAt, null)
@@ -108,6 +114,25 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 
 	public Optional<String> additionalNote() {
 		return Optional.ofNullable(additionalNote);
+	}
+
+	public List<MemberAvailabilitySlot> availabilitySlots() {
+		return availabilitySlots;
+	}
+
+	public GroupOnboardingResponse withAvailabilitySlots(List<MemberAvailabilitySlot> slots) {
+		return new GroupOnboardingResponse(
+			id(),
+			groupId,
+			memberId,
+			keywordSkillLevels,
+			taskPreferences,
+			additionalNote,
+			slots,
+			status,
+			submittedAt,
+			auditMetadata
+		);
 	}
 
 	public GroupOnboardingStatus status() {
@@ -167,6 +192,20 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 		if (score == null || score < 1 || score > 5) {
 			throw new IllegalArgumentException(fieldName + " score must be between 1 and 5: " + entry.getKey() + "=" + score);
 		}
+	}
+
+	private static List<MemberAvailabilitySlot> validateAvailabilitySlots(
+		UUID responseId,
+		UUID memberId,
+		List<MemberAvailabilitySlot> slots
+	) {
+		List<MemberAvailabilitySlot> copied = List.copyOf(Objects.requireNonNull(slots, "availabilitySlots must not be null"));
+		for (MemberAvailabilitySlot slot : copied) {
+			if (!responseId.equals(slot.onboardingResponseId()) || !memberId.equals(slot.memberId())) {
+				throw new IllegalArgumentException("availabilitySlots must belong to onboarding response");
+			}
+		}
+		return copied;
 	}
 
 	private static String blankToNull(String value) {

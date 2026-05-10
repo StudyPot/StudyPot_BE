@@ -1,10 +1,12 @@
 package com.studypot.aistudyleader.onboarding.service;
 
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
+import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -39,7 +41,7 @@ public class OnboardingService {
 				command.taskPreferences(),
 				command.additionalNote(),
 				now
-			);
+			).withAvailabilitySlots(availabilitySlots(command.availabilitySlots(), responseId, context.memberId(), now));
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(exception);
 		}
@@ -71,7 +73,32 @@ public class OnboardingService {
 			field = "keywordSkillLevels";
 		} else if (message != null && message.startsWith("taskPreferences")) {
 			field = "taskPreferences";
+		} else if (message != null && message.startsWith("availabilitySlots")) {
+			field = "availabilitySlots";
 		}
 		return new InvalidOnboardingRequestException(field, message);
+	}
+
+	private List<MemberAvailabilitySlot> availabilitySlots(
+		List<AvailabilitySlotCommand> commands,
+		UUID responseId,
+		UUID memberId,
+		Instant now
+	) {
+		return commands.stream()
+			.map(command -> {
+				command.validate();
+				return MemberAvailabilitySlot.create(
+					idGenerator.get(),
+					responseId,
+					memberId,
+					command.dayOfWeek(),
+					command.startTime(),
+					command.endTime(),
+					command.timezone(),
+					now
+				);
+			})
+			.toList();
 	}
 }

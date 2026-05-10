@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
+import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import java.time.Clock;
@@ -23,6 +24,8 @@ class OnboardingServiceTest {
 	private static final UUID MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000003023");
 	private static final UUID RESPONSE_ID = UUID.fromString("018f0000-0000-7000-8000-000000003024");
 	private static final UUID EXISTING_RESPONSE_ID = UUID.fromString("018f0000-0000-7000-8000-000000003025");
+	private static final UUID SLOT_ID = UUID.fromString("018f0000-0000-7000-8000-000000003026");
+	private static final UUID REPLACEMENT_SLOT_ID = UUID.fromString("018f0000-0000-7000-8000-000000003027");
 	private static final Instant NOW = Instant.parse("2026-05-09T08:20:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 	private static final OnboardingMemberContext CONTEXT = new OnboardingMemberContext(
@@ -49,6 +52,26 @@ class OnboardingServiceTest {
 	}
 
 	@Test
+	void saveMyDraftStoresAvailabilitySlotsForCurrentMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		OnboardingService service = service(repository, RESPONSE_ID, SLOT_ID);
+
+		GroupOnboardingResponse result = service.saveMyDraft(commandWithSlots(
+			new AvailabilitySlotCommand(2, "20:00", "22:00", "Asia/Seoul")
+		));
+
+		assertThat(result.availabilitySlots()).hasSize(1);
+		MemberAvailabilitySlot slot = result.availabilitySlots().getFirst();
+		assertThat(slot.id()).isEqualTo(SLOT_ID);
+		assertThat(slot.onboardingResponseId()).isEqualTo(RESPONSE_ID);
+		assertThat(slot.memberId()).isEqualTo(MEMBER_ID);
+		assertThat(slot.dayOfWeek()).isEqualTo(2);
+		assertThat(slot.timezone()).isEqualTo("Asia/Seoul");
+	}
+
+	@Test
 	void saveMyDraftUpdatesExistingResponseWithoutCreatingDuplicateId() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
@@ -60,6 +83,25 @@ class OnboardingServiceTest {
 
 		assertThat(result.id()).isEqualTo(EXISTING_RESPONSE_ID);
 		assertThat(repository.savedResponse.id()).isEqualTo(EXISTING_RESPONSE_ID);
+	}
+
+	@Test
+	void saveMyDraftReplacesExistingResponseSlotsWithCurrentRequestSlots() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.existingResponse = existingResponse().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
+		OnboardingService service = service(repository, REPLACEMENT_SLOT_ID);
+
+		GroupOnboardingResponse result = service.saveMyDraft(commandWithSlots(
+			new AvailabilitySlotCommand(4, "21:00", "23:00", "Asia/Seoul")
+		));
+
+		assertThat(result.id()).isEqualTo(EXISTING_RESPONSE_ID);
+		assertThat(result.availabilitySlots()).extracting(MemberAvailabilitySlot::id)
+			.containsExactly(REPLACEMENT_SLOT_ID);
+		assertThat(result.availabilitySlots()).extracting(MemberAvailabilitySlot::dayOfWeek)
+			.containsExactly(4);
 	}
 
 	@Test
@@ -95,7 +137,8 @@ class OnboardingServiceTest {
 				GROUP_ID,
 				Map.of("Docker", 2),
 				Map.of(),
-				null
+				null,
+				List.of()
 			)))
 			.isInstanceOf(InvalidOnboardingRequestException.class)
 			.extracting("field")
@@ -103,16 +146,32 @@ class OnboardingServiceTest {
 	}
 
 	@Test
+	void saveMyDraftTranslatesInvalidAvailabilitySlotIntoFieldErrorException() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		OnboardingService service = service(repository, RESPONSE_ID, SLOT_ID);
+
+		assertThatThrownBy(() -> service.saveMyDraft(commandWithSlots(
+				new AvailabilitySlotCommand(1, "22:00", "20:00", "Asia/Seoul")
+			)))
+			.isInstanceOf(InvalidOnboardingRequestException.class)
+			.extracting("field")
+			.isEqualTo("availabilitySlots");
+	}
+
+	@Test
 	void getMyResponseReturnsExistingResponseForCurrentMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse();
+		repository.existingResponse = existingResponse().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
 		OnboardingService service = service(repository, RESPONSE_ID);
 
 		GroupOnboardingResponse result = service.getMyResponse(new GetMyOnboardingQuery(USER_ID, GROUP_ID));
 
 		assertThat(result).isSameAs(repository.existingResponse);
+		assertThat(result.availabilitySlots()).hasSize(1);
 	}
 
 	@Test
@@ -127,8 +186,8 @@ class OnboardingServiceTest {
 			.hasMessage("onboarding response was not found.");
 	}
 
-	private static OnboardingService service(CapturingRepository repository, UUID nextId) {
-		Supplier<UUID> idGenerator = () -> nextId;
+	private static OnboardingService service(CapturingRepository repository, UUID... nextIds) {
+		Supplier<UUID> idGenerator = new DeterministicIds(nextIds);
 		return new OnboardingService(repository, CLOCK, idGenerator);
 	}
 
@@ -138,7 +197,19 @@ class OnboardingServiceTest {
 			GROUP_ID,
 			Map.of("JPA", 2),
 			Map.of("READING", 4),
-			"실습 위주가 좋아요."
+			"실습 위주가 좋아요.",
+			List.of()
+		);
+	}
+
+	private static SaveMyOnboardingCommand commandWithSlots(AvailabilitySlotCommand... slots) {
+		return new SaveMyOnboardingCommand(
+			USER_ID,
+			GROUP_ID,
+			Map.of("JPA", 2),
+			Map.of("READING", 4),
+			"실습 위주가 좋아요.",
+			List.of(slots)
 		);
 	}
 
@@ -151,6 +222,39 @@ class OnboardingServiceTest {
 			null,
 			NOW
 		);
+	}
+
+	private static MemberAvailabilitySlot slot(UUID slotId, UUID responseId) {
+		return MemberAvailabilitySlot.create(
+			slotId,
+			responseId,
+			MEMBER_ID,
+			2,
+			"20:00",
+			"22:00",
+			"Asia/Seoul",
+			NOW
+		);
+	}
+
+	private static final class DeterministicIds implements Supplier<UUID> {
+
+		private final List<UUID> ids;
+		private int index;
+
+		private DeterministicIds(UUID... ids) {
+			this.ids = List.of(ids);
+		}
+
+		@Override
+		public UUID get() {
+			if (index >= ids.size()) {
+				throw new AssertionError("no deterministic id left");
+			}
+			UUID next = ids.get(index);
+			index++;
+			return next;
+		}
 	}
 
 	private static final class CapturingRepository implements OnboardingRepository {

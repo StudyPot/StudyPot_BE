@@ -4,14 +4,21 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
+import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
+import com.studypot.aistudyleader.onboarding.service.AvailabilitySlotCommand;
 import com.studypot.aistudyleader.onboarding.service.GetMyOnboardingQuery;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.SaveMyOnboardingCommand;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -83,16 +90,41 @@ class OnboardingController {
 		Map<String, Integer> taskPreferences,
 		String additionalNote,
 		@NotNull
-		List<Map<String, Object>> availabilitySlots
+		List<@NotNull @Valid AvailabilitySlotRequest> availabilitySlots
 	) {
 
-		@AssertTrue(message = "availabilitySlots are handled by a follow-up task")
-		boolean isAvailabilitySlotsEmpty() {
-			return availabilitySlots == null || availabilitySlots.isEmpty();
-		}
-
 		SaveMyOnboardingCommand toCommand(UUID authenticatedUserId, UUID groupId) {
-			return new SaveMyOnboardingCommand(authenticatedUserId, groupId, keywordSkillLevels, taskPreferences, additionalNote);
+			return new SaveMyOnboardingCommand(
+				authenticatedUserId,
+				groupId,
+				keywordSkillLevels,
+				taskPreferences,
+				additionalNote,
+				availabilitySlots.stream()
+					.map(AvailabilitySlotRequest::toCommand)
+					.toList()
+			);
+		}
+	}
+
+	private record AvailabilitySlotRequest(
+		@NotNull
+		@Min(0)
+		@Max(6)
+		Integer dayOfWeek,
+		@NotBlank
+		@Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "must use HH:mm format")
+		String startTime,
+		@NotBlank
+		@Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "must use HH:mm format")
+		String endTime,
+		@NotBlank
+		@ValidTimezone
+		String timezone
+	) {
+
+		private AvailabilitySlotCommand toCommand() {
+			return new AvailabilitySlotCommand(dayOfWeek, startTime, endTime, timezone);
 		}
 	}
 
@@ -103,7 +135,7 @@ class OnboardingController {
 		Map<String, Integer> keywordSkillLevels,
 		Map<String, Integer> taskPreferences,
 		String additionalNote,
-		List<Object> availabilitySlots,
+		List<AvailabilitySlotResponse> availabilitySlots,
 		GroupOnboardingStatus status,
 		Instant submittedAt
 	) {
@@ -116,10 +148,35 @@ class OnboardingController {
 				response.keywordSkillLevels(),
 				response.taskPreferences(),
 				response.additionalNote().orElse(null),
-				List.of(),
+				response.availabilitySlots().stream()
+					.map(AvailabilitySlotResponse::from)
+					.toList(),
 				response.status(),
 				response.submittedAt().orElse(null)
 			);
+		}
+	}
+
+	private record AvailabilitySlotResponse(
+		int dayOfWeek,
+		String startTime,
+		String endTime,
+		String timezone
+	) {
+
+		private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+
+		private static AvailabilitySlotResponse from(MemberAvailabilitySlot slot) {
+			return new AvailabilitySlotResponse(
+				slot.dayOfWeek(),
+				format(slot.startTime()),
+				format(slot.endTime()),
+				slot.timezone()
+			);
+		}
+
+		private static String format(LocalTime time) {
+			return time.format(TIME_FORMAT);
 		}
 	}
 }
