@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
+import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
@@ -60,7 +61,7 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingRejectsNonEmptyAvailabilitySlots() throws Exception {
+	void saveMyOnboardingRejectsInvalidAvailabilityTimeWindow() throws Exception {
 		mockMvc.perform(put(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf"))
@@ -70,7 +71,7 @@ class OnboardingControllerTest {
 					  "keywordSkillLevels": {"JPA": 2},
 					  "taskPreferences": {"READING": 4},
 					  "availabilitySlots": [
-					    {"dayOfWeek": 1, "startTime": "20:00", "endTime": "21:00", "timezone": "Asia/Seoul"}
+					    {"dayOfWeek": 1, "startTime": "22:00", "endTime": "20:00", "timezone": "Asia/Seoul"}
 					  ]
 					}
 					"""))
@@ -95,6 +96,10 @@ class OnboardingControllerTest {
 			.andExpect(jsonPath("$.taskPreferences.READING").value(4))
 			.andExpect(jsonPath("$.additionalNote").value("실습 위주가 좋아요."))
 			.andExpect(jsonPath("$.availabilitySlots").isArray())
+			.andExpect(jsonPath("$.availabilitySlots[0].dayOfWeek").value(2))
+			.andExpect(jsonPath("$.availabilitySlots[0].startTime").value("20:00"))
+			.andExpect(jsonPath("$.availabilitySlots[0].endTime").value("22:00"))
+			.andExpect(jsonPath("$.availabilitySlots[0].timezone").value("Asia/Seoul"))
 			.andExpect(jsonPath("$.status").value("DRAFT"));
 	}
 
@@ -107,6 +112,7 @@ class OnboardingControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
 			.andExpect(jsonPath("$.keywordSkillLevels.JPA").value(2))
+			.andExpect(jsonPath("$.availabilitySlots[0].dayOfWeek").value(2))
 			.andExpect(jsonPath("$.status").value("DRAFT"));
 	}
 
@@ -116,7 +122,9 @@ class OnboardingControllerTest {
 			  "keywordSkillLevels": {"JPA": 2},
 			  "taskPreferences": {"READING": 4},
 			  "additionalNote": "실습 위주가 좋아요.",
-			  "availabilitySlots": []
+			  "availabilitySlots": [
+			    {"dayOfWeek": 2, "startTime": "20:00", "endTime": "22:00", "timezone": "Asia/Seoul"}
+			  ]
 			}
 			""";
 	}
@@ -139,6 +147,7 @@ class OnboardingControllerTest {
 
 		private static final UUID RESPONSE_ID = UUID.fromString("018f0000-0000-7000-8000-000000003063");
 		private static final UUID MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000003064");
+		private static final UUID SLOT_ID = UUID.fromString("018f0000-0000-7000-8000-000000003065");
 		private static final Instant NOW = Instant.parse("2026-05-09T08:30:00Z");
 		private static final OnboardingMemberContext CONTEXT = new OnboardingMemberContext(
 			GROUP_ID,
@@ -149,7 +158,7 @@ class OnboardingControllerTest {
 		@Bean
 		@Primary
 		OnboardingService onboardingService() {
-			return new OnboardingService(new InMemoryOnboardingRepository(), Clock.fixed(NOW, ZoneOffset.UTC), () -> RESPONSE_ID);
+			return new OnboardingService(new InMemoryOnboardingRepository(), Clock.fixed(NOW, ZoneOffset.UTC), new DeterministicIds());
 		}
 
 		private static final class InMemoryOnboardingRepository implements OnboardingRepository {
@@ -161,7 +170,7 @@ class OnboardingControllerTest {
 				Map.of("READING", 4),
 				"실습 위주가 좋아요.",
 				NOW
-			);
+			).withAvailabilitySlots(List.of(slot()));
 
 			@Override
 			public boolean existsStudyGroup(UUID groupId) {
@@ -182,6 +191,35 @@ class OnboardingControllerTest {
 			public GroupOnboardingResponse saveDraft(GroupOnboardingResponse response) {
 				this.response = response;
 				return response;
+			}
+
+			private static MemberAvailabilitySlot slot() {
+				return MemberAvailabilitySlot.create(
+					SLOT_ID,
+					RESPONSE_ID,
+					MEMBER_ID,
+					2,
+					"20:00",
+					"22:00",
+					"Asia/Seoul",
+					NOW
+				);
+			}
+		}
+
+		private static final class DeterministicIds implements java.util.function.Supplier<UUID> {
+
+			private final List<UUID> ids = List.of(SLOT_ID);
+			private int index;
+
+			@Override
+			public UUID get() {
+				if (index >= ids.size()) {
+					throw new AssertionError("no deterministic id left");
+				}
+				UUID next = ids.get(index);
+				index++;
+				return next;
 			}
 		}
 	}

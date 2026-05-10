@@ -30,6 +30,15 @@ final class OnboardingJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String SELECT_AVAILABILITY_SLOTS_BY_RESPONSE = """
+		select id, onboarding_response_id, member_id, day_of_week, start_time,
+		       end_time, timezone, created_at, updated_at
+		from member_availability_slot
+		where onboarding_response_id = ?
+		  and deleted_at is null
+		order by day_of_week, start_time, end_time
+		""";
+
 	static final String UPSERT_ONBOARDING_RESPONSE_DRAFT = """
 		insert into group_onboarding_response (
 		  id, group_id, member_id, keyword_skill_levels, task_preferences,
@@ -42,6 +51,18 @@ final class OnboardingJdbcSql {
 		  status = values(status),
 		  submitted_at = null,
 		  updated_at = values(updated_at)
+		""";
+
+	static final String DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """
+		delete from member_availability_slot
+		where onboarding_response_id = ?
+		""";
+
+	static final String INSERT_AVAILABILITY_SLOT = """
+		insert into member_availability_slot (
+		  id, onboarding_response_id, member_id, day_of_week, start_time,
+		  end_time, timezone, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
 	private OnboardingJdbcSql() {

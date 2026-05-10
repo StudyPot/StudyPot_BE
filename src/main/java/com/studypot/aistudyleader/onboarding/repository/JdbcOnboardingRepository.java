@@ -6,11 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
+import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,7 +52,8 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 	@Override
 	public Optional<GroupOnboardingResponse> findResponseByMemberId(UUID memberId) {
 		Objects.requireNonNull(memberId, "memberId must not be null");
-		return queryOne(OnboardingJdbcSql.SELECT_RESPONSE_BY_MEMBER, this::mapResponse, uuid(memberId));
+		return queryOne(OnboardingJdbcSql.SELECT_RESPONSE_BY_MEMBER, this::mapResponse, uuid(memberId))
+			.map(response -> response.withAvailabilitySlots(findAvailabilitySlots(response.id())));
 	}
 
 	@Override
@@ -68,6 +72,21 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			timestamp(response.auditMetadata().createdAt()),
 			timestamp(response.auditMetadata().updatedAt())
 		);
+		jdbcTemplate.update(OnboardingJdbcSql.DELETE_AVAILABILITY_SLOTS_BY_RESPONSE, uuid(response.id()));
+		for (MemberAvailabilitySlot slot : response.availabilitySlots()) {
+			jdbcTemplate.update(
+				OnboardingJdbcSql.INSERT_AVAILABILITY_SLOT,
+				uuid(slot.id()),
+				uuid(slot.onboardingResponseId()),
+				uuid(slot.memberId()),
+				slot.dayOfWeek(),
+				time(slot.startTime()),
+				time(slot.endTime()),
+				slot.timezone(),
+				timestamp(slot.auditMetadata().createdAt()),
+				timestamp(slot.auditMetadata().updatedAt())
+			);
+		}
 		return response;
 	}
 
@@ -89,6 +108,24 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			resultSet.getString("additional_note"),
 			GroupOnboardingStatus.valueOf(resultSet.getString("status")),
 			instant(resultSet.getTimestamp("submitted_at")),
+			instant(resultSet.getTimestamp("created_at")),
+			instant(resultSet.getTimestamp("updated_at"))
+		);
+	}
+
+	private List<MemberAvailabilitySlot> findAvailabilitySlots(UUID responseId) {
+		return jdbcTemplate.query(OnboardingJdbcSql.SELECT_AVAILABILITY_SLOTS_BY_RESPONSE, this::mapAvailabilitySlot, uuid(responseId));
+	}
+
+	private MemberAvailabilitySlot mapAvailabilitySlot(ResultSet resultSet, int rowNumber) throws SQLException {
+		return MemberAvailabilitySlot.rehydrate(
+			UuidBinary.fromBytes(resultSet.getBytes("id")),
+			UuidBinary.fromBytes(resultSet.getBytes("onboarding_response_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			resultSet.getInt("day_of_week"),
+			localTime(resultSet.getTime("start_time")),
+			localTime(resultSet.getTime("end_time")),
+			resultSet.getString("timezone"),
 			instant(resultSet.getTimestamp("created_at")),
 			instant(resultSet.getTimestamp("updated_at"))
 		);
@@ -121,6 +158,14 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 
 	private static Timestamp timestamp(Instant instant) {
 		return instant == null ? null : Timestamp.from(instant);
+	}
+
+	private static Time time(LocalTime time) {
+		return Time.valueOf(time);
+	}
+
+	private static LocalTime localTime(Time time) {
+		return time.toLocalTime();
 	}
 
 	private static Instant instant(Timestamp timestamp) {
