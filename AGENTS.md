@@ -15,9 +15,9 @@ The working rules in this repository are not recommendations; they are the defau
 - Before implementation, read documents in this order: `AGENTS.md -> ARCHITECTURE.md -> docs/index.md -> task-related docs`.
 - Do not skip writing tests or running verification.
 - Human-authored commit subjects and PR titles must follow the `[type] 한글 내용` format. `type` must be lowercase English, such as `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`, `perf`, `style`, or `revert`.
-- Human-facing Mattermost notifications, PR bodies, PR review comments, and role gate evidence must be written in Korean. Keep only machine-readable marker tokens such as `CTO Architecture Gate: PASS` and `Head: <sha>` in their required literal form.
+- Human-facing Mattermost notifications, PR bodies, PR review comments, and review evidence must be written in Korean. Keep only machine-readable marker tokens such as `CodeRabbit Subagent Review: PASS` and `Head: <sha>` in their required literal form.
 - Use `scripts/task/create-pr.sh` as the default path for push and PR creation.
-- `scripts/task/create-pr.sh` requests a GitHub Copilot review by default; do not send Mattermost readiness until Copilot feedback has been received and addressed.
+- After PR creation, run `scripts/task/run-coderabbit-review.sh <PR_NUMBER>` to request one CodeRabbit agent-mode review. If CodeRabbit reports issues, fix that feedback once and post addressed evidence with `scripts/task/post-coderabbit-addressed.sh <PR_NUMBER> <evidence_file>`.
 - Do not auto-merge PRs. After passing the PR review gate, use `scripts/task/finish-pr.sh` to verify readiness and send the Mattermost manual-merge notification; the human user clicks the GitHub merge button.
 - After the human merge, GitHub Actions moves the linked Jira Task to Done; then run `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` for develop sync, worktree cleanup, branch cleanup, and idempotent Jira state recording.
 - Do not merge based on green CI alone. Check the GitHub Actions Review Gate marker and unresolved thread status.
@@ -59,16 +59,14 @@ The working rules in this repository are not recommendations; they are the defau
 - The PR body must include the Jira issue key/URL.
 - The default PR target is `develop`.
 - Do not consider a PR ready to merge until the GitHub Actions Review Gate has posted a PASS comment for the latest PR head.
-- Do not send the Mattermost manual-merge notification until GitHub Copilot has reviewed the latest PR head and every Copilot review thread is resolved after actionable fixes.
+- Do not send the Mattermost manual-merge notification until the latest PR head has a `CodeRabbit Subagent Review: PASS` marker or a `CodeRabbit Subagent Review: ADDRESSED` marker with evidence.
 - Address reviewdog/actionlint feedback and every actionable review comment through code, tests, or docs, then resolve the review threads.
-- Codex review follows a company-style role pipeline by default: CTO Architecture, QA Verification, Product Value, and Final CTO Merge gates.
-- Address actionable feedback from each role before requesting the next gate.
-- Every role gate PASS marker must include review evidence for that role; evidence-free markers are not accepted.
-- The GitHub Actions `review-gate-pass` required check must verify the latest-head role gate markers and fail until CTO Architecture, QA Verification, Product Value, and Final CTO Merge evidence markers exist.
+- The default review loop is one CodeRabbit agent-mode review. If CodeRabbit returns zero issues, post `CodeRabbit Subagent Review: PASS`. If it returns issues, fix those issues once, verify, and post `CodeRabbit Subagent Review: ADDRESSED`.
+- Evidence-free CodeRabbit ADDRESSED markers are not accepted. The evidence must include `## 증거` plus non-empty `리뷰 결과`, `수정 범위`, and `검증` entries.
+- The GitHub Actions `review-gate-pass` required check must verify the latest-head CodeRabbit review marker and fail until it exists.
 - The default review gate comment must contain these markers:
   - `GitHub Actions Review Gate: PASS`
   - `Head: <current_pr_head_sha>`
-- The final merge gate also requires latest-head `CTO Architecture Gate`, `QA Verification Gate`, `Product Value Gate`, and `Final CTO Merge Gate` PASS markers unless explicitly disabled for harness/bootstrap exceptions; without them, the GitHub merge button remains blocked by the required `review-gate-pass` check.
 - `scripts/task/finish-pr.sh` verifies that the PR head did not change during verification and sends a Mattermost notification instead of merging.
 - GitHub Actions transitions the linked Jira Task to the done status after the human merge; `scripts/task/finish-pr.sh cleanup-merged <PR_NUMBER>` remains required for local cleanup and idempotent Jira state recording.
 

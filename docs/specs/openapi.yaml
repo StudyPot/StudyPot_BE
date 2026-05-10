@@ -2,12 +2,63 @@ openapi: 3.1.0
 info:
   title: AI Study Leader API
   version: 1.0.0
-  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend with in-app notification.
+  description: Locked v1 REST contract for the onboarding-based AI Study Leader backend with in-app notification. OAuth cookie login changes are approved by CR-20260508-oauth2-cookie-login and ADR-20260508-oauth2-cookie-login.
+  x-change-control:
+    status: LOCKED_FOR_IMPLEMENTATION
+    approvedChanges:
+      - CR-20260508-oauth2-cookie-login
+      - ADR-20260508-oauth2-cookie-login
 servers:
   - url: /api/v1
 security:
   - bearerAuth: []
+  - cookieAccessToken: []
 paths:
+  /api/oauth2/authorization/google:
+    get:
+      servers:
+        - url: /
+      tags: [Auth]
+      operationId: startGoogleOAuthLogin
+      security: []
+      responses:
+        '302':
+          description: Redirects the browser to Google OAuth. PKCE verifier state is persisted server-side, keyed by oauth_state, and is not sent to the browser.
+          headers:
+            Location:
+              schema: {type: string, format: uri}
+            Set-Cookie:
+              schema: {type: string}
+              description: Optional short-lived HttpOnly OAuth state correlation cookie. PKCE verifier state stays server-side.
+  /api/login/oauth2/code/google:
+    get:
+      servers:
+        - url: /
+      tags: [Auth]
+      operationId: completeGoogleOAuthLogin
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema: {type: string}
+        - name: state
+          in: query
+          required: false
+          schema: {type: string}
+        - name: error
+          in: query
+          required: false
+          schema: {type: string}
+      responses:
+        '302':
+          description: Redirects to frontend success or failure URI; success sets HttpOnly token cookies, clears OAuth state, and never returns tokens in the URL
+          headers:
+            Location:
+              schema: {type: string, format: uri}
+            Set-Cookie:
+              schema: {type: string}
+              description: HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies on success and cleared temporary OAuth state cookies when present.
   /auth/oauth/google:
     post:
       tags: [Auth]
@@ -21,7 +72,11 @@ paths:
               $ref: '#/components/schemas/GoogleOAuthLoginRequest'
       responses:
         '200':
-          description: Application tokens issued from a Google authorization code
+          description: Application tokens issued from a Google authorization code; also sets HttpOnly token cookies
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+              description: HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies.
           content:
             application/json:
               schema:
@@ -32,14 +87,18 @@ paths:
       operationId: refreshAuthToken
       security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshTokenRequest'
       responses:
         '200':
-          description: Refreshed application tokens
+          description: Refreshed application tokens; also sets rotated HttpOnly token cookies
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+              description: Rotated HttpOnly `studypot_access_token` and `studypot_refresh_token` cookies.
           content:
             application/json:
               schema:
@@ -49,14 +108,14 @@ paths:
       tags: [Auth]
       operationId: logoutCurrentSession
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LogoutRequest'
       responses:
         '204':
-          description: Current refresh token revoked
+          description: Current refresh token revoked and token cookies cleared when present
   /auth/logout-all:
     post:
       tags: [Auth]
@@ -440,6 +499,14 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    cookieAccessToken:
+      type: apiKey
+      in: cookie
+      name: studypot_access_token
+    cookieRefreshToken:
+      type: apiKey
+      in: cookie
+      name: studypot_refresh_token
   parameters:
     GroupId:
       name: groupId
@@ -488,12 +555,10 @@ components:
         codeVerifier: {type: string}
     RefreshTokenRequest:
       type: object
-      required: [refreshToken]
       properties:
         refreshToken: {type: string, minLength: 1}
     LogoutRequest:
       type: object
-      required: [refreshToken]
       properties:
         refreshToken: {type: string, minLength: 1}
     AuthTokenResponse:

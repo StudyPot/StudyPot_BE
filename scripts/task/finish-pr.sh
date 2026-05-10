@@ -57,7 +57,7 @@ require_latest_head_review_gates() {
     [[ "${pass_count}" -gt 0 ]] || fail "latest-head GitHub Actions review gate pass marker is missing."
   fi
 
-  "${SCRIPT_DIR}/verify-role-review-gates.sh" "${pr}" "${head_sha}"
+  "${SCRIPT_DIR}/verify-coderabbit-review.sh" "${pr}" "${head_sha}"
 }
 
 find_feature_worktree() {

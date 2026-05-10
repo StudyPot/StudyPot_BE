@@ -17,11 +17,13 @@ alter table group_member
   add unique key group_member_group_user_live_uidx (group_user_live_key);
 
 alter table group_onboarding_response
+  add key onboarding_member_fk_idx (member_id),
   drop index onboarding_member_uidx,
   add column member_live_key binary(16) generated always as (case when deleted_at is null then member_id else null end) stored,
   add unique key onboarding_member_live_uidx (member_live_key);
 
 alter table curriculum
+  add key curriculum_group_fk_idx (group_id),
   drop index curriculum_group_uidx,
   add column group_live_key binary(16) generated always as (case when deleted_at is null then group_id else null end) stored,
   add unique key curriculum_group_live_uidx (group_live_key);

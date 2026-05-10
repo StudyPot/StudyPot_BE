@@ -15,16 +15,32 @@ class LayeredArchitectureTest {
 	@ArchTest
 	static final ArchRule domainCodeDoesNotDependOnSpringOrAdapters = noClasses()
 		.that().resideInAPackage("..domain..")
-		.should().dependOnClassesThat().resideInAnyPackage("org.springframework..", "jakarta..", "..application..", "..adapter..");
+		.should().dependOnClassesThat().resideInAnyPackage(
+			"org.springframework..",
+			"jakarta..",
+			"..controller..",
+			"..service..",
+			"..repository..",
+			"..infrastructure.."
+		);
 
 	@ArchTest
-	static final ArchRule applicationCodeDoesNotDependOnAdapters = noClasses()
-		.that().resideInAPackage("..application..")
-		.should().dependOnClassesThat().resideInAnyPackage("..adapter..");
+	static final ArchRule serviceCodeDoesNotDependOnControllersOrInfrastructure = noClasses()
+		.that().resideInAPackage("..service..")
+		.should().dependOnClassesThat().resideInAnyPackage("..controller..", "..infrastructure..");
 
 	@ArchTest
-	static final ArchRule productionControllersLiveInInboundWebAdapters = classes()
+	static final ArchRule repositoryCodeDoesNotDependOnControllersOrServices = noClasses()
+		.that().resideInAPackage("..repository..")
+		.should().dependOnClassesThat().resideInAnyPackage("..controller..", "..service..");
+
+	@ArchTest
+	static final ArchRule productionControllersLiveInControllerPackages = classes()
 		.that().areAnnotatedWith(RestController.class)
-		.should().resideInAPackage("..adapter.in.web..")
+		.should().resideInAPackage("..controller..")
 		.allowEmptyShould(true);
+
+	@ArchTest
+	static final ArchRule legacyHexagonalAuthAndSharedPackagesAreNotUsed = noClasses()
+		.should().resideInAnyPackage("..adapter..", "..identity..", "..shared..");
 }

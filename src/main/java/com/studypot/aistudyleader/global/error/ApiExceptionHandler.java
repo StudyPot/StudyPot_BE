@@ -1,7 +1,20 @@
 package com.studypot.aistudyleader.global.error;
 
+import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
+import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
+import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
+import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
+import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
+import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
+import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
+import java.util.List;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -52,6 +65,62 @@ public class ApiExceptionHandler {
 			.sorted(Comparator.comparing(FieldErrorResponse::field))
 			.toList();
 
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidAuthRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidAuthRequest(InvalidAuthRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler({AuthSessionRejectedException.class, OAuthLoginRejectedException.class})
+	public ResponseEntity<ProblemDetail> handleAuthSessionRejected(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+			.body(problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(AuthServiceUnavailableException.class)
+	public ResponseEntity<ProblemDetail> handleAuthServiceUnavailable(AuthServiceUnavailableException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupServiceUnavailableException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupServiceUnavailable(StudyGroupServiceUnavailableException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(OnboardingServiceUnavailableException.class)
+	public ResponseEntity<ProblemDetail> handleOnboardingServiceUnavailable(OnboardingServiceUnavailableException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler({StudyGroupNotFoundException.class, OnboardingGroupNotFoundException.class, OnboardingResponseNotFoundException.class})
+	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(OnboardingMembershipRequiredException.class)
+	public ResponseEntity<ProblemDetail> handleOnboardingMembershipRequired(OnboardingMembershipRequiredException exception) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupJoinRejectedException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupJoinRejected(StudyGroupJoinRejectedException exception) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(InvalidOnboardingRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidOnboardingRequest(InvalidOnboardingRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
