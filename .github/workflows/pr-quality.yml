@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run harness tests
         run: bash scripts/tests/run.sh
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run ShellCheck with reviewdog
         uses: reviewdog/action-shellcheck@v1
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run actionlint with reviewdog
         uses: reviewdog/action-actionlint@v1
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Parse OpenAPI YAML
         run: |
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Verify ERD v0.8 schema coverage
         run: bash scripts/tests/test_quality_gate_contracts.sh
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run backend check when scaffold exists
         run: |
@@ -126,7 +126,7 @@ jobs:
 
       - name: Checkout
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Verify CodeRabbit subagent review gate
         if: ${{ github.event_name == 'pull_request' }}
