@@ -44,6 +44,21 @@ final class StudyGroupJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String SELECT_GROUPS_BY_MEMBER_USER_ID = """
+		select
+		  sg.id, sg.created_by, sg.name, sg.description, sg.topic, sg.detail_keywords,
+		  sg.status, sg.max_members, sg.is_public, sg.invite_code, sg.starts_at, sg.ends_at,
+		  sg.onboarding_started_at, sg.started_at, sg.created_at, sg.updated_at
+		from study_group sg
+		join group_member gm on gm.group_id = sg.id
+		where gm.user_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		  and sg.status in ('ONBOARDING', 'ACTIVE', 'COMPLETED')
+		  and sg.deleted_at is null
+		order by gm.joined_at desc, sg.created_at desc, sg.id desc
+		""";
+
 	private StudyGroupJdbcSql() {
 	}
 }

@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
@@ -28,6 +29,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,6 +41,14 @@ import org.springframework.web.bind.annotation.RestController;
 class StudyGroupController {
 
 	private final ObjectProvider<StudyGroupService> studyGroupService;
+
+	@GetMapping(ApiPaths.V1 + "/groups")
+	List<StudyGroupResponse> listGroups(Authentication authentication) {
+		return service().listMyGroups(new ListStudyGroupsQuery(authenticatedUserId(authentication)))
+			.stream()
+			.map(StudyGroupResponse::from)
+			.toList();
+	}
 
 	@PostMapping(ApiPaths.V1 + "/groups")
 	@ResponseStatus(HttpStatus.CREATED)
