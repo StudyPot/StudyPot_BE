@@ -28,6 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 @TestPropertySource(properties = {
 	"springdoc.api-docs.enabled=true",
 	"springdoc.swagger-ui.enabled=true",
+	"springdoc.swagger-ui.with-credentials=true",
+	"springdoc.swagger-ui.csrf.enabled=true",
+	"springdoc.swagger-ui.csrf.cookie-name=XSRF-TOKEN",
+	"springdoc.swagger-ui.csrf.header-name=X-XSRF-TOKEN",
 	"studypot.openapi.public-docs-enabled=true"
 })
 class SecurityConfigurationTest {
@@ -74,7 +78,23 @@ class SecurityConfigurationTest {
 			.andExpect(jsonPath("$.openapi").exists())
 			.andExpect(jsonPath("$.info.title").value("AI Study Leader API"))
 			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
-			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"));
+			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+			.andExpect(jsonPath("$.components.securitySchemes.cookieAccessToken.type").value("apiKey"))
+			.andExpect(jsonPath("$.components.securitySchemes.cookieAccessToken.in").value("cookie"))
+			.andExpect(jsonPath("$.components.securitySchemes.cookieAccessToken.name").value("studypot_access_token"))
+			.andExpect(jsonPath("$.security[0].bearerAuth").isArray())
+			.andExpect(jsonPath("$.security[1].cookieAccessToken").isArray())
+			.andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.security").isEmpty());
+
+		mockMvc.perform(get("/v3/api-docs/swagger-config"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.withCredentials").value(true));
+
+		mockMvc.perform(get("/swagger-ui/swagger-initializer.js"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(org.hamcrest.Matchers.containsString("requestInterceptor: (request) =>")))
+			.andExpect(content().string(org.hamcrest.Matchers.containsString("XSRF-TOKEN")))
+			.andExpect(content().string(org.hamcrest.Matchers.containsString("X-XSRF-TOKEN")));
 
 		mockMvc.perform(get("/swagger-ui.html"))
 			.andExpect(status().is3xxRedirection());

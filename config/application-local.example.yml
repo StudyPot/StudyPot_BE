@@ -31,6 +31,11 @@ springdoc:
     try-it-out-enabled: true
     persist-authorization: true
     display-request-duration: true
+    with-credentials: true
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
 
 logging:
   level:
