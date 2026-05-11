@@ -32,17 +32,25 @@ public record CurriculumWeek(
 		title = requireText(title, "title");
 		description = description == null || description.isBlank() ? null : description.strip();
 		sprintGoal = sprintGoal == null || sprintGoal.isBlank() ? null : sprintGoal.strip();
-		learningGoals = List.copyOf(Objects.requireNonNull(learningGoals, "learningGoals must not be null"));
-		resources = List.copyOf(Objects.requireNonNull(resources, "resources must not be null"));
+		learningGoals = copyNonNullList(learningGoals, "learningGoals");
+		resources = copyNonNullList(resources, "resources");
 		Objects.requireNonNull(status, "status must not be null");
 		Objects.requireNonNull(startsAt, "startsAt must not be null");
 		Objects.requireNonNull(endsAt, "endsAt must not be null");
 		if (!endsAt.isAfter(startsAt)) {
 			throw new IllegalArgumentException("endsAt must be after startsAt");
 		}
-		tasks = List.copyOf(Objects.requireNonNull(tasks, "tasks must not be null"));
+		tasks = copyNonNullList(tasks, "tasks");
 		Objects.requireNonNull(createdAt, "createdAt must not be null");
 		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+	}
+
+	private static <T> List<T> copyNonNullList(List<T> values, String fieldName) {
+		Objects.requireNonNull(values, fieldName + " must not be null");
+		if (values.stream().anyMatch(Objects::isNull)) {
+			throw new IllegalArgumentException(fieldName + " must not contain null elements");
+		}
+		return List.copyOf(values);
 	}
 
 	private static String requireText(String value, String fieldName) {

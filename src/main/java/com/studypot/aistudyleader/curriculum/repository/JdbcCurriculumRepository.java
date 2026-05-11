@@ -376,7 +376,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	private static String timeString(Time time) {
-		return time.toLocalTime().toString();
+		return time == null ? null : time.toLocalTime().toString();
 	}
 
 	private record SubmittedAvailabilityRow(UUID responseId, SubmittedAvailabilitySlot slot) {

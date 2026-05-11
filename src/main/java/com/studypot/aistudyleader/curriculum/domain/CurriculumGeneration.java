@@ -29,7 +29,11 @@ public record CurriculumGeneration(
 
 	public CurriculumGeneration {
 		title = requireText(title, "title");
-		weeks = List.copyOf(Objects.requireNonNull(weeks, "weeks must not be null"));
+		Objects.requireNonNull(weeks, "weeks must not be null");
+		if (weeks.stream().anyMatch(Objects::isNull)) {
+			throw new IllegalArgumentException("weeks must not contain null elements");
+		}
+		weeks = List.copyOf(weeks);
 		if (weeks.isEmpty()) {
 			throw new IllegalArgumentException("weeks must not be empty");
 		}
@@ -38,6 +42,12 @@ public record CurriculumGeneration(
 		model = requireText(model, "model");
 		if (inputTokens < 0 || outputTokens < 0) {
 			throw new IllegalArgumentException("token counts must not be negative");
+		}
+		if (totalCostUsd != null && totalCostUsd.signum() < 0) {
+			throw new IllegalArgumentException("totalCostUsd must not be negative");
+		}
+		if (latencyMs != null && latencyMs < 0) {
+			throw new IllegalArgumentException("latencyMs must not be negative");
 		}
 		Objects.requireNonNull(status, "status must not be null");
 		errorCode = errorCode == null || errorCode.isBlank() ? null : errorCode.strip();

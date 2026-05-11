@@ -1,8 +1,6 @@
 package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 
-import java.util.Map;
+public interface OpenAiResponsesTransport {
 
-interface OpenAiResponsesTransport {
-
-	String createResponse(Map<String, Object> request);
+	String createResponse(OpenAiResponseRequest request) throws OpenAiClientException;
 }

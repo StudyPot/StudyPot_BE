@@ -83,6 +83,7 @@ Add a focused `curriculum` feature slice following the current controller/servic
 - `POST /api/v1/groups/{groupId}/start` now delegates to `CurriculumService`, validates owner-only start, uses only submitted onboarding rows from persistence, inserts `llm_usage`, transitions the group to `ACTIVE`, and stores curriculum weeks/tasks.
 - `GET /api/v1/groups/{groupId}/curriculum` returns the active curriculum using the locked `CurriculumResponse` shape. Weeks/tasks are persisted for downstream weekly-todo endpoints but are not embedded in this response because OpenAPI does not define nested week/task fields there.
 - `config/application-local.example.yml` documents optional `studypot.ai.openai` settings. If no API key is configured, the OpenAI generator bean is not created and tests continue to use fake generators.
+- CodeRabbit review fixes tightened the OpenAI transport request boundary, added client timeout/exception handling, added nullable metric validation, removed delimiter-based availability slot keys, clarified persistence failure wrapping, and cleaned up brittle test assertions.
 
 ## Verification
 - [x] `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --no-daemon`
@@ -91,3 +92,5 @@ Add a focused `curriculum` feature slice following the current controller/servic
 - [x] `./gradlew test --tests com.studypot.aistudyleader.curriculum.infrastructure.openai.OpenAiCurriculumGeneratorTest --no-daemon`
 - [x] `./gradlew test --tests 'com.studypot.aistudyleader.curriculum.*' --no-daemon`
 - [x] `./gradlew check build --no-daemon`
+- [x] CodeRabbit review fix verification: `./gradlew test --tests com.studypot.aistudyleader.curriculum.infrastructure.openai.OpenAiCurriculumGeneratorTest --no-daemon`
+- [x] CodeRabbit review fix verification: `./gradlew check build --no-daemon`

@@ -120,7 +120,7 @@ class JdbcCurriculumRepositoryTest {
 		ArgumentCaptor<Object[]> groupArgs = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.UPDATE_STUDY_GROUP_STARTED), groupArgs.capture());
 		assertThat(groupArgs.getValue()[0]).isEqualTo(Timestamp.from(NOW));
-		assertThat(groupArgs.getValue()[2]).isEqualTo(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) groupArgs.getValue()[2]).containsExactly(UuidBinary.toBytes(GROUP_ID));
 
 		ArgumentCaptor<Object[]> usageArgs = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.INSERT_LLM_USAGE), usageArgs.capture());

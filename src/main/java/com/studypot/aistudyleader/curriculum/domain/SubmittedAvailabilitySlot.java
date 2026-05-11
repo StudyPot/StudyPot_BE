@@ -1,7 +1,5 @@
 package com.studypot.aistudyleader.curriculum.domain;
 
-import java.util.Objects;
-
 public record SubmittedAvailabilitySlot(
 	int dayOfWeek,
 	String startTime,
@@ -22,6 +20,6 @@ public record SubmittedAvailabilitySlot(
 		if (value == null || value.isBlank()) {
 			throw new IllegalArgumentException(fieldName + " must not be blank");
 		}
-		return Objects.requireNonNull(value).strip();
+		return value.strip();
 	}
 }

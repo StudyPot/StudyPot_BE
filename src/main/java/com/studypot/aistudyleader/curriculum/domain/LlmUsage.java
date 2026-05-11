@@ -34,6 +34,12 @@ public record LlmUsage(
 		if (inputTokens < 0 || outputTokens < 0) {
 			throw new IllegalArgumentException("token counts must not be negative");
 		}
+		if (totalCostUsd != null && totalCostUsd.signum() < 0) {
+			throw new IllegalArgumentException("totalCostUsd must not be negative");
+		}
+		if (latencyMs != null && latencyMs < 0) {
+			throw new IllegalArgumentException("latencyMs must not be negative");
+		}
 		Objects.requireNonNull(status, "status must not be null");
 		errorCode = errorCode == null || errorCode.isBlank() ? null : errorCode.strip();
 		requestPayload = Map.copyOf(Objects.requireNonNull(requestPayload, "requestPayload must not be null"));

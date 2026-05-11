@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
@@ -8,6 +9,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
+import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -43,7 +45,7 @@ class OpenAiCurriculumGeneratorTest {
 			""");
 		OpenAiCurriculumGenerator generator = new OpenAiCurriculumGenerator(
 			transport,
-			new com.fasterxml.jackson.databind.ObjectMapper(),
+			com.fasterxml.jackson.databind.json.JsonMapper.builder().findAndAddModules().build(),
 			"gpt-4o-mini"
 		);
 
@@ -60,6 +62,35 @@ class OpenAiCurriculumGeneratorTest {
 		assertThat(transport.request.get("text").toString()).contains("json_schema");
 		assertThat(transport.request.get("input").toString()).contains("Backend Interview Study");
 		assertThat(result.requestPayload()).containsEntry("purpose", "CURRICULUM_GENERATE");
+	}
+
+	@Test
+	void generateRejectsUnsupportedGeneratedTaskType() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "output": [
+			    {
+			      "type": "message",
+			      "content": [
+			        {
+			          "type": "output_text",
+			          "text": "{\\"title\\":\\"Spring Boot 6주 완성\\",\\"totalWeeks\\":1,\\"weeks\\":[{\\"weekNumber\\":1,\\"title\\":\\"JPA 기초\\",\\"sprintGoal\\":\\"핵심 개념을 맞춥니다.\\",\\"learningGoals\\":[\\"Entity 매핑 이해\\"],\\"resources\\":[],\\"tasks\\":[{\\"taskType\\":\\"UNKNOWN\\",\\"title\\":\\"JPA 읽기\\",\\"description\\":\\"공식 문서를 읽습니다.\\",\\"required\\":true}]}]}"
+			        }
+			      ]
+			    }
+			  ],
+			  "usage": {"input_tokens": 111, "output_tokens": 222}
+			}
+			""");
+		OpenAiCurriculumGenerator generator = new OpenAiCurriculumGenerator(
+			transport,
+			com.fasterxml.jackson.databind.json.JsonMapper.builder().findAndAddModules().build(),
+			"gpt-4o-mini"
+		);
+
+		assertThatThrownBy(() -> generator.generate(request()))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessageContaining("unsupported");
 	}
 
 	private static CurriculumGenerationRequest request() {
@@ -100,8 +131,8 @@ class OpenAiCurriculumGeneratorTest {
 		}
 
 		@Override
-		public String createResponse(Map<String, Object> request) {
-			this.request = request;
+		public String createResponse(OpenAiResponseRequest request) {
+			this.request = request.body();
 			return response;
 		}
 	}

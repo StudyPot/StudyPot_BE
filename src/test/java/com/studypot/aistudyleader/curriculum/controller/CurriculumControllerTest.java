@@ -45,13 +45,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest(classes = {AiStudyLeaderApplication.class, CurriculumControllerTest.TestCurriculumBeans.class})
 @AutoConfigureMockMvc
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class CurriculumControllerTest {
 
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000004121");

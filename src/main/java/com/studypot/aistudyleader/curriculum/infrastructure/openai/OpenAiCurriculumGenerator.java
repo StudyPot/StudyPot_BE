@@ -1,11 +1,11 @@
 package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
@@ -44,7 +44,7 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 	public CurriculumGeneration generate(CurriculumGenerationRequest request) {
 		Objects.requireNonNull(request, "request must not be null");
 		Instant startedAt = Instant.now();
-		Map<String, Object> responseRequest = responseRequest(request);
+		OpenAiResponseRequest responseRequest = responseRequest(request);
 		try {
 			String responseBody = transport.createResponse(responseRequest);
 			JsonNode response = objectMapper.readTree(responseBody);
@@ -59,24 +59,26 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 				usage.path("input_tokens").asInt(0),
 				usage.path("output_tokens").asInt(0),
 				BigDecimal.ZERO,
-				(int) Duration.between(startedAt, Instant.now()).toMillis(),
+				elapsedMillis(startedAt),
 				LlmUsageStatus.SUCCESS,
 				null,
 				redactedRequestPayload(request),
 				"Generated curriculum title: " + generated.title() + ", weeks: " + generated.weeks().size()
 			);
+		} catch (CurriculumGenerationException exception) {
+			throw exception;
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw new CurriculumGenerationException("curriculum generation failed.", exception);
 		}
 	}
 
-	private Map<String, Object> responseRequest(CurriculumGenerationRequest request) {
-		return Map.of(
+	private OpenAiResponseRequest responseRequest(CurriculumGenerationRequest request) {
+		return new OpenAiResponseRequest(Map.of(
 			"model", model,
 			"instructions", INSTRUCTIONS,
 			"input", inputJson(request),
 			"text", Map.of("format", schemaFormat())
-		);
+		));
 	}
 
 	private String inputJson(CurriculumGenerationRequest request) {
@@ -180,6 +182,14 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 		return new GeneratedCurriculum(title, weeks);
 	}
 
+	private static int elapsedMillis(Instant startedAt) {
+		long millis = Duration.between(startedAt, Instant.now()).toMillis();
+		if (millis <= 0) {
+			return 0;
+		}
+		return millis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) millis;
+	}
+
 	private record GeneratedCurriculum(String title, List<GeneratedWeek> weeks) {
 
 		List<CurriculumWeekPlan> toWeekPlans() {
@@ -199,13 +209,14 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 	) {
 
 		CurriculumWeekPlan toWeekPlan() {
+			List<GeneratedTask> generatedTasks = Objects.requireNonNull(tasks, "generated tasks must not be null");
 			return new CurriculumWeekPlan(
 				weekNumber,
 				title,
 				sprintGoal,
 				learningGoals == null ? List.of() : learningGoals,
 				resources == null ? List.of() : resources,
-				tasks.stream().map(GeneratedTask::toTaskPlan).toList()
+				generatedTasks.stream().map(GeneratedTask::toTaskPlan).toList()
 			);
 		}
 	}
@@ -218,7 +229,18 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 	) {
 
 		CurriculumTaskPlan toTaskPlan() {
-			return new CurriculumTaskPlan(WeeklyTaskType.valueOf(taskType), title, description, required);
+			return new CurriculumTaskPlan(parsedTaskType(), title, description, required);
+		}
+
+		private WeeklyTaskType parsedTaskType() {
+			if (taskType == null || taskType.isBlank()) {
+				throw new CurriculumGenerationException("generated taskType must not be blank.");
+			}
+			try {
+				return WeeklyTaskType.valueOf(taskType.strip());
+			} catch (IllegalArgumentException exception) {
+				throw new CurriculumGenerationException("generated taskType is unsupported: " + taskType, exception);
+			}
 		}
 	}
 }

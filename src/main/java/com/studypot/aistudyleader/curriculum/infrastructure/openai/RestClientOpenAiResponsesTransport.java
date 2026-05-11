@@ -1,8 +1,8 @@
 package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 
-import java.util.Map;
 import java.util.Objects;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 class RestClientOpenAiResponsesTransport implements OpenAiResponsesTransport {
 
@@ -13,11 +13,20 @@ class RestClientOpenAiResponsesTransport implements OpenAiResponsesTransport {
 	}
 
 	@Override
-	public String createResponse(Map<String, Object> request) {
-		return restClient.post()
-			.uri("/responses")
-			.body(request)
-			.retrieve()
-			.body(String.class);
+	public String createResponse(OpenAiResponseRequest request) {
+		Objects.requireNonNull(request, "request must not be null");
+		try {
+			String responseBody = restClient.post()
+				.uri("/responses")
+				.body(request.body())
+				.retrieve()
+				.body(String.class);
+			if (responseBody == null || responseBody.isBlank()) {
+				throw new OpenAiClientException("OpenAI Responses API returned an empty body.");
+			}
+			return responseBody;
+		} catch (RestClientException exception) {
+			throw new OpenAiClientException("OpenAI Responses API request failed.", exception);
+		}
 	}
 }

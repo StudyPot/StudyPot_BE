@@ -84,7 +84,7 @@ public class CurriculumService {
 		try {
 			repository.saveStartedCurriculum(context.groupId(), now, llmUsage, curriculum);
 		} catch (CurriculumPersistenceException exception) {
-			throw new CurriculumStartRejectedException("study group must be ONBOARDING to start curriculum generation.");
+			throw new CurriculumStartRejectedException("curriculum start persistence failed.", exception);
 		}
 		return curriculum;
 	}
@@ -150,21 +150,21 @@ public class CurriculumService {
 	}
 
 	private static List<Map<String, Object>> availabilitySummary(List<SubmittedOnboardingResponse> responses) {
-		Map<String, Integer> counts = new LinkedHashMap<>();
+		Map<SlotKey, Integer> counts = new LinkedHashMap<>();
 		for (SubmittedOnboardingResponse response : responses) {
 			for (SubmittedAvailabilitySlot slot : response.availabilitySlots()) {
-				String key = slot.dayOfWeek() + "|" + slot.startTime() + "|" + slot.endTime() + "|" + slot.timezone();
+				SlotKey key = new SlotKey(slot.dayOfWeek(), slot.startTime(), slot.endTime(), slot.timezone());
 				counts.merge(key, 1, Integer::sum);
 			}
 		}
 		List<Map<String, Object>> result = new ArrayList<>();
 		for (var entry : counts.entrySet()) {
-			String[] parts = entry.getKey().split("\\|", -1);
+			SlotKey slot = entry.getKey();
 			result.add(Map.of(
-				"dayOfWeek", Integer.parseInt(parts[0]),
-				"startTime", parts[1],
-				"endTime", parts[2],
-				"timezone", parts[3],
+				"dayOfWeek", slot.dayOfWeek(),
+				"startTime", slot.startTime(),
+				"endTime", slot.endTime(),
+				"timezone", slot.timezone(),
 				"responses", entry.getValue()
 			));
 		}
@@ -174,5 +174,8 @@ public class CurriculumService {
 	private enum ScoreKind {
 		KEYWORD,
 		TASK
+	}
+
+	private record SlotKey(int dayOfWeek, String startTime, String endTime, String timezone) {
 	}
 }
