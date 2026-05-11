@@ -8,6 +8,7 @@ import com.studypot.aistudyleader.studygroup.repository.StudyGroupInviteCodeConf
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -79,6 +80,12 @@ public class StudyGroupService {
 			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
 		}
 		return new StudyGroupJoinResult(member);
+	}
+
+	@Transactional(readOnly = true)
+	public List<StudyGroup> listMyGroups(ListStudyGroupsQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		return repository.findGroupsByMemberUserId(query.authenticatedUserId());
 	}
 
 	private StudyGroupCreationResult createCandidate(CreateStudyGroupCommand command) {

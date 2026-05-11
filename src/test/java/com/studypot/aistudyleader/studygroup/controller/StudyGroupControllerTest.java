@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.studygroup.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -156,6 +157,28 @@ class StudyGroupControllerTest {
 			.andExpect(jsonPath("$.detail").value("invite code does not match the study group."));
 	}
 
+	@Test
+	void listGroupsRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void listGroupsReturnsMyGroups() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$[0].name").value("Backend Interview Study"))
+			.andExpect(jsonPath("$[0].topic").value("Spring Boot"))
+			.andExpect(jsonPath("$[0].detailKeywords[0]").value("JPA"))
+			.andExpect(jsonPath("$[0].status").value("ONBOARDING"))
+			.andExpect(jsonPath("$[0].maxMembers").value(6))
+			.andExpect(jsonPath("$[0].inviteCode").value("INVITE-0001"));
+	}
+
 	private static String validRequestJson() {
 		return """
 			{
@@ -242,6 +265,23 @@ class StudyGroupControllerTest {
 
 		@Override
 		public void saveJoinedMember(GroupMember member) {
+		}
+
+		@Override
+		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
+			return List.of(StudyGroup.create(
+				GROUP_ID,
+				USER_ID,
+				"Backend Interview Study",
+				"Spring Boot",
+				List.of("JPA", "Security"),
+				6,
+				java.time.LocalDate.parse("2026-05-10"),
+				java.time.LocalDate.parse("2026-06-21"),
+				"Weekly backend interview prep",
+				"INVITE-0001",
+				TestStudyGroupBeans.NOW
+			));
 		}
 	}
 }

@@ -134,6 +134,30 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void findGroupsByMemberUserIdQueriesLiveMembershipGroups() {
+		StudyGroup group = group();
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(group));
+
+		List<StudyGroup> result = repository.findGroupsByMemberUserId(USER_ID);
+
+		assertThat(result).containsExactly(group);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void myGroupsQueryUsesCurrentLiveMembershipAndVisibleGroupFilters() {
+		assertThat(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID)
+			.contains("join group_member gm on gm.group_id = sg.id")
+			.contains("gm.user_id = ?")
+			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null");
+	}
+
+	@Test
 	void saveJoinedMemberInsertsMemberRow() {
 		GroupMember member = GroupMember.member(MEMBER_ID, GROUP_ID, USER_ID, null, NOW);
 

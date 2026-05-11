@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.studygroup.repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
@@ -23,6 +24,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 class JdbcStudyGroupRepository implements StudyGroupRepository {
+
+	private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+	};
 
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
@@ -135,12 +139,39 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		}
 	}
 
+	@Override
+	public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		return jdbcTemplate.query(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID, this::mapStudyGroup, uuid(userId));
+	}
+
 	private static StudyGroupJoinTarget mapJoinTarget(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new StudyGroupJoinTarget(
 			UuidBinary.fromBytes(resultSet.getBytes("id")),
 			StudyGroupStatus.valueOf(resultSet.getString("status")),
 			resultSet.getInt("max_members"),
 			resultSet.getString("invite_code")
+		);
+	}
+
+	private StudyGroup mapStudyGroup(ResultSet resultSet, int rowNumber) throws SQLException {
+		return StudyGroup.rehydrate(
+			UuidBinary.fromBytes(resultSet.getBytes("id")),
+			UuidBinary.fromBytes(resultSet.getBytes("created_by")),
+			resultSet.getString("name"),
+			resultSet.getString("topic"),
+			readDetailKeywords(resultSet.getString("detail_keywords")),
+			StudyGroupStatus.valueOf(resultSet.getString("status")),
+			resultSet.getInt("max_members"),
+			resultSet.getBoolean("is_public"),
+			resultSet.getString("invite_code"),
+			resultSet.getDate("starts_at").toLocalDate(),
+			resultSet.getDate("ends_at").toLocalDate(),
+			resultSet.getString("description"),
+			instant(resultSet.getTimestamp("onboarding_started_at")),
+			instant(resultSet.getTimestamp("started_at")),
+			instant(resultSet.getTimestamp("created_at")),
+			instant(resultSet.getTimestamp("updated_at"))
 		);
 	}
 
@@ -154,6 +185,14 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 			return objectMapper.writeValueAsString(group.detailKeywords());
 		} catch (JsonProcessingException exception) {
 			throw new StudyGroupPersistenceException("study group detail keywords could not be serialized.", exception);
+		}
+	}
+
+	private List<String> readDetailKeywords(String value) {
+		try {
+			return objectMapper.readValue(value, STRING_LIST);
+		} catch (JsonProcessingException exception) {
+			throw new StudyGroupPersistenceException("study group detail keywords could not be deserialized.", exception);
 		}
 	}
 
@@ -191,6 +230,10 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 
 	private static Timestamp timestamp(Instant instant) {
 		return instant == null ? null : Timestamp.from(instant);
+	}
+
+	private static Instant instant(Timestamp timestamp) {
+		return timestamp == null ? null : timestamp.toInstant();
 	}
 
 	private interface ThrowingRowMapper<T> {
