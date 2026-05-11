@@ -4,6 +4,12 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumAccessDeniedException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumGroupNotFoundException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumNotFoundException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumStartRejectedException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -100,20 +106,32 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({StudyGroupNotFoundException.class, OnboardingGroupNotFoundException.class, OnboardingResponseNotFoundException.class})
+	@ExceptionHandler({CurriculumServiceUnavailableException.class, CurriculumGenerationException.class})
+	public ResponseEntity<ProblemDetail> handleCurriculumServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler({
+		StudyGroupNotFoundException.class,
+		OnboardingGroupNotFoundException.class,
+		OnboardingResponseNotFoundException.class,
+		CurriculumGroupNotFoundException.class,
+		CurriculumNotFoundException.class
+	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler(OnboardingMembershipRequiredException.class)
-	public ResponseEntity<ProblemDetail> handleOnboardingMembershipRequired(OnboardingMembershipRequiredException exception) {
+	@ExceptionHandler({OnboardingMembershipRequiredException.class, CurriculumAccessDeniedException.class})
+	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler(StudyGroupJoinRejectedException.class)
-	public ResponseEntity<ProblemDetail> handleStudyGroupJoinRejected(StudyGroupJoinRejectedException exception) {
+	@ExceptionHandler({StudyGroupJoinRejectedException.class, CurriculumStartRejectedException.class})
+	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
 	}
