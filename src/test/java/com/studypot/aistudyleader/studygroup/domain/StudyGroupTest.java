@@ -94,6 +94,30 @@ class StudyGroupTest {
 			.hasMessage("endsAt must be on or after startsAt");
 	}
 
+	@Test
+	void rehydrateRejectsMissingAuditTimestamps() {
+		assertThatThrownBy(() -> StudyGroup.rehydrate(
+				GROUP_ID,
+				USER_ID,
+				"Backend Interview Study",
+				"Spring Boot",
+				List.of("JPA", "Security"),
+				StudyGroupStatus.ONBOARDING,
+				6,
+				false,
+				"INVITE-2026",
+				STARTS_AT,
+				ENDS_AT,
+				null,
+				NOW,
+				null,
+				null,
+				NOW
+			))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("createdAt must not be null");
+	}
+
 	private static StudyGroupBuilder validGroupBuilder() {
 		return new StudyGroupBuilder();
 	}

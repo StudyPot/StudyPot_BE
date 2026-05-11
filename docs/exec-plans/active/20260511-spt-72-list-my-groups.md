@@ -76,8 +76,11 @@ Extend the existing `studygroup` slice without changing the locked API contract.
 - Added `StudyGroupRepository.findGroupsByMemberUserId` and JDBC SQL that joins `study_group` with live `group_member` rows for the authenticated user.
 - Added `StudyGroup.rehydrate` for repository read mapping without changing creation behavior.
 - Kept AI/LLM, curriculum, member list, detail view, pagination, and advanced filtering out of scope.
+- CodeRabbit review fix added explicit audit timestamp null validation in `StudyGroup.rehydrate`. Pagination feedback was evaluated but kept out of scope because locked OpenAPI defines `StudyGroupResponse[]` without pagination parameters and SPT-72 explicitly excludes pagination.
 
 ## Verification
 - [x] RED check: `./gradlew test --tests com.studypot.aistudyleader.studygroup.service.StudyGroupServiceTest --tests com.studypot.aistudyleader.studygroup.controller.StudyGroupControllerTest --tests com.studypot.aistudyleader.studygroup.repository.JdbcStudyGroupRepositoryTest --no-daemon` failed on missing list API contracts before implementation.
 - [x] `./gradlew test --tests com.studypot.aistudyleader.studygroup.service.StudyGroupServiceTest --tests com.studypot.aistudyleader.studygroup.controller.StudyGroupControllerTest --tests com.studypot.aistudyleader.studygroup.repository.JdbcStudyGroupRepositoryTest --no-daemon`
 - [x] `./gradlew check build --no-daemon`
+- [x] CodeRabbit review fix verification: `./gradlew test --tests com.studypot.aistudyleader.studygroup.domain.StudyGroupTest --tests com.studypot.aistudyleader.studygroup.service.StudyGroupServiceTest --tests com.studypot.aistudyleader.studygroup.controller.StudyGroupControllerTest --tests com.studypot.aistudyleader.studygroup.repository.JdbcStudyGroupRepositoryTest --no-daemon`
+- [x] CodeRabbit review fix verification: `./gradlew check build --no-daemon`

@@ -118,6 +118,8 @@ public final class StudyGroup extends AggregateRoot<UUID> {
 		Instant createdAt,
 		Instant updatedAt
 	) {
+		Objects.requireNonNull(createdAt, "createdAt must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
 		return new StudyGroup(
 			id,
 			createdBy,
