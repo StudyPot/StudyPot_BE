@@ -260,7 +260,7 @@ class CurriculumServiceTest {
 		MemberWeekProgress result = service.updateMyWeekProgress(new UpdateWeekProgressCommand(
 			USER_ID,
 			WEEK_ID,
-			null,
+			MemberWeekProgressStatus.NOT_STARTED,
 			null,
 			null
 		));
@@ -295,6 +295,83 @@ class CurriculumServiceTest {
 		assertThat(result.startedAt()).isEqualTo(NOW);
 		assertThat(repository.insertedProgress).isNull();
 		assertThat(repository.updatedProgress).isSameAs(result);
+	}
+
+	@Test
+	void updateMyWeekProgressAppliesRequestWhenInsertRacesWithExistingProgress() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weekDueAt = WEEK_DUE_AT;
+		repository.insertSucceeds = false;
+		repository.raceProgress = progress(MemberWeekProgressStatus.NOT_STARTED, null, null, null, null, null);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		MemberWeekProgress result = service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+			USER_ID,
+			WEEK_ID,
+			MemberWeekProgressStatus.IN_PROGRESS,
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(MemberWeekProgressStatus.IN_PROGRESS);
+		assertThat(result.startedAt()).isEqualTo(NOW);
+		assertThat(repository.updatedProgress).isSameAs(result);
+	}
+
+	@Test
+	void updateMyWeekProgressPreservesFirstCompletionTimestampAndNote() {
+		Instant completedAt = NOW.minusSeconds(120);
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.existingProgress = progress(
+			MemberWeekProgressStatus.COMPLETED,
+			NOW.minusSeconds(300),
+			completedAt,
+			"처음 제출",
+			null,
+			null
+		);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		MemberWeekProgress result = service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+			USER_ID,
+			WEEK_ID,
+			MemberWeekProgressStatus.COMPLETED,
+			"수정 제출",
+			null
+		));
+
+		assertThat(result.completedAt()).isEqualTo(completedAt);
+		assertThat(result.completionNote()).isEqualTo("처음 제출");
+	}
+
+	@Test
+	void updateMyWeekProgressRejectsGoingBackToInProgressAfterCompleted() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.existingProgress = progress(
+			MemberWeekProgressStatus.COMPLETED,
+			NOW.minusSeconds(300),
+			NOW.minusSeconds(120),
+			"완료",
+			null,
+			null
+		);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+				USER_ID,
+				WEEK_ID,
+				MemberWeekProgressStatus.IN_PROGRESS,
+				null,
+				null
+			)))
+			.isInstanceOf(InvalidWeekProgressRequestException.class)
+			.hasMessage("member week progress cannot transition from COMPLETED to IN_PROGRESS.");
 	}
 
 	@Test
@@ -512,7 +589,9 @@ class CurriculumServiceTest {
 		private CurriculumWeek currentWeek;
 		private List<WeeklyTask> weeklyTasks = List.of();
 		private MemberWeekProgress existingProgress;
+		private MemberWeekProgress raceProgress;
 		private Instant weekDueAt = WEEK_DUE_AT;
+		private boolean insertSucceeds = true;
 		private CurriculumGenerationRequest generationRequest;
 		private boolean weekExists;
 		private UUID savedGroupId;
@@ -587,6 +666,10 @@ class CurriculumServiceTest {
 
 		@Override
 		public boolean insertMemberWeekProgress(MemberWeekProgress progress) {
+			if (!insertSucceeds) {
+				existingProgress = raceProgress;
+				return false;
+			}
 			insertedProgress = progress;
 			existingProgress = progress;
 			return true;

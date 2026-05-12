@@ -307,6 +307,17 @@ class CurriculumControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
+	@Test
+	void updateMyWeekProgressReturnsValidationProblemWhenStatusIsMissing() throws Exception {
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	private static RequestPostProcessor xsrf(String value) {
 		return request -> {
 			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();

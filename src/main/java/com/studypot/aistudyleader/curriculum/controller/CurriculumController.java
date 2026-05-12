@@ -17,6 +17,8 @@ import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
 import com.studypot.aistudyleader.curriculum.service.UpdateWeekProgressCommand;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +72,7 @@ class CurriculumController {
 	MemberWeekProgressResponse updateMyWeekProgress(
 		Authentication authentication,
 		@PathVariable UUID weekId,
-		@RequestBody UpdateWeekProgressRequest request
+		@Valid @RequestBody UpdateWeekProgressRequest request
 	) {
 		MemberWeekProgress progress = service().updateMyWeekProgress(request.toCommand(authenticatedUserId(authentication), weekId));
 		return MemberWeekProgressResponse.from(progress);
@@ -177,6 +179,7 @@ class CurriculumController {
 	}
 
 	private record UpdateWeekProgressRequest(
+		@NotNull
 		MemberWeekProgressStatus status,
 		String completionNote,
 		String incompleteReason
@@ -187,6 +190,7 @@ class CurriculumController {
 		}
 	}
 
+	// completionNote is intentionally omitted to match the locked OpenAPI MemberWeekProgressResponse.
 	private record MemberWeekProgressResponse(
 		UUID id,
 		MemberWeekProgressStatus status,

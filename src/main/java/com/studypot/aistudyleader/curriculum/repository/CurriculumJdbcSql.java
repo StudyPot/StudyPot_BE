@@ -169,6 +169,7 @@ final class CurriculumJdbcSql {
 		from member_week_progress
 		where curriculum_week_id = ?
 		  and member_id = ?
+		  and deleted_at is null
 		""";
 
 	static final String SELECT_WEEK_DUE_AT = """
@@ -196,6 +197,7 @@ final class CurriculumJdbcSql {
 		    reason_submitted_at = ?,
 		    updated_at = ?
 		where id = ?
+		  and deleted_at is null
 		""";
 
 	private CurriculumJdbcSql() {

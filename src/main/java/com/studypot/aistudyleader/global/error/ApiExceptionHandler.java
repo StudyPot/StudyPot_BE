@@ -11,6 +11,7 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumNotFoundException
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumStartRejectedException;
 import com.studypot.aistudyleader.curriculum.service.InvalidWeekProgressRequestException;
+import com.studypot.aistudyleader.curriculum.service.WeekProgressUpdateRejectedException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -146,7 +147,12 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({StudyGroupJoinRejectedException.class, CurriculumStartRejectedException.class, GroupRuleMutationRejectedException.class})
+	@ExceptionHandler({
+		StudyGroupJoinRejectedException.class,
+		CurriculumStartRejectedException.class,
+		WeekProgressUpdateRejectedException.class,
+		GroupRuleMutationRejectedException.class
+	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));

@@ -65,7 +65,11 @@ public record MemberWeekProgress(
 		Instant now
 	) {
 		Objects.requireNonNull(now, "now must not be null");
+		requireNotBeforeExistingTimestamps(now);
 		MemberWeekProgressStatus nextStatus = requestedStatus == null ? status : requestedStatus;
+		if (!canTransitionTo(nextStatus)) {
+			throw new IllegalArgumentException("member week progress cannot transition from " + status + " to " + nextStatus + ".");
+		}
 		String nextCompletionNote = normalizeNullableText(requestedCompletionNote);
 		String nextIncompleteReason = normalizeNullableText(requestedIncompleteReason);
 		return switch (nextStatus) {
@@ -95,11 +99,13 @@ public record MemberWeekProgress(
 		if (requestedIncompleteReason != null) {
 			throw new IllegalArgumentException("incomplete reason is not allowed when status is COMPLETED.");
 		}
+		Instant nextCompletedAt = completedAt == null ? now : completedAt;
+		String nextCompletionNote = completedAt == null ? requestedCompletionNote : completionNote;
 		return copy(
 			MemberWeekProgressStatus.COMPLETED,
 			startedAt == null ? now : startedAt,
-			now,
-			requestedCompletionNote,
+			nextCompletedAt,
+			nextCompletionNote,
 			null,
 			null,
 			now
@@ -119,7 +125,7 @@ public record MemberWeekProgress(
 			null,
 			null,
 			requestedIncompleteReason,
-			now,
+			reasonSubmittedAt == null ? now : reasonSubmittedAt,
 			now
 		);
 	}
@@ -132,6 +138,35 @@ public record MemberWeekProgress(
 			throw new IllegalArgumentException("FEEDBACK_READY progress requires completed or incomplete progress first.");
 		}
 		return copy(MemberWeekProgressStatus.FEEDBACK_READY, startedAt, completedAt, completionNote, incompleteReason, reasonSubmittedAt, now);
+	}
+
+	private boolean canTransitionTo(MemberWeekProgressStatus nextStatus) {
+		if (status == nextStatus) {
+			return true;
+		}
+		return switch (status) {
+			case NOT_STARTED -> nextStatus == MemberWeekProgressStatus.IN_PROGRESS
+				|| nextStatus == MemberWeekProgressStatus.COMPLETED
+				|| nextStatus == MemberWeekProgressStatus.INCOMPLETE;
+			case IN_PROGRESS -> nextStatus == MemberWeekProgressStatus.COMPLETED
+				|| nextStatus == MemberWeekProgressStatus.INCOMPLETE;
+			case COMPLETED, INCOMPLETE -> nextStatus == MemberWeekProgressStatus.FEEDBACK_READY;
+			case FEEDBACK_READY -> false;
+		};
+	}
+
+	private void requireNotBeforeExistingTimestamps(Instant now) {
+		requireNotBefore(now, createdAt);
+		requireNotBefore(now, updatedAt);
+		requireNotBefore(now, startedAt);
+		requireNotBefore(now, completedAt);
+		requireNotBefore(now, reasonSubmittedAt);
+	}
+
+	private static void requireNotBefore(Instant now, Instant existingTimestamp) {
+		if (existingTimestamp != null && now.isBefore(existingTimestamp)) {
+			throw new IllegalArgumentException("now must not be before existing progress timestamps.");
+		}
 	}
 
 	private MemberWeekProgress copy(

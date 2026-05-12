@@ -167,7 +167,7 @@ public class CurriculumService {
 	private MemberWeekProgress updateProgress(MemberWeekProgress progress, UpdateWeekProgressCommand command, Instant now) {
 		MemberWeekProgress updated = applyProgressUpdate(progress, command, now);
 		if (!repository.updateMemberWeekProgress(updated)) {
-			throw new CurriculumStartRejectedException("week progress could not be updated.");
+			throw new WeekProgressUpdateRejectedException("week progress could not be updated.");
 		}
 		return updated;
 	}
@@ -192,8 +192,13 @@ public class CurriculumService {
 		if (repository.insertMemberWeekProgress(progress)) {
 			return progress;
 		}
-		return repository.findMemberWeekProgress(command.weekId(), memberId)
-			.orElseThrow(() -> new CurriculumStartRejectedException("week progress could not be inserted."));
+		MemberWeekProgress racedProgress = repository.findMemberWeekProgress(command.weekId(), memberId)
+			.orElseThrow(() -> new WeekProgressUpdateRejectedException("week progress could not be inserted."));
+		MemberWeekProgress updated = applyProgressUpdate(racedProgress, command, now);
+		if (!repository.updateMemberWeekProgress(updated)) {
+			throw new WeekProgressUpdateRejectedException("week progress could not be updated after concurrent insert.");
+		}
+		return updated;
 	}
 
 	private static MemberWeekProgress applyProgressUpdate(

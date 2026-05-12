@@ -51,7 +51,7 @@ Implement the SPT-36 member-week-progress slice: an authenticated active group m
 - Keep SPT-36 inside the existing `curriculum` package because `member_week_progress` belongs to the curriculum/todo aggregate and the existing weekly todo endpoints already live there.
 - Add a small domain model for `MemberWeekProgress` and `MemberWeekProgressStatus`, plus a service command for `UpdateWeekProgressRequest`.
 - Reuse `findReadContextByWeekId` to resolve the current member id through the week and enforce active membership. Owners are allowed only when their member status is active because weekly participation is member-based.
-- Repository will first look up progress by `(weekId, memberId)`. If missing, insert one with a generated id, `NOT_STARTED` by default or requested status, `due_at` copied from `curriculum_week.ends_at`, and unique-key protection. If present, update only the allowed progress fields.
+- Repository will first look up progress by `(weekId, memberId)`. If missing, insert one with a generated id, requested status, `due_at` copied from `curriculum_week.ends_at`, and unique-key protection. If a concurrent insert wins the race, fetch that existing row, apply the same request, and persist the update once.
 - Status transition rules for SPT-36 stay progress-level and conservative: supported statuses are the locked enum values; `IN_PROGRESS` sets `started_at` if missing, `COMPLETED` sets `completed_at`, `INCOMPLETE` requires `incompleteReason` and sets `reason_submitted_at`, `NOT_STARTED` cannot carry completion/incomplete fields, and `FEEDBACK_READY` can only be set after completion/incomplete progress data exists.
 - Use TDD: write service/repository/controller tests that fail because the command/domain/repository/controller endpoint does not exist, then implement the minimum code to pass.
 
@@ -71,7 +71,7 @@ Implement the SPT-36 member-week-progress slice: an authenticated active group m
    - `PUT /api/v1/weeks/{weekId}/progress/me` requires authentication and CSRF.
    - active member can create/update progress and receives locked `MemberWeekProgressResponse` fields.
    - pending member receives forbidden.
-   - invalid request body receives bad request.
+   - invalid request body receives a validation problem response.
 4. GREEN domain/service/repository/controller implementation.
 5. Run targeted tests for `CurriculumServiceTest`, `JdbcCurriculumRepositoryTest`, and `CurriculumControllerTest`.
 6. Run `./gradlew check build --no-daemon`.
@@ -80,6 +80,7 @@ Implement the SPT-36 member-week-progress slice: an authenticated active group m
 
 ## Done Criteria
 - `PUT /api/v1/weeks/{weekId}/progress/me` requires authenticated access and CSRF protection.
+- `UpdateWeekProgressRequest.status` is required.
 - An `ACTIVE` member can create their own `member_week_progress` for a curriculum week.
 - Existing progress for the same `(curriculum_week_id, member_id)` is updated/returned instead of duplicated.
 - Late joiners who have submitted onboarding and become `ACTIVE` can create progress for the current week using the same endpoint.
@@ -98,3 +99,6 @@ Implement the SPT-36 member-week-progress slice: an authenticated active group m
 - RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` failed before implementation because `MemberWeekProgress`, `MemberWeekProgressStatus`, `UpdateWeekProgressCommand`, and repository/controller contracts did not exist.
 - GREEN targeted: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` passed.
 - Full: `./gradlew check build --no-daemon` passed.
+- CodeRabbit fix RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` failed with expected review-fix coverage failures before the fix: soft-delete SQL guards, concurrent insert update application, first completion timestamp/note preservation, invalid backward transition, and missing status validation.
+- CodeRabbit fix GREEN targeted: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` passed.
+- CodeRabbit fix full: `./gradlew check build --no-daemon` passed.

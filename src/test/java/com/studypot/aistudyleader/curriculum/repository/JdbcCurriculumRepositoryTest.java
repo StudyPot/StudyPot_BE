@@ -248,14 +248,16 @@ class JdbcCurriculumRepositoryTest {
 		assertThat(CurriculumJdbcSql.SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER)
 			.contains("from member_week_progress")
 			.contains("where curriculum_week_id = ?")
-			.contains("and member_id = ?");
+			.contains("and member_id = ?")
+			.contains("and deleted_at is null");
 		assertThat(CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS)
 			.contains("insert into member_week_progress")
 			.contains("curriculum_week_id")
 			.contains("member_id");
 		assertThat(CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS)
 			.contains("update member_week_progress")
-			.contains("where id = ?");
+			.contains("where id = ?")
+			.contains("and deleted_at is null");
 	}
 
 	@Test

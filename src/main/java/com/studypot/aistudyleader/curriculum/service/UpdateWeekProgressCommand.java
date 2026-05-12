@@ -15,5 +15,6 @@ public record UpdateWeekProgressCommand(
 	public UpdateWeekProgressCommand {
 		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
 		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(status, "status must not be null");
 	}
 }
