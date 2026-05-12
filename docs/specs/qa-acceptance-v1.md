@@ -38,6 +38,7 @@
 | `weekly-todo` | `QA-TODO-002` | Member can complete own task with timestamp and note. |
 | `weekly-todo` | `QA-TODO-003` | Overdue incomplete task requires incomplete reason. |
 | `weekly-todo` | `QA-TODO-004` | Cross-member completion updates are rejected. |
+| `weekly-todo` | `QA-TODO-005` | Member can read own existing week progress without mutating it. |
 | `retrospective-feedback` | `QA-RETRO-001` | Retrospective can be requested from current week progress. |
 | `retrospective-feedback` | `QA-RETRO-002` | AI feedback and next-week adjustment are stored as JSON. |
 | `retrospective-feedback` | `QA-RETRO-003` | Failed AI generation leaves retriable failed status. |
@@ -57,6 +58,7 @@
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
 - Host start with only partial onboarding completion.
 - Current week task completion before due date.
+- Current week progress read after progress creation.
 - Overdue incomplete reason modal path.
 - AI retrospective feedback with next-week adjustment.
 - AI conversation message persistence and LLM usage logging.

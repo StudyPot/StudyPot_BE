@@ -249,6 +249,61 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void getMyWeekProgressRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(WEEK_PROGRESS_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getMyWeekProgressReturnsExistingProgress() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.progress = progress(
+			MemberWeekProgressStatus.INCOMPLETE,
+			TestCurriculumBeans.NOW.minusSeconds(60),
+			null,
+			null,
+			"실습을 완료하지 못했습니다.",
+			TestCurriculumBeans.NOW
+		);
+
+		mockMvc.perform(get(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(PROGRESS_ID.toString()))
+			.andExpect(jsonPath("$.status").value("INCOMPLETE"))
+			.andExpect(jsonPath("$.completedAt").doesNotExist())
+			.andExpect(jsonPath("$.incompleteReason").value("실습을 완료하지 못했습니다."));
+	}
+
+	@Test
+	void getMyWeekProgressReturnsNotFoundWhenProgressIsMissing() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+
+		mockMvc.perform(get(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Not Found"));
+	}
+
+	@Test
+	void getMyWeekProgressReturnsForbiddenForPendingMember() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW, null, null, null, null);
+
+		mockMvc.perform(get(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
 	void updateMyWeekProgressRequiresAuthentication() throws Exception {
 		mockMvc.perform(put(WEEK_PROGRESS_PATH)
 				.with(xsrf("progress-xsrf"))

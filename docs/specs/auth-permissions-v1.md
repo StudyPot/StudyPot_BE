@@ -30,6 +30,7 @@
 | List member onboarding status | no | no | limited | yes | yes |
 | Start study | no | no | no | no | yes |
 | Read curriculum/current week | no | no | no | yes | yes |
+| Read own week progress | no | no | no | yes | yes |
 | Complete own task | no | no | no | yes | yes |
 | Submit own incomplete reason | no | no | no | yes | yes |
 | Request own retrospective | no | no | no | yes | yes |
@@ -49,7 +50,7 @@
 
 ## State Rules
 - A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.
-- An `ACTIVE` member can participate in current/future weeks.
+- An `ACTIVE` member can read and participate in current/future weeks.
 - A `LEFT` member cannot create new progress, retrospective, conversation, or completion records.
 - `ARCHIVED` groups are read-only except for owner/admin audit access.
 
