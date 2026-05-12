@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
@@ -142,6 +143,69 @@ public class CurriculumService {
 			throw new CurriculumAccessDeniedException("active group membership is required to read weekly tasks.");
 		}
 		return repository.findWeeklyTasksByWeekId(query.weekId());
+	}
+
+	@Transactional
+	public MemberWeekProgress updateMyWeekProgress(UpdateWeekProgressCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		CurriculumStartContext context = repository.findReadContextByWeekId(command.weekId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsCurriculumWeek(command.weekId())) {
+					throw new CurriculumNotFoundException("curriculum week was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to update week progress.");
+		}
+		Instant now = clock.instant();
+		return repository.findMemberWeekProgress(command.weekId(), context.memberId())
+			.map(progress -> updateProgress(progress, command, now))
+			.orElseGet(() -> createProgress(command, context.memberId(), now));
+	}
+
+	private MemberWeekProgress updateProgress(MemberWeekProgress progress, UpdateWeekProgressCommand command, Instant now) {
+		MemberWeekProgress updated = applyProgressUpdate(progress, command, now);
+		if (!repository.updateMemberWeekProgress(updated)) {
+			throw new CurriculumStartRejectedException("week progress could not be updated.");
+		}
+		return updated;
+	}
+
+	private MemberWeekProgress createProgress(UpdateWeekProgressCommand command, UUID memberId, Instant now) {
+		Instant dueAt = repository.findWeekDueAt(command.weekId())
+			.orElseThrow(() -> new CurriculumNotFoundException("curriculum week was not found."));
+		MemberWeekProgress progress = applyProgressUpdate(
+			MemberWeekProgress.create(
+				idGenerator.get(),
+				command.weekId(),
+				memberId,
+				dueAt,
+				null,
+				null,
+				null,
+				now
+			),
+			command,
+			now
+		);
+		if (repository.insertMemberWeekProgress(progress)) {
+			return progress;
+		}
+		return repository.findMemberWeekProgress(command.weekId(), memberId)
+			.orElseThrow(() -> new CurriculumStartRejectedException("week progress could not be inserted."));
+	}
+
+	private static MemberWeekProgress applyProgressUpdate(
+		MemberWeekProgress progress,
+		UpdateWeekProgressCommand command,
+		Instant now
+	) {
+		try {
+			return progress.update(command.status(), command.completionNote(), command.incompleteReason(), now);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidWeekProgressRequestException("status", exception.getMessage());
+		}
 	}
 
 	private CurriculumStartContext requireStartContext(UUID groupId, UUID userId) {

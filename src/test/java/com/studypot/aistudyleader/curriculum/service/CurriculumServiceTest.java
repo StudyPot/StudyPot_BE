@@ -14,6 +14,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
@@ -46,7 +48,9 @@ class CurriculumServiceTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004027");
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004028");
 	private static final UUID SECOND_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004029");
+	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004030");
 	private static final Instant NOW = Instant.parse("2026-05-11T01:15:00Z");
+	private static final Instant WEEK_DUE_AT = Instant.parse("2026-05-18T01:15:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
 	@Test
@@ -245,6 +249,107 @@ class CurriculumServiceTest {
 			.hasMessage("curriculum week was not found.");
 	}
 
+	@Test
+	void updateMyWeekProgressCreatesProgressForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weekDueAt = WEEK_DUE_AT;
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		MemberWeekProgress result = service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+			USER_ID,
+			WEEK_ID,
+			null,
+			null,
+			null
+		));
+
+		assertThat(result.id()).isEqualTo(PROGRESS_ID);
+		assertThat(result.curriculumWeekId()).isEqualTo(WEEK_ID);
+		assertThat(result.memberId()).isEqualTo(OWNER_MEMBER_ID);
+		assertThat(result.status()).isEqualTo(MemberWeekProgressStatus.NOT_STARTED);
+		assertThat(result.dueAt()).isEqualTo(WEEK_DUE_AT);
+		assertThat(repository.insertedProgress).isSameAs(result);
+		assertThat(repository.updatedProgress).isNull();
+	}
+
+	@Test
+	void updateMyWeekProgressUpdatesExistingProgressToInProgress() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.existingProgress = progress(MemberWeekProgressStatus.NOT_STARTED, null, null, null, null, null);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		MemberWeekProgress result = service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+			USER_ID,
+			WEEK_ID,
+			MemberWeekProgressStatus.IN_PROGRESS,
+			null,
+			null
+		));
+
+		assertThat(result.id()).isEqualTo(PROGRESS_ID);
+		assertThat(result.status()).isEqualTo(MemberWeekProgressStatus.IN_PROGRESS);
+		assertThat(result.startedAt()).isEqualTo(NOW);
+		assertThat(repository.insertedProgress).isNull();
+		assertThat(repository.updatedProgress).isSameAs(result);
+	}
+
+	@Test
+	void updateMyWeekProgressRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+				USER_ID,
+				WEEK_ID,
+				MemberWeekProgressStatus.IN_PROGRESS,
+				null,
+				null
+			)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to update week progress.");
+	}
+
+	@Test
+	void updateMyWeekProgressRejectsIncompleteWithoutReason() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weekDueAt = WEEK_DUE_AT;
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+				USER_ID,
+				WEEK_ID,
+				MemberWeekProgressStatus.INCOMPLETE,
+				null,
+				null
+			)))
+			.isInstanceOf(InvalidWeekProgressRequestException.class)
+			.hasMessage("incomplete reason is required when status is INCOMPLETE.");
+	}
+
+	@Test
+	void updateMyWeekProgressReturnsNotFoundWhenWeekDoesNotExist() {
+		CapturingRepository repository = new CapturingRepository();
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.updateMyWeekProgress(new UpdateWeekProgressCommand(
+				USER_ID,
+				WEEK_ID,
+				MemberWeekProgressStatus.IN_PROGRESS,
+				null,
+				null
+			)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("curriculum week was not found.");
+	}
+
 	private static CurriculumService service(CapturingRepository repository, CurriculumGeneration generation, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new CurriculumService(
@@ -342,6 +447,30 @@ class CurriculumServiceTest {
 		);
 	}
 
+	private static MemberWeekProgress progress(
+		MemberWeekProgressStatus status,
+		Instant startedAt,
+		Instant completedAt,
+		String completionNote,
+		String incompleteReason,
+		Instant reasonSubmittedAt
+	) {
+		return new MemberWeekProgress(
+			PROGRESS_ID,
+			WEEK_ID,
+			OWNER_MEMBER_ID,
+			status,
+			startedAt,
+			WEEK_DUE_AT,
+			completedAt,
+			completionNote,
+			incompleteReason,
+			reasonSubmittedAt,
+			NOW,
+			NOW
+		);
+	}
+
 	private static CurriculumGeneration generation() {
 		return new CurriculumGeneration(
 			"Spring Boot 6주 완성",
@@ -382,12 +511,16 @@ class CurriculumServiceTest {
 		private Curriculum activeCurriculum;
 		private CurriculumWeek currentWeek;
 		private List<WeeklyTask> weeklyTasks = List.of();
+		private MemberWeekProgress existingProgress;
+		private Instant weekDueAt = WEEK_DUE_AT;
 		private CurriculumGenerationRequest generationRequest;
 		private boolean weekExists;
 		private UUID savedGroupId;
 		private Instant savedStartedAt;
 		private com.studypot.aistudyleader.curriculum.domain.LlmUsage savedLlmUsage;
 		private Curriculum savedCurriculum;
+		private MemberWeekProgress insertedProgress;
+		private MemberWeekProgress updatedProgress;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -440,6 +573,30 @@ class CurriculumServiceTest {
 		@Override
 		public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 			return weeklyTasks;
+		}
+
+		@Override
+		public Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId) {
+			return Optional.ofNullable(existingProgress);
+		}
+
+		@Override
+		public Optional<Instant> findWeekDueAt(UUID weekId) {
+			return Optional.ofNullable(weekDueAt);
+		}
+
+		@Override
+		public boolean insertMemberWeekProgress(MemberWeekProgress progress) {
+			insertedProgress = progress;
+			existingProgress = progress;
+			return true;
+		}
+
+		@Override
+		public boolean updateMemberWeekProgress(MemberWeekProgress progress) {
+			updatedProgress = progress;
+			existingProgress = progress;
+			return true;
 		}
 	}
 }

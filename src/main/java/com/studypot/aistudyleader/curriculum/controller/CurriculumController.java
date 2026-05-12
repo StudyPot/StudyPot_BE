@@ -5,6 +5,8 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
@@ -13,6 +15,7 @@ import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
+import com.studypot.aistudyleader.curriculum.service.UpdateWeekProgressCommand;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import java.time.Instant;
 import java.util.List;
@@ -26,6 +29,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -59,6 +64,16 @@ class CurriculumController {
 		return service().listWeeklyTasks(new ListWeeklyTasksQuery(authenticatedUserId(authentication), weekId)).stream()
 			.map(WeeklyTaskResponse::from)
 			.toList();
+	}
+
+	@PutMapping(ApiPaths.V1 + "/weeks/{weekId}/progress/me")
+	MemberWeekProgressResponse updateMyWeekProgress(
+		Authentication authentication,
+		@PathVariable UUID weekId,
+		@RequestBody UpdateWeekProgressRequest request
+	) {
+		MemberWeekProgress progress = service().updateMyWeekProgress(request.toCommand(authenticatedUserId(authentication), weekId));
+		return MemberWeekProgressResponse.from(progress);
 	}
 
 	private CurriculumService service() {
@@ -157,6 +172,34 @@ class CurriculumController {
 				task.description(),
 				task.required(),
 				task.dueAt()
+			);
+		}
+	}
+
+	private record UpdateWeekProgressRequest(
+		MemberWeekProgressStatus status,
+		String completionNote,
+		String incompleteReason
+	) {
+
+		UpdateWeekProgressCommand toCommand(UUID authenticatedUserId, UUID weekId) {
+			return new UpdateWeekProgressCommand(authenticatedUserId, weekId, status, completionNote, incompleteReason);
+		}
+	}
+
+	private record MemberWeekProgressResponse(
+		UUID id,
+		MemberWeekProgressStatus status,
+		Instant completedAt,
+		String incompleteReason
+	) {
+
+		private static MemberWeekProgressResponse from(MemberWeekProgress progress) {
+			return new MemberWeekProgressResponse(
+				progress.id(),
+				progress.status(),
+				progress.completedAt(),
+				progress.incompleteReason()
 			);
 		}
 	}
