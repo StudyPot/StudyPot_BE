@@ -7,6 +7,7 @@
 - Changes require Change Request and ADR.
 - Backend-owned OAuth2 cookie-login contract changes are authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md) under the v1 change-control process.
 - Member week progress read endpoint is authorized by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
+- Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
@@ -28,6 +29,13 @@
 | Retrospective | `retrospective-feedback` | AI feedback and next-week adjustment. |
 | AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
 | Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage. |
+
+## Retrospective and AI Conversation Boundary
+- `POST /api/v1/weeks/{weekId}/retrospectives/me` requests or returns a stateful retrospective result for the authenticated member's week/progress context.
+- `POST /api/v1/groups/{groupId}/ai-conversations` opens a chat session. When `conversationType = RETROSPECTIVE`, the session may link to an existing or future retrospective through `retrospectiveId`.
+- `POST /api/v1/ai-conversations/{conversationId}/messages` stores user and assistant messages. Assistant messages can contribute to conversation summaries and later retrospective context.
+- The MVP context builder for retrospective/chat is internal to the backend. It does not add public API request or response fields in SPT-81.
+- The machine OpenAPI contract remains unchanged by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md); provider, vector store, and FastAPI service choices are not exposed at the REST boundary.
 
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |

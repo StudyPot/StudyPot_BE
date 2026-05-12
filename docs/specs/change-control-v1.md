@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md)
+- ADR: [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md)
+- Result: The MVP AI boundary uses a deterministic DB-first context builder before retrospective/chat LLM calls, keeps retrospective/chat/API/DB shapes unchanged, and defers vector/graph retrieval or service-split choices to later tasks.
+
+## Previous Approved Change
 - Change Request: [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md)
 - ADR: [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md)
 - Result: The MVP API includes a read-only member week progress endpoint at `GET /api/v1/weeks/{weekId}/progress/me`.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md)
 - ADR: [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md)
 - Result: Browser OAuth2 login can be completed through backend redirect/callback routes with HttpOnly access/refresh token cookies.

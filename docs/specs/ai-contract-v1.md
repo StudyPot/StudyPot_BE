@@ -4,6 +4,7 @@
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
+- Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## AI Responsibilities
 | Purpose | Trigger | Output | Persistence |
@@ -26,6 +27,14 @@
 - Retrospective feedback uses onboarding summary, current week tasks, completion notes, incomplete reasons, and prior conversation summary.
 - Weekly adjustment can use late joiner onboarding only for future weeks.
 - AI output must not expose another member's private note unless the permission contract explicitly allows group-level aggregation.
+
+## DB-First Context Builder
+- MVP retrospective/chat retrieval is a backend context builder, not a separate vector service.
+- For `RETROSPECTIVE_FEEDBACK`, collect the authenticated member's current week, weekly tasks, member week progress, task completions, completion notes, incomplete reasons, relevant group rules, rule violations, prior retrospective feedback, prior next-week adjustments, onboarding summary, and retrospective-linked conversation summary before the provider call.
+- For `TEAM_LEAD_CHAT`, collect the conversation, current group/week context, visible weekly tasks, the member's own progress/completion context, and allowed retrospective summary before the provider call.
+- Store the final summarized input in `retrospective.input_summary` when a retrospective is created or updated.
+- Store redacted request/source metadata in `llm_usage.request_payload` for audit. Do not store secrets, OAuth tokens, provider credentials, or raw private notes that exceed the permission contract.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
 
 ## Output Shapes
 ### Detail Keyword Suggestion
