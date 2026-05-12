@@ -56,8 +56,8 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
   - create/update from no row or existing `TODO` to `DONE`, `INCOMPLETE`, or `SKIPPED`;
   - repeat of the same terminal status is idempotent and preserves the first terminal timestamp/note/reason;
   - terminal-to-different-terminal transitions are rejected;
-  - `DONE` requires the task not to be overdue when `dueAt` exists and stores `completed_at`;
-  - `INCOMPLETE` requires `incompleteReason`, stores `reason_submitted_at`, and is accepted only after `dueAt` when `dueAt` exists;
+  - `DONE` requires the task not to be overdue when `dueAt` exists and stores `completed_at`; when `dueAt` is null, `DONE` is accepted immediately and still stores `completed_at`;
+  - `INCOMPLETE` requires `incompleteReason`, stores `reason_submitted_at`, and is accepted only after `dueAt` when `dueAt` exists; when `dueAt` is null, `INCOMPLETE` is accepted immediately and still stores `reason_submitted_at`;
   - `SKIPPED` stores neither completion nor incomplete timestamps.
 - Handle duplicate insert races by re-reading the existing row for `(weekly_task_id, member_id)` and applying the same request once.
 - Use TDD: write service, repository, and controller tests first and verify they fail before implementation.
@@ -109,3 +109,6 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
 - RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` failed before implementation because `TaskCompletion`, `TaskCompletionStatus`, task-completion command/repository/controller contracts did not exist.
 - GREEN targeted: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` passed.
 - Full: `./gradlew check build --no-daemon` passed.
+- CodeRabbit RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CompleteTaskCommandTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --tests com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatusTest --tests com.studypot.aistudyleader.curriculum.service.InvalidTaskCompletionRequestExceptionTest --tests com.studypot.aistudyleader.curriculum.service.TaskCompletionUpdateRejectedExceptionTest --tests com.studypot.aistudyleader.global.error.ApiExceptionHandlerTaskCompletionTest --no-daemon` failed before review fixes on null `status` and incomplete-reason field mapping.
+- CodeRabbit GREEN targeted: the same targeted command passed after review fixes.
+- CodeRabbit full: `./gradlew check build --no-daemon` passed after review fixes.

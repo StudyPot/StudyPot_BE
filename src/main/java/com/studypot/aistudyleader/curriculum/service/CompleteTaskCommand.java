@@ -16,5 +16,6 @@ public record CompleteTaskCommand(
 	public CompleteTaskCommand {
 		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
 		Objects.requireNonNull(taskId, "taskId must not be null");
+		Objects.requireNonNull(status, "status must not be null");
 	}
 }

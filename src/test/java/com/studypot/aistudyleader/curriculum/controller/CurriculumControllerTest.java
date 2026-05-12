@@ -413,6 +413,27 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void completeTaskReturnsValidationProblemWhenIncompleteReasonIsMissing() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, true, TestCurriculumBeans.NOW.minusSeconds(60));
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(3600), null, null, null, null);
+		repository.nextIds = new ArrayDeque<>(List.of(COMPLETION_ID));
+
+		mockMvc.perform(post(TASK_COMPLETION_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"status":"INCOMPLETE"}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("incompleteReason"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value("incomplete reason is required when status is INCOMPLETE."));
+	}
+
+	@Test
 	void completeTaskReturnsForbiddenForPendingMember() throws Exception {
 		repository.taskExists = true;
 		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);

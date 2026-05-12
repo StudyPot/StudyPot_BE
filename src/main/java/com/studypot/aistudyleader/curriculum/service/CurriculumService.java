@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -286,7 +287,7 @@ public class CurriculumService {
 				now
 			);
 		} catch (IllegalArgumentException exception) {
-			throw new InvalidTaskCompletionRequestException("status", exception.getMessage());
+			throw new InvalidTaskCompletionRequestException(taskCompletionField(exception.getMessage()), exception.getMessage());
 		}
 	}
 
@@ -298,8 +299,25 @@ public class CurriculumService {
 		try {
 			return completion.update(command.status(), command.completionNote(), command.incompleteReason(), command.evidenceUrl(), now);
 		} catch (IllegalArgumentException exception) {
-			throw new InvalidTaskCompletionRequestException("status", exception.getMessage());
+			throw new InvalidTaskCompletionRequestException(taskCompletionField(exception.getMessage()), exception.getMessage());
 		}
+	}
+
+	private static String taskCompletionField(String message) {
+		if (message == null) {
+			return "status";
+		}
+		String lowerMessage = message.toLowerCase(Locale.ROOT);
+		if (lowerMessage.contains("incomplete reason")) {
+			return "incompleteReason";
+		}
+		if (lowerMessage.contains("completion note")) {
+			return "completionNote";
+		}
+		if (lowerMessage.contains("evidence url")) {
+			return "evidenceUrl";
+		}
+		return "status";
 	}
 
 	private CurriculumStartContext requireStartContext(UUID groupId, UUID userId) {
