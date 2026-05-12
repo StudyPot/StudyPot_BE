@@ -149,7 +149,12 @@ class StudyGroupServiceTest {
 		StudyGroupJoinResult result = service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
 
 		assertThat(result.member()).isSameAs(repository.savedJoinedMember());
+		assertThat(result.member().id()).isEqualTo(JOINED_MEMBER_ID);
+		assertThat(result.member().groupId()).isEqualTo(GROUP_ID);
+		assertThat(result.member().userId()).isEqualTo(JOINER_ID);
+		assertThat(result.member().permission()).isEqualTo(GroupMemberPermission.MEMBER);
 		assertThat(result.member().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
+		assertThat(result.member().joinedAt()).isEqualTo(NOW);
 	}
 
 	@Test
