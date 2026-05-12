@@ -16,6 +16,7 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailabl
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
+import com.studypot.aistudyleader.curriculum.service.GetWeekProgressQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
 import com.studypot.aistudyleader.curriculum.service.UpdateWeekProgressCommand;
@@ -69,6 +70,12 @@ class CurriculumController {
 		return service().listWeeklyTasks(new ListWeeklyTasksQuery(authenticatedUserId(authentication), weekId)).stream()
 			.map(WeeklyTaskResponse::from)
 			.toList();
+	}
+
+	@GetMapping(ApiPaths.V1 + "/weeks/{weekId}/progress/me")
+	MemberWeekProgressResponse getMyWeekProgress(Authentication authentication, @PathVariable UUID weekId) {
+		MemberWeekProgress progress = service().getMyWeekProgress(new GetWeekProgressQuery(authenticatedUserId(authentication), weekId));
+		return MemberWeekProgressResponse.from(progress);
 	}
 
 	@PutMapping(ApiPaths.V1 + "/weeks/{weekId}/progress/me")

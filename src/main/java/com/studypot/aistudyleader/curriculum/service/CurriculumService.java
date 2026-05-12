@@ -160,6 +160,23 @@ public class CurriculumService {
 		return repository.findWeeklyTasksByWeekId(query.weekId());
 	}
 
+	@Transactional(readOnly = true)
+	public MemberWeekProgress getMyWeekProgress(GetWeekProgressQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContextByWeekId(query.weekId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsCurriculumWeek(query.weekId())) {
+					throw new CurriculumNotFoundException("curriculum week was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read week progress.");
+		}
+		return repository.findMemberWeekProgress(query.weekId(), context.memberId())
+			.orElseThrow(() -> new CurriculumNotFoundException("member week progress was not found."));
+	}
+
 	@Transactional
 	public MemberWeekProgress updateMyWeekProgress(UpdateWeekProgressCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
