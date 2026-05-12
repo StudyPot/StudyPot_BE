@@ -19,6 +19,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
@@ -48,7 +50,9 @@ class JdbcCurriculumRepositoryTest {
 	private static final UUID CURRICULUM_ID = UUID.fromString("018f0000-0000-7000-8000-000000004226");
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004227");
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004228");
+	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004229");
 	private static final Instant NOW = Instant.parse("2026-05-11T03:00:00Z");
+	private static final Instant WEEK_DUE_AT = Instant.parse("2026-05-18T03:00:00Z");
 
 	private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 	private final JdbcCurriculumRepository repository = new JdbcCurriculumRepository(jdbcTemplate, new ObjectMapper());
@@ -239,6 +243,90 @@ class JdbcCurriculumRepositoryTest {
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
 	}
 
+	@Test
+	void memberWeekProgressSqlUsesWeekMemberNaturalKey() {
+		assertThat(CurriculumJdbcSql.SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER)
+			.contains("from member_week_progress")
+			.contains("where curriculum_week_id = ?")
+			.contains("and member_id = ?")
+			.contains("and deleted_at is null");
+		assertThat(CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS)
+			.contains("insert into member_week_progress")
+			.contains("curriculum_week_id")
+			.contains("member_id");
+		assertThat(CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS)
+			.contains("update member_week_progress")
+			.contains("where id = ?")
+			.contains("and deleted_at is null");
+	}
+
+	@Test
+	void findMemberWeekProgressQueriesWeekAndMember() {
+		MemberWeekProgress progress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW, null, null, null, null);
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(progress));
+
+		Optional<MemberWeekProgress> result = repository.findMemberWeekProgress(WEEK_ID, MEMBER_ID);
+
+		assertThat(result).contains(progress);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+	}
+
+	@Test
+	void findWeekDueAtQueriesCurriculumWeekEndsAt() {
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_WEEK_DUE_AT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(WEEK_DUE_AT));
+
+		Optional<Instant> result = repository.findWeekDueAt(WEEK_ID);
+
+		assertThat(result).contains(WEEK_DUE_AT);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_WEEK_DUE_AT), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+	}
+
+	@Test
+	void insertMemberWeekProgressPersistsAllColumns() {
+		MemberWeekProgress progress = progress(MemberWeekProgressStatus.NOT_STARTED, null, null, null, null, null);
+		when(jdbcTemplate.update(eq(CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.insertMemberWeekProgress(progress)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(PROGRESS_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		assertThat(args.getValue()[3]).isEqualTo("NOT_STARTED");
+		assertThat(args.getValue()[5]).isEqualTo(Timestamp.from(WEEK_DUE_AT));
+	}
+
+	@Test
+	void updateMemberWeekProgressPersistsMutableState() {
+		MemberWeekProgress progress = progress(
+			MemberWeekProgressStatus.COMPLETED,
+			NOW,
+			NOW.plusSeconds(60),
+			"정리 완료",
+			null,
+			null
+		);
+		when(jdbcTemplate.update(eq(CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.updateMemberWeekProgress(progress)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo("COMPLETED");
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
+		assertThat(args.getValue()[3]).isEqualTo(Timestamp.from(NOW.plusSeconds(60)));
+		assertThat(args.getValue()[4]).isEqualTo("정리 완료");
+		assertThat((byte[]) args.getValue()[8]).containsExactly(UuidBinary.toBytes(PROGRESS_ID));
+	}
+
 	private static CurriculumStartContext context(
 		StudyGroupStatus groupStatus,
 		GroupMemberPermission permission,
@@ -301,6 +389,30 @@ class JdbcCurriculumRepositoryTest {
 			NOW.plusSeconds(604800),
 			true,
 			Map.of("displayOrder", displayOrder),
+			NOW,
+			NOW
+		);
+	}
+
+	private static MemberWeekProgress progress(
+		MemberWeekProgressStatus status,
+		Instant startedAt,
+		Instant completedAt,
+		String completionNote,
+		String incompleteReason,
+		Instant reasonSubmittedAt
+	) {
+		return new MemberWeekProgress(
+			PROGRESS_ID,
+			WEEK_ID,
+			MEMBER_ID,
+			status,
+			startedAt,
+			WEEK_DUE_AT,
+			completedAt,
+			completionNote,
+			incompleteReason,
+			reasonSubmittedAt,
 			NOW,
 			NOW
 		);

@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.curriculum.controller;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,6 +19,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
@@ -66,10 +69,12 @@ class CurriculumControllerTest {
 	private static final UUID ASSIGNMENT_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004130");
 	private static final UUID PROJECT_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004131");
 	private static final UUID CUSTOM_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004132");
+	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004133");
 	private static final String START_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/start";
 	private static final String CURRICULUM_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/curriculum";
 	private static final String CURRENT_WEEK_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/weeks/current";
 	private static final String WEEK_TASKS_PATH = ApiPaths.V1 + "/weeks/" + WEEK_ID + "/tasks";
+	private static final String WEEK_PROGRESS_PATH = ApiPaths.V1 + "/weeks/" + WEEK_ID + "/progress/me";
 
 	private final MockMvc mockMvc;
 	private final MutableCurriculumRepository repository;
@@ -239,6 +244,80 @@ class CurriculumControllerTest {
 			.andExpect(jsonPath("$[4].taskType").value("CUSTOM"));
 	}
 
+	@Test
+	void updateMyWeekProgressRequiresAuthentication() throws Exception {
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void updateMyWeekProgressCreatesProgressForActiveMember() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.nextIds = new ArrayDeque<>(List.of(PROGRESS_ID));
+
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"status":"IN_PROGRESS"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(PROGRESS_ID.toString()))
+			.andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+	}
+
+	@Test
+	void updateMyWeekProgressReturnsForbiddenForPendingMember() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"status":"IN_PROGRESS"}
+					"""))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void updateMyWeekProgressReturnsValidationProblemForIncompleteWithoutReason() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.nextIds = new ArrayDeque<>(List.of(PROGRESS_ID));
+
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"status":"INCOMPLETE"}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void updateMyWeekProgressReturnsValidationProblemWhenStatusIsMissing() throws Exception {
+		mockMvc.perform(put(WEEK_PROGRESS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("progress-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	private static RequestPostProcessor xsrf(String value) {
 		return request -> {
 			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
@@ -346,18 +425,11 @@ class CurriculumControllerTest {
 		@Bean
 		@Primary
 		CurriculumService curriculumService(MutableCurriculumRepository repository) {
-			Queue<UUID> ids = new ArrayDeque<>(List.of(LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID));
 			return new CurriculumService(
 				repository,
 				request -> generation(),
 				Clock.fixed(NOW, ZoneOffset.UTC),
-				() -> {
-					UUID id = ids.poll();
-					if (id == null) {
-						throw new IllegalStateException("No test UUID left.");
-					}
-					return id;
-				}
+				repository::nextId
 			);
 		}
 	}
@@ -371,6 +443,9 @@ class CurriculumControllerTest {
 		private CurriculumWeek currentWeek;
 		private boolean weekExists;
 		private List<WeeklyTask> weeklyTasks;
+		private MemberWeekProgress progress;
+		private Instant weekDueAt;
+		private Queue<UUID> nextIds;
 
 		void reset() {
 			startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
@@ -380,6 +455,17 @@ class CurriculumControllerTest {
 			currentWeek = null;
 			weekExists = false;
 			weeklyTasks = List.of();
+			progress = null;
+			weekDueAt = TestCurriculumBeans.NOW.plusSeconds(604800);
+			nextIds = new ArrayDeque<>(List.of(LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID));
+		}
+
+		UUID nextId() {
+			UUID id = nextIds.poll();
+			if (id == null) {
+				throw new IllegalStateException("No test UUID left.");
+			}
+			return id;
 		}
 
 		@Override
@@ -438,6 +524,28 @@ class CurriculumControllerTest {
 		@Override
 		public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 			return weeklyTasks;
+		}
+
+		@Override
+		public Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId) {
+			return Optional.ofNullable(progress);
+		}
+
+		@Override
+		public Optional<Instant> findWeekDueAt(UUID weekId) {
+			return Optional.ofNullable(weekDueAt);
+		}
+
+		@Override
+		public boolean insertMemberWeekProgress(MemberWeekProgress progress) {
+			this.progress = progress;
+			return true;
+		}
+
+		@Override
+		public boolean updateMemberWeekProgress(MemberWeekProgress progress) {
+			this.progress = progress;
+			return true;
 		}
 	}
 }

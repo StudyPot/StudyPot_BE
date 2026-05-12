@@ -10,6 +10,8 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumGroupNotFoundExce
 import com.studypot.aistudyleader.curriculum.service.CurriculumNotFoundException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumStartRejectedException;
+import com.studypot.aistudyleader.curriculum.service.InvalidWeekProgressRequestException;
+import com.studypot.aistudyleader.curriculum.service.WeekProgressUpdateRejectedException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -145,7 +147,12 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({StudyGroupJoinRejectedException.class, CurriculumStartRejectedException.class, GroupRuleMutationRejectedException.class})
+	@ExceptionHandler({
+		StudyGroupJoinRejectedException.class,
+		CurriculumStartRejectedException.class,
+		WeekProgressUpdateRejectedException.class,
+		GroupRuleMutationRejectedException.class
+	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
@@ -160,6 +167,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidGroupRuleRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidGroupRuleRequest(InvalidGroupRuleRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidWeekProgressRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidWeekProgressRequest(InvalidWeekProgressRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

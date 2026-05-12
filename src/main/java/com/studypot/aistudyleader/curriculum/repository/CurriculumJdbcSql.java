@@ -163,6 +163,43 @@ final class CurriculumJdbcSql {
 		order by wt.display_order
 		""";
 
+	static final String SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER = """
+		select id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
+		       completion_note, incomplete_reason, reason_submitted_at, created_at, updated_at
+		from member_week_progress
+		where curriculum_week_id = ?
+		  and member_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_WEEK_DUE_AT = """
+		select ends_at
+		from curriculum_week
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	static final String INSERT_MEMBER_WEEK_PROGRESS = """
+		insert into member_week_progress (
+		  id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
+		  completion_note, incomplete_reason, reason_submitted_at, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String UPDATE_MEMBER_WEEK_PROGRESS = """
+		update member_week_progress
+		set status = ?,
+		    started_at = ?,
+		    due_at = ?,
+		    completed_at = ?,
+		    completion_note = ?,
+		    incomplete_reason = ?,
+		    reason_submitted_at = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	private CurriculumJdbcSql() {
 	}
 }

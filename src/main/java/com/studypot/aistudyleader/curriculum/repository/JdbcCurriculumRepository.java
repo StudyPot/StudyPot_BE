@@ -9,6 +9,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
@@ -156,6 +158,56 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		return jdbcTemplate.query(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK, this::mapTask, uuid(weekId));
+	}
+
+	@Override
+	public Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER, this::mapProgress, uuid(weekId), uuid(memberId));
+	}
+
+	@Override
+	public Optional<Instant> findWeekDueAt(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_WEEK_DUE_AT, (resultSet, rowNumber) -> instant(resultSet.getTimestamp("ends_at")), uuid(weekId));
+	}
+
+	@Override
+	public boolean insertMemberWeekProgress(MemberWeekProgress progress) {
+		Objects.requireNonNull(progress, "progress must not be null");
+		return jdbcTemplate.update(
+			CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS,
+			uuid(progress.id()),
+			uuid(progress.curriculumWeekId()),
+			uuid(progress.memberId()),
+			progress.status().name(),
+			timestamp(progress.startedAt()),
+			timestamp(progress.dueAt()),
+			timestamp(progress.completedAt()),
+			progress.completionNote(),
+			progress.incompleteReason(),
+			timestamp(progress.reasonSubmittedAt()),
+			timestamp(progress.createdAt()),
+			timestamp(progress.updatedAt())
+		) == 1;
+	}
+
+	@Override
+	public boolean updateMemberWeekProgress(MemberWeekProgress progress) {
+		Objects.requireNonNull(progress, "progress must not be null");
+		return jdbcTemplate.update(
+			CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS,
+			progress.status().name(),
+			timestamp(progress.startedAt()),
+			timestamp(progress.dueAt()),
+			timestamp(progress.completedAt()),
+			progress.completionNote(),
+			progress.incompleteReason(),
+			timestamp(progress.reasonSubmittedAt()),
+			timestamp(progress.updatedAt()),
+			uuid(progress.id())
+		) == 1;
 	}
 
 	private Map<UUID, List<SubmittedAvailabilitySlot>> submittedAvailabilitySlotsByResponse(UUID groupId) {
@@ -349,6 +401,23 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			instant(resultSet.getTimestamp("due_at")),
 			resultSet.getBoolean("generated_by_ai"),
 			readNullableMap(resultSet.getString("source_payload"), "weekly task source payload"),
+			instant(resultSet.getTimestamp("created_at")),
+			instant(resultSet.getTimestamp("updated_at"))
+		);
+	}
+
+	private MemberWeekProgress mapProgress(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new MemberWeekProgress(
+			UuidBinary.fromBytes(resultSet.getBytes("id")),
+			UuidBinary.fromBytes(resultSet.getBytes("curriculum_week_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			MemberWeekProgressStatus.valueOf(resultSet.getString("status")),
+			instant(resultSet.getTimestamp("started_at")),
+			instant(resultSet.getTimestamp("due_at")),
+			instant(resultSet.getTimestamp("completed_at")),
+			resultSet.getString("completion_note"),
+			resultSet.getString("incomplete_reason"),
+			instant(resultSet.getTimestamp("reason_submitted_at")),
 			instant(resultSet.getTimestamp("created_at")),
 			instant(resultSet.getTimestamp("updated_at"))
 		);
