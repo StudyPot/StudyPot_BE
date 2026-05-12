@@ -18,6 +18,13 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailabl
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.rules.repository.GroupRulePersistenceException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleAccessDeniedException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleGroupNotFoundException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleMutationRejectedException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleNotFoundException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.rules.service.InvalidGroupRuleRequestException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
@@ -106,6 +113,12 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
+	@ExceptionHandler({GroupRuleServiceUnavailableException.class, GroupRulePersistenceException.class})
+	public ResponseEntity<ProblemDetail> handleGroupRuleServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
 	@ExceptionHandler({CurriculumServiceUnavailableException.class, CurriculumGenerationException.class})
 	public ResponseEntity<ProblemDetail> handleCurriculumServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -117,20 +130,22 @@ public class ApiExceptionHandler {
 		OnboardingGroupNotFoundException.class,
 		OnboardingResponseNotFoundException.class,
 		CurriculumGroupNotFoundException.class,
-		CurriculumNotFoundException.class
+		CurriculumNotFoundException.class,
+		GroupRuleGroupNotFoundException.class,
+		GroupRuleNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({OnboardingMembershipRequiredException.class, CurriculumAccessDeniedException.class})
+	@ExceptionHandler({OnboardingMembershipRequiredException.class, CurriculumAccessDeniedException.class, GroupRuleAccessDeniedException.class})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({StudyGroupJoinRejectedException.class, CurriculumStartRejectedException.class})
+	@ExceptionHandler({StudyGroupJoinRejectedException.class, CurriculumStartRejectedException.class, GroupRuleMutationRejectedException.class})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
@@ -138,6 +153,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidOnboardingRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidOnboardingRequest(InvalidOnboardingRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidGroupRuleRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidGroupRuleRequest(InvalidGroupRuleRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
