@@ -325,6 +325,16 @@ paths:
   /weeks/{weekId}/progress/me:
     parameters:
       - $ref: '#/components/parameters/WeekId'
+    get:
+      tags: [WeeklyTodo]
+      operationId: getMyWeekProgress
+      responses:
+        '200':
+          description: Week progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberWeekProgressResponse'
     put:
       tags: [WeeklyTodo]
       operationId: updateMyWeekProgress
@@ -712,6 +722,7 @@ components:
         incompleteReason: {type: string}
     MemberWeekProgressResponse:
       type: object
+      required: [id, status]
       properties:
         id: {type: string, format: uuid}
         status: {type: string}

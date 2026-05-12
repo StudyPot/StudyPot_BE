@@ -3,6 +3,7 @@
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
+- Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Journey 1: Host Creates Group
 1. Authenticated host submits group name, topic, selected/detail keywords, maximum members, and study period.
@@ -68,7 +69,7 @@ Acceptance:
 
 ## Journey 6: Retrospective and AI Team Leader Chat
 1. Week ends or user opens AI team leader conversation.
-2. Backend creates retrospective context from onboarding, tasks, completion notes, and incomplete reasons.
+2. Backend creates retrospective context from onboarding summary, current week, tasks, progress, completion notes, incomplete reasons, relevant rules/violations, prior feedback/adjustment, and conversation summary.
 3. AI produces feedback and next-week adjustment proposal for the next weekly operating loop.
 4. Chat messages are stored for the member and group.
 5. Backend creates an in-app notification when AI feedback or next-week adjustment is ready.
@@ -76,6 +77,7 @@ Acceptance:
 Acceptance:
 - Feedback is linked to `member_week_progress`, `curriculum_week`, and `group_member`.
 - AI responses are backed by `llm_usage`.
+- Context building is DB-first for MVP; vector/graph retrieval is deferred until unstructured study materials exist.
 - Next-week adjustment can affect future weekly task recommendations.
 
 ## Journey 7: In-App Notification

@@ -12,6 +12,14 @@
 - domain/service regression 테스트
 - 구조 또는 layering guardrail 테스트
 - OpenAPI parse와 ERD v0.8 MySQL8 `db-schema-coverage` 계약 테스트
+- Swagger Docs 계약 테스트
+
+## Swagger Docs 계약
+- 신규 API를 만들거나 기존 컨트롤러에 HTTP mapping을 추가할 때는 Swagger UI에 표시될 세부 문서를 함께 작성합니다.
+- 컨트롤러에는 한글 `@Tag` 이름과 설명을 적고, 각 API method에는 한글 `@Operation` summary/description과 `@ApiResponse`를 적습니다.
+- `{groupId}`, `{weekId}`, `{taskId}`처럼 path variable이 있는 API는 `@Parameter`로 값의 의미를 설명합니다.
+- request/response record에는 한글 `@Schema` 설명을 적어 Swagger UI의 schema 탭에서도 필드 목적을 확인할 수 있게 합니다.
+- `scripts/tests/test_swagger_docs_contracts.sh`는 신규 API가 Swagger Docs 없이 추가되는 것을 막는 정적 하네스 테스트입니다.
 
 ## 실패 시 확인 순서
 1. 현재 worktree와 branch가 `codex/<slug>`인지 확인합니다.

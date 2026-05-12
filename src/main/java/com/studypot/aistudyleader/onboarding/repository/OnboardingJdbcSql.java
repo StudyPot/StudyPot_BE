@@ -12,7 +12,7 @@ final class OnboardingJdbcSql {
 		""";
 
 	static final String SELECT_MEMBER_CONTEXT = """
-		select sg.id as group_id, gm.id as member_id, sg.detail_keywords
+		select sg.id as group_id, gm.id as member_id, gm.status as member_status, sg.detail_keywords
 		from study_group sg
 		join group_member gm on gm.group_id = sg.id
 		where sg.id = ?
@@ -51,6 +51,26 @@ final class OnboardingJdbcSql {
 		  status = values(status),
 		  submitted_at = null,
 		  updated_at = values(updated_at)
+		""";
+
+	static final String SUBMIT_ONBOARDING_RESPONSE = """
+		update group_onboarding_response
+		set status = 'SUBMITTED',
+		    submitted_at = ?,
+		    updated_at = ?
+		where id = ?
+		  and member_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String ACTIVATE_PENDING_MEMBER = """
+		update group_member
+		set status = 'ACTIVE',
+		    activated_at = ?,
+		    updated_at = ?
+		where id = ?
+		  and status = 'PENDING_ONBOARDING'
+		  and deleted_at is null
 		""";
 
 	static final String SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """

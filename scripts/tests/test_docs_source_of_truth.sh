@@ -17,6 +17,10 @@ assert_contains "SPT-6\`: ERD/data-model source, completed" "${TEST_ROOT}/docs/c
 assert_contains "SPT-7\`: API source, completed" "${TEST_ROOT}/docs/confluence/10-jira-mapping.md"
 assert_contains "SPT-56\`: remaining documentation source-of-truth cleanup Task" "${TEST_ROOT}/docs/confluence/10-jira-mapping.md"
 assert_contains "작업\`/\`Task" "${TEST_ROOT}/docs/confluence/10-jira-mapping.md"
+assert_contains "CR-20260512-retrospective-rag-boundary" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "ADR-20260512-retrospective-rag-boundary" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "DB-First Context Builder" "${TEST_ROOT}/docs/specs/ai-contract-v1.md"
+assert_contains "Vector store, GraphRAG, MCP, FastAPI service split" "${TEST_ROOT}/docs/confluence/06-ai-team-leader.md"
 
 if rg -n "/Users/hyunwoo/Documents/New project 3" \
   "${TEST_ROOT}/ARCHITECTURE.md" \

@@ -4,6 +4,16 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumAccessDeniedException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumGroupNotFoundException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumNotFoundException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
+import com.studypot.aistudyleader.curriculum.service.CurriculumStartRejectedException;
+import com.studypot.aistudyleader.curriculum.service.InvalidTaskCompletionRequestException;
+import com.studypot.aistudyleader.curriculum.service.InvalidWeekProgressRequestException;
+import com.studypot.aistudyleader.curriculum.service.TaskCompletionUpdateRejectedException;
+import com.studypot.aistudyleader.curriculum.service.WeekProgressUpdateRejectedException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -12,6 +22,13 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailabl
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.rules.repository.GroupRulePersistenceException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleAccessDeniedException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleGroupNotFoundException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleMutationRejectedException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleNotFoundException;
+import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.rules.service.InvalidGroupRuleRequestException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
@@ -100,26 +117,73 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({StudyGroupNotFoundException.class, OnboardingGroupNotFoundException.class, OnboardingResponseNotFoundException.class})
+	@ExceptionHandler({GroupRuleServiceUnavailableException.class, GroupRulePersistenceException.class})
+	public ResponseEntity<ProblemDetail> handleGroupRuleServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler({CurriculumServiceUnavailableException.class, CurriculumGenerationException.class})
+	public ResponseEntity<ProblemDetail> handleCurriculumServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler({
+		StudyGroupNotFoundException.class,
+		OnboardingGroupNotFoundException.class,
+		OnboardingResponseNotFoundException.class,
+		CurriculumGroupNotFoundException.class,
+		CurriculumNotFoundException.class,
+		GroupRuleGroupNotFoundException.class,
+		GroupRuleNotFoundException.class
+	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler(OnboardingMembershipRequiredException.class)
-	public ResponseEntity<ProblemDetail> handleOnboardingMembershipRequired(OnboardingMembershipRequiredException exception) {
+	@ExceptionHandler({OnboardingMembershipRequiredException.class, CurriculumAccessDeniedException.class, GroupRuleAccessDeniedException.class})
+	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler(StudyGroupJoinRejectedException.class)
-	public ResponseEntity<ProblemDetail> handleStudyGroupJoinRejected(StudyGroupJoinRejectedException exception) {
+	@ExceptionHandler({
+		StudyGroupJoinRejectedException.class,
+		CurriculumStartRejectedException.class,
+		TaskCompletionUpdateRejectedException.class,
+		WeekProgressUpdateRejectedException.class,
+		GroupRuleMutationRejectedException.class
+	})
+	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
 	}
 
 	@ExceptionHandler(InvalidOnboardingRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidOnboardingRequest(InvalidOnboardingRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidGroupRuleRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidGroupRuleRequest(InvalidGroupRuleRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidWeekProgressRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidWeekProgressRequest(InvalidWeekProgressRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidTaskCompletionRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidTaskCompletionRequest(InvalidTaskCompletionRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

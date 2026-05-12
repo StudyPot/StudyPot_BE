@@ -36,4 +36,18 @@ class GroupMemberTest {
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("displayName length must be <= 80: 81");
 	}
+
+	@Test
+	void activateMovesPendingMemberToActive() {
+		GroupMember pending = GroupMember.member(MEMBER_ID, GROUP_ID, USER_ID, "New Member", NOW);
+		Instant activatedAt = NOW.plusSeconds(60);
+
+		GroupMember active = pending.activate(activatedAt);
+
+		assertThat(active.id()).isEqualTo(MEMBER_ID);
+		assertThat(active.status()).isEqualTo(GroupMemberStatus.ACTIVE);
+		assertThat(active.activatedAt()).contains(activatedAt);
+		assertThat(active.joinedAt()).isEqualTo(NOW);
+		assertThat(active.auditMetadata().updatedAt()).isEqualTo(activatedAt);
+	}
 }

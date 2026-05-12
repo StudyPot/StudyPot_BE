@@ -8,6 +8,7 @@ import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -90,10 +91,39 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 		return response;
 	}
 
+	@Override
+	public GroupOnboardingResponse submit(GroupOnboardingResponse response) {
+		Objects.requireNonNull(response, "response must not be null");
+		int updated = jdbcTemplate.update(
+			OnboardingJdbcSql.SUBMIT_ONBOARDING_RESPONSE,
+			timestamp(response.submittedAt().orElse(null)),
+			timestamp(response.auditMetadata().updatedAt()),
+			uuid(response.id()),
+			uuid(response.memberId())
+		);
+		if (updated == 0) {
+			throw new OnboardingPersistenceException("onboarding response could not be submitted.");
+		}
+		return response;
+	}
+
+	@Override
+	public boolean activatePendingMember(UUID memberId, Instant activatedAt) {
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		Objects.requireNonNull(activatedAt, "activatedAt must not be null");
+		return jdbcTemplate.update(
+			OnboardingJdbcSql.ACTIVATE_PENDING_MEMBER,
+			timestamp(activatedAt),
+			timestamp(activatedAt),
+			uuid(memberId)
+		) > 0;
+	}
+
 	private OnboardingMemberContext mapMemberContext(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new OnboardingMemberContext(
 			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
 			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			GroupMemberStatus.valueOf(resultSet.getString("member_status")),
 			read(resultSet.getString("detail_keywords"), STRING_LIST, "study group detail keywords")
 		);
 	}

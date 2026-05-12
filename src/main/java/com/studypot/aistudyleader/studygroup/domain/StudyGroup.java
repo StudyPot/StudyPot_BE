@@ -100,6 +100,45 @@ public final class StudyGroup extends AggregateRoot<UUID> {
 		);
 	}
 
+	public static StudyGroup rehydrate(
+		UUID id,
+		UUID createdBy,
+		String name,
+		String topic,
+		List<String> detailKeywords,
+		StudyGroupStatus status,
+		int maxMembers,
+		boolean isPublic,
+		String inviteCode,
+		LocalDate startsAt,
+		LocalDate endsAt,
+		String description,
+		Instant onboardingStartedAt,
+		Instant startedAt,
+		Instant createdAt,
+		Instant updatedAt
+	) {
+		Objects.requireNonNull(createdAt, "createdAt must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return new StudyGroup(
+			id,
+			createdBy,
+			name,
+			topic,
+			detailKeywords,
+			status,
+			maxMembers,
+			isPublic,
+			inviteCode,
+			startsAt,
+			endsAt,
+			description,
+			onboardingStartedAt,
+			startedAt,
+			new AuditMetadata(createdAt, updatedAt, null)
+		);
+	}
+
 	public UUID createdBy() {
 		return createdBy;
 	}

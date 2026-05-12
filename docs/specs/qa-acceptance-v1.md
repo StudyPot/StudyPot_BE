@@ -4,6 +4,7 @@
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
+- Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -38,11 +39,12 @@
 | `weekly-todo` | `QA-TODO-002` | Member can complete own task with timestamp and note. |
 | `weekly-todo` | `QA-TODO-003` | Overdue incomplete task requires incomplete reason. |
 | `weekly-todo` | `QA-TODO-004` | Cross-member completion updates are rejected. |
+| `weekly-todo` | `QA-TODO-005` | Member can read own existing week progress without mutating it. |
 | `retrospective-feedback` | `QA-RETRO-001` | Retrospective can be requested from current week progress. |
-| `retrospective-feedback` | `QA-RETRO-002` | AI feedback and next-week adjustment are stored as JSON. |
+| `retrospective-feedback` | `QA-RETRO-002` | AI feedback and next-week adjustment are stored as JSON using DB-first context from progress, tasks, completions, incomplete reasons, rules/violations, prior feedback, and conversation summary. |
 | `retrospective-feedback` | `QA-RETRO-003` | Failed AI generation leaves retriable failed status. |
 | `retrospective-feedback` | `QA-RETRO-004` | Member can read own retrospective only. |
-| `ai-team-leader` | `QA-AI-001` | LLM usage is recorded for every AI call. |
+| `ai-team-leader` | `QA-AI-001` | LLM usage is recorded for every AI call, including redacted context/source metadata for retrospective/chat calls. |
 | `ai-team-leader` | `QA-AI-002` | AI conversation stores user and assistant messages. |
 | `ai-team-leader` | `QA-AI-003` | Redacted request metadata excludes secrets/tokens. |
 | `ai-team-leader` | `QA-AI-004` | Invalid AI JSON output is rejected or marked failed. |
@@ -57,7 +59,9 @@
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
 - Host start with only partial onboarding completion.
 - Current week task completion before due date.
+- Current week progress read after progress creation.
 - Overdue incomplete reason modal path.
 - AI retrospective feedback with next-week adjustment.
+- Retrospective/chat context builder excludes cross-member private raw notes while preserving allowed group-level summaries.
 - AI conversation message persistence and LLM usage logging.
 - In-app notification idempotency and read-state update.

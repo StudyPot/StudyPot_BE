@@ -4,6 +4,7 @@
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
+- Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Priority Definitions
 | Priority | Meaning |
@@ -42,6 +43,12 @@
 | `notification` | `REQ-NOTI-003` | External delivery channels can be added after in-app notification is stable. |
 | `ai-team-leader` | `REQ-AI-003` | LLM usage can be aggregated by group, user, purpose, and UTC date. |
 
+## Retrospective and AI Context Boundary
+- `retrospective-feedback` owns the final retrospective result and status. It is not replaced by chat history.
+- `ai-team-leader` chat is an input/support interface. A `RETROSPECTIVE` conversation can contribute context to a retrospective, but the retrospective remains the canonical output.
+- MVP retrieval for retrospective/chat is DB-first: collect current week, weekly tasks, member week progress, task completions, incomplete reasons, group rules/violations, prior retrospectives, prior next-week adjustments, onboarding summary, and conversation summary through backend repositories before calling an LLM provider.
+- Vector or graph retrieval for unstructured learning materials is deferred until official docs, lecture links, group files, or reusable curriculum examples become product data.
+
 ## P2 / Deferred
 | Area | Reason |
 | --- | --- |
@@ -50,3 +57,4 @@
 | Heavy synchronous meeting automation | MVP is asynchronous onboarding/todo/feedback. |
 | Automatic full curriculum regeneration for late joiners | Late joiner context is applied to future adjustment only. |
 | Discord integration and bot delivery | Out of MVP; in-app notification is the first notification surface. |
+| Vector/graph retrieval infrastructure | Deferred until non-structured study material exists and SPT-82 or a later task approves the service boundary. |

@@ -147,6 +147,25 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 		return auditMetadata;
 	}
 
+	public GroupOnboardingResponse submit(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		if (status == GroupOnboardingStatus.SUBMITTED) {
+			return this;
+		}
+		return new GroupOnboardingResponse(
+			id(),
+			groupId,
+			memberId,
+			keywordSkillLevels,
+			taskPreferences,
+			additionalNote,
+			availabilitySlots,
+			GroupOnboardingStatus.SUBMITTED,
+			now,
+			auditMetadata.touch(now)
+		);
+	}
+
 	private static Map<String, Integer> validateKeywordSkillLevels(
 		OnboardingMemberContext context,
 		Map<String, Integer> values

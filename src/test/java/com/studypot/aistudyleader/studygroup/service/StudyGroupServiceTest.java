@@ -140,9 +140,27 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
-	void joinGroupRejectsGroupThatIsNotOnboarding() {
+	void joinGroupAcceptsActiveGroupForLateJoiner() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 3, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		StudyGroupJoinResult result = service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(result.member()).isSameAs(repository.savedJoinedMember());
+		assertThat(result.member().id()).isEqualTo(JOINED_MEMBER_ID);
+		assertThat(result.member().groupId()).isEqualTo(GROUP_ID);
+		assertThat(result.member().userId()).isEqualTo(JOINER_ID);
+		assertThat(result.member().permission()).isEqualTo(GroupMemberPermission.MEMBER);
+		assertThat(result.member().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
+		assertThat(result.member().joinedAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void joinGroupRejectsCompletedGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.COMPLETED, 3, "INVITE-0001");
 		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
 
 		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
@@ -187,6 +205,37 @@ class StudyGroupServiceTest {
 		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))
 			.isInstanceOf(StudyGroupJoinRejectedException.class)
 			.hasMessage("user is already a member of this study group.");
+	}
+
+	@Test
+	void listMyGroupsReturnsCurrentUserGroupsFromRepository() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup listedGroup = group();
+		repository.listedGroups = List.of(listedGroup);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(new ListStudyGroupsQuery(USER_ID));
+
+		assertThat(repository.listRequestedUserId).isEqualTo(USER_ID);
+		assertThat(result).containsExactly(listedGroup);
+	}
+
+	@Test
+	void listMyGroupsReturnsEmptyListWhenUserHasNoCurrentMemberships() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(new ListStudyGroupsQuery(USER_ID));
+
+		assertThat(repository.listRequestedUserId).isEqualTo(USER_ID);
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void listQueryRejectsMissingAuthenticatedUserId() {
+		assertThatThrownBy(() -> new ListStudyGroupsQuery(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("authenticatedUserId must not be null");
 	}
 
 	@Test
@@ -250,6 +299,22 @@ class StudyGroupServiceTest {
 		);
 	}
 
+	private static StudyGroup group() {
+		return StudyGroup.create(
+			GROUP_ID,
+			USER_ID,
+			"Backend Interview Study",
+			"Spring Boot",
+			List.of("JPA", "Security"),
+			6,
+			LocalDate.parse("2026-05-10"),
+			LocalDate.parse("2026-06-21"),
+			"Weekly backend interview prep",
+			"INVITE-0001",
+			NOW
+		);
+	}
+
 	private static final class CapturingRepository implements StudyGroupRepository {
 
 		private final Set<String> collidingCodes;
@@ -258,6 +323,8 @@ class StudyGroupServiceTest {
 		private int currentMemberCount;
 		private boolean existingActiveOrOnboardingMember;
 		private boolean throwDuplicateMembershipOnJoin;
+		private UUID listRequestedUserId;
+		private List<StudyGroup> listedGroups = List.of();
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
 		private GroupMember savedJoinedMember;
@@ -300,6 +367,12 @@ class StudyGroupServiceTest {
 				throw new GroupMemberDuplicateMembershipException("group member already exists.");
 			}
 			this.savedJoinedMember = member;
+		}
+
+		@Override
+		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
+			this.listRequestedUserId = userId;
+			return listedGroups;
 		}
 
 		int attempts() {

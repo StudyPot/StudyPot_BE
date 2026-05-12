@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -54,6 +55,21 @@ public class OnboardingService {
 		OnboardingMemberContext context = requireMemberContext(query.authenticatedUserId(), query.groupId());
 		return repository.findResponseByMemberId(context.memberId())
 			.orElseThrow(() -> new OnboardingResponseNotFoundException("onboarding response was not found."));
+	}
+
+	@Transactional
+	public GroupOnboardingResponse submitMyOnboarding(SubmitMyOnboardingCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		OnboardingMemberContext context = requireMemberContext(command.authenticatedUserId(), command.groupId());
+		GroupOnboardingResponse response = repository.findResponseByMemberId(context.memberId())
+			.orElseThrow(() -> new OnboardingResponseNotFoundException("onboarding response was not found."));
+		Instant now = clock.instant();
+		GroupOnboardingResponse submitted = repository.submit(response.submit(now));
+		if (context.memberStatus() == GroupMemberStatus.PENDING_ONBOARDING
+			&& !repository.activatePendingMember(context.memberId(), now)) {
+			throw new OnboardingMembershipRequiredException("current group membership is required.");
+		}
+		return submitted;
 	}
 
 	private OnboardingMemberContext requireMemberContext(UUID authenticatedUserId, UUID groupId) {

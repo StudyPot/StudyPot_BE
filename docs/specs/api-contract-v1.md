@@ -6,6 +6,8 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Backend-owned OAuth2 cookie-login contract changes are authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md) under the v1 change-control process.
+- Member week progress read endpoint is authorized by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
+- Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
@@ -28,6 +30,13 @@
 | AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
 | Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage. |
 
+## Retrospective and AI Conversation Boundary
+- `POST /api/v1/weeks/{weekId}/retrospectives/me` requests or returns a stateful retrospective result for the authenticated member's week/progress context.
+- `POST /api/v1/groups/{groupId}/ai-conversations` opens a chat session. When `conversationType = RETROSPECTIVE`, the session may link to an existing or future retrospective through `retrospectiveId`.
+- `POST /api/v1/ai-conversations/{conversationId}/messages` stores user and assistant messages. Assistant messages can contribute to conversation summaries and later retrospective context.
+- The MVP context builder for retrospective/chat is internal to the backend. It does not add public API request or response fields in SPT-81.
+- The machine OpenAPI contract remains unchanged by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md); provider, vector store, and FastAPI service choices are not exposed at the REST boundary.
+
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
@@ -49,8 +58,9 @@
 | `PUT` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Save draft/submitted onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me/submit` | `group-onboarding` | group member | Submit onboarding. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
-| `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week with tasks and progress. |
+| `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
+| `GET` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Read my member week progress. |
 | `PUT` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Update member week progress note/status. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me` | `weekly-todo` | group member | Complete, skip, or mark task incomplete. |
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |

@@ -7,7 +7,7 @@
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
 - Current contract size: 25 paths, 31 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -32,6 +32,12 @@
 | AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
 | Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage logs. |
 
+## Retrospective / AI Chat Boundary
+- `retrospective` is the final week/member/progress feedback state.
+- `ai_conversation` and `ai_conversation_message` are the chat/input surface and may link to a retrospective when `conversationType = RETROSPECTIVE`.
+- SPT-81 does not add public API fields or OpenAPI paths. The DB-first context builder runs inside the backend before retrospective/chat LLM provider calls.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
@@ -51,8 +57,9 @@
 | `PUT` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Save draft/submitted onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me/submit` | `group-onboarding` | group member | Submit onboarding. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
-| `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week with tasks and progress. |
+| `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
+| `GET` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Read my member week progress. |
 | `PUT` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Update member week progress note/status. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me` | `weekly-todo` | group member | Complete, skip, or mark task incomplete. |
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
@@ -130,7 +137,7 @@
 - Group read access requires membership.
 - Group update, host start, group notification logs, and LLM usage logs are owner-only.
 - Pending members may submit onboarding but cannot complete weekly tasks.
-- Active members may read curriculum/current week, complete their own tasks, request their own retrospective, and chat with the AI team leader.
+- Active members may read curriculum/current week, read their own week progress, complete their own tasks, request their own retrospective, and chat with the AI team leader.
 - Notification list/read endpoints are scoped to the authenticated recipient user.
 - Cross-group access must be rejected even when a resource ID exists.
 

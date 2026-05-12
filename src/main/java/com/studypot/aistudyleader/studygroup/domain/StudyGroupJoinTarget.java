@@ -22,7 +22,7 @@ public record StudyGroupJoinTarget(
 	}
 
 	public boolean isAcceptingJoins() {
-		return status == StudyGroupStatus.ONBOARDING;
+		return status == StudyGroupStatus.ONBOARDING || status == StudyGroupStatus.ACTIVE;
 	}
 
 	public boolean matchesInviteCode(String candidateInviteCode) {
