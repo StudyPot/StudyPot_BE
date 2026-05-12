@@ -19,7 +19,8 @@ class CurriculumApplicationConfiguration {
 		ObjectProvider<CurriculumGenerator> generator,
 		Clock clock
 	) {
-		Supplier<CurriculumGenerator> generatorSupplier = () -> generator.getIfAvailable();
+		CurriculumGenerator configuredGenerator = generator.getIfAvailable();
+		Supplier<CurriculumGenerator> generatorSupplier = () -> configuredGenerator;
 		return new CurriculumService(repository, generatorSupplier, clock, UuidV7::generate);
 	}
 }

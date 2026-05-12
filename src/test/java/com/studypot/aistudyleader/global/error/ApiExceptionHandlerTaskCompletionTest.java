@@ -29,7 +29,7 @@ class ApiExceptionHandlerTaskCompletionTest {
 	}
 
 	@Test
-	void invalidTaskCompletionRequestUsesDefaultMessageWhenBlank() {
+	void invalidTaskCompletionRequestUsesDefaultMessageWhenWhitespace() {
 		var response = handler.handleInvalidTaskCompletionRequest(new InvalidTaskCompletionRequestException("status", " "));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(422);

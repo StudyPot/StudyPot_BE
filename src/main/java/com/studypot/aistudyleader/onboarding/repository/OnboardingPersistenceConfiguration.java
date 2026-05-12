@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.onboarding.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,6 @@ class OnboardingPersistenceConfiguration {
 
 	@Bean
 	OnboardingRepository onboardingRepository(JdbcTemplate jdbcTemplate, ObjectProvider<ObjectMapper> objectMapper) {
-		return new JdbcOnboardingRepository(jdbcTemplate, objectMapper.getIfAvailable(ObjectMapper::new));
+		return new JdbcOnboardingRepository(jdbcTemplate, objectMapper.getIfAvailable(() -> JsonMapper.builder().findAndAddModules().build()));
 	}
 }
