@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class RetrospectiveService {
 
+	private static final String CONVERSATION_SUMMARY_SOURCE_PLACEHOLDER = "RETROSPECTIVE_CONVERSATION_PENDING";
+
 	private final RetrospectiveRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
@@ -102,7 +104,7 @@ public class RetrospectiveService {
 		summary.put("tasks", taskDetails(taskSummaries));
 		summary.put("conversationSummary", Map.of(
 			"status", "NOT_AVAILABLE",
-			"source", "SPT-38"
+			"source", CONVERSATION_SUMMARY_SOURCE_PLACEHOLDER
 		));
 		return summary;
 	}

@@ -70,6 +70,8 @@ Implement SPT-38 retrospective foundation: an active authenticated group member 
 - [x] RED: `./gradlew test --tests '*Retrospective*' --no-daemon` failed before implementation because the retrospective classes were missing.
 - [x] Focused: `./gradlew test --tests '*Retrospective*' --no-daemon` passed after implementation.
 - [x] Full: `./gradlew check build --no-daemon` passed on 2026-05-12.
+- [x] CodeRabbit fix focused: `./gradlew test --tests '*Retrospective*' --no-daemon` passed after input summary validation and placeholder-source cleanup.
+- [x] CodeRabbit fix full: `./gradlew check build --no-daemon` passed after review fixes.
 
 ## Done Criteria
 - `POST /api/v1/weeks/{weekId}/retrospectives/me` returns HTTP 202 with the created or existing retrospective for the authenticated active member.

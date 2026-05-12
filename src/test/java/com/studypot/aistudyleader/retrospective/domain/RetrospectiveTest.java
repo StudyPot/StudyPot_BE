@@ -1,9 +1,11 @@
 package com.studypot.aistudyleader.retrospective.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,50 @@ class RetrospectiveTest {
 		assertThat(retrospective.aiFeedback()).isEmpty();
 		assertThat(retrospective.nextWeekAdjustment()).isEmpty();
 		assertThat(retrospective.inputSummary()).containsKey("progress");
+	}
+
+	@Test
+	void requestedRejectsMissingInputSummary() {
+		assertThatThrownBy(() -> Retrospective.requested(
+				RETROSPECTIVE_ID,
+				PROGRESS_ID,
+				WEEK_ID,
+				MEMBER_ID,
+				RetrospectiveTriggerType.MANUAL,
+				Map.of(),
+				NOW
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("inputSummary must not be empty.");
+		assertThatThrownBy(() -> Retrospective.requested(
+				RETROSPECTIVE_ID,
+				PROGRESS_ID,
+				WEEK_ID,
+				MEMBER_ID,
+				RetrospectiveTriggerType.MANUAL,
+				null,
+				NOW
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("inputSummary must not be empty.");
+	}
+
+	@Test
+	void requestedRejectsNullTopLevelInputSummaryEntries() {
+		Map<String, Object> inputSummary = new LinkedHashMap<>();
+		inputSummary.put("progress", null);
+
+		assertThatThrownBy(() -> Retrospective.requested(
+				RETROSPECTIVE_ID,
+				PROGRESS_ID,
+				WEEK_ID,
+				MEMBER_ID,
+				RetrospectiveTriggerType.MANUAL,
+				inputSummary,
+				NOW
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("inputSummary must not contain null keys or values.");
 	}
 
 	@Test

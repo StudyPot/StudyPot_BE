@@ -56,7 +56,7 @@ public record Retrospective(
 			memberId,
 			null,
 			triggerType,
-			inputSummary,
+			requiredInputSummary(inputSummary),
 			Map.of(),
 			Map.of(),
 			RetrospectiveStatus.PENDING,
@@ -67,9 +67,25 @@ public record Retrospective(
 		);
 	}
 
+	private static Map<String, Object> requiredInputSummary(Map<String, Object> inputSummary) {
+		if (inputSummary == null || inputSummary.isEmpty()) {
+			throw new IllegalArgumentException("inputSummary must not be empty.");
+		}
+		return immutableMap("inputSummary", inputSummary);
+	}
+
 	private static Map<String, Object> immutableMap(Map<String, Object> value) {
+		return immutableMap("JSON map", value);
+	}
+
+	private static Map<String, Object> immutableMap(String fieldName, Map<String, Object> value) {
 		if (value == null || value.isEmpty()) {
 			return Map.of();
+		}
+		for (Map.Entry<String, Object> entry : value.entrySet()) {
+			if (entry.getKey() == null || entry.getValue() == null) {
+				throw new IllegalArgumentException(fieldName + " must not contain null keys or values.");
+			}
 		}
 		return Collections.unmodifiableMap(new LinkedHashMap<>(value));
 	}
