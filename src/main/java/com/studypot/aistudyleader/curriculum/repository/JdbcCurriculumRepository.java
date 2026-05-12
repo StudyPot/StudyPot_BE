@@ -126,6 +126,38 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			.map(row -> row.toCurriculum(findWeeks(row.id())));
 	}
 
+	@Override
+	public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_CURRENT_WEEK_BY_GROUP,
+			(resultSet, rowNumber) -> {
+				CurriculumWeekRow row = mapWeekRow(resultSet, rowNumber);
+				return row.toWeek(findWeeklyTasksByWeekId(row.id()));
+			},
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public boolean existsCurriculumWeek(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(CurriculumJdbcSql.EXISTS_CURRICULUM_WEEK, Boolean.class, uuid(weekId)));
+	}
+
+	@Override
+	public Optional<CurriculumStartContext> findReadContextByWeekId(UUID weekId, UUID userId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_WEEK_READ_CONTEXT, this::mapStartContext, uuid(weekId), uuid(userId));
+	}
+
+	@Override
+	public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return jdbcTemplate.query(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK, this::mapTask, uuid(weekId));
+	}
+
 	private Map<UUID, List<SubmittedAvailabilitySlot>> submittedAvailabilitySlotsByResponse(UUID groupId) {
 		List<SubmittedAvailabilityRow> rows = jdbcTemplate.query(
 			CurriculumJdbcSql.SELECT_SUBMITTED_AVAILABILITY_SLOTS,

@@ -13,11 +13,14 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
@@ -164,6 +167,78 @@ class JdbcCurriculumRepositoryTest {
 			.hasMessage("study group could not be transitioned to ACTIVE.");
 	}
 
+	@Test
+	void currentWeekSqlFiltersActiveCurriculumAndInProgressWeek() {
+		assertThat(CurriculumJdbcSql.SELECT_CURRENT_WEEK_BY_GROUP)
+			.contains("c.status = 'ACTIVE'")
+			.contains("cw.status = 'IN_PROGRESS'")
+			.contains("order by cw.week_number")
+			.contains("limit 1");
+	}
+
+	@Test
+	void weeklyTasksByWeekSqlOrdersByDisplayOrder() {
+		assertThat(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK)
+			.contains("where wt.curriculum_week_id = ?")
+			.contains("wt.deleted_at is null")
+			.contains("order by wt.display_order");
+	}
+
+	@Test
+	void findCurrentWeekByGroupIdQueriesInProgressWeek() {
+		CurriculumWeek week = currentWeek();
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_CURRENT_WEEK_BY_GROUP), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(week));
+
+		Optional<CurriculumWeek> result = repository.findCurrentWeekByGroupId(GROUP_ID);
+
+		assertThat(result).contains(week);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_CURRENT_WEEK_BY_GROUP), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+	}
+
+	@Test
+	void findReadContextByWeekIdQueriesMembershipThroughWeek() {
+		CurriculumStartContext context = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_WEEK_READ_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(context));
+
+		Optional<CurriculumStartContext> result = repository.findReadContextByWeekId(WEEK_ID, USER_ID);
+
+		assertThat(result).contains(context);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_WEEK_READ_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void existsCurriculumWeekQueriesSoftDeleteAwareExistence() {
+		when(jdbcTemplate.queryForObject(eq(CurriculumJdbcSql.EXISTS_CURRICULUM_WEEK), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(true);
+
+		assertThat(repository.existsCurriculumWeek(WEEK_ID)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).queryForObject(eq(CurriculumJdbcSql.EXISTS_CURRICULUM_WEEK), eq(Boolean.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+	}
+
+	@Test
+	void findWeeklyTasksByWeekIdQueriesTasksForOneWeek() {
+		WeeklyTask first = task(TASK_ID, 1);
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(first));
+
+		List<WeeklyTask> result = repository.findWeeklyTasksByWeekId(WEEK_ID);
+
+		assertThat(result).containsExactly(first);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+	}
+
 	private static CurriculumStartContext context(
 		StudyGroupStatus groupStatus,
 		GroupMemberPermission permission,
@@ -192,6 +267,42 @@ class JdbcCurriculumRepositoryTest {
 			null,
 			slots,
 			Instant.parse("2026-05-10T08:00:00Z")
+		);
+	}
+
+	private static CurriculumWeek currentWeek() {
+		return new CurriculumWeek(
+			WEEK_ID,
+			CURRICULUM_ID,
+			1,
+			"JPA 기초",
+			"핵심 개념을 맞춥니다.",
+			"Entity 매핑 이해",
+			List.of("Entity 매핑 이해"),
+			List.of(),
+			CurriculumWeekStatus.IN_PROGRESS,
+			NOW,
+			NOW.plusSeconds(604800),
+			List.of(task(TASK_ID, 1)),
+			NOW,
+			NOW
+		);
+	}
+
+	private static WeeklyTask task(UUID id, int displayOrder) {
+		return new WeeklyTask(
+			id,
+			WEEK_ID,
+			displayOrder,
+			WeeklyTaskType.READING,
+			"JPA 읽기",
+			"공식 문서를 읽습니다.",
+			true,
+			NOW.plusSeconds(604800),
+			true,
+			Map.of("displayOrder", displayOrder),
+			NOW,
+			NOW
 		);
 	}
 

@@ -4,9 +4,11 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -107,6 +109,39 @@ public class CurriculumService {
 		}
 		return repository.findActiveCurriculumByGroupId(query.groupId())
 			.orElseThrow(() -> new CurriculumNotFoundException("active curriculum was not found."));
+	}
+
+	@Transactional(readOnly = true)
+	public CurriculumWeek getCurrentWeek(GetCurrentWeekQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.canReadCurriculum()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read the current week.");
+		}
+		return repository.findCurrentWeekByGroupId(query.groupId())
+			.orElseThrow(() -> new CurriculumNotFoundException("current curriculum week was not found."));
+	}
+
+	@Transactional(readOnly = true)
+	public List<WeeklyTask> listWeeklyTasks(ListWeeklyTasksQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContextByWeekId(query.weekId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsCurriculumWeek(query.weekId())) {
+					throw new CurriculumNotFoundException("curriculum week was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.canReadCurriculum()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read weekly tasks.");
+		}
+		return repository.findWeeklyTasksByWeekId(query.weekId());
 	}
 
 	private CurriculumStartContext requireStartContext(UUID groupId, UUID userId) {
