@@ -12,11 +12,14 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
@@ -59,8 +62,14 @@ class CurriculumControllerTest {
 	private static final UUID CURRICULUM_ID = UUID.fromString("018f0000-0000-7000-8000-000000004125");
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004126");
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004127");
+	private static final UUID PRACTICE_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004129");
+	private static final UUID ASSIGNMENT_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004130");
+	private static final UUID PROJECT_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004131");
+	private static final UUID CUSTOM_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004132");
 	private static final String START_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/start";
 	private static final String CURRICULUM_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/curriculum";
+	private static final String CURRENT_WEEK_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/weeks/current";
+	private static final String WEEK_TASKS_PATH = ApiPaths.V1 + "/weeks/" + WEEK_ID + "/tasks";
 
 	private final MockMvc mockMvc;
 	private final MutableCurriculumRepository repository;
@@ -157,6 +166,79 @@ class CurriculumControllerTest {
 			.andExpect(jsonPath("$.status").value("ACTIVE"));
 	}
 
+	@Test
+	void getCurrentWeekRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(CURRENT_WEEK_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getCurrentWeekReturnsInProgressWeek() throws Exception {
+		repository.currentWeek = currentWeek();
+
+		mockMvc.perform(get(CURRENT_WEEK_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$.curriculumId").value(CURRICULUM_ID.toString()))
+			.andExpect(jsonPath("$.weekNumber").value(1))
+			.andExpect(jsonPath("$.title").value("JPA 기초와 환경 구성"))
+			.andExpect(jsonPath("$.sprintGoal").value("Entity 매핑 이해"))
+			.andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+			.andExpect(jsonPath("$.startsAt").value("2026-05-11T02:20:00Z"))
+			.andExpect(jsonPath("$.endsAt").value("2026-05-18T02:20:00Z"));
+	}
+
+	@Test
+	void getCurrentWeekReturnsForbiddenForPendingMember() throws Exception {
+		repository.readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+
+		mockMvc.perform(get(CURRENT_WEEK_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void listWeeklyTasksRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(WEEK_TASKS_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void listWeeklyTasksReturnsTasksInDisplayOrder() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTasks = List.of(
+			task(TASK_ID, 1, WeeklyTaskType.READING, true),
+			task(PRACTICE_TASK_ID, 2, WeeklyTaskType.PRACTICE, true),
+			task(ASSIGNMENT_TASK_ID, 3, WeeklyTaskType.ASSIGNMENT, true),
+			task(PROJECT_TASK_ID, 4, WeeklyTaskType.PROJECT, false),
+			task(CUSTOM_TASK_ID, 5, WeeklyTaskType.CUSTOM, false)
+		);
+
+		mockMvc.perform(get(WEEK_TASKS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$[0].curriculumWeekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].displayOrder").value(1))
+			.andExpect(jsonPath("$[0].taskType").value("READING"))
+			.andExpect(jsonPath("$[0].title").value("READING task"))
+			.andExpect(jsonPath("$[0].description").value("READING description"))
+			.andExpect(jsonPath("$[0].required").value(true))
+			.andExpect(jsonPath("$[0].dueAt").value("2026-05-18T02:20:00Z"))
+			.andExpect(jsonPath("$[1].taskType").value("PRACTICE"))
+			.andExpect(jsonPath("$[2].taskType").value("ASSIGNMENT"))
+			.andExpect(jsonPath("$[3].taskType").value("PROJECT"))
+			.andExpect(jsonPath("$[4].taskType").value("CUSTOM"));
+	}
+
 	private static RequestPostProcessor xsrf(String value) {
 		return request -> {
 			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
@@ -214,6 +296,42 @@ class CurriculumControllerTest {
 		);
 	}
 
+	private static CurriculumWeek currentWeek() {
+		return new CurriculumWeek(
+			WEEK_ID,
+			CURRICULUM_ID,
+			1,
+			"JPA 기초와 환경 구성",
+			"핵심 개념을 맞춥니다.",
+			"Entity 매핑 이해",
+			List.of("Entity 매핑 이해"),
+			List.of(),
+			CurriculumWeekStatus.IN_PROGRESS,
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW.plusSeconds(604800),
+			List.of(task(TASK_ID, 1, WeeklyTaskType.READING, true)),
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW
+		);
+	}
+
+	private static WeeklyTask task(UUID id, int displayOrder, WeeklyTaskType taskType, boolean required) {
+		return new WeeklyTask(
+			id,
+			WEEK_ID,
+			displayOrder,
+			taskType,
+			taskType.name() + " task",
+			taskType.name() + " description",
+			required,
+			TestCurriculumBeans.NOW.plusSeconds(604800),
+			true,
+			Map.of("displayOrder", displayOrder),
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW
+		);
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestCurriculumBeans {
 
@@ -248,12 +366,20 @@ class CurriculumControllerTest {
 
 		private CurriculumStartContext startContext;
 		private CurriculumStartContext readContext;
+		private CurriculumStartContext weekReadContext;
 		private Curriculum activeCurriculum;
+		private CurriculumWeek currentWeek;
+		private boolean weekExists;
+		private List<WeeklyTask> weeklyTasks;
 
 		void reset() {
 			startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
 			readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+			weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
 			activeCurriculum = null;
+			currentWeek = null;
+			weekExists = false;
+			weeklyTasks = List.of();
 		}
 
 		@Override
@@ -292,6 +418,26 @@ class CurriculumControllerTest {
 		@Override
 		public Optional<Curriculum> findActiveCurriculumByGroupId(UUID groupId) {
 			return Optional.ofNullable(activeCurriculum);
+		}
+
+		@Override
+		public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
+			return Optional.ofNullable(currentWeek);
+		}
+
+		@Override
+		public boolean existsCurriculumWeek(UUID weekId) {
+			return weekExists;
+		}
+
+		@Override
+		public Optional<CurriculumStartContext> findReadContextByWeekId(UUID weekId, UUID userId) {
+			return Optional.ofNullable(weekReadContext);
+		}
+
+		@Override
+		public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
+			return weeklyTasks;
 		}
 	}
 }

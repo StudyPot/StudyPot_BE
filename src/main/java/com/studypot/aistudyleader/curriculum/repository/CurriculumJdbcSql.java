@@ -11,6 +11,15 @@ final class CurriculumJdbcSql {
 		)
 		""";
 
+	static final String EXISTS_CURRICULUM_WEEK = """
+		select exists (
+		  select 1
+		  from curriculum_week
+		  where id = ?
+		    and deleted_at is null
+		)
+		""";
+
 	static final String SELECT_START_CONTEXT = """
 		select sg.id as group_id, sg.name as group_name, sg.topic, sg.detail_keywords,
 		       sg.status as group_status, sg.starts_at, sg.ends_at,
@@ -19,6 +28,22 @@ final class CurriculumJdbcSql {
 		join group_member gm on gm.group_id = sg.id
 		where sg.id = ?
 		  and gm.user_id = ?
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	static final String SELECT_WEEK_READ_CONTEXT = """
+		select sg.id as group_id, sg.name as group_name, sg.topic, sg.detail_keywords,
+		       sg.status as group_status, sg.starts_at, sg.ends_at,
+		       gm.id as member_id, gm.permission, gm.status as member_status
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
+		join group_member gm on gm.group_id = sg.id
+		where cw.id = ?
+		  and gm.user_id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
 		  and sg.deleted_at is null
 		  and gm.deleted_at is null
 		""";
@@ -111,6 +136,31 @@ final class CurriculumJdbcSql {
 		  and cw.deleted_at is null
 		  and wt.deleted_at is null
 		order by cw.week_number, wt.display_order
+		""";
+
+	static final String SELECT_CURRENT_WEEK_BY_GROUP = """
+		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
+		       cw.sprint_goal, cw.learning_goals, cw.resources, cw.status,
+		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status = 'ACTIVE'
+		  and cw.status = 'IN_PROGRESS'
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		limit 1
+		""";
+
+	static final String SELECT_WEEKLY_TASKS_BY_WEEK = """
+		select wt.id, wt.curriculum_week_id, wt.display_order, wt.task_type, wt.title,
+		       wt.description, wt.required, wt.due_at, wt.generated_by_ai, wt.source_payload,
+		       wt.created_at, wt.updated_at
+		from weekly_task wt
+		where wt.curriculum_week_id = ?
+		  and wt.deleted_at is null
+		order by wt.display_order
 		""";
 
 	private CurriculumJdbcSql() {

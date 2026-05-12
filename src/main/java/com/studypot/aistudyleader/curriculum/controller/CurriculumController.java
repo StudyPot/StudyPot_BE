@@ -3,11 +3,19 @@ package com.studypot.aistudyleader.curriculum.controller;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
+import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
+import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +46,19 @@ class CurriculumController {
 	CurriculumResponse getCurriculum(Authentication authentication, @PathVariable UUID groupId) {
 		Curriculum curriculum = service().getCurriculum(new GetCurriculumQuery(authenticatedUserId(authentication), groupId));
 		return CurriculumResponse.from(curriculum);
+	}
+
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/weeks/current")
+	CurriculumWeekResponse getCurrentWeek(Authentication authentication, @PathVariable UUID groupId) {
+		CurriculumWeek week = service().getCurrentWeek(new GetCurrentWeekQuery(authenticatedUserId(authentication), groupId));
+		return CurriculumWeekResponse.from(week);
+	}
+
+	@GetMapping(ApiPaths.V1 + "/weeks/{weekId}/tasks")
+	List<WeeklyTaskResponse> listWeeklyTasks(Authentication authentication, @PathVariable UUID weekId) {
+		return service().listWeeklyTasks(new ListWeeklyTasksQuery(authenticatedUserId(authentication), weekId)).stream()
+			.map(WeeklyTaskResponse::from)
+			.toList();
 	}
 
 	private CurriculumService service() {
@@ -86,6 +107,56 @@ class CurriculumController {
 				curriculum.totalWeeks(),
 				curriculum.onboardingSummary(),
 				curriculum.status()
+			);
+		}
+	}
+
+	private record CurriculumWeekResponse(
+		UUID id,
+		UUID curriculumId,
+		int weekNumber,
+		String title,
+		String sprintGoal,
+		CurriculumWeekStatus status,
+		Instant startsAt,
+		Instant endsAt
+	) {
+
+		private static CurriculumWeekResponse from(CurriculumWeek week) {
+			return new CurriculumWeekResponse(
+				week.id(),
+				week.curriculumId(),
+				week.weekNumber(),
+				week.title(),
+				week.sprintGoal(),
+				week.status(),
+				week.startsAt(),
+				week.endsAt()
+			);
+		}
+	}
+
+	private record WeeklyTaskResponse(
+		UUID id,
+		UUID curriculumWeekId,
+		int displayOrder,
+		WeeklyTaskType taskType,
+		String title,
+		String description,
+		boolean required,
+		Instant dueAt
+	) {
+
+		private static WeeklyTaskResponse from(WeeklyTask task) {
+			return new WeeklyTaskResponse(
+				task.id(),
+				task.curriculumWeekId(),
+				task.displayOrder(),
+				task.taskType(),
+				task.title(),
+				task.description(),
+				task.required(),
+				task.dueAt()
 			);
 		}
 	}
