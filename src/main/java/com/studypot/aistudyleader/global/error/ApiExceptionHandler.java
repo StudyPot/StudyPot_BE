@@ -10,7 +10,9 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumGroupNotFoundExce
 import com.studypot.aistudyleader.curriculum.service.CurriculumNotFoundException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumStartRejectedException;
+import com.studypot.aistudyleader.curriculum.service.InvalidTaskCompletionRequestException;
 import com.studypot.aistudyleader.curriculum.service.InvalidWeekProgressRequestException;
+import com.studypot.aistudyleader.curriculum.service.TaskCompletionUpdateRejectedException;
 import com.studypot.aistudyleader.curriculum.service.WeekProgressUpdateRejectedException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
@@ -150,6 +152,7 @@ public class ApiExceptionHandler {
 	@ExceptionHandler({
 		StudyGroupJoinRejectedException.class,
 		CurriculumStartRejectedException.class,
+		TaskCompletionUpdateRejectedException.class,
 		WeekProgressUpdateRejectedException.class,
 		GroupRuleMutationRejectedException.class
 	})
@@ -174,6 +177,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidWeekProgressRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidWeekProgressRequest(InvalidWeekProgressRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidTaskCompletionRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidTaskCompletionRequest(InvalidTaskCompletionRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

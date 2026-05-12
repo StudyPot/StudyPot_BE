@@ -13,6 +13,8 @@ import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class JdbcCurriculumRepository implements CurriculumRepository {
@@ -155,9 +158,28 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
+		Objects.requireNonNull(taskId, "taskId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_TASK_READ_CONTEXT, this::mapStartContext, uuid(taskId), uuid(userId));
+	}
+
+	@Override
 	public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		return jdbcTemplate.query(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK, this::mapTask, uuid(weekId));
+	}
+
+	@Override
+	public boolean existsWeeklyTask(UUID taskId) {
+		Objects.requireNonNull(taskId, "taskId must not be null");
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(CurriculumJdbcSql.EXISTS_WEEKLY_TASK, Boolean.class, uuid(taskId)));
+	}
+
+	@Override
+	public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
+		Objects.requireNonNull(taskId, "taskId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_WEEKLY_TASK_BY_ID, this::mapTask, uuid(taskId));
 	}
 
 	@Override
@@ -207,6 +229,54 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			timestamp(progress.reasonSubmittedAt()),
 			timestamp(progress.updatedAt()),
 			uuid(progress.id())
+		) == 1;
+	}
+
+	@Override
+	public Optional<TaskCompletion> findTaskCompletion(UUID taskId, UUID memberId) {
+		Objects.requireNonNull(taskId, "taskId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_TASK_COMPLETION_BY_TASK_AND_MEMBER, this::mapTaskCompletion, uuid(taskId), uuid(memberId));
+	}
+
+	@Override
+	public boolean insertTaskCompletion(TaskCompletion completion) {
+		Objects.requireNonNull(completion, "completion must not be null");
+		try {
+			return jdbcTemplate.update(
+				CurriculumJdbcSql.INSERT_TASK_COMPLETION,
+				uuid(completion.id()),
+				uuid(completion.progressId()),
+				uuid(completion.weeklyTaskId()),
+				uuid(completion.memberId()),
+				completion.status().name(),
+				timestamp(completion.dueAt()),
+				timestamp(completion.completedAt()),
+				completion.completionNote(),
+				completion.incompleteReason(),
+				timestamp(completion.reasonSubmittedAt()),
+				completion.evidenceUrl(),
+				timestamp(completion.createdAt()),
+				timestamp(completion.updatedAt())
+			) == 1;
+		} catch (DuplicateKeyException exception) {
+			return false;
+		}
+	}
+
+	@Override
+	public boolean updateTaskCompletion(TaskCompletion completion) {
+		Objects.requireNonNull(completion, "completion must not be null");
+		return jdbcTemplate.update(
+			CurriculumJdbcSql.UPDATE_TASK_COMPLETION,
+			completion.status().name(),
+			timestamp(completion.completedAt()),
+			completion.completionNote(),
+			completion.incompleteReason(),
+			timestamp(completion.reasonSubmittedAt()),
+			completion.evidenceUrl(),
+			timestamp(completion.updatedAt()),
+			uuid(completion.id())
 		) == 1;
 	}
 
@@ -418,6 +488,24 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			resultSet.getString("completion_note"),
 			resultSet.getString("incomplete_reason"),
 			instant(resultSet.getTimestamp("reason_submitted_at")),
+			instant(resultSet.getTimestamp("created_at")),
+			instant(resultSet.getTimestamp("updated_at"))
+		);
+	}
+
+	private TaskCompletion mapTaskCompletion(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new TaskCompletion(
+			UuidBinary.fromBytes(resultSet.getBytes("id")),
+			UuidBinary.fromBytes(resultSet.getBytes("progress_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("weekly_task_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			TaskCompletionStatus.valueOf(resultSet.getString("status")),
+			instant(resultSet.getTimestamp("due_at")),
+			instant(resultSet.getTimestamp("completed_at")),
+			resultSet.getString("completion_note"),
+			resultSet.getString("incomplete_reason"),
+			instant(resultSet.getTimestamp("reason_submitted_at")),
+			resultSet.getString("evidence_url"),
 			instant(resultSet.getTimestamp("created_at")),
 			instant(resultSet.getTimestamp("updated_at"))
 		);

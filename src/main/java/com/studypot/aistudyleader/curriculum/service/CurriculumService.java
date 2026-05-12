@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -164,10 +165,61 @@ public class CurriculumService {
 			.orElseGet(() -> createProgress(command, context.memberId(), now));
 	}
 
+	@Transactional
+	public TaskCompletion completeMyTask(CompleteTaskCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		CurriculumStartContext context = repository.findReadContextByTaskId(command.taskId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsWeeklyTask(command.taskId())) {
+					throw new CurriculumNotFoundException("weekly task was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (context.groupStatus() != StudyGroupStatus.ACTIVE || !context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to complete weekly tasks.");
+		}
+		WeeklyTask task = repository.findWeeklyTaskById(command.taskId())
+			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
+		MemberWeekProgress progress = repository.findMemberWeekProgress(task.curriculumWeekId(), context.memberId())
+			.orElseThrow(() -> new CurriculumNotFoundException("member week progress was not found."));
+		Instant now = clock.instant();
+		return repository.findTaskCompletion(command.taskId(), context.memberId())
+			.map(completion -> updateTaskCompletion(completion, command, now))
+			.orElseGet(() -> createTaskCompletion(command, task, progress, context.memberId(), now));
+	}
+
 	private MemberWeekProgress updateProgress(MemberWeekProgress progress, UpdateWeekProgressCommand command, Instant now) {
 		MemberWeekProgress updated = applyProgressUpdate(progress, command, now);
 		if (!repository.updateMemberWeekProgress(updated)) {
 			throw new WeekProgressUpdateRejectedException("week progress could not be updated.");
+		}
+		return updated;
+	}
+
+	private TaskCompletion updateTaskCompletion(TaskCompletion completion, CompleteTaskCommand command, Instant now) {
+		TaskCompletion updated = applyTaskCompletionUpdate(completion, command, now);
+		if (!repository.updateTaskCompletion(updated)) {
+			throw new TaskCompletionUpdateRejectedException("task completion could not be updated.");
+		}
+		return updated;
+	}
+
+	private TaskCompletion createTaskCompletion(
+		CompleteTaskCommand command,
+		WeeklyTask task,
+		MemberWeekProgress progress,
+		UUID memberId,
+		Instant now
+	) {
+		TaskCompletion completion = createNewTaskCompletion(command, task, progress, memberId, now);
+		if (repository.insertTaskCompletion(completion)) {
+			return completion;
+		}
+		TaskCompletion racedCompletion = repository.findTaskCompletion(task.id(), memberId)
+			.orElseThrow(() -> new TaskCompletionUpdateRejectedException("task completion could not be inserted."));
+		TaskCompletion updated = applyTaskCompletionUpdate(racedCompletion, command, now);
+		if (!repository.updateTaskCompletion(updated)) {
+			throw new TaskCompletionUpdateRejectedException("task completion could not be updated after concurrent insert.");
 		}
 		return updated;
 	}
@@ -210,6 +262,43 @@ public class CurriculumService {
 			return progress.update(command.status(), command.completionNote(), command.incompleteReason(), now);
 		} catch (IllegalArgumentException exception) {
 			throw new InvalidWeekProgressRequestException("status", exception.getMessage());
+		}
+	}
+
+	private TaskCompletion createNewTaskCompletion(
+		CompleteTaskCommand command,
+		WeeklyTask task,
+		MemberWeekProgress progress,
+		UUID memberId,
+		Instant now
+	) {
+		try {
+			return TaskCompletion.create(
+				idGenerator.get(),
+				progress.id(),
+				task.id(),
+				memberId,
+				task.dueAt(),
+				command.status(),
+				command.completionNote(),
+				command.incompleteReason(),
+				command.evidenceUrl(),
+				now
+			);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidTaskCompletionRequestException("status", exception.getMessage());
+		}
+	}
+
+	private static TaskCompletion applyTaskCompletionUpdate(
+		TaskCompletion completion,
+		CompleteTaskCommand command,
+		Instant now
+	) {
+		try {
+			return completion.update(command.status(), command.completionNote(), command.incompleteReason(), command.evidenceUrl(), now);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidTaskCompletionRequestException("status", exception.getMessage());
 		}
 	}
 

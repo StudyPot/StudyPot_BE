@@ -7,10 +7,13 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
+import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
@@ -76,6 +79,16 @@ class CurriculumController {
 	) {
 		MemberWeekProgress progress = service().updateMyWeekProgress(request.toCommand(authenticatedUserId(authentication), weekId));
 		return MemberWeekProgressResponse.from(progress);
+	}
+
+	@PostMapping(ApiPaths.V1 + "/tasks/{taskId}/completion/me")
+	TaskCompletionResponse completeTask(
+		Authentication authentication,
+		@PathVariable UUID taskId,
+		@Valid @RequestBody TaskCompletionRequest request
+	) {
+		TaskCompletion completion = service().completeMyTask(request.toCommand(authenticatedUserId(authentication), taskId));
+		return TaskCompletionResponse.from(completion);
 	}
 
 	private CurriculumService service() {
@@ -204,6 +217,37 @@ class CurriculumController {
 				progress.status(),
 				progress.completedAt(),
 				progress.incompleteReason()
+			);
+		}
+	}
+
+	private record TaskCompletionRequest(
+		@NotNull
+		TaskCompletionStatus status,
+		String completionNote,
+		String incompleteReason,
+		String evidenceUrl
+	) {
+
+		CompleteTaskCommand toCommand(UUID authenticatedUserId, UUID taskId) {
+			return new CompleteTaskCommand(authenticatedUserId, taskId, status, completionNote, incompleteReason, evidenceUrl);
+		}
+	}
+
+	// completionNote and evidenceUrl are stored but intentionally omitted to match locked OpenAPI.
+	private record TaskCompletionResponse(
+		UUID id,
+		TaskCompletionStatus status,
+		Instant completedAt,
+		String incompleteReason
+	) {
+
+		private static TaskCompletionResponse from(TaskCompletion completion) {
+			return new TaskCompletionResponse(
+				completion.id(),
+				completion.status(),
+				completion.completedAt(),
+				completion.incompleteReason()
 			);
 		}
 	}
