@@ -42,6 +42,10 @@
 - `task_completion` must link to the caller's existing `member_week_progress` for the task's curriculum week. SPT-37 does not auto-create progress because SPT-36 owns progress creation and the target flow creates progress before task completion.
 - Permission follows `auth-permissions-v1.md`: `PENDING_ONBOARDING` and `LEFT` members cannot complete weekly tasks; only the authenticated active member can mutate their own task completion.
 - SPT-33 already lets rule violations reference a `task_completion_id`; SPT-37 creates the task completion rows needed for that linkage but does not auto-record rule violations.
+- Final integrated Swagger/API verification found the previously merged onboarding/curriculum/rule slices returning 503 because feature repository/service beans were not created in the real Spring Boot context.
+- The root cause is configuration wiring, not endpoint logic: several repository configurations use `@ConditionalOnBean(JdbcTemplate.class)` during user-configuration processing, and `CurriculumService` is also conditional on `CurriculumGenerator`, which blocks read/progress/completion APIs when OpenAI generation is intentionally not configured for local verification.
+- The same integrated run exposed a DB contract mismatch: `member_week_progress` has no `deleted_at` column in the locked Flyway schema, so progress lookup/update SQL must not filter that column.
+- `GET /api/v1/weeks/{weekId}/progress/me` is still not part of the locked OpenAPI contract; the current implemented progress API is `PUT /api/v1/weeks/{weekId}/progress/me`, which returns the current row after creation/update.
 - AI retrospective/feedback, notification worker, external notification channels, frontend UI, and locked spec changes are out of scope.
 
 ## Goal
@@ -61,6 +65,7 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
   - `SKIPPED` stores neither completion nor incomplete timestamps.
 - Handle duplicate insert races by re-reading the existing row for `(weekly_task_id, member_id)` and applying the same request once.
 - Use TDD: write service, repository, and controller tests first and verify they fail before implementation.
+- For the integrated 503 fix, add a Spring Boot wiring regression test first, then minimally align repository conditions with the working auth/study-group pattern and allow `CurriculumService` to exist without an OpenAI generator so non-generation weekly todo APIs remain available.
 
 ## Step Plan
 1. RED service tests:
@@ -86,6 +91,11 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
 6. Run `./gradlew check build --no-daemon`.
 7. Commit with `[feat] 과제 완료 상태 구현`.
 8. Create PR with `scripts/task/create-pr.sh`, run `scripts/task/run-coderabbit-review.sh <PR_NUMBER>`, address one actionable review loop if needed, verify review gate, and run `scripts/task/finish-pr.sh <PR_NUMBER>` for manual merge notification.
+9. RED integrated wiring test: prove onboarding, curriculum, and group-rule repositories/services are missing from a Spring Boot context with JDBC configured but OpenAI disabled.
+10. GREEN configuration fix: make those repositories/services available in that context while keeping curriculum generation itself unavailable until a generator is configured.
+11. RED repository SQL test: prove `member_week_progress` SQL must match the real schema and not reference `deleted_at`.
+12. GREEN SQL fix: remove the nonexistent `deleted_at` filter from `member_week_progress` lookup/update SQL.
+13. Re-run targeted wiring/repository tests, full verification, and the local Swagger/API smoke flow before updating PR #85.
 
 ## Done Criteria
 - `POST /api/v1/tasks/{taskId}/completion/me` requires authenticated access and CSRF protection.
@@ -104,6 +114,9 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
 - No rule violation automation, AI, notification worker, external channel, frontend, or locked spec change is implemented.
 - `./gradlew check build --no-daemon` passes and task state records the successful verification.
 - PR is created against `develop`; CodeRabbit review marker and GitHub Actions Review Gate pass before manual merge notification.
+- Real Spring Boot local profile registers onboarding, curriculum, and group-rule repository/service beans when JDBC is configured.
+- Weekly todo read/progress/completion APIs remain callable when OpenAI generation is not configured; only start-generation requires the generator.
+- `member_week_progress` SQL matches the locked Flyway schema.
 
 ## Verification
 - RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --no-daemon` failed before implementation because `TaskCompletion`, `TaskCompletionStatus`, task-completion command/repository/controller contracts did not exist.
@@ -112,3 +125,10 @@ Implement the SPT-37 task-completion slice: an authenticated active group member
 - CodeRabbit RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CompleteTaskCommandTest --tests com.studypot.aistudyleader.curriculum.controller.CurriculumControllerTest --tests com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatusTest --tests com.studypot.aistudyleader.curriculum.service.InvalidTaskCompletionRequestExceptionTest --tests com.studypot.aistudyleader.curriculum.service.TaskCompletionUpdateRejectedExceptionTest --tests com.studypot.aistudyleader.global.error.ApiExceptionHandlerTaskCompletionTest --no-daemon` failed before review fixes on null `status` and incomplete-reason field mapping.
 - CodeRabbit GREEN targeted: the same targeted command passed after review fixes.
 - CodeRabbit full: `./gradlew check build --no-daemon` passed after review fixes.
+- Integrated wiring RED: `./gradlew test --tests com.studypot.aistudyleader.ApplicationFeatureWiringTest --no-daemon` failed before configuration fixes because onboarding/curriculum/group-rule repositories and services were missing from the Spring Boot context.
+- Integrated wiring GREEN targeted: `./gradlew test --tests com.studypot.aistudyleader.ApplicationFeatureWiringTest --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --no-daemon` passed after repository/service configuration fixes.
+- Progress SQL RED: `./gradlew test --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --no-daemon` failed before removing the nonexistent `member_week_progress.deleted_at` filter.
+- Progress SQL GREEN targeted: `./gradlew test --tests com.studypot.aistudyleader.curriculum.repository.JdbcCurriculumRepositoryTest --tests com.studypot.aistudyleader.ApplicationFeatureWiringTest --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --no-daemon` passed.
+- Integrated full: `./gradlew check build --no-daemon` passed after configuration and SQL fixes.
+- Local Swagger/API flow: `build/manual-flow-spt37-v4/status.log` passed for OpenAPI, Swagger UI, my groups, current week, weekly task list, week progress update, task DONE/INCOMPLETE/SKIPPED, group_rule save/list/deactivate/delete, and rule_violation record/resolve/waive.
+- Local Swagger/API note: `GET /api/v1/weeks/{weekId}/progress/me` returned 403 because the locked OpenAPI currently exposes only `PUT /api/v1/weeks/{weekId}/progress/me` for progress mutation/response.

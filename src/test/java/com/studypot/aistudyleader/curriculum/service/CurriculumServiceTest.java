@@ -87,6 +87,19 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void startStudyRejectsWhenGeneratorIsNotConfigured() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generator is not configured.");
+		assertThat(repository.savedCurriculum).isNull();
+	}
+
+	@Test
 	void startStudyRejectsNonOwner() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;

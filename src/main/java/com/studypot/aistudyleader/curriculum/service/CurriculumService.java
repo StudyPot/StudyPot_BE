@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CurriculumService {
 
 	private final CurriculumRepository repository;
-	private final CurriculumGenerator generator;
+	private final Supplier<CurriculumGenerator> generatorSupplier;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 
@@ -39,8 +39,17 @@ public class CurriculumService {
 		Clock clock,
 		Supplier<UUID> idGenerator
 	) {
+		this(repository, () -> Objects.requireNonNull(generator, "generator must not be null"), clock, idGenerator);
+	}
+
+	CurriculumService(
+		CurriculumRepository repository,
+		Supplier<CurriculumGenerator> generatorSupplier,
+		Clock clock,
+		Supplier<UUID> idGenerator
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
-		this.generator = Objects.requireNonNull(generator, "generator must not be null");
+		this.generatorSupplier = Objects.requireNonNull(generatorSupplier, "generatorSupplier must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 	}
@@ -62,6 +71,10 @@ public class CurriculumService {
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());
 		Map<String, Object> onboardingSummary = onboardingSummary(submittedResponses, now);
+		CurriculumGenerator generator = generatorSupplier.get();
+		if (generator == null) {
+			throw new CurriculumGenerationException("curriculum generator is not configured.");
+		}
 		CurriculumGeneration generation = generator.generate(new CurriculumGenerationRequest(
 			context,
 			submittedResponses,

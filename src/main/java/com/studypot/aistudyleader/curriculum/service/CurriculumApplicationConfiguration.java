@@ -3,6 +3,8 @@ package com.studypot.aistudyleader.curriculum.service;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.global.domain.UuidV7;
 import java.time.Clock;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,8 +13,13 @@ import org.springframework.context.annotation.Configuration;
 class CurriculumApplicationConfiguration {
 
 	@Bean
-	@ConditionalOnBean({CurriculumRepository.class, CurriculumGenerator.class})
-	CurriculumService curriculumService(CurriculumRepository repository, CurriculumGenerator generator, Clock clock) {
-		return new CurriculumService(repository, generator, clock, UuidV7::generate);
+	@ConditionalOnBean(CurriculumRepository.class)
+	CurriculumService curriculumService(
+		CurriculumRepository repository,
+		ObjectProvider<CurriculumGenerator> generator,
+		Clock clock
+	) {
+		Supplier<CurriculumGenerator> generatorSupplier = () -> generator.getIfAvailable();
+		return new CurriculumService(repository, generatorSupplier, clock, UuidV7::generate);
 	}
 }
