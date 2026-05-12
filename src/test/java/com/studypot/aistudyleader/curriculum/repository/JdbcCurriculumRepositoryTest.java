@@ -22,6 +22,8 @@ import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DuplicateKeyException;
 import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -51,6 +54,7 @@ class JdbcCurriculumRepositoryTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004227");
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004228");
 	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004229");
+	private static final UUID COMPLETION_ID = UUID.fromString("018f0000-0000-7000-8000-000000004230");
 	private static final Instant NOW = Instant.parse("2026-05-11T03:00:00Z");
 	private static final Instant WEEK_DUE_AT = Instant.parse("2026-05-18T03:00:00Z");
 
@@ -249,7 +253,7 @@ class JdbcCurriculumRepositoryTest {
 			.contains("from member_week_progress")
 			.contains("where curriculum_week_id = ?")
 			.contains("and member_id = ?")
-			.contains("and deleted_at is null");
+			.doesNotContain("deleted_at");
 		assertThat(CurriculumJdbcSql.INSERT_MEMBER_WEEK_PROGRESS)
 			.contains("insert into member_week_progress")
 			.contains("curriculum_week_id")
@@ -257,7 +261,7 @@ class JdbcCurriculumRepositoryTest {
 		assertThat(CurriculumJdbcSql.UPDATE_MEMBER_WEEK_PROGRESS)
 			.contains("update member_week_progress")
 			.contains("where id = ?")
-			.contains("and deleted_at is null");
+			.doesNotContain("deleted_at");
 	}
 
 	@Test
@@ -325,6 +329,126 @@ class JdbcCurriculumRepositoryTest {
 		assertThat(args.getValue()[3]).isEqualTo(Timestamp.from(NOW.plusSeconds(60)));
 		assertThat(args.getValue()[4]).isEqualTo("정리 완료");
 		assertThat((byte[]) args.getValue()[8]).containsExactly(UuidBinary.toBytes(PROGRESS_ID));
+	}
+
+	@Test
+	void taskCompletionSqlUsesTaskMemberNaturalKeyAndSoftDeleteAwareTaskLookup() {
+		assertThat(CurriculumJdbcSql.SELECT_TASK_READ_CONTEXT)
+			.contains("from weekly_task wt")
+			.contains("join curriculum_week cw")
+			.contains("join group_member gm")
+			.contains("wt.deleted_at is null")
+			.contains("gm.deleted_at is null");
+		assertThat(CurriculumJdbcSql.SELECT_WEEKLY_TASK_BY_ID)
+			.contains("from weekly_task")
+			.contains("where id = ?")
+			.contains("and deleted_at is null");
+		assertThat(CurriculumJdbcSql.SELECT_TASK_COMPLETION_BY_TASK_AND_MEMBER)
+			.contains("from task_completion")
+			.contains("where weekly_task_id = ?")
+			.contains("and member_id = ?");
+		assertThat(CurriculumJdbcSql.INSERT_TASK_COMPLETION)
+			.contains("insert into task_completion")
+			.contains("progress_id")
+			.contains("weekly_task_id")
+			.contains("member_id");
+		assertThat(CurriculumJdbcSql.UPDATE_TASK_COMPLETION)
+			.contains("update task_completion")
+			.contains("where id = ?");
+	}
+
+	@Test
+	void findReadContextByTaskIdQueriesMembershipThroughTask() {
+		CurriculumStartContext context = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_TASK_READ_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(context));
+
+		Optional<CurriculumStartContext> result = repository.findReadContextByTaskId(TASK_ID, USER_ID);
+
+		assertThat(result).contains(context);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_TASK_READ_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(TASK_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void findWeeklyTaskByIdQueriesTask() {
+		WeeklyTask task = task(TASK_ID, 1);
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_WEEKLY_TASK_BY_ID), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(task));
+
+		Optional<WeeklyTask> result = repository.findWeeklyTaskById(TASK_ID);
+
+		assertThat(result).contains(task);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_WEEKLY_TASK_BY_ID), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(TASK_ID));
+	}
+
+	@Test
+	void findTaskCompletionQueriesTaskAndMember() {
+		TaskCompletion completion = completion(TaskCompletionStatus.DONE, NOW, "완료", null, null, "https://example.com/evidence");
+		when(jdbcTemplate.query(eq(CurriculumJdbcSql.SELECT_TASK_COMPLETION_BY_TASK_AND_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(completion));
+
+		Optional<TaskCompletion> result = repository.findTaskCompletion(TASK_ID, MEMBER_ID);
+
+		assertThat(result).contains(completion);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(CurriculumJdbcSql.SELECT_TASK_COMPLETION_BY_TASK_AND_MEMBER), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(TASK_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+	}
+
+	@Test
+	void insertTaskCompletionPersistsAllColumns() {
+		TaskCompletion completion = completion(TaskCompletionStatus.DONE, NOW, "완료", null, null, "https://example.com/evidence");
+		when(jdbcTemplate.update(eq(CurriculumJdbcSql.INSERT_TASK_COMPLETION), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.insertTaskCompletion(completion)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.INSERT_TASK_COMPLETION), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(COMPLETION_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(PROGRESS_ID));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(TASK_ID));
+		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		assertThat(args.getValue()[4]).isEqualTo("DONE");
+		assertThat(args.getValue()[6]).isEqualTo(Timestamp.from(NOW));
+		assertThat(args.getValue()[7]).isEqualTo("완료");
+		assertThat(args.getValue()[10]).isEqualTo("https://example.com/evidence");
+	}
+
+	@Test
+	void insertTaskCompletionReturnsFalseOnDuplicateKey() {
+		TaskCompletion completion = completion(TaskCompletionStatus.DONE, NOW, "완료", null, null, null);
+		when(jdbcTemplate.update(eq(CurriculumJdbcSql.INSERT_TASK_COMPLETION), any(Object[].class)))
+			.thenThrow(new DuplicateKeyException("duplicate"));
+
+		assertThat(repository.insertTaskCompletion(completion)).isFalse();
+	}
+
+	@Test
+	void updateTaskCompletionPersistsMutableState() {
+		TaskCompletion completion = completion(
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			null,
+			"실습을 끝내지 못했습니다.",
+			NOW,
+			null
+		);
+		when(jdbcTemplate.update(eq(CurriculumJdbcSql.UPDATE_TASK_COMPLETION), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.updateTaskCompletion(completion)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.UPDATE_TASK_COMPLETION), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo("INCOMPLETE");
+		assertThat(args.getValue()[3]).isEqualTo("실습을 끝내지 못했습니다.");
+		assertThat(args.getValue()[4]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[7]).containsExactly(UuidBinary.toBytes(COMPLETION_ID));
 	}
 
 	private static CurriculumStartContext context(
@@ -413,6 +537,31 @@ class JdbcCurriculumRepositoryTest {
 			completionNote,
 			incompleteReason,
 			reasonSubmittedAt,
+			NOW,
+			NOW
+		);
+	}
+
+	private static TaskCompletion completion(
+		TaskCompletionStatus status,
+		Instant completedAt,
+		String completionNote,
+		String incompleteReason,
+		Instant reasonSubmittedAt,
+		String evidenceUrl
+	) {
+		return new TaskCompletion(
+			COMPLETION_ID,
+			PROGRESS_ID,
+			TASK_ID,
+			MEMBER_ID,
+			status,
+			WEEK_DUE_AT,
+			completedAt,
+			completionNote,
+			incompleteReason,
+			reasonSubmittedAt,
+			evidenceUrl,
 			NOW,
 			NOW
 		);

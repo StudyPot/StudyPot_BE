@@ -18,6 +18,8 @@ import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -49,6 +51,7 @@ class CurriculumServiceTest {
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004028");
 	private static final UUID SECOND_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004029");
 	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004030");
+	private static final UUID COMPLETION_ID = UUID.fromString("018f0000-0000-7000-8000-000000004031");
 	private static final Instant NOW = Instant.parse("2026-05-11T01:15:00Z");
 	private static final Instant WEEK_DUE_AT = Instant.parse("2026-05-18T01:15:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
@@ -81,6 +84,19 @@ class CurriculumServiceTest {
 		assertThat(result.weeks().getFirst().tasks().getFirst().id()).isEqualTo(TASK_ID);
 		assertThat(repository.generationRequest.onboardingSummary())
 			.containsEntry("submittedResponseCount", 1);
+	}
+
+	@Test
+	void startStudyRejectsWhenGeneratorIsNotConfigured() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generator is not configured.");
+		assertThat(repository.savedCurriculum).isNull();
 	}
 
 	@Test
@@ -427,6 +443,211 @@ class CurriculumServiceTest {
 			.hasMessage("curriculum week was not found.");
 	}
 
+	@Test
+	void completeMyTaskStoresDoneCompletionForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"정리 완료",
+			null,
+			"https://example.com/evidence"
+		));
+
+		assertThat(result.id()).isEqualTo(COMPLETION_ID);
+		assertThat(result.progressId()).isEqualTo(PROGRESS_ID);
+		assertThat(result.weeklyTaskId()).isEqualTo(TASK_ID);
+		assertThat(result.memberId()).isEqualTo(OWNER_MEMBER_ID);
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(result.completedAt()).isEqualTo(NOW);
+		assertThat(result.completionNote()).isEqualTo("정리 완료");
+		assertThat(result.evidenceUrl()).isEqualTo("https://example.com/evidence");
+		assertThat(repository.insertedTaskCompletion).isSameAs(result);
+		assertThat(repository.updatedTaskCompletion).isNull();
+	}
+
+	@Test
+	void completeMyTaskStoresIncompleteReasonAfterDueAt() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, NOW.minusSeconds(60));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			"이번 주 실습을 끝내지 못했습니다.",
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+		assertThat(result.incompleteReason()).isEqualTo("이번 주 실습을 끝내지 못했습니다.");
+		assertThat(result.reasonSubmittedAt()).isEqualTo(NOW);
+		assertThat(repository.insertedTaskCompletion).isSameAs(result);
+	}
+
+	@Test
+	void completeMyTaskStoresSkippedStatus() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.CUSTOM, NOW.plusSeconds(3600));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.SKIPPED,
+			null,
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.SKIPPED);
+		assertThat(result.completedAt()).isNull();
+		assertThat(result.reasonSubmittedAt()).isNull();
+	}
+
+	@Test
+	void completeMyTaskUpdatesExistingTodoInsteadOfDuplicating() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		repository.existingTaskCompletion = completion(TaskCompletionStatus.TODO, null, null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"완료",
+			null,
+			null
+		));
+
+		assertThat(result.id()).isEqualTo(COMPLETION_ID);
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(repository.insertedTaskCompletion).isNull();
+		assertThat(repository.updatedTaskCompletion).isSameAs(result);
+	}
+
+	@Test
+	void completeMyTaskRejectsChangingTerminalStatus() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, NOW.minusSeconds(60));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
+		repository.existingTaskCompletion = completion(TaskCompletionStatus.DONE, NOW.minusSeconds(120), "완료", null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.INCOMPLETE,
+				null,
+				"늦었습니다.",
+				null
+			)))
+			.isInstanceOf(InvalidTaskCompletionRequestException.class)
+			.hasMessage("task completion cannot transition from DONE to INCOMPLETE.");
+	}
+
+	@Test
+	void completeMyTaskRejectsDoneAfterDueAt() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.minusSeconds(60));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.DONE,
+				"늦은 완료",
+				null,
+				null
+			)))
+			.isInstanceOf(InvalidTaskCompletionRequestException.class)
+			.hasMessage("task is overdue; submit incomplete reason.");
+	}
+
+	@Test
+	void completeMyTaskRejectsIncompleteWithoutReason() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.minusSeconds(60));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.INCOMPLETE,
+				null,
+				null,
+				null
+			)))
+			.isInstanceOf(InvalidTaskCompletionRequestException.class)
+			.hasMessage("incomplete reason is required when status is INCOMPLETE.");
+	}
+
+	@Test
+	void completeMyTaskRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.DONE,
+				null,
+				null,
+				null
+			)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to complete weekly tasks.");
+	}
+
+	@Test
+	void completeMyTaskRejectsWhenProgressDoesNotExist() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.DONE,
+				null,
+				null,
+				null
+			)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("member week progress was not found.");
+	}
+
 	private static CurriculumService service(CapturingRepository repository, CurriculumGeneration generation, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new CurriculumService(
@@ -508,6 +729,10 @@ class CurriculumServiceTest {
 	}
 
 	private static WeeklyTask task(UUID id, int displayOrder, WeeklyTaskType taskType) {
+		return task(id, displayOrder, taskType, NOW.plusSeconds(604800));
+	}
+
+	private static WeeklyTask task(UUID id, int displayOrder, WeeklyTaskType taskType, Instant dueAt) {
 		return new WeeklyTask(
 			id,
 			WEEK_ID,
@@ -516,11 +741,36 @@ class CurriculumServiceTest {
 			displayOrder == 1 ? "JPA 엔티티 매핑 읽기" : "프로젝트 과제",
 			displayOrder == 1 ? "핵심 매핑 규칙을 정리합니다." : "작은 예제를 완성합니다.",
 			displayOrder == 1,
-			NOW.plusSeconds(604800),
+			dueAt,
 			true,
 			Map.of("displayOrder", displayOrder),
 			NOW,
 			NOW
+		);
+	}
+
+	private static TaskCompletion completion(
+		TaskCompletionStatus status,
+		Instant completedAt,
+		String completionNote,
+		String incompleteReason,
+		Instant reasonSubmittedAt,
+		String evidenceUrl
+	) {
+		return new TaskCompletion(
+			COMPLETION_ID,
+			PROGRESS_ID,
+			TASK_ID,
+			OWNER_MEMBER_ID,
+			status,
+			WEEK_DUE_AT,
+			completedAt,
+			completionNote,
+			incompleteReason,
+			reasonSubmittedAt,
+			evidenceUrl,
+			NOW.minusSeconds(300),
+			NOW.minusSeconds(300)
 		);
 	}
 
@@ -584,22 +834,30 @@ class CurriculumServiceTest {
 		private CurriculumStartContext startContext;
 		private CurriculumStartContext readContext;
 		private CurriculumStartContext weekReadContext;
+		private CurriculumStartContext taskReadContext;
 		private List<SubmittedOnboardingResponse> submittedResponses = List.of();
 		private Curriculum activeCurriculum;
 		private CurriculumWeek currentWeek;
 		private List<WeeklyTask> weeklyTasks = List.of();
+		private WeeklyTask weeklyTask;
 		private MemberWeekProgress existingProgress;
 		private MemberWeekProgress raceProgress;
+		private TaskCompletion existingTaskCompletion;
+		private TaskCompletion raceTaskCompletion;
 		private Instant weekDueAt = WEEK_DUE_AT;
 		private boolean insertSucceeds = true;
+		private boolean insertTaskCompletionSucceeds = true;
 		private CurriculumGenerationRequest generationRequest;
 		private boolean weekExists;
+		private boolean taskExists;
 		private UUID savedGroupId;
 		private Instant savedStartedAt;
 		private com.studypot.aistudyleader.curriculum.domain.LlmUsage savedLlmUsage;
 		private Curriculum savedCurriculum;
 		private MemberWeekProgress insertedProgress;
 		private MemberWeekProgress updatedProgress;
+		private TaskCompletion insertedTaskCompletion;
+		private TaskCompletion updatedTaskCompletion;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -650,8 +908,23 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
+			return Optional.ofNullable(taskReadContext);
+		}
+
+		@Override
 		public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 			return weeklyTasks;
+		}
+
+		@Override
+		public boolean existsWeeklyTask(UUID taskId) {
+			return taskExists;
+		}
+
+		@Override
+		public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
+			return Optional.ofNullable(weeklyTask);
 		}
 
 		@Override
@@ -679,6 +952,29 @@ class CurriculumServiceTest {
 		public boolean updateMemberWeekProgress(MemberWeekProgress progress) {
 			updatedProgress = progress;
 			existingProgress = progress;
+			return true;
+		}
+
+		@Override
+		public Optional<TaskCompletion> findTaskCompletion(UUID taskId, UUID memberId) {
+			return Optional.ofNullable(existingTaskCompletion);
+		}
+
+		@Override
+		public boolean insertTaskCompletion(TaskCompletion completion) {
+			if (!insertTaskCompletionSucceeds) {
+				existingTaskCompletion = raceTaskCompletion;
+				return false;
+			}
+			insertedTaskCompletion = completion;
+			existingTaskCompletion = completion;
+			return true;
+		}
+
+		@Override
+		public boolean updateTaskCompletion(TaskCompletion completion) {
+			updatedTaskCompletion = completion;
+			existingTaskCompletion = completion;
 			return true;
 		}
 	}

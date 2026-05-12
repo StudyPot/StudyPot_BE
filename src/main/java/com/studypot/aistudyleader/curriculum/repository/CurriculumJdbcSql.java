@@ -20,6 +20,15 @@ final class CurriculumJdbcSql {
 		)
 		""";
 
+	static final String EXISTS_WEEKLY_TASK = """
+		select exists (
+		  select 1
+		  from weekly_task
+		  where id = ?
+		    and deleted_at is null
+		)
+		""";
+
 	static final String SELECT_START_CONTEXT = """
 		select sg.id as group_id, sg.name as group_name, sg.topic, sg.detail_keywords,
 		       sg.status as group_status, sg.starts_at, sg.ends_at,
@@ -42,6 +51,24 @@ final class CurriculumJdbcSql {
 		join group_member gm on gm.group_id = sg.id
 		where cw.id = ?
 		  and gm.user_id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	static final String SELECT_TASK_READ_CONTEXT = """
+		select sg.id as group_id, sg.name as group_name, sg.topic, sg.detail_keywords,
+		       sg.status as group_status, sg.starts_at, sg.ends_at,
+		       gm.id as member_id, gm.permission, gm.status as member_status
+		from weekly_task wt
+		join curriculum_week cw on cw.id = wt.curriculum_week_id
+		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
+		join group_member gm on gm.group_id = sg.id
+		where wt.id = ?
+		  and gm.user_id = ?
+		  and wt.deleted_at is null
 		  and cw.deleted_at is null
 		  and c.deleted_at is null
 		  and sg.deleted_at is null
@@ -163,13 +190,28 @@ final class CurriculumJdbcSql {
 		order by wt.display_order
 		""";
 
+	static final String SELECT_WEEKLY_TASK_BY_ID = """
+		select id, curriculum_week_id, display_order, task_type, title, description,
+		       required, due_at, generated_by_ai, source_payload, created_at, updated_at
+		from weekly_task
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER = """
 		select id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
 		       completion_note, incomplete_reason, reason_submitted_at, created_at, updated_at
 		from member_week_progress
 		where curriculum_week_id = ?
 		  and member_id = ?
-		  and deleted_at is null
+		""";
+
+	static final String SELECT_TASK_COMPLETION_BY_TASK_AND_MEMBER = """
+		select id, progress_id, weekly_task_id, member_id, status, due_at, completed_at,
+		       completion_note, incomplete_reason, reason_submitted_at, evidence_url, created_at, updated_at
+		from task_completion
+		where weekly_task_id = ?
+		  and member_id = ?
 		""";
 
 	static final String SELECT_WEEK_DUE_AT = """
@@ -177,6 +219,25 @@ final class CurriculumJdbcSql {
 		from curriculum_week
 		where id = ?
 		  and deleted_at is null
+		""";
+
+	static final String INSERT_TASK_COMPLETION = """
+		insert into task_completion (
+		  id, progress_id, weekly_task_id, member_id, status, due_at, completed_at,
+		  completion_note, incomplete_reason, reason_submitted_at, evidence_url, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String UPDATE_TASK_COMPLETION = """
+		update task_completion
+		set status = ?,
+		    completed_at = ?,
+		    completion_note = ?,
+		    incomplete_reason = ?,
+		    reason_submitted_at = ?,
+		    evidence_url = ?,
+		    updated_at = ?
+		where id = ?
 		""";
 
 	static final String INSERT_MEMBER_WEEK_PROGRESS = """
@@ -197,7 +258,6 @@ final class CurriculumJdbcSql {
 		    reason_submitted_at = ?,
 		    updated_at = ?
 		where id = ?
-		  and deleted_at is null
 		""";
 
 	private CurriculumJdbcSql() {

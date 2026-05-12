@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CurriculumService {
 
 	private final CurriculumRepository repository;
-	private final CurriculumGenerator generator;
+	private final Supplier<CurriculumGenerator> generatorSupplier;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 
@@ -37,8 +39,17 @@ public class CurriculumService {
 		Clock clock,
 		Supplier<UUID> idGenerator
 	) {
+		this(repository, () -> Objects.requireNonNull(generator, "generator must not be null"), clock, idGenerator);
+	}
+
+	CurriculumService(
+		CurriculumRepository repository,
+		Supplier<CurriculumGenerator> generatorSupplier,
+		Clock clock,
+		Supplier<UUID> idGenerator
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
-		this.generator = Objects.requireNonNull(generator, "generator must not be null");
+		this.generatorSupplier = Objects.requireNonNull(generatorSupplier, "generatorSupplier must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 	}
@@ -60,6 +71,10 @@ public class CurriculumService {
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());
 		Map<String, Object> onboardingSummary = onboardingSummary(submittedResponses, now);
+		CurriculumGenerator generator = generatorSupplier.get();
+		if (generator == null) {
+			throw new CurriculumGenerationException("curriculum generator is not configured.");
+		}
 		CurriculumGeneration generation = generator.generate(new CurriculumGenerationRequest(
 			context,
 			submittedResponses,
@@ -164,10 +179,61 @@ public class CurriculumService {
 			.orElseGet(() -> createProgress(command, context.memberId(), now));
 	}
 
+	@Transactional
+	public TaskCompletion completeMyTask(CompleteTaskCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		CurriculumStartContext context = repository.findReadContextByTaskId(command.taskId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsWeeklyTask(command.taskId())) {
+					throw new CurriculumNotFoundException("weekly task was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (context.groupStatus() != StudyGroupStatus.ACTIVE || !context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to complete weekly tasks.");
+		}
+		WeeklyTask task = repository.findWeeklyTaskById(command.taskId())
+			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
+		MemberWeekProgress progress = repository.findMemberWeekProgress(task.curriculumWeekId(), context.memberId())
+			.orElseThrow(() -> new CurriculumNotFoundException("member week progress was not found."));
+		Instant now = clock.instant();
+		return repository.findTaskCompletion(command.taskId(), context.memberId())
+			.map(completion -> updateTaskCompletion(completion, command, now))
+			.orElseGet(() -> createTaskCompletion(command, task, progress, context.memberId(), now));
+	}
+
 	private MemberWeekProgress updateProgress(MemberWeekProgress progress, UpdateWeekProgressCommand command, Instant now) {
 		MemberWeekProgress updated = applyProgressUpdate(progress, command, now);
 		if (!repository.updateMemberWeekProgress(updated)) {
 			throw new WeekProgressUpdateRejectedException("week progress could not be updated.");
+		}
+		return updated;
+	}
+
+	private TaskCompletion updateTaskCompletion(TaskCompletion completion, CompleteTaskCommand command, Instant now) {
+		TaskCompletion updated = applyTaskCompletionUpdate(completion, command, now);
+		if (!repository.updateTaskCompletion(updated)) {
+			throw new TaskCompletionUpdateRejectedException("task completion could not be updated.");
+		}
+		return updated;
+	}
+
+	private TaskCompletion createTaskCompletion(
+		CompleteTaskCommand command,
+		WeeklyTask task,
+		MemberWeekProgress progress,
+		UUID memberId,
+		Instant now
+	) {
+		TaskCompletion completion = createNewTaskCompletion(command, task, progress, memberId, now);
+		if (repository.insertTaskCompletion(completion)) {
+			return completion;
+		}
+		TaskCompletion racedCompletion = repository.findTaskCompletion(task.id(), memberId)
+			.orElseThrow(() -> new TaskCompletionUpdateRejectedException("task completion could not be inserted."));
+		TaskCompletion updated = applyTaskCompletionUpdate(racedCompletion, command, now);
+		if (!repository.updateTaskCompletion(updated)) {
+			throw new TaskCompletionUpdateRejectedException("task completion could not be updated after concurrent insert.");
 		}
 		return updated;
 	}
@@ -211,6 +277,60 @@ public class CurriculumService {
 		} catch (IllegalArgumentException exception) {
 			throw new InvalidWeekProgressRequestException("status", exception.getMessage());
 		}
+	}
+
+	private TaskCompletion createNewTaskCompletion(
+		CompleteTaskCommand command,
+		WeeklyTask task,
+		MemberWeekProgress progress,
+		UUID memberId,
+		Instant now
+	) {
+		try {
+			return TaskCompletion.create(
+				idGenerator.get(),
+				progress.id(),
+				task.id(),
+				memberId,
+				task.dueAt(),
+				command.status(),
+				command.completionNote(),
+				command.incompleteReason(),
+				command.evidenceUrl(),
+				now
+			);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidTaskCompletionRequestException(taskCompletionField(exception.getMessage()), exception.getMessage());
+		}
+	}
+
+	private static TaskCompletion applyTaskCompletionUpdate(
+		TaskCompletion completion,
+		CompleteTaskCommand command,
+		Instant now
+	) {
+		try {
+			return completion.update(command.status(), command.completionNote(), command.incompleteReason(), command.evidenceUrl(), now);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidTaskCompletionRequestException(taskCompletionField(exception.getMessage()), exception.getMessage());
+		}
+	}
+
+	private static String taskCompletionField(String message) {
+		if (message == null) {
+			return "status";
+		}
+		String lowerMessage = message.toLowerCase(Locale.ROOT);
+		if (lowerMessage.contains("incomplete reason")) {
+			return "incompleteReason";
+		}
+		if (lowerMessage.contains("completion note")) {
+			return "completionNote";
+		}
+		if (lowerMessage.contains("evidence url")) {
+			return "evidenceUrl";
+		}
+		return "status";
 	}
 
 	private CurriculumStartContext requireStartContext(UUID groupId, UUID userId) {
