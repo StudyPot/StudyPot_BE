@@ -250,7 +250,7 @@ class StudyGroupControllerTest {
 
 		@Override
 		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId) {
-			return java.util.Optional.of(new StudyGroupJoinTarget(groupId, StudyGroupStatus.ONBOARDING, 6, "INVITE-0001"));
+			return java.util.Optional.of(new StudyGroupJoinTarget(groupId, StudyGroupStatus.ACTIVE, 6, "INVITE-0001"));
 		}
 
 		@Override

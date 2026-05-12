@@ -7,6 +7,7 @@ import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -186,6 +187,65 @@ class OnboardingServiceTest {
 			.hasMessage("onboarding response was not found.");
 	}
 
+	@Test
+	void submitMyOnboardingSubmitsExistingResponseAndActivatesPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.existingResponse = existingResponse();
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		GroupOnboardingResponse result = service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID));
+
+		assertThat(result.status()).isEqualTo(com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus.SUBMITTED);
+		assertThat(result.submittedAt()).contains(NOW);
+		assertThat(repository.submittedResponse).isSameAs(result);
+		assertThat(repository.activatedMemberId).isEqualTo(MEMBER_ID);
+		assertThat(repository.activatedAt).isEqualTo(NOW);
+	}
+
+	@Test
+	void submitMyOnboardingRejectsWhenResponseDoesNotExist() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		assertThatThrownBy(() -> service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(OnboardingResponseNotFoundException.class)
+			.hasMessage("onboarding response was not found.");
+		assertThat(repository.submittedResponse).isNull();
+		assertThat(repository.activatedMemberId).isNull();
+	}
+
+	@Test
+	void submitMyOnboardingSkipsActivationForAlreadyActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = new OnboardingMemberContext(GROUP_ID, MEMBER_ID, GroupMemberStatus.ACTIVE, List.of("JPA", "Security"));
+		repository.existingResponse = existingResponse();
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		GroupOnboardingResponse result = service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID));
+
+		assertThat(result.status()).isEqualTo(com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus.SUBMITTED);
+		assertThat(repository.activatedMemberId).isNull();
+	}
+
+	@Test
+	void submitMyOnboardingRejectsWhenPendingMemberCannotBeActivated() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.existingResponse = existingResponse();
+		repository.activateResult = false;
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		assertThatThrownBy(() -> service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(OnboardingMembershipRequiredException.class)
+			.hasMessage("current group membership is required.");
+	}
+
 	private static OnboardingService service(CapturingRepository repository, UUID... nextIds) {
 		Supplier<UUID> idGenerator = new DeterministicIds(nextIds);
 		return new OnboardingService(repository, CLOCK, idGenerator);
@@ -263,6 +323,10 @@ class OnboardingServiceTest {
 		private OnboardingMemberContext memberContext;
 		private GroupOnboardingResponse existingResponse;
 		private GroupOnboardingResponse savedResponse;
+		private GroupOnboardingResponse submittedResponse;
+		private UUID activatedMemberId;
+		private Instant activatedAt;
+		private boolean activateResult = true;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -292,6 +356,20 @@ class OnboardingServiceTest {
 			this.savedResponse = response;
 			this.existingResponse = response;
 			return response;
+		}
+
+		@Override
+		public GroupOnboardingResponse submit(GroupOnboardingResponse response) {
+			this.submittedResponse = response;
+			this.existingResponse = response;
+			return response;
+		}
+
+		@Override
+		public boolean activatePendingMember(UUID memberId, Instant activatedAt) {
+			this.activatedMemberId = memberId;
+			this.activatedAt = activatedAt;
+			return activateResult;
 		}
 
 		private static void requireExpectedGroupId(UUID groupId) {

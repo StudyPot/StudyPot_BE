@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.onboarding.repository;
 
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,8 @@ public interface OnboardingRepository {
 	Optional<GroupOnboardingResponse> findResponseByMemberId(UUID memberId);
 
 	GroupOnboardingResponse saveDraft(GroupOnboardingResponse response);
+
+	GroupOnboardingResponse submit(GroupOnboardingResponse response);
+
+	boolean activatePendingMember(UUID memberId, Instant activatedAt);
 }

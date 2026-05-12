@@ -124,6 +124,18 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void startStudyReturnsConflictWhenOwnerOnboardingIsPending() throws Exception {
+		repository.startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.PENDING_ONBOARDING);
+
+		mockMvc.perform(post(START_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("start-xsrf")))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("owner onboarding must be submitted before starting the study."));
+	}
+
+	@Test
 	void getCurriculumReturnsActiveCurriculum() throws Exception {
 		repository.activeCurriculum = generation().toCurriculum(
 			CURRICULUM_ID,
@@ -239,8 +251,8 @@ class CurriculumControllerTest {
 		private Curriculum activeCurriculum;
 
 		void reset() {
-			startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.PENDING_ONBOARDING);
-			readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.OWNER, GroupMemberStatus.PENDING_ONBOARDING);
+			startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+			readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
 			activeCurriculum = null;
 		}
 

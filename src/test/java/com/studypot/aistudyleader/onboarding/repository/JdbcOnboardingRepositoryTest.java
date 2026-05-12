@@ -14,6 +14,7 @@ import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,14 @@ class JdbcOnboardingRepositoryTest {
 		verify(jdbcTemplate).query(eq(OnboardingJdbcSql.SELECT_MEMBER_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
 		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void memberContextQueryLoadsCurrentMemberStatusAndExcludesLeftMembers() {
+		assertThat(OnboardingJdbcSql.SELECT_MEMBER_CONTEXT)
+			.contains("gm.status as member_status")
+			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.doesNotContain("'LEFT'");
 	}
 
 	@Test
@@ -165,6 +174,51 @@ class JdbcOnboardingRepositoryTest {
 		assertThatThrownBy(() -> repository.saveDraft(null))
 			.isInstanceOf(NullPointerException.class)
 			.hasMessage("response must not be null");
+	}
+
+	@Test
+	void submitUpdatesResponseStatusAndSubmittedAt() {
+		Instant submittedAt = NOW.plusSeconds(60);
+		GroupOnboardingResponse submitted = response().submit(submittedAt);
+		when(jdbcTemplate.update(eq(OnboardingJdbcSql.SUBMIT_ONBOARDING_RESPONSE), any(Object[].class)))
+			.thenReturn(1);
+
+		GroupOnboardingResponse saved = repository.submit(submitted);
+
+		assertThat(saved).isSameAs(submitted);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.SUBMIT_ONBOARDING_RESPONSE), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(submittedAt));
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(submittedAt));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(RESPONSE_ID));
+		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+	}
+
+	@Test
+	void submitRejectsWhenNoResponseRowWasUpdated() {
+		GroupOnboardingResponse submitted = response().submit(NOW.plusSeconds(60));
+		when(jdbcTemplate.update(eq(OnboardingJdbcSql.SUBMIT_ONBOARDING_RESPONSE), any(Object[].class)))
+			.thenReturn(0);
+
+		assertThatThrownBy(() -> repository.submit(submitted))
+			.isInstanceOf(OnboardingPersistenceException.class)
+			.hasMessage("onboarding response could not be submitted.");
+	}
+
+	@Test
+	void activatePendingMemberUpdatesOnlyPendingMembership() {
+		when(jdbcTemplate.update(eq(OnboardingJdbcSql.ACTIVATE_PENDING_MEMBER), any(Object[].class)))
+			.thenReturn(1);
+
+		assertThat(repository.activatePendingMember(MEMBER_ID, NOW)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.ACTIVATE_PENDING_MEMBER), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(NOW));
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		assertThat(OnboardingJdbcSql.ACTIVATE_PENDING_MEMBER)
+			.contains("status = 'PENDING_ONBOARDING'");
 	}
 
 	private static GroupOnboardingResponse response() {

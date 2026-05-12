@@ -50,6 +50,9 @@ public class CurriculumService {
 		if (context.groupStatus() != StudyGroupStatus.ONBOARDING) {
 			throw new CurriculumStartRejectedException("study group must be ONBOARDING to start curriculum generation.");
 		}
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumStartRejectedException("owner onboarding must be submitted before starting the study.");
+		}
 
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());

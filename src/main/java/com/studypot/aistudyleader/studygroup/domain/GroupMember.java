@@ -113,6 +113,28 @@ public final class GroupMember extends AggregateRoot<UUID> {
 		return auditMetadata;
 	}
 
+	public GroupMember activate(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		if (status == GroupMemberStatus.ACTIVE) {
+			return this;
+		}
+		if (status != GroupMemberStatus.PENDING_ONBOARDING) {
+			throw new IllegalStateException("only PENDING_ONBOARDING members can be activated.");
+		}
+		return new GroupMember(
+			id(),
+			groupId,
+			userId,
+			permission,
+			GroupMemberStatus.ACTIVE,
+			displayName,
+			joinedAt,
+			now,
+			leftAt,
+			auditMetadata.touch(now)
+		);
+	}
+
 	private static String normalizeDisplayName(String displayName) {
 		if (displayName == null || displayName.isBlank()) {
 			return null;
