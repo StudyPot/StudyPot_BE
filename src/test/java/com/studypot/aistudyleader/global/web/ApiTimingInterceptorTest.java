@@ -31,4 +31,21 @@ class ApiTimingInterceptorTest {
 		assertThatCode(() -> interceptor.afterCompletion(request, response, new Object(), null))
 			.doesNotThrowAnyException();
 	}
+
+	@Test
+	void preHandleAndAfterCompletionCalculatesTiming() {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users/me");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		Object handler = new Object();
+
+		interceptor.preHandle(request, response, handler);
+		String startTimeAttribute = Collections.list(request.getAttributeNames()).stream()
+			.filter(name -> name.endsWith(".startTime"))
+			.findFirst()
+			.orElseThrow();
+
+		assertThatCode(() -> interceptor.afterCompletion(request, response, handler, null))
+			.doesNotThrowAnyException();
+		assertThat(request.getAttribute(startTimeAttribute)).isNull();
+	}
 }

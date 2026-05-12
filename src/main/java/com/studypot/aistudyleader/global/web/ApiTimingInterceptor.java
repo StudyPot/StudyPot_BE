@@ -1,13 +1,14 @@
 package com.studypot.aistudyleader.global.web;
 
-import org.jspecify.annotations.Nullable;
-import org.springframework.web.servlet.HandlerInterceptor;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 @Slf4j
+@Component
 public class ApiTimingInterceptor implements HandlerInterceptor {
 
 	private static final String START_TIME_ATTRIBUTE = ApiTimingInterceptor.class.getName() + ".startTime";
@@ -25,6 +26,7 @@ public class ApiTimingInterceptor implements HandlerInterceptor {
 		if (!(startTime instanceof Long startedAt)) {
 			return;
 		}
+		request.removeAttribute(START_TIME_ATTRIBUTE);
 
 		long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000;
 

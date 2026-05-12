@@ -3,7 +3,7 @@
 - Task slug: `api-timing-interceptor`
 - Base branch: `develop`
 - Feature branch: `codex/api-timing-interceptor`
-- Worktree: `/Users/hyunwoo/Developer/Projects/StudyPot`
+- Worktree: `/Users/hyunwoo/Documents/New project 3-worktrees/api-timing-interceptor`
 - Port: `TBD`
 - Log dir: `/Users/hyunwoo/Documents/New project 3-logs/api-timing-interceptor`
 - Jira issue: `SPT-77`
@@ -28,7 +28,7 @@
 - [ ] <feature-id>
 
 ## Doc Notes
-This is an observability/infrastructure change, not a product API/DB contract change. `docs/testing/codex-harness.md` confirms the standard verification command and the requirement to include tests with source changes.
+This is an observability/infrastructure change, not a product API/DB contract change. `docs/testing/codex-harness.md` confirms the standard verification command and the requirement to include tests with source changes. The first draft was authored before the harness branch/worktree was fully aligned; this plan now documents the post-implementation alignment for `ApiTimingInterceptor`, `WebMvcConfiguration`, and the focused interceptor test.
 
 ## Goal
 Record `/api/v1/**` request processing time with a Spring MVC interceptor without logging credentials, cookies, headers, or request bodies.
@@ -37,7 +37,7 @@ Record `/api/v1/**` request processing time with a Spring MVC interceptor withou
 Register an `ApiTimingInterceptor` through `WebMvcConfigurer` and scope it to the shared `ApiPaths.V1 + "/**"` API path. Store request-local start time as a servlet request attribute so concurrent requests do not share mutable state.
 
 ## Step Plan
-1. Keep the user-authored interceptor and MVC configuration changes.
+1. Align the user-authored interceptor and MVC configuration in the dedicated `codex/api-timing-interceptor` worktree.
 2. Add a focused unit test for interceptor timing state and completion behavior.
 3. Run `./gradlew check build --no-daemon`.
 4. Commit the scoped source, test, task-state, and EXEC_PLAN changes.
