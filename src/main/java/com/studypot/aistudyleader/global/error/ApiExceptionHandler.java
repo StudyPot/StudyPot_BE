@@ -19,6 +19,11 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundExce
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
+import com.studypot.aistudyleader.retrospective.repository.RetrospectivePersistenceException;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDeniedException;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveNotFoundException;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
@@ -129,6 +134,12 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
+	@ExceptionHandler({RetrospectiveServiceUnavailableException.class, RetrospectivePersistenceException.class})
+	public ResponseEntity<ProblemDetail> handleRetrospectiveServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
 	@ExceptionHandler({
 		StudyGroupNotFoundException.class,
 		OnboardingGroupNotFoundException.class,
@@ -136,14 +147,20 @@ public class ApiExceptionHandler {
 		CurriculumGroupNotFoundException.class,
 		CurriculumNotFoundException.class,
 		GroupRuleGroupNotFoundException.class,
-		GroupRuleNotFoundException.class
+		GroupRuleNotFoundException.class,
+		RetrospectiveNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({OnboardingMembershipRequiredException.class, CurriculumAccessDeniedException.class, GroupRuleAccessDeniedException.class})
+	@ExceptionHandler({
+		OnboardingMembershipRequiredException.class,
+		CurriculumAccessDeniedException.class,
+		GroupRuleAccessDeniedException.class,
+		RetrospectiveAccessDeniedException.class
+	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 			.body(problemDetailFactory.forbidden(messageOrDefault(exception.getMessage())));
@@ -154,7 +171,8 @@ public class ApiExceptionHandler {
 		CurriculumStartRejectedException.class,
 		TaskCompletionUpdateRejectedException.class,
 		WeekProgressUpdateRejectedException.class,
-		GroupRuleMutationRejectedException.class
+		GroupRuleMutationRejectedException.class,
+		RetrospectiveMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)

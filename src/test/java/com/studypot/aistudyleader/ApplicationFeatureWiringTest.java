@@ -8,6 +8,8 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
+import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveService;
 import com.studypot.aistudyleader.studygroup.rules.repository.GroupRuleRepository;
 import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleService;
 import javax.sql.DataSource;
@@ -46,10 +48,12 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("curriculumRepository");
 		assertThat(context.getBeanNamesForType(GroupRuleRepository.class))
 			.containsExactly("groupRuleRepository");
+		assertThat(context.getBeanNamesForType(RetrospectiveRepository.class))
+			.containsExactly("retrospectiveRepository");
 	}
 
 	@Test
-	void weeklyTodoAndRuleServicesAreConfiguredWithoutOpenAiGenerator() {
+	void weeklyTodoRuleAndRetrospectiveServicesAreConfiguredWithoutOpenAiGenerator() {
 		assertThat(context.getBeanNamesForType(CurriculumGenerator.class))
 			.isEmpty();
 		assertThat(context.getBeanNamesForType(OnboardingService.class))
@@ -58,6 +62,8 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("curriculumService");
 		assertThat(context.getBeanNamesForType(GroupRuleService.class))
 			.containsExactly("groupRuleService");
+		assertThat(context.getBeanNamesForType(RetrospectiveService.class))
+			.containsExactly("retrospectiveService");
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
