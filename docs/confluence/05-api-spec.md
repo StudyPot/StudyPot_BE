@@ -7,7 +7,7 @@
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
 - Current contract size: 25 paths, 31 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -31,6 +31,12 @@
 | Retrospective | `retrospective-feedback` | AI feedback and next-week adjustment. |
 | AI Conversation | `ai-team-leader` | AI team leader chat sessions and messages. |
 | Notification/Usage | `notification`, `ai-team-leader` | In-app notifications and LLM usage logs. |
+
+## Retrospective / AI Chat Boundary
+- `retrospective` is the final week/member/progress feedback state.
+- `ai_conversation` and `ai_conversation_message` are the chat/input surface and may link to a retrospective when `conversationType = RETROSPECTIVE`.
+- SPT-81 does not add public API fields or OpenAPI paths. The DB-first context builder runs inside the backend before retrospective/chat LLM provider calls.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
 
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |

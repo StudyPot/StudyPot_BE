@@ -5,6 +5,7 @@
 - Source: ERD v0.8 MySQL8.
 - DDL draft: `docs/specs/db-schema-v1.sql`
 - Changes require Change Request and ADR.
+- Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Baseline
 - Database: MySQL 8.
@@ -65,11 +66,11 @@
 | `curriculum_week.learning_goals` | Ordered learning goals. |
 | `curriculum_week.resources` | Recommended resources. |
 | `weekly_task.source_payload` | AI generation context excerpt. |
-| `retrospective.input_summary` | Progress and incomplete reason summary. |
+| `retrospective.input_summary` | DB-first context summary: week, tasks, progress, completion notes, incomplete reasons, relevant rules/violations, prior retrospective/adjustment, onboarding summary, and conversation summary. |
 | `retrospective.ai_feedback` | AI team leader feedback. |
 | `retrospective.next_week_adjustment` | Future week/task adjustment proposal. |
 | `notification.payload` | In-app notification metadata and deep-link context. |
-| `llm_usage.request_payload` | Redacted request metadata. |
+| `llm_usage.request_payload` | Redacted request metadata, including summarized context/source metadata when useful for audit. |
 
 ## Hot Query Expectations
 - Fetch current user groups by `group_member.user_id`, member status, and group status.
@@ -79,6 +80,7 @@
 - Fetch weekly tasks and member task completion by week/member.
 - Find overdue tasks and incomplete reasons for in-app notification workers.
 - Fetch retrospective by progress/week/member.
+- Fetch DB-first AI context by week/member/group before retrospective/chat provider calls.
 - Fetch unread notifications by recipient user.
 - Aggregate LLM usage by group, user, purpose, and UTC date.
 
