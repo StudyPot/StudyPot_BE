@@ -78,6 +78,17 @@ class GroupOnboardingResponseTest {
 	}
 
 	@Test
+	void submitMarksDraftAsSubmittedAndStoresSubmittedAt() {
+		Instant submittedAt = NOW.plusSeconds(120);
+
+		GroupOnboardingResponse submitted = draft().submit(submittedAt);
+
+		assertThat(submitted.status()).isEqualTo(GroupOnboardingStatus.SUBMITTED);
+		assertThat(submitted.submittedAt()).contains(submittedAt);
+		assertThat(submitted.auditMetadata().updatedAt()).isEqualTo(submittedAt);
+	}
+
+	@Test
 	void draftRejectsUnknownKeyword() {
 		assertThatThrownBy(() -> GroupOnboardingResponse.draft(
 				RESPONSE_ID,

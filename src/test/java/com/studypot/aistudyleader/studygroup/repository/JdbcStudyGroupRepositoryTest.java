@@ -96,6 +96,18 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void findJoinTargetByIdForUpdateMapsActiveStudyGroupSnapshot() {
+		StudyGroupJoinTarget joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 6, "INVITE-2026");
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(joinTarget));
+
+		Optional<StudyGroupJoinTarget> result = repository.findJoinTargetByIdForUpdate(GROUP_ID);
+
+		assertThat(result).contains(joinTarget);
+		assertThat(result.orElseThrow().isAcceptingJoins()).isTrue();
+	}
+
+	@Test
 	void findJoinTargetByIdForUpdateReturnsEmptyWhenNoGroupExists() {
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of());

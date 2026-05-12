@@ -140,9 +140,27 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
-	void joinGroupRejectsGroupThatIsNotOnboarding() {
+	void joinGroupAcceptsActiveGroupForLateJoiner() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 3, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		StudyGroupJoinResult result = service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(result.member()).isSameAs(repository.savedJoinedMember());
+		assertThat(result.member().id()).isEqualTo(JOINED_MEMBER_ID);
+		assertThat(result.member().groupId()).isEqualTo(GROUP_ID);
+		assertThat(result.member().userId()).isEqualTo(JOINER_ID);
+		assertThat(result.member().permission()).isEqualTo(GroupMemberPermission.MEMBER);
+		assertThat(result.member().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
+		assertThat(result.member().joinedAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void joinGroupRejectsCompletedGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.COMPLETED, 3, "INVITE-0001");
 		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
 
 		assertThatThrownBy(() -> service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001")))

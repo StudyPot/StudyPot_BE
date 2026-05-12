@@ -48,7 +48,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyCreatesCurriculumFromSubmittedOnboardingAndActivatesGroup() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING);
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
@@ -92,12 +92,25 @@ class CurriculumServiceTest {
 	void startStudyRejectsGroupThatIsNotOnboarding() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
-		repository.startContext = ownerStartContext(StudyGroupStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumStartRejectedException.class)
 			.hasMessage("study group must be ONBOARDING to start curriculum generation.");
+		assertThat(repository.savedCurriculum).isNull();
+	}
+
+	@Test
+	void startStudyRejectsOwnerWhoHasNotSubmittedOnboarding() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumStartRejectedException.class)
+			.hasMessage("owner onboarding must be submitted before starting the study.");
 		assertThat(repository.savedCurriculum).isNull();
 	}
 
@@ -153,7 +166,7 @@ class CurriculumServiceTest {
 		);
 	}
 
-	private static CurriculumStartContext ownerStartContext(StudyGroupStatus status) {
+	private static CurriculumStartContext ownerStartContext(StudyGroupStatus status, GroupMemberStatus memberStatus) {
 		return new CurriculumStartContext(
 			GROUP_ID,
 			"Backend Interview Study",
@@ -164,7 +177,7 @@ class CurriculumServiceTest {
 			LocalDate.parse("2026-06-21"),
 			OWNER_MEMBER_ID,
 			GroupMemberPermission.OWNER,
-			GroupMemberStatus.PENDING_ONBOARDING
+			memberStatus
 		);
 	}
 

@@ -45,6 +45,10 @@ public record CurriculumStartContext(
 		return isOwner() || memberStatus == GroupMemberStatus.ACTIVE;
 	}
 
+	public boolean hasActiveMembership() {
+		return memberStatus == GroupMemberStatus.ACTIVE;
+	}
+
 	private static String requireText(String value, String fieldName) {
 		if (value == null || value.isBlank()) {
 			throw new IllegalArgumentException(fieldName + " must not be blank");

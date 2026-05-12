@@ -10,6 +10,7 @@ import com.studypot.aistudyleader.onboarding.service.GetMyOnboardingQuery;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.SaveMyOnboardingCommand;
+import com.studypot.aistudyleader.onboarding.service.SubmitMyOnboardingCommand;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -28,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,6 +53,14 @@ class OnboardingController {
 		@Valid @RequestBody SaveOnboardingRequest request
 	) {
 		GroupOnboardingResponse response = service().saveMyDraft(request.toCommand(authenticatedUserId(authentication), groupId));
+		return OnboardingResponse.from(response);
+	}
+
+	@PostMapping(ApiPaths.V1 + "/groups/{groupId}/onboarding/me/submit")
+	OnboardingResponse submitMyOnboarding(Authentication authentication, @PathVariable UUID groupId) {
+		GroupOnboardingResponse response = service().submitMyOnboarding(
+			new SubmitMyOnboardingCommand(authenticatedUserId(authentication), groupId)
+		);
 		return OnboardingResponse.from(response);
 	}
 

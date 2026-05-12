@@ -21,8 +21,15 @@ class StudyGroupJoinTargetTest {
 	}
 
 	@Test
-	void activeGroupDoesNotAcceptSpt29JoinFlow() {
+	void activeGroupAcceptsLateJoinFlow() {
 		StudyGroupJoinTarget target = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 3, "INVITE-0001");
+
+		assertThat(target.isAcceptingJoins()).isTrue();
+	}
+
+	@Test
+	void completedGroupDoesNotAcceptLateJoinFlow() {
+		StudyGroupJoinTarget target = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.COMPLETED, 3, "INVITE-0001");
 
 		assertThat(target.isAcceptingJoins()).isFalse();
 	}

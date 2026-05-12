@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.onboarding.controller;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +43,7 @@ class OnboardingControllerTest {
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000003061");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000003062");
 	private static final String ONBOARDING_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/onboarding/me";
+	private static final String ONBOARDING_SUBMIT_PATH = ONBOARDING_PATH + "/submit";
 
 	private final MockMvc mockMvc;
 
@@ -158,6 +160,27 @@ class OnboardingControllerTest {
 			.andExpect(jsonPath("$.status").value("DRAFT"));
 	}
 
+	@Test
+	void submitMyOnboardingRequiresAuthentication() throws Exception {
+		mockMvc.perform(post(ONBOARDING_SUBMIT_PATH)
+				.with(xsrf("onboarding-submit-xsrf")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void submitMyOnboardingReturnsSubmittedResponse() throws Exception {
+		mockMvc.perform(post(ONBOARDING_SUBMIT_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("onboarding-submit-xsrf")))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.memberId").value(TestOnboardingBeans.MEMBER_ID.toString()))
+			.andExpect(jsonPath("$.status").value("SUBMITTED"))
+			.andExpect(jsonPath("$.submittedAt").value("2026-05-09T08:30:00Z"));
+	}
+
 	private static String validRequestJson() {
 		return """
 			{
@@ -233,6 +256,17 @@ class OnboardingControllerTest {
 			public GroupOnboardingResponse saveDraft(GroupOnboardingResponse response) {
 				this.response = response;
 				return response;
+			}
+
+			@Override
+			public GroupOnboardingResponse submit(GroupOnboardingResponse response) {
+				this.response = response;
+				return response;
+			}
+
+			@Override
+			public boolean activatePendingMember(UUID memberId, Instant activatedAt) {
+				return true;
 			}
 
 			private static MemberAvailabilitySlot slot() {
