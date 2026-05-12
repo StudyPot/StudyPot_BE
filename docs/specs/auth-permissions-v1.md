@@ -40,6 +40,8 @@
 | Read group notification logs | no | no | no | no | yes |
 | Read LLM usage logs | no | no | no | no | yes |
 
+`Read own week progress` is approved by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
+
 ## Data Visibility
 - Members can read their own onboarding response.
 - Owners can see onboarding completion status and aggregate summaries needed to start the study.
@@ -65,3 +67,4 @@
 - A refresh token used after rotation or revocation must be rejected.
 - Cross-group access must be rejected even if the resource ID exists.
 - Service logic must verify that member, week, task, retrospective, and conversation belong to the same group.
+- Member week progress read permission is authorized by `CR-20260512-week-progress-read-endpoint` and `ADR-20260512-week-progress-read-endpoint`.

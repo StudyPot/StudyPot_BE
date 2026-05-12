@@ -20,6 +20,8 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 | `notification` | `prd-v1.md` | `REQ-NOTI-001` to `REQ-NOTI-003` | `api-contract-v1.md`, `openapi.yaml` | `notification` | `notification-contract-v1.md`, `auth-permissions-v1.md` | `QA-NOTI-001` to `QA-NOTI-004` | Not started | Not started | Planned |
 | `n/a-harness` | `prd-v1.md` | global workflow | `n/a` | schema verification | `jira-board-sync.md`, `pr-review-gate.md` | `QA-GLOBAL-001` to `QA-GLOBAL-005` | `SPT-19`, `SPT-50` | Not started | Planned |
 
+`weekly-todo` QA coverage through `QA-TODO-005` is approved by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
+
 ## Coverage Rules
 - A feature is implementable only when PRD, requirements, API, DB, integration, and QA cells are populated.
 - All v1 feature rows are populated and locked.

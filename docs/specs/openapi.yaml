@@ -722,6 +722,7 @@ components:
         incompleteReason: {type: string}
     MemberWeekProgressResponse:
       type: object
+      required: [id, status]
       properties:
         id: {type: string, format: uuid}
         status: {type: string}
