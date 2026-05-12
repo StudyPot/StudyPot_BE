@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.studygroup.rules.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -75,7 +76,9 @@ class JdbcGroupRuleRepositoryTest {
 	void insertRuleSerializesUuidAndConfigJson() {
 		GroupRule rule = rule(GroupRuleType.TASK_DEADLINE, true);
 
-		repository.insertRule(rule);
+		when(jdbcTemplate.update(eq(GroupRuleJdbcSql.INSERT_RULE), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.insertRule(rule)).isTrue();
 
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).update(eq(GroupRuleJdbcSql.INSERT_RULE), args.capture());
@@ -116,6 +119,18 @@ class JdbcGroupRuleRepositoryTest {
 	}
 
 	@Test
+	void existsTaskCompletionQueriesByTaskCompletionId() {
+		when(jdbcTemplate.queryForObject(eq(GroupRuleJdbcSql.EXISTS_TASK_COMPLETION), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(true);
+
+		assertThat(repository.existsTaskCompletion(TASK_COMPLETION_ID)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).queryForObject(eq(GroupRuleJdbcSql.EXISTS_TASK_COMPLETION), eq(Boolean.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(TASK_COMPLETION_ID));
+	}
+
+	@Test
 	void insertViolationStoresViolationTypeInsideDetailsJson() {
 		RuleViolation violation = violation(RuleViolationStatus.OPEN);
 
@@ -132,6 +147,27 @@ class JdbcGroupRuleRepositoryTest {
 			.contains("\"reason\":\"missing\"");
 		assertThat(args.getValue()[5]).isEqualTo("OPEN");
 		assertThat(args.getValue()[8]).isEqualTo(Timestamp.from(NOW.minusSeconds(60)));
+	}
+
+	@Test
+	void insertViolationRejectsDetailsWithReservedViolationTypeKey() {
+		RuleViolation violation = new RuleViolation(
+			VIOLATION_ID,
+			RULE_ID,
+			MEMBER_ID,
+			Optional.empty(),
+			RuleViolationType.CUSTOM,
+			Map.of("violationType", "RETROSPECTIVE_MISSING"),
+			RuleViolationStatus.OPEN,
+			Optional.empty(),
+			Optional.empty(),
+			NOW.minusSeconds(60),
+			NOW
+		);
+
+		assertThatThrownBy(() -> repository.insertViolation(violation))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("details must not contain reserved key: violationType");
 	}
 
 	@Test
@@ -207,6 +243,25 @@ class JdbcGroupRuleRepositoryTest {
 		assertThat(result.details()).doesNotContainKey("violationType");
 		assertThat(result.status()).isEqualTo(RuleViolationStatus.WAIVED);
 		assertThat(result.resolvedNote()).contains("면제");
+	}
+
+	@Test
+	void mapViolationRejectsInvalidViolationTypeInDetailsJson() throws Exception {
+		ResultSet resultSet = mock(ResultSet.class);
+		when(resultSet.getBytes("id")).thenReturn(UuidBinary.toBytes(VIOLATION_ID));
+		when(resultSet.getBytes("rule_id")).thenReturn(UuidBinary.toBytes(RULE_ID));
+		when(resultSet.getBytes("member_id")).thenReturn(UuidBinary.toBytes(MEMBER_ID));
+		when(resultSet.getBytes("task_completion_id")).thenReturn(null);
+		when(resultSet.getString("details")).thenReturn("{\"violationType\":\"UNKNOWN\"}");
+		when(resultSet.getString("status")).thenReturn("OPEN");
+		when(resultSet.getTimestamp("resolved_at")).thenReturn(null);
+		when(resultSet.getString("resolved_note")).thenReturn(null);
+		when(resultSet.getTimestamp("occurred_at")).thenReturn(Timestamp.from(NOW.minusSeconds(60)));
+		when(resultSet.getTimestamp("created_at")).thenReturn(Timestamp.from(NOW.minusSeconds(30)));
+
+		assertThatThrownBy(() -> repository.mapViolation(resultSet, 0))
+			.isInstanceOf(GroupRulePersistenceException.class)
+			.hasMessageContaining("invalid violationType: UNKNOWN");
 	}
 
 	private static GroupRule rule(GroupRuleType type, boolean active) {

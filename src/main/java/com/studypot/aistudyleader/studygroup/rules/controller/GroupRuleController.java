@@ -13,6 +13,7 @@ import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleService;
 import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.rules.service.HandleRuleViolationCommand;
 import com.studypot.aistudyleader.studygroup.rules.service.ListGroupRulesQuery;
+import com.studypot.aistudyleader.studygroup.rules.service.ListRuleViolationsQuery;
 import com.studypot.aistudyleader.studygroup.rules.service.RecordRuleViolationCommand;
 import com.studypot.aistudyleader.studygroup.rules.service.SaveGroupRuleCommand;
 import jakarta.validation.Valid;
@@ -88,7 +89,7 @@ class GroupRuleController {
 
 	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/rule-violations")
 	List<RuleViolationResponse> listViolations(Authentication authentication, @PathVariable UUID groupId) {
-		return service().listViolations(new ListGroupRulesQuery(authenticatedUserId(authentication), groupId))
+		return service().listViolations(new ListRuleViolationsQuery(authenticatedUserId(authentication), groupId))
 			.stream()
 			.map(RuleViolationResponse::from)
 			.toList();

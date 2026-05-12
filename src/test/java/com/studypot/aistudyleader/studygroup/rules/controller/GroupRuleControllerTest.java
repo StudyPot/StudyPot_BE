@@ -340,6 +340,11 @@ class GroupRuleControllerTest {
 		}
 
 		@Override
+		public boolean existsTaskCompletion(UUID taskCompletionId) {
+			return true;
+		}
+
+		@Override
 		public boolean taskCompletionBelongsToMember(UUID taskCompletionId, UUID memberId) {
 			return true;
 		}
@@ -350,13 +355,15 @@ class GroupRuleControllerTest {
 		}
 
 		@Override
-		public void insertRule(GroupRule rule) {
+		public boolean insertRule(GroupRule rule) {
 			rules.put(rule.id(), rule);
+			return true;
 		}
 
 		@Override
-		public void updateRule(GroupRule rule) {
+		public boolean updateRule(GroupRule rule) {
 			rules.put(rule.id(), rule);
+			return true;
 		}
 
 		@Override

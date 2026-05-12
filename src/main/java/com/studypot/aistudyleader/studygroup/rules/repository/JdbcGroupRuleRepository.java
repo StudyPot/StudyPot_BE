@@ -64,6 +64,15 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 	}
 
 	@Override
+	public boolean existsTaskCompletion(UUID taskCompletionId) {
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+			GroupRuleJdbcSql.EXISTS_TASK_COMPLETION,
+			Boolean.class,
+			uuid(taskCompletionId)
+		));
+	}
+
+	@Override
 	public boolean taskCompletionBelongsToMember(UUID taskCompletionId, UUID memberId) {
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
 			GroupRuleJdbcSql.EXISTS_TASK_COMPLETION_FOR_MEMBER,
@@ -79,8 +88,8 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 	}
 
 	@Override
-	public void insertRule(GroupRule rule) {
-		jdbcTemplate.update(
+	public boolean insertRule(GroupRule rule) {
+		return jdbcTemplate.update(
 			GroupRuleJdbcSql.INSERT_RULE,
 			uuid(rule.id()),
 			uuid(rule.groupId()),
@@ -91,12 +100,12 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 			rule.active(),
 			timestamp(rule.createdAt()),
 			timestamp(rule.updatedAt())
-		);
+		) > 0;
 	}
 
 	@Override
-	public void updateRule(GroupRule rule) {
-		jdbcTemplate.update(
+	public boolean updateRule(GroupRule rule) {
+		return jdbcTemplate.update(
 			GroupRuleJdbcSql.UPDATE_RULE,
 			json(rule.config(), "group rule config"),
 			rule.description(),
@@ -104,7 +113,7 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 			timestamp(rule.updatedAt()),
 			uuid(rule.groupId()),
 			uuid(rule.id())
-		);
+		) > 0;
 	}
 
 	@Override
@@ -216,6 +225,9 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 	}
 
 	private Map<String, Object> violationDetails(RuleViolation violation) {
+		if (violation.details().containsKey(VIOLATION_TYPE_KEY)) {
+			throw new IllegalArgumentException("details must not contain reserved key: " + VIOLATION_TYPE_KEY);
+		}
 		Map<String, Object> details = new LinkedHashMap<>();
 		details.put(VIOLATION_TYPE_KEY, violation.violationType().name());
 		details.putAll(violation.details());
@@ -227,7 +239,11 @@ class JdbcGroupRuleRepository implements GroupRuleRepository {
 		if (value == null || value.toString().isBlank()) {
 			return RuleViolationType.CUSTOM;
 		}
-		return RuleViolationType.valueOf(value.toString());
+		try {
+			return RuleViolationType.valueOf(value.toString());
+		} catch (IllegalArgumentException exception) {
+			throw new GroupRulePersistenceException("rule violation details contains invalid violationType: " + value, exception);
+		}
 	}
 
 	private String json(Object value, String fieldName) {

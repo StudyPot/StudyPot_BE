@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.studygroup.rules.domain.RuleViolationType;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 public record RecordRuleViolationCommand(
@@ -11,10 +12,10 @@ public record RecordRuleViolationCommand(
 	UUID groupId,
 	UUID ruleId,
 	UUID memberId,
-	UUID taskCompletionId,
+	Optional<UUID> taskCompletionId,
 	RuleViolationType violationType,
 	Map<String, Object> details,
-	Instant occurredAt
+	Optional<Instant> occurredAt
 ) {
 
 	public RecordRuleViolationCommand {
@@ -22,7 +23,31 @@ public record RecordRuleViolationCommand(
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(ruleId, "ruleId must not be null");
 		Objects.requireNonNull(memberId, "memberId must not be null");
+		taskCompletionId = Objects.requireNonNull(taskCompletionId, "taskCompletionId must not be null");
 		Objects.requireNonNull(violationType, "violationType must not be null");
 		details = Map.copyOf(Objects.requireNonNull(details, "details must not be null"));
+		occurredAt = Objects.requireNonNull(occurredAt, "occurredAt must not be null");
+	}
+
+	public RecordRuleViolationCommand(
+		UUID authenticatedUserId,
+		UUID groupId,
+		UUID ruleId,
+		UUID memberId,
+		UUID taskCompletionId,
+		RuleViolationType violationType,
+		Map<String, Object> details,
+		Instant occurredAt
+	) {
+		this(
+			authenticatedUserId,
+			groupId,
+			ruleId,
+			memberId,
+			Optional.ofNullable(taskCompletionId),
+			violationType,
+			details,
+			Optional.ofNullable(occurredAt)
+		);
 	}
 }

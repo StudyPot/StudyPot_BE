@@ -61,6 +61,14 @@ final class GroupRuleJdbcSql {
 		)
 		""";
 
+	static final String EXISTS_TASK_COMPLETION = """
+		select exists (
+		  select 1
+		  from task_completion
+		  where id = ?
+		)
+		""";
+
 	static final String SELECT_RULES_BY_GROUP_ID = """
 		select id, group_id, created_by, rule_type, config, description, is_active,
 		       created_at, updated_at, deleted_at

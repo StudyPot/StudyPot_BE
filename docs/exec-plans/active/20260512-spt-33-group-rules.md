@@ -51,7 +51,7 @@
   - `GET /api/v1/groups/{groupId}/rule-violations` lists violations.
   - `PATCH /api/v1/groups/{groupId}/rule-violations/{violationId}/resolve` resolves an open violation.
   - `PATCH /api/v1/groups/{groupId}/rule-violations/{violationId}/waive` waives an open violation.
-- Access policy for this slice follows the explicit goal wording: authenticated current group members can access rule/violation resources; `LEFT` members are rejected for new violation handling. Owner-only policy can be tightened later if product decides it.
+- Access policy for this slice follows the explicit user goal wording: authenticated current group members can access rule/violation resources, and `LEFT` members are rejected for new violation handling. Owner-only rule management is not introduced in SPT-33 because neither SPT-33 nor SPT-13 states an owner-only rule policy; a future permission change must go through the locked-spec change process.
 - AI retrospective generation, feedback generation, next-week adjustment, notification workers, external channels, frontend UI, and weekly todo completion/progress are out of scope for SPT-33.
 
 ## Goal

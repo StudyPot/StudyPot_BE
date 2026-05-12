@@ -48,7 +48,22 @@ public record GroupRule(
 	}
 
 	public GroupRule update(Map<String, Object> nextConfig, String nextDescription, boolean nextActive, Instant now) {
+		if (isDeleted()) {
+			throw new IllegalStateException("deleted group rule cannot be updated: " + groupId + "/" + id);
+		}
 		return new GroupRule(id, groupId, createdBy, ruleType, nextConfig, nextDescription, nextActive, createdAt, now, deletedAt);
+	}
+
+	public GroupRule delete(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		if (isDeleted()) {
+			throw new IllegalStateException("group rule is already deleted: " + groupId + "/" + id);
+		}
+		return new GroupRule(id, groupId, createdBy, ruleType, config, description, false, createdAt, now, Optional.of(now));
+	}
+
+	public boolean isDeleted() {
+		return deletedAt.isPresent();
 	}
 
 	private static String normalize(String value) {

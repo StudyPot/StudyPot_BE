@@ -75,19 +75,19 @@ public class GroupRuleService {
 		if (!rule.active()) {
 			throw new GroupRuleMutationRejectedException("inactive group rule cannot record violations.");
 		}
-		if (command.taskCompletionId() != null
-			&& !repository.taskCompletionBelongsToMember(command.taskCompletionId(), command.memberId())) {
-			throw new GroupRuleAccessDeniedException("task completion does not belong to the target member.");
+		command.taskCompletionId().ifPresent(taskCompletionId -> requireTaskCompletionForMember(taskCompletionId, command.memberId()));
+		if (command.details().containsKey("violationType")) {
+			throw new InvalidGroupRuleRequestException("details.violationType", "details must not contain reserved key: violationType.");
 		}
 		Instant now = clock.instant();
 		RuleViolation violation = RuleViolation.open(
 			idGenerator.get(),
 			rule.id(),
 			command.memberId(),
-			command.taskCompletionId(),
+			command.taskCompletionId().orElse(null),
 			command.violationType(),
 			command.details(),
-			command.occurredAt() == null ? now : command.occurredAt(),
+			command.occurredAt().orElse(now),
 			now
 		);
 		repository.insertViolation(violation);
@@ -95,7 +95,7 @@ public class GroupRuleService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<RuleViolation> listViolations(ListGroupRulesQuery query) {
+	public List<RuleViolation> listViolations(ListRuleViolationsQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		requireCurrentMembership(query.groupId(), query.authenticatedUserId());
 		return repository.findViolationsByGroupId(query.groupId());
@@ -140,14 +140,27 @@ public class GroupRuleService {
 			command.active(),
 			now
 		);
-		repository.insertRule(rule);
+		if (!repository.insertRule(rule)) {
+			throw new GroupRuleMutationRejectedException("group rule could not be inserted.");
+		}
 		return rule;
 	}
 
 	private GroupRule updateRule(GroupRule existing, SaveGroupRuleCommand command, Instant now) {
 		GroupRule rule = existing.update(command.config(), command.description(), command.active(), now);
-		repository.updateRule(rule);
+		if (!repository.updateRule(rule)) {
+			throw new GroupRuleNotFoundException("group rule was not found.");
+		}
 		return rule;
+	}
+
+	private void requireTaskCompletionForMember(UUID taskCompletionId, UUID memberId) {
+		if (!repository.existsTaskCompletion(taskCompletionId)) {
+			throw new GroupRuleNotFoundException("task completion was not found.");
+		}
+		if (!repository.taskCompletionBelongsToMember(taskCompletionId, memberId)) {
+			throw new GroupRuleAccessDeniedException("task completion does not belong to the target member.");
+		}
 	}
 
 	private GroupRuleMembership requireCurrentMembership(UUID groupId, UUID userId) {

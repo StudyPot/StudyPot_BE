@@ -198,6 +198,53 @@ class GroupRuleServiceTest {
 	}
 
 	@Test
+	void recordViolationRejectsMissingTaskCompletion() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = activeMember();
+		repository.targetMembership = activeMember();
+		repository.ruleForViolation = rule(GroupRuleType.TASK_DEADLINE, true);
+		repository.taskCompletionExists = false;
+		GroupRuleService service = service(repository, VIOLATION_ID);
+
+		assertThatThrownBy(() -> service.recordViolation(new RecordRuleViolationCommand(
+				USER_ID,
+				GROUP_ID,
+				RULE_ID,
+				MEMBER_ID,
+				TASK_COMPLETION_ID,
+				RuleViolationType.INCOMPLETE_REASON_MISSING,
+				Map.of("reason", "마감 후 미완료 사유 없음"),
+				NOW
+			)))
+			.isInstanceOf(GroupRuleNotFoundException.class)
+			.hasMessage("task completion was not found.");
+		assertThat(repository.insertedViolation).isNull();
+	}
+
+	@Test
+	void recordViolationRejectsReservedViolationTypeDetailsKey() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = activeMember();
+		repository.targetMembership = activeMember();
+		repository.ruleForViolation = rule(GroupRuleType.CUSTOM_NOTE, true);
+		GroupRuleService service = service(repository, VIOLATION_ID);
+
+		assertThatThrownBy(() -> service.recordViolation(new RecordRuleViolationCommand(
+				USER_ID,
+				GROUP_ID,
+				RULE_ID,
+				MEMBER_ID,
+				null,
+				RuleViolationType.CUSTOM,
+				Map.of("violationType", "RETROSPECTIVE_MISSING"),
+				NOW
+			)))
+			.isInstanceOf(InvalidGroupRuleRequestException.class)
+			.hasMessage("details must not contain reserved key: violationType.");
+		assertThat(repository.insertedViolation).isNull();
+	}
+
+	@Test
 	void resolveViolationMovesOpenViolationToResolved() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.membership = activeMember();
@@ -306,6 +353,7 @@ class GroupRuleServiceTest {
 		private RuleViolation insertedViolation;
 		private RuleViolation updatedViolation;
 		private boolean updateViolationResult;
+		private boolean taskCompletionExists = true;
 		private boolean taskCompletionBelongsToMember = true;
 
 		@Override
@@ -334,6 +382,11 @@ class GroupRuleServiceTest {
 		}
 
 		@Override
+		public boolean existsTaskCompletion(UUID taskCompletionId) {
+			return taskCompletionExists;
+		}
+
+		@Override
 		public boolean taskCompletionBelongsToMember(UUID taskCompletionId, UUID memberId) {
 			return taskCompletionBelongsToMember;
 		}
@@ -344,13 +397,15 @@ class GroupRuleServiceTest {
 		}
 
 		@Override
-		public void insertRule(GroupRule rule) {
+		public boolean insertRule(GroupRule rule) {
 			insertedRule = rule;
+			return true;
 		}
 
 		@Override
-		public void updateRule(GroupRule rule) {
+		public boolean updateRule(GroupRule rule) {
 			updatedRule = rule;
+			return true;
 		}
 
 		@Override
