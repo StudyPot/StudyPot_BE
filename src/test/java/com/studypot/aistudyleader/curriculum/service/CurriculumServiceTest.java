@@ -266,6 +266,58 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void getMyWeekProgressReturnsExistingProgressForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		MemberWeekProgress result = service.getMyWeekProgress(new GetWeekProgressQuery(USER_ID, WEEK_ID));
+
+		assertThat(result).isSameAs(repository.existingProgress);
+		assertThat(repository.insertedProgress).isNull();
+		assertThat(repository.updatedProgress).isNull();
+	}
+
+	@Test
+	void getMyWeekProgressReturnsNotFoundWithoutCreatingWhenProgressIsMissing() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.getMyWeekProgress(new GetWeekProgressQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("member week progress was not found.");
+		assertThat(repository.insertedProgress).isNull();
+		assertThat(repository.updatedProgress).isNull();
+	}
+
+	@Test
+	void getMyWeekProgressRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.getMyWeekProgress(new GetWeekProgressQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read week progress.");
+	}
+
+	@Test
+	void getMyWeekProgressReturnsNotFoundWhenWeekDoesNotExist() {
+		CapturingRepository repository = new CapturingRepository();
+		CurriculumService service = service(repository, generation(), PROGRESS_ID);
+
+		assertThatThrownBy(() -> service.getMyWeekProgress(new GetWeekProgressQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("curriculum week was not found.");
+	}
+
+	@Test
 	void updateMyWeekProgressCreatesProgressForActiveMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;

@@ -16,6 +16,7 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailabl
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
+import com.studypot.aistudyleader.curriculum.service.GetWeekProgressQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
 import com.studypot.aistudyleader.curriculum.service.UpdateWeekProgressCommand;
@@ -139,6 +140,7 @@ class CurriculumController {
 			.toList();
 	}
 
+
 	@Operation(
 		summary = "내 주차 진행 상태 저장",
 		description = "특정 주차에 대한 내 진행 상태와 완료/미완료 메모를 저장하고 최신 진행 상태를 반환합니다."
@@ -152,6 +154,12 @@ class CurriculumController {
 		@ApiResponse(responseCode = "409", description = "상태 전환 규칙을 만족하지 못함"),
 		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
 	})
+
+	@GetMapping(ApiPaths.V1 + "/weeks/{weekId}/progress/me")
+	MemberWeekProgressResponse getMyWeekProgress(Authentication authentication, @PathVariable UUID weekId) {
+		MemberWeekProgress progress = service().getMyWeekProgress(new GetWeekProgressQuery(authenticatedUserId(authentication), weekId));
+		return MemberWeekProgressResponse.from(progress);
+	}
 	@PutMapping(ApiPaths.V1 + "/weeks/{weekId}/progress/me")
 	MemberWeekProgressResponse updateMyWeekProgress(
 		Authentication authentication,
