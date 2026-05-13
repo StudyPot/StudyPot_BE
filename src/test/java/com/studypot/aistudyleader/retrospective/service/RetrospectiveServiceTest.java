@@ -276,6 +276,65 @@ class RetrospectiveServiceTest {
 	}
 
 	@Test
+	void requestRejectsLeftMemberBeforeCreatingRetrospective() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+		repository.progress = completedProgress();
+		RetrospectiveService service = service(repository, RETROSPECTIVE_ID);
+
+		assertThatThrownBy(() -> service.requestMyRetrospective(new RequestRetrospectiveCommand(
+				USER_ID,
+				WEEK_ID,
+				RetrospectiveTriggerType.MANUAL
+			)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class)
+			.hasMessage("active group membership is required to request retrospective.");
+		assertThat(repository.insertedRetrospective).isNull();
+	}
+
+	@Test
+	void getRejectsLeftMemberBeforeReturningRetrospective() {
+		Retrospective existing = existingRetrospective(RetrospectiveStatus.COMPLETED);
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+		repository.progress = completedProgress();
+		repository.existingRetrospective = existing;
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.getMyRetrospective(new GetMyRetrospectiveQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class)
+			.hasMessage("active group membership is required to read retrospective.");
+	}
+
+	@Test
+	void getRejectsNonMemberWithoutReturningOtherMemberRetrospective() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.membership = null;
+		repository.progress = completedProgress();
+		repository.existingRetrospective = existingRetrospective(RetrospectiveStatus.COMPLETED);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.getMyRetrospective(new GetMyRetrospectiveQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
 	void requestReturnsNotFoundWhenMemberProgressIsMissing() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;

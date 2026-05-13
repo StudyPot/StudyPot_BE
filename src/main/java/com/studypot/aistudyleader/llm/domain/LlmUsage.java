@@ -146,6 +146,8 @@ public record LlmUsage(
 		return normalized.contains("token")
 			|| normalized.contains("secret")
 			|| normalized.contains("apikey")
+			|| normalized.contains("providerkey")
+			|| normalized.contains("privatekey")
 			|| normalized.contains("authorization")
 			|| normalized.contains("oauth")
 			|| normalized.contains("cookie")

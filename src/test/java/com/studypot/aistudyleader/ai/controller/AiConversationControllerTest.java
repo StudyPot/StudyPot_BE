@@ -51,6 +51,7 @@ class AiConversationControllerTest {
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000009301");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000009302");
 	private static final UUID MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000009303");
+	private static final UUID OTHER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000009308");
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000009304");
 	private static final UUID RETROSPECTIVE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009305");
 	private static final UUID CONVERSATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000009306");
@@ -152,6 +153,44 @@ class AiConversationControllerTest {
 	}
 
 	@Test
+	void openConversationReturnsForbiddenForLeftMember() throws Exception {
+		repository.membership = new AiConversationMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(post(CONVERSATION_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"conversationType":"TEAM_LEAD_CHAT"}
+					"""))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void openConversationReturnsForbiddenForCrossMemberRetrospective() throws Exception {
+		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, OTHER_MEMBER_ID, WEEK_ID);
+
+		mockMvc.perform(post(CONVERSATION_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"conversationType":"RETROSPECTIVE","retrospectiveId":"%s"}
+					""".formatted(RETROSPECTIVE_ID)))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
 	void sendMessageReturnsCreatedUserMessage() throws Exception {
 		repository.nextIds(MESSAGE_ID);
 
@@ -206,6 +245,23 @@ class AiConversationControllerTest {
 					"""))
 			.andExpect(status().isConflict())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void sendMessageReturnsForbiddenForOtherUserConversation() throws Exception {
+		repository.nextIds(MESSAGE_ID);
+		repository.messageContext = null;
+
+		mockMvc.perform(post(MESSAGE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"content":"다른 멤버 대화에 접근할 수 없습니다."}
+					"""))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
 	}
 
 	private static RequestPostProcessor xsrf(String value) {

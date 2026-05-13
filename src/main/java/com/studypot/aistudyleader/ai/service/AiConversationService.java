@@ -95,7 +95,10 @@ public class AiConversationService {
 	@Transactional(readOnly = true)
 	public CursorPageResponse<AiConversationMessage> listMessages(ListAiConversationMessagesQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
-		requireMessageContext(query.conversationId(), query.authenticatedUserId());
+		AiConversationMessageContext context = requireMessageContext(query.conversationId(), query.authenticatedUserId());
+		if (!context.hasActiveMembership()) {
+			throw new AiConversationAccessDeniedException("active group membership is required to read AI conversation messages.");
+		}
 		AiConversationMessageCursor cursor = decodeCursor(query.cursor());
 		List<AiConversationMessage> fetched = repository.findMessages(query.conversationId(), cursor, query.pageSize() + 1);
 		if (fetched.size() <= query.pageSize()) {

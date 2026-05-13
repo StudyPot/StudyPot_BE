@@ -36,9 +36,12 @@ final class AiConversationJdbcSql {
 		from retrospective r
 		join curriculum_week cw on cw.id = r.curriculum_week_id
 		join curriculum c on c.id = cw.curriculum_id
+		join group_member gm on gm.id = r.member_id
 		where r.id = ?
+		  and gm.group_id = c.group_id
 		  and cw.deleted_at is null
 		  and c.deleted_at is null
+		  and gm.deleted_at is null
 		""";
 
 	static final String INSERT_CONVERSATION = """
@@ -64,6 +67,7 @@ final class AiConversationJdbcSql {
 		join study_group sg on sg.id = ac.group_id
 		join group_member gm on gm.id = ac.member_id
 		where ac.id = ?
+		  and gm.group_id = ac.group_id
 		  and gm.user_id = ?
 		  and sg.deleted_at is null
 		  and gm.deleted_at is null

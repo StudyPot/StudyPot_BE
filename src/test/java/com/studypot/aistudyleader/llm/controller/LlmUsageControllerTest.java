@@ -98,6 +98,34 @@ class LlmUsageControllerTest {
 			.andExpect(jsonPath("$.title").value("Forbidden"));
 	}
 
+	@Test
+	void listGroupUsageReturnsForbiddenForLeftOwner() throws Exception {
+		repository.accessContext = new LlmUsageAccessContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.OWNER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(get(USAGE_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void listGroupUsageReturnsNotFoundForMissingGroup() throws Exception {
+		repository.accessContext = null;
+		repository.groupExists = false;
+
+		mockMvc.perform(get(USAGE_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestLlmUsageBeans {
 
@@ -116,6 +144,7 @@ class LlmUsageControllerTest {
 	static final class MutableLlmUsageRepository implements LlmUsageRepository {
 
 		private LlmUsageAccessContext accessContext;
+		private boolean groupExists;
 		private List<LlmUsage> usages;
 
 		void reset() {
@@ -126,12 +155,13 @@ class LlmUsageControllerTest {
 				GroupMemberPermission.OWNER,
 				GroupMemberStatus.ACTIVE
 			);
+			groupExists = true;
 			usages = List.of(usage());
 		}
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
-			return true;
+			return groupExists;
 		}
 
 		@Override
