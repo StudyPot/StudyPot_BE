@@ -4,5 +4,13 @@ public enum RetrospectiveStatus {
 	PENDING,
 	PROCESSING,
 	COMPLETED,
-	FAILED
+	FAILED;
+
+	public boolean isProcessing() {
+		return this == PROCESSING;
+	}
+
+	public boolean isCompleted() {
+		return this == COMPLETED;
+	}
 }

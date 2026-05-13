@@ -73,6 +73,30 @@ class JdbcRetrospectiveRepositoryTest {
 			.contains("ai_feedback = ?")
 			.contains("next_week_adjustment = ?")
 			.contains("status = ?");
+		assertThat(RetrospectiveJdbcSql.SELECT_ONBOARDING_SUMMARY)
+			.contains("from group_onboarding_response")
+			.contains("where group_id = ?")
+			.contains("and member_id = ?");
+		assertThat(RetrospectiveJdbcSql.SELECT_ACTIVE_RULE_SUMMARIES)
+			.contains("from group_rule")
+			.contains("where group_id = ?")
+			.contains("and is_active = 1");
+		assertThat(RetrospectiveJdbcSql.SELECT_RULE_VIOLATION_SUMMARIES)
+			.contains("from rule_violation rv")
+			.contains("join group_rule gr on gr.id = rv.rule_id")
+			.contains("gr.group_id = ?")
+			.contains("rv.member_id = ?");
+			assertThat(RetrospectiveJdbcSql.SELECT_PRIOR_RETROSPECTIVES)
+				.contains("from retrospective")
+				.contains("where member_id = ?")
+				.contains("and id <> ?")
+				.contains("and curriculum_week_id <> ?")
+				.contains("limit ?");
+		assertThat(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_CONVERSATION_SUMMARY)
+			.contains("from ai_conversation")
+			.contains("where retrospective_id = ?")
+			.contains("and member_id = ?")
+			.doesNotContain("ai_conversation_message");
 	}
 
 	@Test
@@ -143,6 +167,56 @@ class JdbcRetrospectiveRepositoryTest {
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).query(eq(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(RETROSPECTIVE_ID));
+	}
+
+	@Test
+	void findAiContextQueriesOwnMemberContextSources() {
+		when(jdbcTemplate.query(any(String.class), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		assertThat(repository.findAiContext(GROUP_ID, MEMBER_ID, WEEK_ID, RETROSPECTIVE_ID).ruleViolations()).isEmpty();
+
+		ArgumentCaptor<Object[]> onboardingArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			eq(RetrospectiveJdbcSql.SELECT_ONBOARDING_SUMMARY),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			onboardingArgs.capture()
+			);
+			assertThat((byte[]) onboardingArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+			assertThat((byte[]) onboardingArgs.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+			ArgumentCaptor<Object[]> ruleArgs = ArgumentCaptor.forClass(Object[].class);
+			verify(jdbcTemplate).query(
+				eq(RetrospectiveJdbcSql.SELECT_ACTIVE_RULE_SUMMARIES),
+				any(org.springframework.jdbc.core.RowMapper.class),
+				ruleArgs.capture()
+			);
+			assertThat((byte[]) ruleArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+			ArgumentCaptor<Object[]> violationArgs = ArgumentCaptor.forClass(Object[].class);
+			verify(jdbcTemplate).query(
+				eq(RetrospectiveJdbcSql.SELECT_RULE_VIOLATION_SUMMARIES),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			violationArgs.capture()
+		);
+		assertThat((byte[]) violationArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) violationArgs.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		ArgumentCaptor<Object[]> priorArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			eq(RetrospectiveJdbcSql.SELECT_PRIOR_RETROSPECTIVES),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			priorArgs.capture()
+		);
+			assertThat((byte[]) priorArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+			assertThat((byte[]) priorArgs.getValue()[1]).containsExactly(UuidBinary.toBytes(RETROSPECTIVE_ID));
+			assertThat((byte[]) priorArgs.getValue()[2]).containsExactly(UuidBinary.toBytes(WEEK_ID));
+			assertThat(priorArgs.getValue()[3]).isEqualTo(3);
+		ArgumentCaptor<Object[]> conversationArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			eq(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_CONVERSATION_SUMMARY),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			conversationArgs.capture()
+		);
+		assertThat((byte[]) conversationArgs.getValue()[0]).containsExactly(UuidBinary.toBytes(RETROSPECTIVE_ID));
+		assertThat((byte[]) conversationArgs.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
 	}
 
 	@Test

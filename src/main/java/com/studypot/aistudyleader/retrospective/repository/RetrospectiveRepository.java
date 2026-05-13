@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.retrospective.repository;
 
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTaskSummary;
@@ -19,6 +20,8 @@ public interface RetrospectiveRepository {
 	Optional<Retrospective> findRetrospective(UUID progressId, UUID weekId, UUID memberId);
 
 	List<RetrospectiveTaskSummary> findTaskSummaries(UUID progressId, UUID weekId, UUID memberId);
+
+	RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId);
 
 	boolean insertRetrospective(Retrospective retrospective);
 
