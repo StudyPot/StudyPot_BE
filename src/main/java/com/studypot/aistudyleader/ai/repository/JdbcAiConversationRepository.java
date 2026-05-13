@@ -259,7 +259,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		putUuid(result, "retrospectiveId", context.retrospectiveId());
 		result.put("conversationType", context.conversationType().name());
 		result.put("status", context.conversationStatus().name());
-		if (!context.summary().isBlank()) {
+		if (context.summary() != null && !context.summary().isBlank()) {
 			result.put("summary", context.summary());
 		}
 		return result;

@@ -150,6 +150,9 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 	}
 
 	private static String statusOf(Map<String, Object> source) {
+		if (source == null) {
+			return "UNKNOWN";
+		}
 		Object status = source.get("status");
 		return status == null ? "UNKNOWN" : status.toString();
 	}

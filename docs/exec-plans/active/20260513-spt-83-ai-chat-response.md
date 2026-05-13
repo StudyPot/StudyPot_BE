@@ -9,7 +9,7 @@
 - Jira issue: `SPT-83`
 - Jira URL: https://studypot.atlassian.net/browse/SPT-83
 - Jira summary: [ai-chat] AI 대화 응답 provider/usage 연결 보강
-- Status: `implemented`
+- Status: `in-review`
 
 ## Required Reads
 - [x] AGENTS.md

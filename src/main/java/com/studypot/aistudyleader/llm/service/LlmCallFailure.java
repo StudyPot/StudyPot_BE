@@ -4,6 +4,8 @@ import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import java.io.Serial;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
@@ -22,7 +24,10 @@ public record LlmCallFailure(
 	String errorCode,
 	Map<String, Object> requestPayload,
 	String responseSummary
-) {
+) implements Serializable {
+
+	@Serial
+	private static final long serialVersionUID = 1L;
 
 	public LlmCallFailure {
 		Objects.requireNonNull(purpose, "purpose must not be null");

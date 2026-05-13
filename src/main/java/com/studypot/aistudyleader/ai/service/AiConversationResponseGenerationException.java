@@ -7,7 +7,7 @@ public class AiConversationResponseGenerationException extends RuntimeException 
 
 	private static final long serialVersionUID = 1L;
 
-	private final transient LlmCallFailure failure;
+	private final LlmCallFailure failure;
 
 	public AiConversationResponseGenerationException(String message, LlmCallFailure failure) {
 		super(message);
