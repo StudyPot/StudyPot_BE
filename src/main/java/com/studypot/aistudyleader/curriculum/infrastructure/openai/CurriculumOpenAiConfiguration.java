@@ -1,7 +1,9 @@
 package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studypot.aistudyleader.curriculum.service.ProviderBackedCurriculumGenerator;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
+import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -33,12 +35,22 @@ class CurriculumOpenAiConfiguration {
 
 	@Bean
 	@ConditionalOnBean(OpenAiResponsesTransport.class)
-	@ConditionalOnMissingBean(CurriculumGenerator.class)
-	CurriculumGenerator openAiCurriculumGenerator(
+	@ConditionalOnMissingBean(LlmProviderClient.class)
+	LlmProviderClient openAiLlmProvider(
 		OpenAiResponsesTransport transport,
 		ObjectMapper objectMapper,
 		OpenAiCurriculumProperties properties
 	) {
-		return new OpenAiCurriculumGenerator(transport, objectMapper, properties.model());
+		return new OpenAiLlmProvider(transport, objectMapper, properties.model());
+	}
+
+	@Bean
+	@ConditionalOnBean(LlmProviderClient.class)
+	@ConditionalOnMissingBean(CurriculumGenerator.class)
+	CurriculumGenerator providerBackedCurriculumGenerator(
+		LlmProviderClient provider,
+		ObjectMapper objectMapper
+	) {
+		return new ProviderBackedCurriculumGenerator(provider, objectMapper);
 	}
 }

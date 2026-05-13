@@ -13,4 +13,14 @@ class LlmUsageApplicationConfiguration {
 	LlmUsageService llmUsageService(LlmUsageRepository repository) {
 		return new LlmUsageService(repository);
 	}
+
+	@Bean
+	@ConditionalOnBean(LlmUsageRepository.class)
+	LlmUsageRecorder llmUsageRecorder(LlmUsageRepository repository) {
+		return usage -> {
+			if (!repository.insertLlmUsage(usage)) {
+				throw new LlmUsageServiceUnavailableException("LLM usage could not be recorded.");
+			}
+		};
+	}
 }
