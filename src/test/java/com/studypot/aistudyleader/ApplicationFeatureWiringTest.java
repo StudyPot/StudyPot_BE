@@ -3,6 +3,8 @@ package com.studypot.aistudyleader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
+import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
@@ -50,10 +52,12 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("groupRuleRepository");
 		assertThat(context.getBeanNamesForType(RetrospectiveRepository.class))
 			.containsExactly("retrospectiveRepository");
+		assertThat(context.getBeanNamesForType(AiConversationRepository.class))
+			.containsExactly("aiConversationRepository");
 	}
 
 	@Test
-	void weeklyTodoRuleAndRetrospectiveServicesAreConfiguredWithoutOpenAiGenerator() {
+	void weeklyTodoRuleRetrospectiveAndAiServicesAreConfiguredWithoutOpenAiGenerator() {
 		assertThat(context.getBeanNamesForType(CurriculumGenerator.class))
 			.isEmpty();
 		assertThat(context.getBeanNamesForType(OnboardingService.class))
@@ -64,6 +68,8 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("groupRuleService");
 		assertThat(context.getBeanNamesForType(RetrospectiveService.class))
 			.containsExactly("retrospectiveService");
+		assertThat(context.getBeanNamesForType(AiConversationService.class))
+			.containsExactly("aiConversationService");
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
