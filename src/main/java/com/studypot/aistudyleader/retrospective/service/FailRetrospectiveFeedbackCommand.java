@@ -12,6 +12,7 @@ public record FailRetrospectiveFeedbackCommand(
 
 	public FailRetrospectiveFeedbackCommand {
 		Objects.requireNonNull(retrospectiveId, "retrospectiveId must not be null");
+		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		errorCode = requiredText("errorCode", errorCode);
 		errorMessage = requiredText("errorMessage", errorMessage);
 	}

@@ -12,6 +12,7 @@ public record ApplyRetrospectiveFeedbackCommand(
 
 	public ApplyRetrospectiveFeedbackCommand {
 		Objects.requireNonNull(retrospectiveId, "retrospectiveId must not be null");
+		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		Objects.requireNonNull(feedbackResult, "feedbackResult must not be null");
 	}
 }

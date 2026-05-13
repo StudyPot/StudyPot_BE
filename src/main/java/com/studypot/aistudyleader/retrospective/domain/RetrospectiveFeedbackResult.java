@@ -45,7 +45,7 @@ public record RetrospectiveFeedbackResult(
 		for (Map.Entry<String, Object> entry : value.entrySet()) {
 			String key = entry.getKey();
 			if (!NEXT_WEEK_ADJUSTMENT_KEYS.contains(key)) {
-				throw new IllegalArgumentException("nextWeekAdjustment contains unsupported key: " + key);
+				throw new IllegalArgumentException("nextWeekAdjustment contains unsupported key: " + key + ".");
 			}
 			Object entryValue = entry.getValue();
 			if (entryValue == null) {
@@ -61,7 +61,7 @@ public record RetrospectiveFeedbackResult(
 			case "difficulty" -> requiredText("nextWeekAdjustment.difficulty", value);
 			case "taskChanges", "supportMaterials" -> objectStringList("nextWeekAdjustment." + key, value);
 			case "memberNotes" -> memberNotes(value);
-			default -> throw new IllegalArgumentException("nextWeekAdjustment contains unsupported key: " + key);
+			default -> throw new IllegalArgumentException("nextWeekAdjustment contains unsupported key: " + key + ".");
 		};
 	}
 

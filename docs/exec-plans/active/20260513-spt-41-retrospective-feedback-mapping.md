@@ -63,7 +63,7 @@
 ## Done Criteria
 - AI 회고 결과 payload가 `summary`, `strengths`, `risks`, `actionItems`를 포함한 `ai_feedback` JSON으로 매핑된다.
 - `next_week_adjustment`는 허용된 top-level shape만 저장하고 잘못된 값 타입은 거부된다.
-- 성공 매핑 시 retrospective 상태가 `COMPLETED`가 되고 `completedAt`, `updatedAt`, optional `llmUsageId`가 반영된다.
+- 성공 매핑 시 retrospective 상태가 `COMPLETED`가 되고 `completedAt`, `updatedAt`, `llmUsageId`가 반영된다. SPT-41은 `llmUsageId`를 받아 저장하는 경계만 구현하며, 실제 `llm_usage` 생성과 값 제공은 SPT-42 범위다.
 - 실패 매핑 시 retrospective 상태가 `FAILED`가 되고 사용자/운영자가 볼 수 있는 안전한 오류 요약이 저장되며 재시도 가능 상태를 유지한다.
 - `GET /api/v1/weeks/{weekId}/retrospectives/me`는 기존 OpenAPI 응답 shape 안에서 저장된 `aiFeedback`/`nextWeekAdjustment`를 반환한다.
 - 실제 AI provider 호출, `llm_usage` 생성, 미완료 사유 기반 prompt 생성, 주차/todo 조정 적용은 이 PR에서 구현하지 않는다.
@@ -74,3 +74,5 @@
 - RED: `./gradlew test --tests 'com.studypot.aistudyleader.retrospective.*' --no-daemon` failed at `compileTestJava` because `RetrospectiveFeedbackResult` did not exist yet.
 - GREEN: `./gradlew test --tests 'com.studypot.aistudyleader.retrospective.*' --no-daemon` passed.
 - Full: `./gradlew check build --no-daemon` passed.
+- CodeRabbit addressed: `./gradlew test --tests 'com.studypot.aistudyleader.retrospective.*' --no-daemon` passed.
+- CodeRabbit addressed full: `./gradlew check build --no-daemon` passed.

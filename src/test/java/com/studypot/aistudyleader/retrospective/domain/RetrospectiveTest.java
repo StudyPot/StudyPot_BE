@@ -111,6 +111,22 @@ class RetrospectiveTest {
 	}
 
 	@Test
+	void completeWithFeedbackRequiresLlmUsageId() {
+		Retrospective retrospective = requestedRetrospective();
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"요약",
+			java.util.List.of(),
+			java.util.List.of(),
+			java.util.List.of(),
+			Map.of()
+		);
+
+		assertThatThrownBy(() -> retrospective.completeWithFeedback(null, feedbackResult, NOW.plusSeconds(120)))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("llmUsageId must not be null");
+	}
+
+	@Test
 	void failWithFeedbackErrorRecordsSafeFailureSummary() {
 		Retrospective retrospective = requestedRetrospective();
 
@@ -127,6 +143,15 @@ class RetrospectiveTest {
 		assertThat(error)
 			.containsEntry("code", "PROVIDER_TIMEOUT")
 			.containsEntry("message", "LLM provider timed out");
+	}
+
+	@Test
+	void failFeedbackRequiresLlmUsageId() {
+		Retrospective retrospective = requestedRetrospective();
+
+		assertThatThrownBy(() -> retrospective.failFeedback(null, "PROVIDER_TIMEOUT", "LLM provider timed out", NOW.plusSeconds(60)))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("llmUsageId must not be null");
 	}
 
 	@Test

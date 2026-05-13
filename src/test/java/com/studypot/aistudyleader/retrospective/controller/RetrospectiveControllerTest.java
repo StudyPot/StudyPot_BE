@@ -280,7 +280,13 @@ class RetrospectiveControllerTest {
 
 		@Override
 		public Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId) {
-			return Optional.ofNullable(existingRetrospective);
+			if (retrospectiveId == null || existingRetrospective == null) {
+				return Optional.empty();
+			}
+			if (!retrospectiveId.equals(existingRetrospective.id())) {
+				return Optional.empty();
+			}
+			return Optional.of(existingRetrospective);
 		}
 
 		@Override

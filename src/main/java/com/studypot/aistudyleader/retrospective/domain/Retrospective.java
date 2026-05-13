@@ -68,6 +68,7 @@ public record Retrospective(
 	}
 
 	public Retrospective completeWithFeedback(UUID llmUsageId, RetrospectiveFeedbackResult feedbackResult, Instant now) {
+		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		Objects.requireNonNull(feedbackResult, "feedbackResult must not be null");
 		Objects.requireNonNull(now, "now must not be null");
 		return new Retrospective(
@@ -89,6 +90,7 @@ public record Retrospective(
 	}
 
 	public Retrospective failFeedback(UUID llmUsageId, String errorCode, String errorMessage, Instant now) {
+		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		Objects.requireNonNull(now, "now must not be null");
 		return new Retrospective(
 			id,

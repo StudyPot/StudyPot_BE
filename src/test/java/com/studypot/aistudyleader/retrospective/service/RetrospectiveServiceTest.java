@@ -235,6 +235,23 @@ class RetrospectiveServiceTest {
 			.hasMessage("retrospective was not found.");
 	}
 
+	@Test
+	void feedbackCommandsRequireLlmUsageId() {
+		RetrospectiveFeedbackResult result = RetrospectiveFeedbackResult.of("요약", List.of(), List.of(), List.of(), Map.of());
+
+		assertThatThrownBy(() -> new ApplyRetrospectiveFeedbackCommand(RETROSPECTIVE_ID, null, result))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("llmUsageId must not be null");
+		assertThatThrownBy(() -> new FailRetrospectiveFeedbackCommand(
+				RETROSPECTIVE_ID,
+				null,
+				"PROVIDER_TIMEOUT",
+				"LLM provider timed out"
+			))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("llmUsageId must not be null");
+	}
+
 	private static RetrospectiveService service(CapturingRepository repository, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new RetrospectiveService(

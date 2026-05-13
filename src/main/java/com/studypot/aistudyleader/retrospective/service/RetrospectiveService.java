@@ -56,7 +56,7 @@ public class RetrospectiveService {
 	}
 
 	@Transactional
-	public Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {
+	Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		Retrospective retrospective = requireRetrospective(command.retrospectiveId());
 		Retrospective completed = retrospective.completeWithFeedback(command.llmUsageId(), command.feedbackResult(), clock.instant());
@@ -67,7 +67,7 @@ public class RetrospectiveService {
 	}
 
 	@Transactional
-	public Retrospective failFeedback(FailRetrospectiveFeedbackCommand command) {
+	Retrospective failFeedback(FailRetrospectiveFeedbackCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		Retrospective retrospective = requireRetrospective(command.retrospectiveId());
 		Retrospective failed = retrospective.failFeedback(command.llmUsageId(), command.errorCode(), command.errorMessage(), clock.instant());

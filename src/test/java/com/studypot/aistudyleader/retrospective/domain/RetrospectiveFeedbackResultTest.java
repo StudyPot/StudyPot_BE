@@ -35,7 +35,8 @@ class RetrospectiveFeedbackResultTest {
 		assertThat(result.nextWeekAdjustment())
 			.containsEntry("difficulty", "slightly_lower")
 			.containsEntry("taskChanges", List.of("필수 실습 1개를 선택 과제로 전환"))
-			.containsEntry("supportMaterials", List.of("JPA 실습 전 체크리스트"));
+			.containsEntry("supportMaterials", List.of("JPA 실습 전 체크리스트"))
+			.containsEntry("memberNotes", List.of(Map.of("memberId", MEMBER_ID.toString(), "note", "실습 시간을 먼저 확보합니다.")));
 	}
 
 	@Test
