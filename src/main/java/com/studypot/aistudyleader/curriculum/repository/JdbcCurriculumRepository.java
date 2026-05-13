@@ -120,6 +120,12 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public void saveFailedLlmUsage(LlmUsage llmUsage) {
+		Objects.requireNonNull(llmUsage, "llmUsage must not be null");
+		insertLlmUsage(llmUsage);
+	}
+
+	@Override
 	public Optional<CurriculumStartContext> findReadContext(UUID groupId, UUID userId) {
 		return findStartContext(groupId, userId);
 	}

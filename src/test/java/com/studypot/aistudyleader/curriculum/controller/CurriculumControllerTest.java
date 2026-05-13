@@ -720,6 +720,10 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public void saveFailedLlmUsage(LlmUsage llmUsage) {
+		}
+
+		@Override
 		public Optional<CurriculumStartContext> findReadContext(UUID groupId, UUID userId) {
 			return Optional.ofNullable(readContext);
 		}

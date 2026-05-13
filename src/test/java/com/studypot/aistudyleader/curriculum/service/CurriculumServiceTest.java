@@ -12,9 +12,11 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -97,6 +99,95 @@ class CurriculumServiceTest {
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumGenerationException.class)
 			.hasMessage("curriculum generator is not configured.");
+		assertThat(repository.savedCurriculum).isNull();
+		assertThat(repository.failedLlmUsage).isNull();
+	}
+
+	@Test
+	void startStudyRecordsFailedLlmUsageWhenGeneratorFailsAfterProviderCall() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		CurriculumService service = service(
+			repository,
+			request -> {
+				repository.generationRequest = request;
+				throw new CurriculumGenerationException(
+					"curriculum generation failed.",
+					new LlmCallFailure(
+						LlmUsagePurpose.CURRICULUM_GENERATE,
+						LlmProvider.OPENAI,
+						"gpt-4o-mini",
+						0,
+						0,
+						BigDecimal.ZERO,
+						700,
+						LlmUsageStatus.FAILED,
+						"OPENAI_TIMEOUT",
+						Map.of(
+							"purpose", "CURRICULUM_GENERATE",
+							"groupId", GROUP_ID.toString(),
+							"submittedResponseCount", 1,
+							"apiKey", "sk-test-secret"
+						),
+						"OpenAI request failed before curriculum output was available."
+					)
+				);
+			},
+			LLM_USAGE_ID
+		);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generation failed.");
+		assertThat(repository.savedCurriculum).isNull();
+		assertThat(repository.savedGroupId).isNull();
+		assertThat(repository.failedLlmUsage.id()).isEqualTo(LLM_USAGE_ID);
+		assertThat(repository.failedLlmUsage.userId()).isEqualTo(USER_ID);
+		assertThat(repository.failedLlmUsage.groupId()).isEqualTo(GROUP_ID);
+		assertThat(repository.failedLlmUsage.purpose()).isEqualTo(LlmUsagePurpose.CURRICULUM_GENERATE);
+		assertThat(repository.failedLlmUsage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(repository.failedLlmUsage.errorCode()).isEqualTo("OPENAI_TIMEOUT");
+		assertThat(repository.failedLlmUsage.requestPayload())
+			.containsEntry("purpose", "CURRICULUM_GENERATE")
+			.containsEntry("submittedResponseCount", 1)
+			.containsEntry("apiKey", "[REDACTED]");
+		assertThat(repository.generationRequest.onboardingSummary())
+			.containsEntry("submittedResponseCount", 1);
+	}
+
+	@Test
+	void startStudyKeepsOriginalGenerationExceptionWhenFailedUsageAuditCannotBeRecorded() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		repository.failFailedLlmUsageSave = true;
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.CURRICULUM_GENERATE,
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			0,
+			0,
+			BigDecimal.ZERO,
+			700,
+			LlmUsageStatus.FAILED,
+			"OPENAI_TIMEOUT",
+			Map.of("purpose", "CURRICULUM_GENERATE"),
+			"OpenAI request failed before curriculum output was available."
+		);
+		CurriculumService service = service(
+			repository,
+			request -> {
+				repository.generationRequest = request;
+				throw new CurriculumGenerationException("curriculum generation failed.", failure);
+			},
+			LLM_USAGE_ID
+		);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generation failed.")
+			.satisfies(exception -> assertThat(exception.getSuppressed()).hasSize(1));
 		assertThat(repository.savedCurriculum).isNull();
 	}
 
@@ -702,13 +793,21 @@ class CurriculumServiceTest {
 	}
 
 	private static CurriculumService service(CapturingRepository repository, CurriculumGeneration generation, UUID... ids) {
-		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
-		return new CurriculumService(
+		return service(
 			repository,
 			request -> {
 				repository.generationRequest = request;
 				return generation;
 			},
+			ids
+		);
+	}
+
+	private static CurriculumService service(CapturingRepository repository, CurriculumGenerator generator, UUID... ids) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new CurriculumService(
+			repository,
+			generator,
 			CLOCK,
 			() -> {
 				UUID id = idQueue.poll();
@@ -903,9 +1002,11 @@ class CurriculumServiceTest {
 		private CurriculumGenerationRequest generationRequest;
 		private boolean weekExists;
 		private boolean taskExists;
+		private boolean failFailedLlmUsageSave;
 		private UUID savedGroupId;
 		private Instant savedStartedAt;
-		private com.studypot.aistudyleader.llm.domain.LlmUsage savedLlmUsage;
+		private LlmUsage savedLlmUsage;
+		private LlmUsage failedLlmUsage;
 		private Curriculum savedCurriculum;
 		private MemberWeekProgress insertedProgress;
 		private MemberWeekProgress updatedProgress;
@@ -928,11 +1029,19 @@ class CurriculumServiceTest {
 		}
 
 		@Override
-		public void saveStartedCurriculum(UUID groupId, Instant startedAt, com.studypot.aistudyleader.llm.domain.LlmUsage llmUsage, Curriculum curriculum) {
+		public void saveStartedCurriculum(UUID groupId, Instant startedAt, LlmUsage llmUsage, Curriculum curriculum) {
 			this.savedGroupId = groupId;
 			this.savedStartedAt = startedAt;
 			this.savedLlmUsage = llmUsage;
 			this.savedCurriculum = curriculum;
+		}
+
+		@Override
+		public void saveFailedLlmUsage(LlmUsage llmUsage) {
+			if (failFailedLlmUsageSave) {
+				throw new IllegalStateException("failed LLM usage persistence failed");
+			}
+			this.failedLlmUsage = llmUsage;
 		}
 
 		@Override

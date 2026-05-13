@@ -23,6 +23,8 @@ public interface CurriculumRepository {
 
 	void saveStartedCurriculum(UUID groupId, Instant startedAt, LlmUsage llmUsage, Curriculum curriculum);
 
+	void saveFailedLlmUsage(LlmUsage llmUsage);
+
 	Optional<CurriculumStartContext> findReadContext(UUID groupId, UUID userId);
 
 	Optional<Curriculum> findActiveCurriculumByGroupId(UUID groupId);
