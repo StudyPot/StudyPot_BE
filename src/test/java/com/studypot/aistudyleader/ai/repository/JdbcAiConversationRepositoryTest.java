@@ -80,7 +80,9 @@ class JdbcAiConversationRepositoryTest {
 			.contains("join study_group sg on sg.id = ac.group_id")
 			.contains("join group_member gm on gm.id = ac.member_id")
 			.contains("ac.id = ?")
-			.contains("gm.user_id = ?");
+			.contains("gm.user_id = ?")
+			.contains("sg.deleted_at is null")
+			.contains("gm.deleted_at is null");
 		assertThat(AiConversationJdbcSql.SELECT_MESSAGES)
 			.contains("from ai_conversation_message m")
 			.contains("m.conversation_id = ?")

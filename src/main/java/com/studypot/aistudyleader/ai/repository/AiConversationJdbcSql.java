@@ -48,6 +48,7 @@ final class AiConversationJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	// v1 ai_conversation has no deleted_at column; deletion boundaries live on study_group/group_member.
 	static final String EXISTS_CONVERSATION = """
 		select exists (
 		  select 1
