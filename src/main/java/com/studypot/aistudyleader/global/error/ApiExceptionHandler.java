@@ -4,6 +4,12 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.ai.repository.AiConversationPersistenceException;
+import com.studypot.aistudyleader.ai.service.AiConversationAccessDeniedException;
+import com.studypot.aistudyleader.ai.service.AiConversationMutationRejectedException;
+import com.studypot.aistudyleader.ai.service.AiConversationNotFoundException;
+import com.studypot.aistudyleader.ai.service.AiConversationServiceUnavailableException;
+import com.studypot.aistudyleader.ai.service.InvalidAiConversationRequestException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumAccessDeniedException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGroupNotFoundException;
@@ -134,8 +140,13 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
-	@ExceptionHandler({RetrospectiveServiceUnavailableException.class, RetrospectivePersistenceException.class})
-	public ResponseEntity<ProblemDetail> handleRetrospectiveServiceUnavailable(RuntimeException exception) {
+	@ExceptionHandler({
+		RetrospectiveServiceUnavailableException.class,
+		RetrospectivePersistenceException.class,
+		AiConversationServiceUnavailableException.class,
+		AiConversationPersistenceException.class
+	})
+	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
@@ -148,7 +159,8 @@ public class ApiExceptionHandler {
 		CurriculumNotFoundException.class,
 		GroupRuleGroupNotFoundException.class,
 		GroupRuleNotFoundException.class,
-		RetrospectiveNotFoundException.class
+		RetrospectiveNotFoundException.class,
+		AiConversationNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -159,7 +171,8 @@ public class ApiExceptionHandler {
 		OnboardingMembershipRequiredException.class,
 		CurriculumAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
-		RetrospectiveAccessDeniedException.class
+		RetrospectiveAccessDeniedException.class,
+		AiConversationAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -172,7 +185,8 @@ public class ApiExceptionHandler {
 		TaskCompletionUpdateRejectedException.class,
 		WeekProgressUpdateRejectedException.class,
 		GroupRuleMutationRejectedException.class,
-		RetrospectiveMutationRejectedException.class
+		RetrospectiveMutationRejectedException.class,
+		AiConversationMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -202,6 +216,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidTaskCompletionRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidTaskCompletionRequest(InvalidTaskCompletionRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidAiConversationRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidAiConversationRequest(InvalidAiConversationRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
