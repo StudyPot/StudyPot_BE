@@ -85,8 +85,13 @@ public class CurriculumService {
 				now
 			));
 		} catch (CurriculumGenerationException exception) {
-			exception.failure()
-				.ifPresent(failure -> saveFailedLlmUsage(failure, command.authenticatedUserId(), context.groupId(), now));
+			exception.failure().ifPresent(failure -> {
+				try {
+					saveFailedLlmUsage(failure, command.authenticatedUserId(), context.groupId(), now);
+				} catch (RuntimeException saveException) {
+					exception.addSuppressed(saveException);
+				}
+			});
 			throw exception;
 		}
 

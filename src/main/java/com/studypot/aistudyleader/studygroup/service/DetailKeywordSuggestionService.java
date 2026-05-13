@@ -69,7 +69,7 @@ public class DetailKeywordSuggestionService {
 			));
 		} catch (LlmProviderCallException exception) {
 			usageRecorder.record(exception.failure().toUsage(idGenerator.get(), command.authenticatedUserId(), null, now));
-			throw new StudyGroupServiceUnavailableException("detail keyword suggestions could not be generated.");
+			throw new StudyGroupServiceUnavailableException("detail keyword suggestions could not be generated.", exception);
 		}
 		try {
 			DetailKeywordSuggestions suggestions = readSuggestions(response.outputText());
@@ -91,7 +91,7 @@ public class DetailKeywordSuggestionService {
 					"Generated detail keyword suggestions did not match the required shape."
 				)
 				.toUsage(idGenerator.get(), command.authenticatedUserId(), null, now));
-			throw new StudyGroupServiceUnavailableException("detail keyword suggestions could not be generated.");
+			throw new StudyGroupServiceUnavailableException("detail keyword suggestions could not be generated.", exception);
 		}
 	}
 

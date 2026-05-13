@@ -157,6 +157,41 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void startStudyKeepsOriginalGenerationExceptionWhenFailedUsageAuditCannotBeRecorded() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		repository.failFailedLlmUsageSave = true;
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.CURRICULUM_GENERATE,
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			0,
+			0,
+			BigDecimal.ZERO,
+			700,
+			LlmUsageStatus.FAILED,
+			"OPENAI_TIMEOUT",
+			Map.of("purpose", "CURRICULUM_GENERATE"),
+			"OpenAI request failed before curriculum output was available."
+		);
+		CurriculumService service = service(
+			repository,
+			request -> {
+				repository.generationRequest = request;
+				throw new CurriculumGenerationException("curriculum generation failed.", failure);
+			},
+			LLM_USAGE_ID
+		);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generation failed.")
+			.satisfies(exception -> assertThat(exception.getSuppressed()).hasSize(1));
+		assertThat(repository.savedCurriculum).isNull();
+	}
+
+	@Test
 	void startStudyRejectsNonOwner() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
@@ -967,6 +1002,7 @@ class CurriculumServiceTest {
 		private CurriculumGenerationRequest generationRequest;
 		private boolean weekExists;
 		private boolean taskExists;
+		private boolean failFailedLlmUsageSave;
 		private UUID savedGroupId;
 		private Instant savedStartedAt;
 		private LlmUsage savedLlmUsage;
@@ -1002,6 +1038,9 @@ class CurriculumServiceTest {
 
 		@Override
 		public void saveFailedLlmUsage(LlmUsage llmUsage) {
+			if (failFailedLlmUsageSave) {
+				throw new IllegalStateException("failed LLM usage persistence failed");
+			}
 			this.failedLlmUsage = llmUsage;
 		}
 

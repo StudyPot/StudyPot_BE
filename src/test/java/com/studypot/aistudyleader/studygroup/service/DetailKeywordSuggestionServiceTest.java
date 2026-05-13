@@ -1,12 +1,16 @@
 package com.studypot.aistudyleader.studygroup.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
+import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
@@ -76,6 +80,106 @@ class DetailKeywordSuggestionServiceTest {
 		assertThat(usageRecorder.usage.responseSummary()).isEqualTo("Generated detail keyword suggestions: 2");
 	}
 
+	@Test
+	void suggestRecordsFailedUsageWhenProviderOutputIsMalformed() {
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		DetailKeywordSuggestionService service = service(
+			new CapturingProvider(response("{not-json")),
+			usageRecorder
+		);
+
+		assertThatThrownBy(() -> service.suggest(command()))
+			.isInstanceOf(StudyGroupServiceUnavailableException.class)
+			.hasCauseInstanceOf(JsonProcessingException.class);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(usageRecorder.usage.errorCode()).isEqualTo("DETAIL_KEYWORD_RESPONSE_INVALID");
+	}
+
+	@Test
+	void suggestRecordsFailedUsageWhenProviderCallFails() {
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST,
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			0,
+			0,
+			BigDecimal.ZERO,
+			500,
+			LlmUsageStatus.FAILED,
+			"OPENAI_REQUEST_FAILED",
+			Map.of("purpose", "DETAIL_KEYWORD_SUGGEST"),
+			"OpenAI request failed."
+		);
+		DetailKeywordSuggestionService service = service(new FailingProvider(failure), usageRecorder);
+
+		assertThatThrownBy(() -> service.suggest(command()))
+			.isInstanceOf(StudyGroupServiceUnavailableException.class)
+			.hasCauseInstanceOf(LlmProviderCallException.class);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(usageRecorder.usage.errorCode()).isEqualTo("OPENAI_REQUEST_FAILED");
+	}
+
+	@Test
+	void suggestRejectsEmptyProviderSuggestionsWithFailedUsage() {
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		DetailKeywordSuggestionService service = service(
+			new CapturingProvider(response("""
+				{"suggestions":[],"rationale":""}
+				""")),
+			usageRecorder
+		);
+
+		assertThatThrownBy(() -> service.suggest(command()))
+			.isInstanceOf(StudyGroupServiceUnavailableException.class)
+			.hasCauseInstanceOf(IllegalArgumentException.class);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(usageRecorder.usage.errorCode()).isEqualTo("DETAIL_KEYWORD_RESPONSE_INVALID");
+	}
+
+	@Test
+	void suggestCommandRejectsInvalidRequiredInput() {
+		assertThatThrownBy(() -> new SuggestDetailKeywordsCommand(USER_ID, " ", List.of("JPA"), 3))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("topic must not be blank");
+		assertThatThrownBy(() -> new SuggestDetailKeywordsCommand(USER_ID, "Spring Boot", List.of("JPA"), 0))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("maxCandidates must be between 1 and 10");
+		assertThatThrownBy(() -> new SuggestDetailKeywordsCommand(null, "Spring Boot", List.of("JPA"), 3))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("authenticatedUserId must not be null");
+	}
+
+	private static DetailKeywordSuggestionService service(LlmProviderClient provider, CapturingUsageRecorder usageRecorder) {
+		return new DetailKeywordSuggestionService(
+			provider,
+			JsonMapper.builder().findAndAddModules().build(),
+			usageRecorder,
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			() -> USAGE_ID
+		);
+	}
+
+	private static SuggestDetailKeywordsCommand command() {
+		return new SuggestDetailKeywordsCommand(USER_ID, "Spring Boot", List.of("JPA", "Security"), 3);
+	}
+
+	private static LlmStructuredResponse response(String outputText) {
+		return new LlmStructuredResponse(
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			outputText,
+			45,
+			32,
+			BigDecimal.ZERO,
+			120,
+			LlmUsageStatus.SUCCESS,
+			null,
+			Map.of("purpose", "DETAIL_KEYWORD_SUGGEST"),
+			"raw provider response"
+		);
+	}
+
 	private static final class CapturingProvider implements LlmProviderClient {
 
 		private final LlmStructuredResponse response;
@@ -89,6 +193,20 @@ class DetailKeywordSuggestionServiceTest {
 		public LlmStructuredResponse requestStructured(LlmStructuredRequest request) {
 			this.request = request;
 			return response;
+		}
+	}
+
+	private static final class FailingProvider implements LlmProviderClient {
+
+		private final LlmCallFailure failure;
+
+		private FailingProvider(LlmCallFailure failure) {
+			this.failure = failure;
+		}
+
+		@Override
+		public LlmStructuredResponse requestStructured(LlmStructuredRequest request) {
+			throw new LlmProviderCallException("OpenAI request failed.", failure);
 		}
 	}
 

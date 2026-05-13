@@ -6,7 +6,7 @@ public class LlmProviderCallException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
-	private final LlmCallFailure failure;
+	private final transient LlmCallFailure failure;
 
 	public LlmProviderCallException(String message, LlmCallFailure failure) {
 		super(message);

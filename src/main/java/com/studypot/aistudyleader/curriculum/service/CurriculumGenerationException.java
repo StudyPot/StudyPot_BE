@@ -7,7 +7,7 @@ public class CurriculumGenerationException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
-	private final LlmCallFailure failure;
+	private final transient LlmCallFailure failure;
 
 	public CurriculumGenerationException(String message) {
 		super(message);

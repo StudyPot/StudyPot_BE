@@ -15,9 +15,19 @@ public record LlmStructuredRequest(
 	public LlmStructuredRequest {
 		Objects.requireNonNull(purpose, "purpose must not be null");
 		instructions = requireText(instructions, "instructions");
-		input = Map.copyOf(Objects.requireNonNull(input, "input must not be null"));
-		textFormat = Map.copyOf(Objects.requireNonNull(textFormat, "textFormat must not be null"));
-		requestPayload = Map.copyOf(Objects.requireNonNull(requestPayload, "requestPayload must not be null"));
+		input = copyMap(input, "input");
+		textFormat = copyMap(textFormat, "textFormat");
+		requestPayload = copyMap(requestPayload, "requestPayload");
+	}
+
+	private static Map<String, Object> copyMap(Map<String, Object> value, String fieldName) {
+		Objects.requireNonNull(value, fieldName + " must not be null");
+		for (Map.Entry<String, Object> entry : value.entrySet()) {
+			if (entry.getKey() == null || entry.getValue() == null) {
+				throw new IllegalArgumentException(fieldName + " must not contain null key or value");
+			}
+		}
+		return Map.copyOf(value);
 	}
 
 	private static String requireText(String value, String fieldName) {

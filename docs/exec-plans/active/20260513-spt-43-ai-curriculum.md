@@ -9,7 +9,7 @@
 - Jira issue: `SPT-43`
 - Jira URL: https://studypot.atlassian.net/browse/SPT-43
 - Jira summary: [ai-curriculum] 세부 키워드 추천/커리큘럼 생성 호출 구현
-- Status: `implemented`
+- Status: `in-review`
 
 ## Required Reads
 - [x] AGENTS.md
@@ -81,12 +81,15 @@ Build a reusable Spring Boot LLM provider abstraction for curriculum/detail-keyw
 - Removed the old curriculum-only `OpenAiCurriculumGenerator`; curriculum generation now uses `ProviderBackedCurriculumGenerator` through the generic provider port.
 - Added internal `DetailKeywordSuggestionService` with no controller and no candidate persistence, while still recording `DETAIL_KEYWORD_SUGGEST` in `llm_usage`.
 - Added failed `llm_usage` persistence for provider-backed curriculum failures through `CurriculumRepository.saveFailedLlmUsage`.
+- CodeRabbit review fixes: marked exception audit fields transient, added explicit LLM structured request null-entry validation, preserved detail keyword failure causes, preserved original curriculum generation exceptions when failed-usage audit persistence fails, changed plan status to `in-review`, and added detail keyword failure/input tests. Empty detail keyword suggestions remain invalid because the service contract requires usable candidates.
 
 ## Verification
 - `./gradlew test --tests 'com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest.startStudyRecordsFailedLlmUsageWhenGeneratorFailsAfterProviderCall' --tests 'com.studypot.aistudyleader.curriculum.service.ProviderBackedCurriculumGeneratorTest' --tests 'com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionServiceTest' --tests 'com.studypot.aistudyleader.curriculum.infrastructure.openai.OpenAiLlmProviderTest' --no-daemon` passed.
 - `./gradlew test --tests '*Curriculum*' --tests '*OpenAi*' --tests '*StudyGroup*' --tests '*LlmUsage*' --tests 'com.studypot.aistudyleader.ApplicationFeatureWiringTest' --no-daemon` passed.
 - `./gradlew test --tests 'com.studypot.aistudyleader.architecture.*' --no-daemon` passed.
 - `./gradlew check build --no-daemon` passed.
+- After CodeRabbit fixes, `./gradlew test --tests 'com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionServiceTest' --tests 'com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest.startStudyKeepsOriginalGenerationExceptionWhenFailedUsageAuditCannotBeRecorded' --tests 'com.studypot.aistudyleader.llm.service.LlmStructuredRequestTest' --no-daemon` passed.
+- After CodeRabbit fixes, `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - `CURRICULUM_GENERATE` uses a reusable Spring Boot LLM provider abstraction instead of a curriculum-only OpenAI implementation.
