@@ -1,11 +1,14 @@
 package com.studypot.aistudyleader.ai.controller;
 
 import com.studypot.aistudyleader.ai.domain.AiConversation;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
 import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.ai.service.AiConversationServiceUnavailableException;
 import com.studypot.aistudyleader.ai.service.OpenAiConversationCommand;
+import com.studypot.aistudyleader.ai.service.SendAiConversationMessageCommand;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +18,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -57,6 +62,31 @@ class AiConversationController {
 	) {
 		AiConversation conversation = service().openConversation(request.toCommand(authenticatedUserId(authentication), groupId));
 		return AiConversationResponse.from(conversation);
+	}
+
+	@Operation(
+		summary = "AI 팀장 대화 메시지 전송",
+		description = "인증된 대화 멤버의 사용자 메시지를 저장합니다. 실제 AI 응답 생성은 후속 LLM provider 단계에서 연결합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "201", description = "AI 대화 메시지 저장"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 대화의 멤버가 아니거나 메시지를 저장할 수 없는 멤버 상태"),
+		@ApiResponse(responseCode = "404", description = "대상 AI 대화를 찾을 수 없음"),
+		@ApiResponse(responseCode = "409", description = "닫힌 대화라 메시지를 저장할 수 없음"),
+		@ApiResponse(responseCode = "422", description = "요청 형식이 올바르지 않음"),
+		@ApiResponse(responseCode = "503", description = "AI 대화 서비스가 아직 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/ai-conversations/{conversationId}/messages")
+	@ResponseStatus(HttpStatus.CREATED)
+	AiConversationMessageResponse sendMessage(
+		Authentication authentication,
+		@Parameter(description = "메시지를 저장할 AI 대화 세션 UUID입니다.", required = true)
+		@PathVariable UUID conversationId,
+		@Valid @RequestBody CreateMessageRequest request
+	) {
+		AiConversationMessage message = service().sendMessage(request.toCommand(authenticatedUserId(authentication), conversationId));
+		return AiConversationMessageResponse.from(message);
 	}
 
 	private AiConversationService service() {
@@ -104,6 +134,18 @@ class AiConversationController {
 		}
 	}
 
+	@Schema(description = "AI 팀장 대화 메시지 저장 요청입니다.")
+	private record CreateMessageRequest(
+		@NotBlank
+		@Schema(description = "사용자 메시지 본문입니다.", example = "이번 주 과제 양을 조금 줄이고 싶어요.")
+		String content
+	) {
+
+		private SendAiConversationMessageCommand toCommand(UUID authenticatedUserId, UUID conversationId) {
+			return new SendAiConversationMessageCommand(authenticatedUserId, conversationId, content);
+		}
+	}
+
 	@Schema(description = "AI 팀장 대화 세션 응답입니다.")
 	private record AiConversationResponse(
 		@Schema(description = "AI 대화 세션 UUID입니다.", example = "018f6f55-900d-7b14-bd27-48ec1d752b8a")
@@ -122,6 +164,28 @@ class AiConversationController {
 				conversation.conversationType(),
 				conversation.status(),
 				conversation.summary()
+			);
+		}
+	}
+
+	@Schema(description = "AI 팀장 대화 메시지 응답입니다.")
+	private record AiConversationMessageResponse(
+		@Schema(description = "AI 대화 메시지 UUID입니다.", example = "018f6f55-900d-7b14-bd27-48ec1d752b8c")
+		UUID id,
+		@Schema(description = "메시지 발신자 유형입니다.", example = "USER")
+		AiConversationMessageSenderType senderType,
+		@Schema(description = "메시지 본문입니다.", example = "이번 주 과제 양을 조금 줄이고 싶어요.")
+		String content,
+		@Schema(description = "메시지 생성 시각입니다.")
+		Instant createdAt
+	) {
+
+		private static AiConversationMessageResponse from(AiConversationMessage message) {
+			return new AiConversationMessageResponse(
+				message.id(),
+				message.senderType(),
+				message.content(),
+				message.createdAt()
 			);
 		}
 	}

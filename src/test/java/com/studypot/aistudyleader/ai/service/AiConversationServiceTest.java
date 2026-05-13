@@ -5,10 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.studypot.aistudyleader.ai.domain.AiConversation;
 import com.studypot.aistudyleader.ai.domain.AiConversationMembershipContext;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageContext;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageCursor;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
 import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
+import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -32,6 +37,9 @@ class AiConversationServiceTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000009106");
 	private static final UUID RETROSPECTIVE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009107");
 	private static final UUID CONVERSATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000009108");
+	private static final UUID MESSAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009109");
+	private static final UUID ASSISTANT_MESSAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009110");
+	private static final UUID LLM_USAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009111");
 	private static final Instant NOW = Instant.parse("2026-05-13T00:45:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -175,6 +183,125 @@ class AiConversationServiceTest {
 		assertThat(repository.insertedConversation).isNull();
 	}
 
+	@Test
+	void sendUserMessageStoresMessageForOpenConversationMember() {
+		CapturingRepository repository = new CapturingRepository();
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		AiConversationMessage result = service.sendMessage(new SendAiConversationMessageCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			"  이번 주 과제 양을 줄이고 싶어요.  "
+		));
+
+		assertThat(result.id()).isEqualTo(MESSAGE_ID);
+		assertThat(result.conversationId()).isEqualTo(CONVERSATION_ID);
+		assertThat(result.senderType()).isEqualTo(AiConversationMessageSenderType.USER);
+		assertThat(result.content()).isEqualTo("이번 주 과제 양을 줄이고 싶어요.");
+		assertThat(result.llmUsageId()).isNull();
+		assertThat(result.metadata()).isEmpty();
+		assertThat(result.createdAt()).isEqualTo(NOW);
+		assertThat(repository.insertedMessage).isSameAs(result);
+	}
+
+	@Test
+	void sendUserMessageRejectsConversationOwnedByDifferentUser() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageContext = null;
+		repository.conversationExists = true;
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.sendMessage(new SendAiConversationMessageCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				"권한 없는 대화"
+			)))
+			.isInstanceOf(AiConversationAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this AI conversation.");
+		assertThat(repository.insertedMessage).isNull();
+	}
+
+	@Test
+	void sendUserMessageRejectsClosedConversation() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageContext = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.CLOSED,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.sendMessage(new SendAiConversationMessageCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				"닫힌 대화"
+			)))
+			.isInstanceOf(AiConversationMutationRejectedException.class)
+			.hasMessage("AI conversation is closed.");
+		assertThat(repository.insertedMessage).isNull();
+	}
+
+	@Test
+	void listMessagesReturnsCursorPageScopedToConversationMember() {
+		CapturingRepository repository = new CapturingRepository();
+		AiConversationMessage userMessage = AiConversationMessage.userMessage(
+			MESSAGE_ID,
+			CONVERSATION_ID,
+			"사용자 메시지",
+			NOW.minusSeconds(20)
+		);
+		AiConversationMessage assistantMessage = new AiConversationMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			LLM_USAGE_ID,
+			AiConversationMessageSenderType.ASSISTANT,
+			"AI 응답",
+			java.util.Map.of("retrievalContextVersion", "db-first-v1"),
+			NOW.minusSeconds(10)
+		);
+		AiConversationMessage systemMessage = new AiConversationMessage(
+			UUID.fromString("018f0000-0000-7000-8000-000000009112"),
+			CONVERSATION_ID,
+			null,
+			AiConversationMessageSenderType.SYSTEM,
+			"시스템 메모",
+			java.util.Map.of(),
+			NOW
+		);
+		repository.messages = List.of(userMessage, assistantMessage, systemMessage);
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		CursorPageResponse<AiConversationMessage> result = service.listMessages(new ListAiConversationMessagesQuery(
+			USER_ID,
+			CONVERSATION_ID,
+			null,
+			2
+		));
+
+		assertThat(result.items()).containsExactly(userMessage, assistantMessage);
+		assertThat(result.pageInfo().hasNext()).isTrue();
+		assertThat(result.pageInfo().nextCursor()).isNotBlank();
+		assertThat(repository.lastMessageLimit).isEqualTo(3);
+	}
+
+	@Test
+	void listMessagesRejectsInvalidCursor() {
+		CapturingRepository repository = new CapturingRepository();
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.listMessages(new ListAiConversationMessagesQuery(
+				USER_ID,
+				CONVERSATION_ID,
+				"not-a-cursor",
+				20
+			)))
+			.isInstanceOf(InvalidAiConversationRequestException.class)
+			.hasMessage("cursor is invalid.");
+	}
+
 	private static AiConversationService service(CapturingRepository repository, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new AiConversationService(
@@ -203,6 +330,18 @@ class AiConversationServiceTest {
 		private UUID weekGroupId = GROUP_ID;
 		private AiRetrospectiveReference retrospectiveReference;
 		private AiConversation insertedConversation;
+		private boolean conversationExists = true;
+		private AiConversationMessageContext messageContext = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		private List<AiConversationMessage> messages = List.of();
+		private AiConversationMessage insertedMessage;
+		private int lastMessageLimit;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -228,6 +367,28 @@ class AiConversationServiceTest {
 		public boolean insertConversation(AiConversation conversation) {
 			insertedConversation = conversation;
 			return true;
+		}
+
+		@Override
+		public boolean existsConversation(UUID conversationId) {
+			return conversationExists;
+		}
+
+		@Override
+		public Optional<AiConversationMessageContext> findMessageContext(UUID conversationId, UUID userId) {
+			return Optional.ofNullable(messageContext);
+		}
+
+		@Override
+		public boolean insertMessage(AiConversationMessage message) {
+			insertedMessage = message;
+			return true;
+		}
+
+		@Override
+		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
+			lastMessageLimit = limit;
+			return messages;
 		}
 	}
 }
