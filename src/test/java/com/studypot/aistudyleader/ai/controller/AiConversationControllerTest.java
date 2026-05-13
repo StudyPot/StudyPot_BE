@@ -14,6 +14,7 @@ import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageCursor;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
+import com.studypot.aistudyleader.ai.domain.AiConversationPromptContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
@@ -387,6 +388,16 @@ class AiConversationControllerTest {
 		@Override
 		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
 			return List.of();
+		}
+
+		@Override
+		public AiConversationPromptContext findPromptContext(AiConversationMessageContext context, int recentMessageLimit) {
+			return AiConversationPromptContext.empty();
+		}
+
+		@Override
+		public boolean updateConversationSummary(UUID conversationId, String summary, Instant updatedAt) {
+			return true;
 		}
 	}
 }

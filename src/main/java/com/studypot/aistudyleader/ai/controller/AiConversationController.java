@@ -66,16 +66,16 @@ class AiConversationController {
 
 	@Operation(
 		summary = "AI 팀장 대화 메시지 전송",
-		description = "인증된 대화 멤버의 사용자 메시지를 저장합니다. 실제 AI 응답 생성은 후속 LLM provider 단계에서 연결합니다."
+		description = "인증된 대화 멤버의 사용자 메시지를 저장하고, 구성된 LLM provider로 AI 팀장 응답을 생성해 저장합니다."
 	)
 	@ApiResponses({
-		@ApiResponse(responseCode = "201", description = "AI 대화 메시지 저장"),
+		@ApiResponse(responseCode = "201", description = "AI 대화 메시지와 AI 응답 저장"),
 		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
 		@ApiResponse(responseCode = "403", description = "대상 대화의 멤버가 아니거나 메시지를 저장할 수 없는 멤버 상태"),
 		@ApiResponse(responseCode = "404", description = "대상 AI 대화를 찾을 수 없음"),
 		@ApiResponse(responseCode = "409", description = "닫힌 대화라 메시지를 저장할 수 없음"),
 		@ApiResponse(responseCode = "422", description = "요청 형식이 올바르지 않음"),
-		@ApiResponse(responseCode = "503", description = "AI 대화 서비스가 아직 구성되지 않음")
+		@ApiResponse(responseCode = "503", description = "AI 대화 서비스가 구성되지 않았거나 AI 응답 생성에 실패함")
 	})
 	@PostMapping(ApiPaths.V1 + "/ai-conversations/{conversationId}/messages")
 	@ResponseStatus(HttpStatus.CREATED)

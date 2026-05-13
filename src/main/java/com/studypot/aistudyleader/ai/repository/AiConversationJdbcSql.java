@@ -61,7 +61,9 @@ final class AiConversationJdbcSql {
 		""";
 
 	static final String SELECT_MESSAGE_CONTEXT = """
-		select ac.id as conversation_id, ac.group_id, ac.member_id, ac.status as conversation_status,
+		select ac.id as conversation_id, ac.group_id, ac.member_id, ac.curriculum_week_id,
+		       ac.retrospective_id, ac.conversation_type, coalesce(ac.summary, '') as summary,
+		       ac.status as conversation_status,
 		       sg.status as group_status, gm.status as member_status
 		from ai_conversation ac
 		join study_group sg on sg.id = ac.group_id
@@ -86,6 +88,55 @@ final class AiConversationJdbcSql {
 		  and (? is null or m.created_at > ? or (m.created_at = ? and m.id > ?))
 		order by m.created_at asc, m.id asc
 		limit ?
+		""";
+
+	static final String SELECT_RECENT_MESSAGES_FOR_PROMPT = """
+		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
+		from ai_conversation_message m
+		where m.conversation_id = ?
+		order by m.created_at desc, m.id desc
+		limit ?
+		""";
+
+	static final String SELECT_WEEK_PROMPT_CONTEXT = """
+		select cw.id, cw.week_number, cw.title, cw.description, cw.sprint_goal,
+		       cw.learning_goals, cw.resources, cw.status, cw.starts_at, cw.ends_at
+		from curriculum_week cw
+		where cw.id = ?
+		  and cw.deleted_at is null
+		""";
+
+	static final String SELECT_TASK_PROMPT_CONTEXT = """
+		select wt.id, wt.display_order, wt.task_type, wt.title, wt.description,
+		       wt.required, wt.due_at, coalesce(tc.status, 'TODO') as completion_status,
+		       tc.completed_at, tc.reason_submitted_at
+		from weekly_task wt
+		left join task_completion tc on tc.weekly_task_id = wt.id
+		  and tc.member_id = ?
+		where wt.curriculum_week_id = ?
+		  and wt.deleted_at is null
+		order by wt.display_order
+		""";
+
+	static final String SELECT_PROGRESS_PROMPT_CONTEXT = """
+		select id, status, started_at, due_at, completed_at, reason_submitted_at
+		from member_week_progress
+		where curriculum_week_id = ?
+		  and member_id = ?
+		""";
+
+	static final String SELECT_RETROSPECTIVE_PROMPT_CONTEXT = """
+		select id, status, ai_feedback, next_week_adjustment, requested_at, completed_at
+		from retrospective
+		where id = ?
+		  and member_id = ?
+		""";
+
+	static final String UPDATE_CONVERSATION_SUMMARY = """
+		update ai_conversation
+		set summary = ?,
+		    updated_at = ?
+		where id = ?
 		""";
 
 	private AiConversationJdbcSql() {

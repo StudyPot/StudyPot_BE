@@ -8,6 +8,7 @@ import com.studypot.aistudyleader.ai.repository.AiConversationPersistenceExcepti
 import com.studypot.aistudyleader.ai.service.AiConversationAccessDeniedException;
 import com.studypot.aistudyleader.ai.service.AiConversationMutationRejectedException;
 import com.studypot.aistudyleader.ai.service.AiConversationNotFoundException;
+import com.studypot.aistudyleader.ai.service.AiConversationResponseGenerationException;
 import com.studypot.aistudyleader.ai.service.AiConversationServiceUnavailableException;
 import com.studypot.aistudyleader.ai.service.InvalidAiConversationRequestException;
 import com.studypot.aistudyleader.curriculum.service.CurriculumAccessDeniedException;
@@ -148,6 +149,7 @@ public class ApiExceptionHandler {
 		RetrospectiveServiceUnavailableException.class,
 		RetrospectivePersistenceException.class,
 		AiConversationServiceUnavailableException.class,
+		AiConversationResponseGenerationException.class,
 		AiConversationPersistenceException.class,
 		LlmUsageServiceUnavailableException.class,
 		LlmUsagePersistenceException.class
