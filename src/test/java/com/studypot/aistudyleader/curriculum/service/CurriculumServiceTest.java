@@ -12,8 +12,9 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
-import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -68,7 +69,7 @@ class CurriculumServiceTest {
 		assertThat(repository.savedGroupId).isEqualTo(GROUP_ID);
 		assertThat(repository.savedStartedAt).isEqualTo(NOW);
 		assertThat(repository.savedLlmUsage.id()).isEqualTo(LLM_USAGE_ID);
-		assertThat(repository.savedLlmUsage.purpose()).isEqualTo("CURRICULUM_GENERATE");
+		assertThat(repository.savedLlmUsage.purpose()).isEqualTo(LlmUsagePurpose.CURRICULUM_GENERATE);
 		assertThat(repository.savedLlmUsage.provider()).isEqualTo(LlmProvider.OPENAI);
 		assertThat(repository.savedCurriculum).isSameAs(result);
 		assertThat(result.id()).isEqualTo(CURRICULUM_ID);
@@ -904,7 +905,7 @@ class CurriculumServiceTest {
 		private boolean taskExists;
 		private UUID savedGroupId;
 		private Instant savedStartedAt;
-		private com.studypot.aistudyleader.curriculum.domain.LlmUsage savedLlmUsage;
+		private com.studypot.aistudyleader.llm.domain.LlmUsage savedLlmUsage;
 		private Curriculum savedCurriculum;
 		private MemberWeekProgress insertedProgress;
 		private MemberWeekProgress updatedProgress;
@@ -927,7 +928,7 @@ class CurriculumServiceTest {
 		}
 
 		@Override
-		public void saveStartedCurriculum(UUID groupId, Instant startedAt, com.studypot.aistudyleader.curriculum.domain.LlmUsage llmUsage, Curriculum curriculum) {
+		public void saveStartedCurriculum(UUID groupId, Instant startedAt, com.studypot.aistudyleader.llm.domain.LlmUsage llmUsage, Curriculum curriculum) {
 			this.savedGroupId = groupId;
 			this.savedStartedAt = startedAt;
 			this.savedLlmUsage = llmUsage;

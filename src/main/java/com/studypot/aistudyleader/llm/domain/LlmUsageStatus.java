@@ -1,4 +1,4 @@
-package com.studypot.aistudyleader.curriculum.domain;
+package com.studypot.aistudyleader.llm.domain;
 
 public enum LlmUsageStatus {
 	SUCCESS,
