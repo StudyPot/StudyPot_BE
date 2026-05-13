@@ -113,6 +113,24 @@ class RetrospectiveControllerTest {
 	}
 
 	@Test
+	void requestRetrospectiveReturnsForbiddenForLeftMember() throws Exception {
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(post(RETROSPECTIVE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("retro-xsrf")))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
 	void getMyRetrospectiveReturnsExistingRetrospective() throws Exception {
 		repository.existingRetrospective = completedRetrospective();
 
@@ -124,6 +142,24 @@ class RetrospectiveControllerTest {
 			.andExpect(jsonPath("$.status").value("COMPLETED"))
 			.andExpect(jsonPath("$.aiFeedback.summary").value("이번 주 학습 흐름이 좋습니다."))
 			.andExpect(jsonPath("$.nextWeekAdjustment.focus").value("JPA 심화"));
+	}
+
+	@Test
+	void getMyRetrospectiveReturnsForbiddenForLeftMember() throws Exception {
+		repository.existingRetrospective = completedRetrospective();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(get(RETROSPECTIVE_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
 	}
 
 	@Test

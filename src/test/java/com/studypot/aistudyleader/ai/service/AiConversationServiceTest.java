@@ -113,6 +113,30 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void openConversationRejectsLeftMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new AiConversationMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+		AiConversationService service = service(repository, CONVERSATION_ID);
+
+		assertThatThrownBy(() -> service.openConversation(new OpenAiConversationCommand(
+				USER_ID,
+				GROUP_ID,
+				AiConversationType.TEAM_LEAD_CHAT,
+				null,
+				null
+			)))
+			.isInstanceOf(AiConversationAccessDeniedException.class)
+			.hasMessage("active group membership is required to open an AI conversation.");
+		assertThat(repository.insertedConversation).isNull();
+	}
+
+	@Test
 	void openConversationRejectsMissingStudyGroup() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = false;
@@ -300,6 +324,36 @@ class AiConversationServiceTest {
 			)))
 			.isInstanceOf(InvalidAiConversationRequestException.class)
 			.hasMessage("cursor is invalid.");
+	}
+
+	@Test
+	void listMessagesRejectsLeftMemberBeforeReturningRawMessages() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageContext = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.LEFT
+		);
+		repository.messages = List.of(AiConversationMessage.userMessage(
+			MESSAGE_ID,
+			CONVERSATION_ID,
+			"LEFT 멤버에게 raw message를 반환하면 안 됩니다.",
+			NOW
+		));
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.listMessages(new ListAiConversationMessagesQuery(
+				USER_ID,
+				CONVERSATION_ID,
+				null,
+				20
+			)))
+			.isInstanceOf(AiConversationAccessDeniedException.class)
+			.hasMessage("active group membership is required to read AI conversation messages.");
+		assertThat(repository.lastMessageLimit).isZero();
 	}
 
 	private static AiConversationService service(CapturingRepository repository, UUID... ids) {

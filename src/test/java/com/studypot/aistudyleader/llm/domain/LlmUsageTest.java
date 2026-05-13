@@ -43,6 +43,7 @@ class LlmUsageTest {
 			"context", Map.of(
 				"safeSource", "weekly_progress",
 				"oauthRefreshToken", "raw-refresh-token",
+				"providerKey", "raw-provider-key",
 				"privateNote", longPrivateNote
 			)
 		));
@@ -62,7 +63,8 @@ class LlmUsageTest {
 		Map<String, Object> context = (Map<String, Object>) usage.requestPayload().get("context");
 		assertThat(context)
 			.containsEntry("safeSource", "weekly_progress")
-			.containsEntry("oauthRefreshToken", "[REDACTED]");
+			.containsEntry("oauthRefreshToken", "[REDACTED]")
+			.containsEntry("providerKey", "[REDACTED]");
 		assertThat((String) context.get("privateNote"))
 			.endsWith("...[TRUNCATED]")
 			.hasSizeLessThan(600);

@@ -67,6 +67,8 @@ class JdbcAiConversationRepositoryTest {
 			.contains("from retrospective r")
 			.contains("join curriculum_week cw on cw.id = r.curriculum_week_id")
 			.contains("join curriculum c on c.id = cw.curriculum_id")
+			.contains("join group_member gm on gm.id = r.member_id")
+			.contains("gm.group_id = c.group_id")
 			.contains("r.id = ?");
 	}
 
@@ -79,6 +81,7 @@ class JdbcAiConversationRepositoryTest {
 			.contains("from ai_conversation ac")
 			.contains("join study_group sg on sg.id = ac.group_id")
 			.contains("join group_member gm on gm.id = ac.member_id")
+			.contains("gm.group_id = ac.group_id")
 			.contains("ac.id = ?")
 			.contains("gm.user_id = ?")
 			.contains("sg.deleted_at is null")
