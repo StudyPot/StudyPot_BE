@@ -48,6 +48,42 @@ final class AiConversationJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	// v1 ai_conversation has no deleted_at column; deletion boundaries live on study_group/group_member.
+	static final String EXISTS_CONVERSATION = """
+		select exists (
+		  select 1
+		  from ai_conversation
+		  where id = ?
+		)
+		""";
+
+	static final String SELECT_MESSAGE_CONTEXT = """
+		select ac.id as conversation_id, ac.group_id, ac.member_id, ac.status as conversation_status,
+		       sg.status as group_status, gm.status as member_status
+		from ai_conversation ac
+		join study_group sg on sg.id = ac.group_id
+		join group_member gm on gm.id = ac.member_id
+		where ac.id = ?
+		  and gm.user_id = ?
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	static final String INSERT_MESSAGE = """
+		insert into ai_conversation_message (
+		  id, conversation_id, llm_usage_id, sender_type, content, metadata, created_at
+		) values (?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String SELECT_MESSAGES = """
+		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
+		from ai_conversation_message m
+		where m.conversation_id = ?
+		  and (? is null or m.created_at > ? or (m.created_at = ? and m.id > ?))
+		order by m.created_at asc, m.id asc
+		limit ?
+		""";
+
 	private AiConversationJdbcSql() {
 	}
 }

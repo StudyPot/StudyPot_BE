@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.ai.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -9,6 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.ai.domain.AiConversation;
 import com.studypot.aistudyleader.ai.domain.AiConversationMembershipContext;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageContext;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageCursor;
+import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
+import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
@@ -48,7 +54,9 @@ class AiConversationControllerTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000009304");
 	private static final UUID RETROSPECTIVE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009305");
 	private static final UUID CONVERSATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000009306");
+	private static final UUID MESSAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009307");
 	private static final String CONVERSATION_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/ai-conversations";
+	private static final String MESSAGE_PATH = ApiPaths.V1 + "/ai-conversations/" + CONVERSATION_ID + "/messages";
 
 	private final MockMvc mockMvc;
 	private final MutableAiConversationRepository repository;
@@ -143,6 +151,63 @@ class AiConversationControllerTest {
 			.andExpect(jsonPath("$.title").value("Forbidden"));
 	}
 
+	@Test
+	void sendMessageReturnsCreatedUserMessage() throws Exception {
+		repository.nextIds(MESSAGE_ID);
+
+		mockMvc.perform(post(MESSAGE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"content":"  이번 주 과제 양을 줄이고 싶어요.  "}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(MESSAGE_ID.toString()))
+			.andExpect(jsonPath("$.senderType").value("USER"))
+			.andExpect(jsonPath("$.content").value("이번 주 과제 양을 줄이고 싶어요."))
+			.andExpect(jsonPath("$.createdAt").value("2026-05-13T01:15:00Z"));
+
+		assertThat(repository.insertedMessage.senderType()).isEqualTo(AiConversationMessageSenderType.USER);
+	}
+
+	@Test
+	void sendMessageReturnsValidationProblemWhenContentBlank() throws Exception {
+		mockMvc.perform(post(MESSAGE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"content":" "}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void sendMessageReturnsConflictWhenConversationClosed() throws Exception {
+		repository.nextIds(MESSAGE_ID);
+		repository.messageContext = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.CLOSED,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+
+		mockMvc.perform(post(MESSAGE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"content":"닫힌 대화에는 저장할 수 없습니다."}
+					"""))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	private static RequestPostProcessor xsrf(String value) {
 		return request -> {
 			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
@@ -180,8 +245,10 @@ class AiConversationControllerTest {
 		private AiConversationMembershipContext membership;
 		private UUID weekGroupId;
 		private AiRetrospectiveReference retrospectiveReference;
+		private AiConversationMessageContext messageContext;
 		private Deque<UUID> ids;
 		private AiConversation insertedConversation;
+		private AiConversationMessage insertedMessage;
 
 		void reset() {
 			groupExists = true;
@@ -194,8 +261,21 @@ class AiConversationControllerTest {
 			);
 			weekGroupId = GROUP_ID;
 			retrospectiveReference = null;
-			ids = new ArrayDeque<>(List.of(CONVERSATION_ID));
+			messageContext = new AiConversationMessageContext(
+				CONVERSATION_ID,
+				GROUP_ID,
+				MEMBER_ID,
+				AiConversationStatus.OPEN,
+				StudyGroupStatus.ACTIVE,
+				GroupMemberStatus.ACTIVE
+			);
+			nextIds(CONVERSATION_ID);
 			insertedConversation = null;
+			insertedMessage = null;
+		}
+
+		void nextIds(UUID... ids) {
+			this.ids = new ArrayDeque<>(List.of(ids));
 		}
 
 		UUID nextId() {
@@ -230,6 +310,27 @@ class AiConversationControllerTest {
 		public boolean insertConversation(AiConversation conversation) {
 			insertedConversation = conversation;
 			return true;
+		}
+
+		@Override
+		public boolean existsConversation(UUID conversationId) {
+			return true;
+		}
+
+		@Override
+		public Optional<AiConversationMessageContext> findMessageContext(UUID conversationId, UUID userId) {
+			return Optional.ofNullable(messageContext);
+		}
+
+		@Override
+		public boolean insertMessage(AiConversationMessage message) {
+			insertedMessage = message;
+			return true;
+		}
+
+		@Override
+		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
+			return List.of();
 		}
 	}
 }
