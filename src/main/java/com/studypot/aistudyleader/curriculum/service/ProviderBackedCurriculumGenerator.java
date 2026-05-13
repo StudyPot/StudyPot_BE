@@ -1,4 +1,4 @@
-package com.studypot.aistudyleader.curriculum.infrastructure.openai;
+package com.studypot.aistudyleader.curriculum.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -8,112 +8,107 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
-import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
-import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;
-import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
+import com.studypot.aistudyleader.llm.service.LlmProviderClient;
+import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
+import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-class OpenAiCurriculumGenerator implements CurriculumGenerator {
+public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 
 	private static final String INSTRUCTIONS = """
 		You generate a study curriculum from submitted onboarding summaries.
 		Return JSON that matches the provided schema. Use only the supplied context.
 		Do not include retrospective feedback, notifications, member progress, or chat behavior.
 		""";
-	private final OpenAiResponsesTransport transport;
-	private final ObjectMapper objectMapper;
-	private final String model;
 
-	OpenAiCurriculumGenerator(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model) {
-		this.transport = Objects.requireNonNull(transport, "transport must not be null");
+	private final LlmProviderClient provider;
+	private final ObjectMapper objectMapper;
+
+	public ProviderBackedCurriculumGenerator(LlmProviderClient provider, ObjectMapper objectMapper) {
+		this.provider = Objects.requireNonNull(provider, "provider must not be null");
 		this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
-		if (model == null || model.isBlank()) {
-			throw new IllegalArgumentException("model must not be blank");
-		}
-		this.model = model.strip();
 	}
 
 	@Override
 	public CurriculumGeneration generate(CurriculumGenerationRequest request) {
 		Objects.requireNonNull(request, "request must not be null");
-		Instant startedAt = Instant.now();
-		OpenAiResponseRequest responseRequest = responseRequest(request);
+		LlmStructuredResponse response;
 		try {
-			String responseBody = transport.createResponse(responseRequest);
-			JsonNode response = objectMapper.readTree(responseBody);
-			GeneratedCurriculum generated = readGeneratedCurriculum(outputText(response));
-			JsonNode usage = response.path("usage");
+			response = provider.requestStructured(new LlmStructuredRequest(
+				LlmUsagePurpose.CURRICULUM_GENERATE,
+				INSTRUCTIONS,
+				input(request),
+				schemaFormat(),
+				requestPayload(request)
+			));
+		} catch (LlmProviderCallException exception) {
+			throw new CurriculumGenerationException("curriculum generation failed.", exception, exception.failure());
+		}
+		try {
+			GeneratedCurriculum generated = readGeneratedCurriculum(response.outputText());
+			String responseSummary = "Generated curriculum title: " + generated.title() + ", weeks: " + generated.weeks().size();
+			LlmStructuredResponse summarized = response.withResponseSummary(responseSummary);
 			return new CurriculumGeneration(
 				generated.title(),
 				generated.toWeekPlans(),
 				INSTRUCTIONS,
-				LlmProvider.OPENAI,
-				model,
-				usage.path("input_tokens").asInt(0),
-				usage.path("output_tokens").asInt(0),
-				BigDecimal.ZERO,
-				elapsedMillis(startedAt),
-				LlmUsageStatus.SUCCESS,
-				null,
-				redactedRequestPayload(request),
-				"Generated curriculum title: " + generated.title() + ", weeks: " + generated.weeks().size()
+				summarized.provider(),
+				summarized.model(),
+				summarized.inputTokens(),
+				summarized.outputTokens(),
+				summarized.totalCostUsd(),
+				summarized.latencyMs(),
+				summarized.status(),
+				summarized.errorCode(),
+				summarized.requestPayload(),
+				summarized.responseSummary()
 			);
-		} catch (CurriculumGenerationException exception) {
-			throw exception;
-		} catch (RuntimeException | JsonProcessingException exception) {
-			throw new CurriculumGenerationException("curriculum generation failed.", exception);
+		} catch (IllegalArgumentException | JsonProcessingException exception) {
+			throw new CurriculumGenerationException(
+				"curriculum generation output was invalid.",
+				exception,
+				response.toFailure(
+					LlmUsagePurpose.CURRICULUM_GENERATE,
+					"CURRICULUM_RESPONSE_INVALID",
+					"Generated curriculum response did not match the required shape."
+				)
+			);
 		}
 	}
 
-	private OpenAiResponseRequest responseRequest(CurriculumGenerationRequest request) {
-		return new OpenAiResponseRequest(Map.of(
-			"model", model,
-			"instructions", INSTRUCTIONS,
-			"input", inputJson(request),
-			"text", Map.of("format", schemaFormat())
-		));
+	private Map<String, Object> input(CurriculumGenerationRequest request) {
+		return Map.of(
+			"group", Map.of(
+				"id", request.group().groupId().toString(),
+				"name", request.group().groupName(),
+				"topic", request.group().topic(),
+				"detailKeywords", request.group().detailKeywords(),
+				"startsAt", request.group().startsAt().toString(),
+				"endsAt", request.group().endsAt().toString()
+			),
+			"onboardingSummary", request.onboardingSummary(),
+			"submittedResponses", request.submittedResponses().stream()
+				.map(response -> Map.of(
+					"id", response.id().toString(),
+					"memberId", response.memberId().toString(),
+					"keywordSkillLevels", response.keywordSkillLevels(),
+					"taskPreferences", response.taskPreferences(),
+					"additionalNote", response.additionalNote() == null ? "" : response.additionalNote(),
+					"availabilitySlots", response.availabilitySlots(),
+					"submittedAt", response.submittedAt().toString()
+				))
+				.toList()
+		);
 	}
 
-	private String inputJson(CurriculumGenerationRequest request) {
-		try {
-			return objectMapper.writeValueAsString(Map.of(
-				"group", Map.of(
-					"id", request.group().groupId().toString(),
-					"name", request.group().groupName(),
-					"topic", request.group().topic(),
-					"detailKeywords", request.group().detailKeywords(),
-					"startsAt", request.group().startsAt().toString(),
-					"endsAt", request.group().endsAt().toString()
-				),
-				"onboardingSummary", request.onboardingSummary(),
-				"submittedResponses", request.submittedResponses().stream()
-					.map(response -> Map.of(
-						"id", response.id().toString(),
-						"memberId", response.memberId().toString(),
-						"keywordSkillLevels", response.keywordSkillLevels(),
-						"taskPreferences", response.taskPreferences(),
-						"additionalNote", response.additionalNote() == null ? "" : response.additionalNote(),
-						"availabilitySlots", response.availabilitySlots(),
-						"submittedAt", response.submittedAt().toString()
-					))
-					.toList()
-			));
-		} catch (JsonProcessingException exception) {
-			throw new CurriculumGenerationException("curriculum generation input could not be serialized.", exception);
-		}
-	}
-
-	private Map<String, Object> redactedRequestPayload(CurriculumGenerationRequest request) {
+	private Map<String, Object> requestPayload(CurriculumGenerationRequest request) {
 		return Map.of(
 			"purpose", "CURRICULUM_GENERATE",
-			"model", model,
 			"groupId", request.group().groupId().toString(),
 			"submittedResponseCount", request.submittedResponses().size()
 		);
@@ -160,37 +155,29 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 		);
 	}
 
-	private String outputText(JsonNode response) {
-		for (JsonNode output : response.path("output")) {
-			for (JsonNode content : output.path("content")) {
-				if ("output_text".equals(content.path("type").asText())) {
-					String text = content.path("text").asText();
-					if (!text.isBlank()) {
-						return text;
-					}
-				}
-			}
-		}
-		throw new CurriculumGenerationException("OpenAI response did not include output_text.");
-	}
-
 	private GeneratedCurriculum readGeneratedCurriculum(String value) throws JsonProcessingException {
 		JsonNode node = objectMapper.readTree(value);
 		String title = node.path("title").asText();
+		int totalWeeks = node.path("totalWeeks").asInt(-1);
 		List<GeneratedWeek> weeks = objectMapper.convertValue(node.path("weeks"), new TypeReference<List<GeneratedWeek>>() {
 		});
+		if (weeks == null || weeks.isEmpty()) {
+			throw new IllegalArgumentException("generated weeks must not be empty");
+		}
+		if (totalWeeks != weeks.size()) {
+			throw new IllegalArgumentException("generated totalWeeks must match weeks size");
+		}
 		return new GeneratedCurriculum(title, weeks);
 	}
 
-	private static int elapsedMillis(Instant startedAt) {
-		long millis = Duration.between(startedAt, Instant.now()).toMillis();
-		if (millis <= 0) {
-			return 0;
-		}
-		return millis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) millis;
-	}
-
 	private record GeneratedCurriculum(String title, List<GeneratedWeek> weeks) {
+
+		private GeneratedCurriculum {
+			if (title == null || title.isBlank()) {
+				throw new IllegalArgumentException("generated title must not be blank");
+			}
+			weeks = List.copyOf(Objects.requireNonNull(weeks, "generated weeks must not be null"));
+		}
 
 		List<CurriculumWeekPlan> toWeekPlans() {
 			return weeks.stream()
@@ -234,12 +221,12 @@ class OpenAiCurriculumGenerator implements CurriculumGenerator {
 
 		private WeeklyTaskType parsedTaskType() {
 			if (taskType == null || taskType.isBlank()) {
-				throw new CurriculumGenerationException("generated taskType must not be blank.");
+				throw new IllegalArgumentException("generated taskType must not be blank.");
 			}
 			try {
 				return WeeklyTaskType.valueOf(taskType.strip());
 			} catch (IllegalArgumentException exception) {
-				throw new CurriculumGenerationException("generated taskType is unsupported: " + taskType, exception);
+				throw new IllegalArgumentException("generated taskType is unsupported: " + taskType, exception);
 			}
 		}
 	}

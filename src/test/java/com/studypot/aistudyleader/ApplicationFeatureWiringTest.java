@@ -3,11 +3,17 @@ package com.studypot.aistudyleader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
+import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
+import com.studypot.aistudyleader.llm.repository.LlmUsageRepository;
+import com.studypot.aistudyleader.llm.service.LlmUsageService;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
+import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
+import com.studypot.aistudyleader.retrospective.service.RetrospectiveService;
 import com.studypot.aistudyleader.studygroup.rules.repository.GroupRuleRepository;
 import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleService;
 import javax.sql.DataSource;
@@ -46,10 +52,16 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("curriculumRepository");
 		assertThat(context.getBeanNamesForType(GroupRuleRepository.class))
 			.containsExactly("groupRuleRepository");
+		assertThat(context.getBeanNamesForType(RetrospectiveRepository.class))
+			.containsExactly("retrospectiveRepository");
+		assertThat(context.getBeanNamesForType(AiConversationRepository.class))
+			.containsExactly("aiConversationRepository");
+		assertThat(context.getBeanNamesForType(LlmUsageRepository.class))
+			.containsExactly("llmUsageRepository");
 	}
 
 	@Test
-	void weeklyTodoAndRuleServicesAreConfiguredWithoutOpenAiGenerator() {
+	void weeklyTodoRuleRetrospectiveAndAiServicesAreConfiguredWithoutOpenAiGenerator() {
 		assertThat(context.getBeanNamesForType(CurriculumGenerator.class))
 			.isEmpty();
 		assertThat(context.getBeanNamesForType(OnboardingService.class))
@@ -58,6 +70,12 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("curriculumService");
 		assertThat(context.getBeanNamesForType(GroupRuleService.class))
 			.containsExactly("groupRuleService");
+		assertThat(context.getBeanNamesForType(RetrospectiveService.class))
+			.containsExactly("retrospectiveService");
+		assertThat(context.getBeanNamesForType(AiConversationService.class))
+			.containsExactly("aiConversationService");
+		assertThat(context.getBeanNamesForType(LlmUsageService.class))
+			.containsExactly("llmUsageService");
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

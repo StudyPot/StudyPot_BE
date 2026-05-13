@@ -8,7 +8,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -117,6 +117,12 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 				insertTask(task);
 			}
 		}
+	}
+
+	@Override
+	public void saveFailedLlmUsage(LlmUsage llmUsage) {
+		Objects.requireNonNull(llmUsage, "llmUsage must not be null");
+		insertLlmUsage(llmUsage);
 	}
 
 	@Override
@@ -299,7 +305,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			uuid(usage.id()),
 			uuidOrNull(usage.userId()),
 			uuidOrNull(usage.groupId()),
-			usage.purpose(),
+			usage.purpose().name(),
 			usage.provider().name(),
 			usage.model(),
 			usage.inputTokens(),

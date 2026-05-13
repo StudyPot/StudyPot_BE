@@ -1,12 +1,17 @@
 package com.studypot.aistudyleader.studygroup.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.global.domain.UuidV7;
+import com.studypot.aistudyleader.llm.service.LlmProviderClient;
+import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Base64;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -28,6 +33,24 @@ class StudyGroupApplicationConfiguration {
 		@Qualifier("studyGroupInviteCodeGenerator") Supplier<String> inviteCodeGenerator
 	) {
 		return new StudyGroupService(repository, clock, idGenerator, inviteCodeGenerator, INVITE_CODE_MAX_ATTEMPTS);
+	}
+
+	@Bean
+	@ConditionalOnBean({LlmProviderClient.class, LlmUsageRecorder.class})
+	@ConditionalOnMissingBean(DetailKeywordSuggestionService.class)
+	DetailKeywordSuggestionService detailKeywordSuggestionService(
+		LlmProviderClient provider,
+		LlmUsageRecorder usageRecorder,
+		ObjectProvider<ObjectMapper> objectMapper,
+		Clock clock
+	) {
+		return new DetailKeywordSuggestionService(
+			provider,
+			objectMapper.getIfAvailable(() -> JsonMapper.builder().findAndAddModules().build()),
+			usageRecorder,
+			clock,
+			UuidV7::generate
+		);
 	}
 
 	@Bean

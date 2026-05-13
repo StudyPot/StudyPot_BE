@@ -1,10 +1,12 @@
 package com.studypot.aistudyleader.curriculum.domain;
 
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,11 +58,11 @@ public record CurriculumGeneration(
 	}
 
 	public LlmUsage toLlmUsage(UUID id, UUID userId, UUID groupId, Instant now) {
-		return new LlmUsage(
+		return LlmUsage.record(
 			id,
 			userId,
 			groupId,
-			"CURRICULUM_GENERATE",
+			LlmUsagePurpose.CURRICULUM_GENERATE,
 			provider,
 			model,
 			inputTokens,
@@ -71,7 +73,6 @@ public record CurriculumGeneration(
 			errorCode,
 			requestPayload,
 			responseSummary,
-			LocalDate.ofInstant(now, ZoneOffset.UTC),
 			now
 		);
 	}

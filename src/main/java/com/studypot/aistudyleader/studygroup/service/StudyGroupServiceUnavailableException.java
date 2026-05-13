@@ -5,4 +5,8 @@ public class StudyGroupServiceUnavailableException extends RuntimeException {
 	public StudyGroupServiceUnavailableException(String message) {
 		super(message);
 	}
+
+	public StudyGroupServiceUnavailableException(String message, Throwable cause) {
+		super(message, cause);
+	}
 }

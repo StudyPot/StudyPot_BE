@@ -5,7 +5,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
@@ -14,6 +14,7 @@ import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class CurriculumService {
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = CurriculumGenerationException.class)
 	public Curriculum startStudy(StartCurriculumCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		CurriculumStartContext context = requireStartContext(command.groupId(), command.authenticatedUserId());
@@ -75,12 +76,24 @@ public class CurriculumService {
 		if (generator == null) {
 			throw new CurriculumGenerationException("curriculum generator is not configured.");
 		}
-		CurriculumGeneration generation = generator.generate(new CurriculumGenerationRequest(
-			context,
-			submittedResponses,
-			onboardingSummary,
-			now
-		));
+		CurriculumGeneration generation;
+		try {
+			generation = generator.generate(new CurriculumGenerationRequest(
+				context,
+				submittedResponses,
+				onboardingSummary,
+				now
+			));
+		} catch (CurriculumGenerationException exception) {
+			exception.failure().ifPresent(failure -> {
+				try {
+					saveFailedLlmUsage(failure, command.authenticatedUserId(), context.groupId(), now);
+				} catch (RuntimeException saveException) {
+					exception.addSuppressed(saveException);
+				}
+			});
+			throw exception;
+		}
 
 		UUID llmUsageId = idGenerator.get();
 		UUID curriculumId = idGenerator.get();
@@ -108,6 +121,11 @@ public class CurriculumService {
 			throw new CurriculumStartRejectedException("curriculum start persistence failed.", exception);
 		}
 		return curriculum;
+	}
+
+	private void saveFailedLlmUsage(LlmCallFailure failure, UUID userId, UUID groupId, Instant now) {
+		LlmUsage llmUsage = failure.toUsage(idGenerator.get(), userId, groupId, now);
+		repository.saveFailedLlmUsage(llmUsage);
 	}
 
 	@Transactional(readOnly = true)
