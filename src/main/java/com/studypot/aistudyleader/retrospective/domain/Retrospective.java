@@ -67,6 +67,54 @@ public record Retrospective(
 		);
 	}
 
+	public Retrospective completeWithFeedback(UUID llmUsageId, RetrospectiveFeedbackResult feedbackResult, Instant now) {
+		Objects.requireNonNull(feedbackResult, "feedbackResult must not be null");
+		Objects.requireNonNull(now, "now must not be null");
+		return new Retrospective(
+			id,
+			progressId,
+			curriculumWeekId,
+			memberId,
+			llmUsageId,
+			triggerType,
+			inputSummary,
+			feedbackResult.aiFeedback(),
+			feedbackResult.nextWeekAdjustment(),
+			RetrospectiveStatus.COMPLETED,
+			requestedAt,
+			now,
+			createdAt,
+			now
+		);
+	}
+
+	public Retrospective failFeedback(UUID llmUsageId, String errorCode, String errorMessage, Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new Retrospective(
+			id,
+			progressId,
+			curriculumWeekId,
+			memberId,
+			llmUsageId,
+			triggerType,
+			inputSummary,
+			Map.of("error", errorSummary(errorCode, errorMessage)),
+			Map.of(),
+			RetrospectiveStatus.FAILED,
+			requestedAt,
+			null,
+			createdAt,
+			now
+		);
+	}
+
+	private static Map<String, Object> errorSummary(String errorCode, String errorMessage) {
+		return Map.of(
+			"code", requiredText("errorCode", errorCode),
+			"message", requiredText("errorMessage", errorMessage)
+		);
+	}
+
 	private static Map<String, Object> requiredInputSummary(Map<String, Object> inputSummary) {
 		if (inputSummary == null || inputSummary.isEmpty()) {
 			throw new IllegalArgumentException("inputSummary must not be empty.");
@@ -88,5 +136,13 @@ public record Retrospective(
 			}
 		}
 		return Collections.unmodifiableMap(new LinkedHashMap<>(value));
+	}
+
+	private static String requiredText(String fieldName, String value) {
+		String normalized = value == null ? "" : value.strip();
+		if (normalized.isBlank()) {
+			throw new IllegalArgumentException(fieldName + " must not be blank.");
+		}
+		return normalized;
 	}
 }

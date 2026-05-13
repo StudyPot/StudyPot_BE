@@ -7,6 +7,7 @@ import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveFeedbackResult;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveStatus;
@@ -37,6 +38,7 @@ class RetrospectiveServiceTest {
 	private static final UUID RETROSPECTIVE_ID = UUID.fromString("018f0000-0000-7000-8000-000000006106");
 	private static final UUID READING_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000006107");
 	private static final UUID PRACTICE_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000006108");
+	private static final UUID LLM_USAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000006109");
 	private static final Instant NOW = Instant.parse("2026-05-12T02:45:00Z");
 	private static final Instant WEEK_DUE_AT = Instant.parse("2026-05-18T02:45:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
@@ -172,6 +174,67 @@ class RetrospectiveServiceTest {
 			.hasMessage("retrospective was not found.");
 	}
 
+	@Test
+	void applyFeedbackMapsAiResultAndCompletesRetrospective() {
+		Retrospective existing = existingRetrospective(RetrospectiveStatus.PROCESSING);
+		CapturingRepository repository = new CapturingRepository();
+		repository.retrospectiveById = existing;
+		RetrospectiveService service = service(repository);
+		RetrospectiveFeedbackResult result = RetrospectiveFeedbackResult.of(
+			"미완료 사유가 실습 시간 부족에 집중되어 있습니다.",
+			List.of("읽기 과제 정리가 명확합니다."),
+			List.of("실습 과제가 밀렸습니다."),
+			List.of("다음 주 실습량을 낮춥니다."),
+			Map.of("difficulty", "slightly_lower", "taskChanges", List.of("필수 실습 1개 분리"))
+		);
+
+		Retrospective completed = service.applyFeedback(new ApplyRetrospectiveFeedbackCommand(
+			RETROSPECTIVE_ID,
+			LLM_USAGE_ID,
+			result
+		));
+
+		assertThat(completed.status()).isEqualTo(RetrospectiveStatus.COMPLETED);
+		assertThat(completed.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(completed.aiFeedback()).containsEntry("summary", "미완료 사유가 실습 시간 부족에 집중되어 있습니다.");
+		assertThat(completed.nextWeekAdjustment()).containsEntry("difficulty", "slightly_lower");
+		assertThat(repository.updatedRetrospective).isSameAs(completed);
+	}
+
+	@Test
+	void failFeedbackRecordsFailedStatusAndSafeError() {
+		Retrospective existing = existingRetrospective(RetrospectiveStatus.PROCESSING);
+		CapturingRepository repository = new CapturingRepository();
+		repository.retrospectiveById = existing;
+		RetrospectiveService service = service(repository);
+
+		Retrospective failed = service.failFeedback(new FailRetrospectiveFeedbackCommand(
+			RETROSPECTIVE_ID,
+			LLM_USAGE_ID,
+			"PROVIDER_TIMEOUT",
+			"LLM provider timed out"
+		));
+
+		assertThat(failed.status()).isEqualTo(RetrospectiveStatus.FAILED);
+		assertThat(failed.completedAt()).isNull();
+		assertThat(failed.aiFeedback()).containsKey("error");
+		assertThat(repository.updatedRetrospective).isSameAs(failed);
+	}
+
+	@Test
+	void applyFeedbackReturnsNotFoundWhenRetrospectiveDoesNotExist() {
+		CapturingRepository repository = new CapturingRepository();
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.applyFeedback(new ApplyRetrospectiveFeedbackCommand(
+				RETROSPECTIVE_ID,
+				LLM_USAGE_ID,
+				RetrospectiveFeedbackResult.of("요약", List.of(), List.of(), List.of(), Map.of())
+			)))
+			.isInstanceOf(RetrospectiveNotFoundException.class)
+			.hasMessage("retrospective was not found.");
+	}
+
 	private static RetrospectiveService service(CapturingRepository repository, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new RetrospectiveService(
@@ -259,8 +322,10 @@ class RetrospectiveServiceTest {
 		private RetrospectiveMembershipContext membership;
 		private RetrospectiveProgress progress;
 		private Retrospective existingRetrospective;
+		private Retrospective retrospectiveById;
 		private List<RetrospectiveTaskSummary> taskSummaries = List.of();
 		private Retrospective insertedRetrospective;
+		private Retrospective updatedRetrospective;
 
 		@Override
 		public boolean existsCurriculumWeek(UUID weekId) {
@@ -290,6 +355,17 @@ class RetrospectiveServiceTest {
 		@Override
 		public boolean insertRetrospective(Retrospective retrospective) {
 			insertedRetrospective = retrospective;
+			return true;
+		}
+
+		@Override
+		public Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId) {
+			return Optional.ofNullable(retrospectiveById);
+		}
+
+		@Override
+		public boolean updateRetrospectiveResult(Retrospective retrospective) {
+			updatedRetrospective = retrospective;
 			return true;
 		}
 	}

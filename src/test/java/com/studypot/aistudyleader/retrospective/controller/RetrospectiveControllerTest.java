@@ -277,5 +277,16 @@ class RetrospectiveControllerTest {
 			existingRetrospective = retrospective;
 			return true;
 		}
+
+		@Override
+		public Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId) {
+			return Optional.ofNullable(existingRetrospective);
+		}
+
+		@Override
+		public boolean updateRetrospectiveResult(Retrospective retrospective) {
+			existingRetrospective = retrospective;
+			return true;
+		}
 	}
 }

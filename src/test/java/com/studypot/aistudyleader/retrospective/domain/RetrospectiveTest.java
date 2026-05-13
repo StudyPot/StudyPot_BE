@@ -16,6 +16,7 @@ class RetrospectiveTest {
 	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000006002");
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000006003");
 	private static final UUID MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000006004");
+	private static final UUID LLM_USAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000006005");
 	private static final Instant NOW = Instant.parse("2026-05-12T02:30:00Z");
 
 	@Test
@@ -88,6 +89,47 @@ class RetrospectiveTest {
 	}
 
 	@Test
+	void completeWithFeedbackMapsOutputAndTimestamps() {
+		Retrospective retrospective = requestedRetrospective();
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"실습 시간이 부족해 과제 일부가 미완료되었습니다.",
+			java.util.List.of("개념 정리는 완료했습니다."),
+			java.util.List.of("실습 과제 난이도가 높았습니다."),
+			java.util.List.of("다음 주 실습을 두 단계로 나눕니다."),
+			Map.of("difficulty", "slightly_lower", "taskChanges", java.util.List.of("필수 실습 1개 분리"))
+		);
+
+		Retrospective completed = retrospective.completeWithFeedback(LLM_USAGE_ID, feedbackResult, NOW.plusSeconds(120));
+
+		assertThat(completed.status()).isEqualTo(RetrospectiveStatus.COMPLETED);
+		assertThat(completed.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(completed.completedAt()).isEqualTo(NOW.plusSeconds(120));
+		assertThat(completed.updatedAt()).isEqualTo(NOW.plusSeconds(120));
+		assertThat(completed.aiFeedback()).containsEntry("summary", "실습 시간이 부족해 과제 일부가 미완료되었습니다.");
+		assertThat(completed.nextWeekAdjustment()).containsEntry("difficulty", "slightly_lower");
+		assertThat(completed.requestedAt()).isEqualTo(retrospective.requestedAt());
+	}
+
+	@Test
+	void failWithFeedbackErrorRecordsSafeFailureSummary() {
+		Retrospective retrospective = requestedRetrospective();
+
+		Retrospective failed = retrospective.failFeedback(LLM_USAGE_ID, "PROVIDER_TIMEOUT", "LLM provider timed out", NOW.plusSeconds(60));
+
+		assertThat(failed.status()).isEqualTo(RetrospectiveStatus.FAILED);
+		assertThat(failed.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(failed.completedAt()).isNull();
+		assertThat(failed.updatedAt()).isEqualTo(NOW.plusSeconds(60));
+		assertThat(failed.nextWeekAdjustment()).isEmpty();
+		assertThat(failed.aiFeedback()).containsKey("error");
+		@SuppressWarnings("unchecked")
+		Map<String, Object> error = (Map<String, Object>) failed.aiFeedback().get("error");
+		assertThat(error)
+			.containsEntry("code", "PROVIDER_TIMEOUT")
+			.containsEntry("message", "LLM provider timed out");
+	}
+
+	@Test
 	void triggerTypesMatchLockedJiraAndDbContract() {
 		assertThat(Arrays.stream(RetrospectiveTriggerType.values()).map(Enum::name))
 			.containsExactly("WEEK_ENDED", "INCOMPLETE_MODAL", "USER_CHAT", "MANUAL");
@@ -97,5 +139,17 @@ class RetrospectiveTest {
 	void statusesMatchLockedDbAndOpenApiContract() {
 		assertThat(Arrays.stream(RetrospectiveStatus.values()).map(Enum::name))
 			.containsExactly("PENDING", "PROCESSING", "COMPLETED", "FAILED");
+	}
+
+	private static Retrospective requestedRetrospective() {
+		return Retrospective.requested(
+			RETROSPECTIVE_ID,
+			PROGRESS_ID,
+			WEEK_ID,
+			MEMBER_ID,
+			RetrospectiveTriggerType.MANUAL,
+			Map.of("progress", Map.of("status", "COMPLETED")),
+			NOW
+		);
 	}
 }
