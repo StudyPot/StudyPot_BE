@@ -8,6 +8,8 @@ import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerator;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
+import com.studypot.aistudyleader.llm.repository.LlmUsageRepository;
+import com.studypot.aistudyleader.llm.service.LlmUsageService;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
@@ -54,6 +56,8 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("retrospectiveRepository");
 		assertThat(context.getBeanNamesForType(AiConversationRepository.class))
 			.containsExactly("aiConversationRepository");
+		assertThat(context.getBeanNamesForType(LlmUsageRepository.class))
+			.containsExactly("llmUsageRepository");
 	}
 
 	@Test
@@ -70,6 +74,8 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("retrospectiveService");
 		assertThat(context.getBeanNamesForType(AiConversationService.class))
 			.containsExactly("aiConversationService");
+		assertThat(context.getBeanNamesForType(LlmUsageService.class))
+			.containsExactly("llmUsageService");
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

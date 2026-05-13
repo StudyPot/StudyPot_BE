@@ -3,7 +3,7 @@ package com.studypot.aistudyleader.curriculum.repository;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;

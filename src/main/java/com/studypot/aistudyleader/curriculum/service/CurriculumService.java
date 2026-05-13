@@ -5,7 +5,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
-import com.studypot.aistudyleader.curriculum.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;

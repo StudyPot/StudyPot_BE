@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
-import com.studypot.aistudyleader.curriculum.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.service.CurriculumGenerationException;

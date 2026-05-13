@@ -20,6 +20,10 @@ import com.studypot.aistudyleader.curriculum.service.InvalidTaskCompletionReques
 import com.studypot.aistudyleader.curriculum.service.InvalidWeekProgressRequestException;
 import com.studypot.aistudyleader.curriculum.service.TaskCompletionUpdateRejectedException;
 import com.studypot.aistudyleader.curriculum.service.WeekProgressUpdateRejectedException;
+import com.studypot.aistudyleader.llm.repository.LlmUsagePersistenceException;
+import com.studypot.aistudyleader.llm.service.LlmUsageAccessDeniedException;
+import com.studypot.aistudyleader.llm.service.LlmUsageGroupNotFoundException;
+import com.studypot.aistudyleader.llm.service.LlmUsageServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -144,7 +148,9 @@ public class ApiExceptionHandler {
 		RetrospectiveServiceUnavailableException.class,
 		RetrospectivePersistenceException.class,
 		AiConversationServiceUnavailableException.class,
-		AiConversationPersistenceException.class
+		AiConversationPersistenceException.class,
+		LlmUsageServiceUnavailableException.class,
+		LlmUsagePersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -160,7 +166,8 @@ public class ApiExceptionHandler {
 		GroupRuleGroupNotFoundException.class,
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
-		AiConversationNotFoundException.class
+		AiConversationNotFoundException.class,
+		LlmUsageGroupNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -172,7 +179,8 @@ public class ApiExceptionHandler {
 		CurriculumAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
-		AiConversationAccessDeniedException.class
+		AiConversationAccessDeniedException.class,
+		LlmUsageAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)

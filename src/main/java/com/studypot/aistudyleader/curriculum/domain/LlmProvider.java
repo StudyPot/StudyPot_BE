@@ -1,6 +1,0 @@
-package com.studypot.aistudyleader.curriculum.domain;
-
-public enum LlmProvider {
-	OPENAI,
-	ANTHROPIC
-}
