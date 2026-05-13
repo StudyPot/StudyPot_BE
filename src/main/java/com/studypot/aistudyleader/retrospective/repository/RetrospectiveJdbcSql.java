@@ -67,6 +67,60 @@ final class RetrospectiveJdbcSql {
 		order by wt.display_order
 		""";
 
+	static final String SELECT_ONBOARDING_SUMMARY = """
+		select id, keyword_skill_levels, task_preferences, additional_note, status, submitted_at
+		from group_onboarding_response
+		where group_id = ?
+		  and member_id = ?
+		  and deleted_at is null
+		order by updated_at desc, id desc
+		limit 1
+		""";
+
+	static final String SELECT_ACTIVE_RULE_SUMMARIES = """
+		select id, rule_type, config, description, is_active
+		from group_rule
+		where group_id = ?
+		  and is_active = 1
+		  and deleted_at is null
+		order by rule_type, created_at desc, id desc
+		""";
+
+	static final String SELECT_RULE_VIOLATION_SUMMARIES = """
+		select rv.id, rv.rule_id, gr.rule_type, rv.task_completion_id, rv.details,
+		       rv.status, rv.resolved_at, rv.resolved_note, rv.occurred_at
+		from rule_violation rv
+		join group_rule gr on gr.id = rv.rule_id
+		where gr.group_id = ?
+		  and rv.member_id = ?
+		  and gr.deleted_at is null
+		order by rv.occurred_at desc, rv.created_at desc, rv.id desc
+		limit 20
+		""";
+
+	static final String SELECT_PRIOR_RETROSPECTIVES = """
+		select id, curriculum_week_id, status, ai_feedback, next_week_adjustment,
+		       requested_at, completed_at
+		from retrospective
+		where member_id = ?
+		  and id <> ?
+		  and curriculum_week_id <> ?
+		  and status in ('COMPLETED','FAILED')
+		order by requested_at desc, id desc
+		limit ?
+		""";
+
+	static final String SELECT_RETROSPECTIVE_CONVERSATION_SUMMARY = """
+		select id, status, summary, opened_at, closed_at
+		from ai_conversation
+		where retrospective_id = ?
+		  and member_id = ?
+		  and summary is not null
+		  and summary <> ''
+		order by updated_at desc, id desc
+		limit 1
+		""";
+
 	static final String INSERT_RETROSPECTIVE = """
 		insert into retrospective (
 		  id, progress_id, curriculum_week_id, member_id, llm_usage_id, trigger_type,

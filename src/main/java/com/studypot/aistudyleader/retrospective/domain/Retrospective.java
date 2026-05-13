@@ -89,6 +89,26 @@ public record Retrospective(
 		);
 	}
 
+	public Retrospective startProcessing(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new Retrospective(
+			id,
+			progressId,
+			curriculumWeekId,
+			memberId,
+			null,
+			triggerType,
+			inputSummary,
+			Map.of(),
+			Map.of(),
+			RetrospectiveStatus.PROCESSING,
+			requestedAt,
+			null,
+			createdAt,
+			now
+		);
+	}
+
 	public Retrospective failFeedback(UUID llmUsageId, String errorCode, String errorMessage, Instant now) {
 		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		Objects.requireNonNull(now, "now must not be null");

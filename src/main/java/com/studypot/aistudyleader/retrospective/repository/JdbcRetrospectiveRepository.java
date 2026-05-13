@@ -8,6 +8,7 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveStatus;
@@ -20,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -74,6 +76,34 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		Objects.requireNonNull(memberId, "memberId must not be null");
 		return jdbcTemplate.query(RetrospectiveJdbcSql.SELECT_TASK_SUMMARIES, this::mapTaskSummary, uuid(progressId), uuid(memberId), uuid(weekId));
+	}
+
+	@Override
+	public RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(retrospectiveId, "retrospectiveId must not be null");
+		return new RetrospectiveAiContext(
+			queryOne(RetrospectiveJdbcSql.SELECT_ONBOARDING_SUMMARY, this::mapOnboardingSummary, uuid(groupId), uuid(memberId))
+				.orElse(Map.of("status", "NOT_AVAILABLE")),
+			jdbcTemplate.query(RetrospectiveJdbcSql.SELECT_ACTIVE_RULE_SUMMARIES, this::mapRuleSummary, uuid(groupId)),
+			jdbcTemplate.query(RetrospectiveJdbcSql.SELECT_RULE_VIOLATION_SUMMARIES, this::mapRuleViolationSummary, uuid(groupId), uuid(memberId)),
+			jdbcTemplate.query(
+				RetrospectiveJdbcSql.SELECT_PRIOR_RETROSPECTIVES,
+				this::mapPriorRetrospective,
+				uuid(memberId),
+				uuid(retrospectiveId),
+				uuid(weekId),
+				3
+			),
+			queryOne(
+				RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_CONVERSATION_SUMMARY,
+				this::mapConversationSummary,
+				uuid(retrospectiveId),
+				uuid(memberId)
+			).orElse(Map.of("status", "NOT_AVAILABLE"))
+		);
 	}
 
 	@Override
@@ -179,6 +209,67 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		);
 	}
 
+	private Map<String, Object> mapOnboardingSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("id", UuidBinary.fromBytes(resultSet.getBytes("id")).toString());
+		result.put("status", resultSet.getString("status"));
+		result.put("keywordSkillLevels", readNullableMap(resultSet.getString("keyword_skill_levels"), "onboarding keyword skill levels"));
+		result.put("taskPreferences", readNullableMap(resultSet.getString("task_preferences"), "onboarding task preferences"));
+		putText(result, "additionalNote", resultSet.getString("additional_note"));
+		putInstant(result, "submittedAt", instant(resultSet.getTimestamp("submitted_at")));
+		return result;
+	}
+
+	private Map<String, Object> mapRuleSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("id", UuidBinary.fromBytes(resultSet.getBytes("id")).toString());
+		result.put("ruleType", resultSet.getString("rule_type"));
+		result.put("config", readNullableMap(resultSet.getString("config"), "group rule config"));
+		putText(result, "description", resultSet.getString("description"));
+		result.put("active", resultSet.getBoolean("is_active"));
+		return result;
+	}
+
+	private Map<String, Object> mapRuleViolationSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("id", UuidBinary.fromBytes(resultSet.getBytes("id")).toString());
+		result.put("ruleId", UuidBinary.fromBytes(resultSet.getBytes("rule_id")).toString());
+		result.put("ruleType", resultSet.getString("rule_type"));
+		putUuid(result, "taskCompletionId", uuid(resultSet.getBytes("task_completion_id")));
+		result.put("details", readNullableMap(resultSet.getString("details"), "rule violation details"));
+		result.put("status", resultSet.getString("status"));
+		putInstant(result, "resolvedAt", instant(resultSet.getTimestamp("resolved_at")));
+		putText(result, "resolvedNote", resultSet.getString("resolved_note"));
+		putInstant(result, "occurredAt", instant(resultSet.getTimestamp("occurred_at")));
+		return result;
+	}
+
+	private Map<String, Object> mapPriorRetrospective(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("id", UuidBinary.fromBytes(resultSet.getBytes("id")).toString());
+		result.put("weekId", UuidBinary.fromBytes(resultSet.getBytes("curriculum_week_id")).toString());
+		result.put("status", resultSet.getString("status"));
+		result.put("aiFeedback", readNullableMap(resultSet.getString("ai_feedback"), "prior retrospective AI feedback"));
+		result.put(
+			"nextWeekAdjustment",
+			readNullableMap(resultSet.getString("next_week_adjustment"), "prior retrospective next week adjustment")
+		);
+		putInstant(result, "requestedAt", instant(resultSet.getTimestamp("requested_at")));
+		putInstant(result, "completedAt", instant(resultSet.getTimestamp("completed_at")));
+		return result;
+	}
+
+	private Map<String, Object> mapConversationSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "AVAILABLE");
+		result.put("conversationId", UuidBinary.fromBytes(resultSet.getBytes("id")).toString());
+		result.put("conversationStatus", resultSet.getString("status"));
+		result.put("summary", resultSet.getString("summary"));
+		putInstant(result, "openedAt", instant(resultSet.getTimestamp("opened_at")));
+		putInstant(result, "closedAt", instant(resultSet.getTimestamp("closed_at")));
+		return result;
+	}
+
 	private <T> Optional<T> queryOne(String sql, ThrowingRowMapper<T> mapper, Object... args) {
 		List<T> results = jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapper.map(resultSet, rowNumber), args);
 		return results.stream().findFirst();
@@ -221,6 +312,24 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private static Instant instant(Timestamp timestamp) {
 		return timestamp == null ? null : timestamp.toInstant();
+	}
+
+	private static void putText(Map<String, Object> target, String key, String value) {
+		if (value != null && !value.isBlank()) {
+			target.put(key, value.strip());
+		}
+	}
+
+	private static void putInstant(Map<String, Object> target, String key, Instant value) {
+		if (value != null) {
+			target.put(key, value.toString());
+		}
+	}
+
+	private static void putUuid(Map<String, Object> target, String key, UUID value) {
+		if (value != null) {
+			target.put(key, value.toString());
+		}
 	}
 
 	private interface ThrowingRowMapper<T> {

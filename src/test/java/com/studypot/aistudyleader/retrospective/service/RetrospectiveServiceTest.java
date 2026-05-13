@@ -6,7 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
+import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
+import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveFeedbackResult;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
@@ -17,10 +25,12 @@ import com.studypot.aistudyleader.retrospective.repository.RetrospectiveReposito
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,6 +94,126 @@ class RetrospectiveServiceTest {
 			.containsEntry("SKIPPED", 0);
 		assertThat(result.aiFeedback()).isEmpty();
 		assertThat(result.nextWeekAdjustment()).isEmpty();
+	}
+
+	@Test
+	void requestGeneratesAiFeedbackFromDbFirstContextAndRecordsSuccessfulUsage() {
+		CapturingRepository repository = readyRepository();
+		repository.aiContext = aiContext();
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"미완료 사유가 실습 시간 부족에 집중되어 있습니다.",
+			List.of("읽기 과제 정리가 명확합니다."),
+			List.of("실습 과제가 밀렸습니다."),
+			List.of("다음 주 실습량을 낮춥니다."),
+			Map.of("difficulty", "slightly_lower", "taskChanges", List.of("필수 실습 1개 분리"))
+		);
+		CapturingFeedbackGenerator generator = new CapturingFeedbackGenerator(new RetrospectiveFeedbackGeneration(
+			feedbackResult,
+			successfulResponse()
+		));
+		RetrospectiveService service = service(repository, generator, usageRecorder, RETROSPECTIVE_ID, LLM_USAGE_ID);
+
+		Retrospective result = service.requestMyRetrospective(new RequestRetrospectiveCommand(
+			USER_ID,
+			WEEK_ID,
+			RetrospectiveTriggerType.MANUAL
+		));
+
+		assertThat(result.status()).isEqualTo(RetrospectiveStatus.COMPLETED);
+		assertThat(result.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(result.aiFeedback()).containsEntry("summary", "미완료 사유가 실습 시간 부족에 집중되어 있습니다.");
+		assertThat(result.nextWeekAdjustment()).containsEntry("difficulty", "slightly_lower");
+		assertThat(repository.updatedStatuses()).containsExactly(RetrospectiveStatus.PROCESSING, RetrospectiveStatus.COMPLETED);
+		assertThat(generator.inputSummary)
+			.containsKey("progress")
+			.containsKey("tasks")
+			.containsKey("onboarding")
+			.containsKey("rules")
+			.containsKey("ruleViolations")
+			.containsKey("priorRetrospectives")
+			.containsKey("conversationSummary");
+		assertThat(usageRecorder.usage.id()).isEqualTo(LLM_USAGE_ID);
+		assertThat(usageRecorder.usage.userId()).isEqualTo(USER_ID);
+		assertThat(usageRecorder.usage.groupId()).isEqualTo(GROUP_ID);
+		assertThat(usageRecorder.usage.purpose()).isEqualTo(LlmUsagePurpose.RETROSPECTIVE_FEEDBACK);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.SUCCESS);
+		assertThat(usageRecorder.usage.requestPayload())
+			.containsEntry("purpose", "RETROSPECTIVE_FEEDBACK")
+			.containsEntry("retrospectiveId", RETROSPECTIVE_ID.toString())
+			.containsEntry("taskCount", 2)
+			.containsEntry("ruleViolationCount", 1);
+	}
+
+	@Test
+	void requestMarksFailedAndRecordsFailedUsageWhenProviderFails() {
+		CapturingRepository repository = readyRepository();
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.RETROSPECTIVE_FEEDBACK,
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			12,
+			0,
+			BigDecimal.ZERO,
+			500,
+			LlmUsageStatus.FAILED,
+			"OPENAI_REQUEST_FAILED",
+			Map.of("purpose", "RETROSPECTIVE_FEEDBACK"),
+			"OpenAI request failed."
+		);
+		RetrospectiveService service = service(
+			repository,
+			new FailingFeedbackGenerator(failure),
+			usageRecorder,
+			RETROSPECTIVE_ID,
+			LLM_USAGE_ID
+		);
+
+		Retrospective result = service.requestMyRetrospective(new RequestRetrospectiveCommand(
+			USER_ID,
+			WEEK_ID,
+			RetrospectiveTriggerType.MANUAL
+		));
+
+		assertThat(result.status()).isEqualTo(RetrospectiveStatus.FAILED);
+		assertThat(result.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(result.nextWeekAdjustment()).isEmpty();
+		assertThat(result.aiFeedback()).containsKey("error");
+		assertThat(repository.updatedStatuses()).containsExactly(RetrospectiveStatus.PROCESSING, RetrospectiveStatus.FAILED);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(usageRecorder.usage.errorCode()).isEqualTo("OPENAI_REQUEST_FAILED");
+	}
+
+	@Test
+	void requestRetriesFailedRetrospectiveWithoutCreatingDuplicate() {
+		Retrospective failedExisting = existingRetrospective(RetrospectiveStatus.FAILED);
+		CapturingRepository repository = readyRepository();
+		repository.existingRetrospective = failedExisting;
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"재시도 후 피드백이 생성되었습니다.",
+			List.of(),
+			List.of(),
+			List.of(),
+			Map.of()
+		);
+		RetrospectiveService service = service(
+			repository,
+			new CapturingFeedbackGenerator(new RetrospectiveFeedbackGeneration(feedbackResult, successfulResponse())),
+			usageRecorder,
+			LLM_USAGE_ID
+		);
+
+		Retrospective result = service.requestMyRetrospective(new RequestRetrospectiveCommand(
+			USER_ID,
+			WEEK_ID,
+			RetrospectiveTriggerType.MANUAL
+		));
+
+		assertThat(result.status()).isEqualTo(RetrospectiveStatus.COMPLETED);
+		assertThat(repository.insertedRetrospective).isNull();
+		assertThat(repository.updatedStatuses()).containsExactly(RetrospectiveStatus.PROCESSING, RetrospectiveStatus.COMPLETED);
 	}
 
 	@Test
@@ -267,6 +397,40 @@ class RetrospectiveServiceTest {
 		);
 	}
 
+	private static RetrospectiveService service(
+		CapturingRepository repository,
+		RetrospectiveFeedbackGenerator generator,
+		CapturingUsageRecorder usageRecorder,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new RetrospectiveService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			generator,
+			usageRecorder
+		);
+	}
+
+	private static CapturingRepository readyRepository() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.membership = activeMember();
+		repository.progress = completedProgress();
+		repository.taskSummaries = List.of(
+			taskSummary(READING_TASK_ID, WeeklyTaskType.READING, TaskCompletionStatus.DONE, "정리 완료", null),
+			taskSummary(PRACTICE_TASK_ID, WeeklyTaskType.PRACTICE, TaskCompletionStatus.INCOMPLETE, null, "실습 시간 부족")
+		);
+		return repository;
+	}
+
 	private static RetrospectiveMembershipContext activeMember() {
 		return new RetrospectiveMembershipContext(
 			GROUP_ID,
@@ -333,6 +497,60 @@ class RetrospectiveServiceTest {
 		);
 	}
 
+	private static RetrospectiveAiContext aiContext() {
+		return new RetrospectiveAiContext(
+			Map.of(
+				"keywordSkillLevels", Map.of("JPA", 2),
+				"taskPreferences", Map.of("PRACTICE", 5),
+				"additionalNote", "실습 과제가 더 필요합니다."
+			),
+			List.of(Map.of(
+				"id", "rule-1",
+				"ruleType", "TASK_DEADLINE",
+				"description", "마감 전 미완료 사유 제출"
+			)),
+			List.of(Map.of(
+				"id", "violation-1",
+				"ruleType", "TASK_DEADLINE",
+				"status", "OPEN"
+			)),
+			List.of(Map.of(
+				"id", "prior-1",
+				"status", "COMPLETED",
+				"aiFeedback", Map.of("summary", "지난주 실습량이 많았습니다.")
+			)),
+			Map.of(
+				"status", "AVAILABLE",
+				"summary", "사용자는 실습 시간을 줄여달라고 요청했습니다."
+			)
+		);
+	}
+
+	private static LlmStructuredResponse successfulResponse() {
+		return new LlmStructuredResponse(
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			"""
+				{"summary":"미완료 사유가 실습 시간 부족에 집중되어 있습니다.","strengths":["읽기 과제 정리가 명확합니다."],"risks":["실습 과제가 밀렸습니다."],"actionItems":["다음 주 실습량을 낮춥니다."],"nextWeekAdjustment":{"difficulty":"slightly_lower","taskChanges":["필수 실습 1개 분리"]}}
+				""",
+			101,
+			55,
+			BigDecimal.ZERO,
+			130,
+			LlmUsageStatus.SUCCESS,
+			null,
+			Map.of(
+				"purpose", "RETROSPECTIVE_FEEDBACK",
+				"retrospectiveId", RETROSPECTIVE_ID.toString(),
+				"weekId", WEEK_ID.toString(),
+				"memberId", MEMBER_ID.toString(),
+				"taskCount", 2,
+				"ruleViolationCount", 1
+			),
+			"raw provider response"
+		);
+	}
+
 	private static final class CapturingRepository implements RetrospectiveRepository {
 
 		private boolean weekExists;
@@ -341,8 +559,10 @@ class RetrospectiveServiceTest {
 		private Retrospective existingRetrospective;
 		private Retrospective retrospectiveById;
 		private List<RetrospectiveTaskSummary> taskSummaries = List.of();
+		private RetrospectiveAiContext aiContext = RetrospectiveAiContext.empty();
 		private Retrospective insertedRetrospective;
 		private Retrospective updatedRetrospective;
+		private final List<Retrospective> updatedRetrospectives = new ArrayList<>();
 
 		@Override
 		public boolean existsCurriculumWeek(UUID weekId) {
@@ -370,6 +590,11 @@ class RetrospectiveServiceTest {
 		}
 
 		@Override
+		public RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId) {
+			return aiContext;
+		}
+
+		@Override
 		public boolean insertRetrospective(Retrospective retrospective) {
 			insertedRetrospective = retrospective;
 			return true;
@@ -383,7 +608,54 @@ class RetrospectiveServiceTest {
 		@Override
 		public boolean updateRetrospectiveResult(Retrospective retrospective) {
 			updatedRetrospective = retrospective;
+			updatedRetrospectives.add(retrospective);
 			return true;
+		}
+
+		private List<RetrospectiveStatus> updatedStatuses() {
+			return updatedRetrospectives.stream()
+				.map(Retrospective::status)
+				.toList();
+		}
+	}
+
+	private static final class CapturingFeedbackGenerator implements RetrospectiveFeedbackGenerator {
+
+		private final RetrospectiveFeedbackGeneration generation;
+		private Map<String, Object> inputSummary;
+
+		private CapturingFeedbackGenerator(RetrospectiveFeedbackGeneration generation) {
+			this.generation = generation;
+		}
+
+		@Override
+		public RetrospectiveFeedbackGeneration generate(Retrospective retrospective) {
+			inputSummary = retrospective.inputSummary();
+			return generation;
+		}
+	}
+
+	private static final class FailingFeedbackGenerator implements RetrospectiveFeedbackGenerator {
+
+		private final LlmCallFailure failure;
+
+		private FailingFeedbackGenerator(LlmCallFailure failure) {
+			this.failure = failure;
+		}
+
+		@Override
+		public RetrospectiveFeedbackGeneration generate(Retrospective retrospective) {
+			throw new RetrospectiveFeedbackGenerationException("retrospective feedback generation failed.", failure);
+		}
+	}
+
+	private static final class CapturingUsageRecorder implements LlmUsageRecorder {
+
+		private LlmUsage usage;
+
+		@Override
+		public void record(LlmUsage usage) {
+			this.usage = usage;
 		}
 	}
 }

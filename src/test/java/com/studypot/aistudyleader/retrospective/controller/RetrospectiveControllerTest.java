@@ -13,6 +13,7 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveStatus;
@@ -270,6 +271,11 @@ class RetrospectiveControllerTest {
 		@Override
 		public List<RetrospectiveTaskSummary> findTaskSummaries(UUID progressId, UUID weekId, UUID memberId) {
 			return taskSummaries;
+		}
+
+		@Override
+		public RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId) {
+			return RetrospectiveAiContext.empty();
 		}
 
 		@Override
