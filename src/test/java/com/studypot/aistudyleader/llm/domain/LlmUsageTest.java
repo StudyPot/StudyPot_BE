@@ -73,6 +73,9 @@ class LlmUsageTest {
 		assertThatThrownBy(() -> usage(-1, 0, BigDecimal.ZERO, 10))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("token counts must not be negative.");
+		assertThatThrownBy(() -> usage(0, -1, BigDecimal.ZERO, 10))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("token counts must not be negative.");
 		assertThatThrownBy(() -> usage(0, 0, new BigDecimal("-0.01"), 10))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("totalCostUsd must not be negative.");

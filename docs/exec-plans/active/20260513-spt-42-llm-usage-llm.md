@@ -9,7 +9,7 @@
 - Jira issue: `SPT-42`
 - Jira URL: https://studypot.atlassian.net/browse/SPT-42
 - Jira summary: [llm-usage] LLM 호출/비용 추적 구현
-- Status: `implemented`
+- Status: `review-fixes`
 
 ## Required Reads
 - [x] AGENTS.md
@@ -63,13 +63,21 @@
 4. [x] failing test를 확인한 뒤 공용 `llm` domain/repository/service/controller/configuration을 구현한다.
 5. [x] 기존 curriculum import와 테스트를 새 공용 도메인으로 정리한다.
 6. [x] targeted test와 `./gradlew check build --no-daemon`을 통과시킨다.
-7. [ ] PR 생성, CodeRabbit review, review gate, Mattermost manual merge 알림까지 진행한다.
+7. [ ] PR 생성 완료, CodeRabbit feedback 수정, review gate, Mattermost manual merge 알림까지 진행한다.
 
 ## Verification
 - RED: `./gradlew test --tests 'com.studypot.aistudyleader.llm.*' --no-daemon` failed at `compileTestJava` with missing `llm` domain/repository/service/controller classes before implementation.
 - GREEN: `./gradlew test --tests 'com.studypot.aistudyleader.llm.*' --no-daemon` passed after implementation and payload null-handling hardening.
 - Regression: `./gradlew test --tests 'com.studypot.aistudyleader.ApplicationFeatureWiringTest' --tests 'com.studypot.aistudyleader.llm.controller.LlmUsageControllerTest' --no-daemon` passed after aligning persistence configuration with existing datasource-gated repository configuration.
 - Full: `./gradlew check build --no-daemon` passed on 2026-05-13.
+
+## Review Notes
+- CodeRabbit status/step-plan mismatch: valid. Status updated to `review-fixes` while PR review gate remains in progress.
+- CodeRabbit negative output token test gap: valid. Added explicit output token validation assertion.
+- CodeRabbit repository sort contract: valid. Documented fixed newest-first ordering in `LlmUsageRepository`; SQL already orders by `created_at desc, id desc`.
+- CodeRabbit `@Service` suggestion: not applied. This codebase wires services through `*ApplicationConfiguration` beans rather than service component scanning, and `LlmUsageApplicationConfiguration` already registers `LlmUsageService`.
+- CodeRabbit migration concern: not applied. Existing curriculum path already wrote `CURRICULUM_GENERATE` as a string, so `usage.purpose().name()` preserves the stored value without a data migration.
+- CodeRabbit non-JWT authentication fallback: not applied in this slice. The fallback matches existing controller pattern and supports current Spring Security MVC tests that pass the UUID through `authentication.getName()`.
 
 ## Done Criteria
 - SPT-42/Jira 목적값과 locked AI contract 목적값이 `LlmUsagePurpose`로 표현된다.

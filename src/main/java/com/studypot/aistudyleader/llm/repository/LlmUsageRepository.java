@@ -14,7 +14,13 @@ public interface LlmUsageRepository {
 
 	boolean insertLlmUsage(LlmUsage usage);
 
+	/**
+	 * Returns the newest usage records first, ordered by created timestamp descending and UUID descending.
+	 */
 	List<LlmUsage> findGroupUsage(UUID groupId, int limit);
 
+	/**
+	 * Returns the newest usage records first, ordered by created timestamp descending and UUID descending.
+	 */
 	List<LlmUsage> findUserUsage(UUID userId, int limit);
 }
