@@ -55,6 +55,28 @@ public class RetrospectiveService {
 			.orElseThrow(() -> new RetrospectiveNotFoundException("retrospective was not found."));
 	}
 
+	@Transactional
+	Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		Retrospective retrospective = requireRetrospective(command.retrospectiveId());
+		Retrospective completed = retrospective.completeWithFeedback(command.llmUsageId(), command.feedbackResult(), clock.instant());
+		if (!repository.updateRetrospectiveResult(completed)) {
+			throw new RetrospectiveMutationRejectedException("retrospective feedback could not be updated.");
+		}
+		return completed;
+	}
+
+	@Transactional
+	Retrospective failFeedback(FailRetrospectiveFeedbackCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		Retrospective retrospective = requireRetrospective(command.retrospectiveId());
+		Retrospective failed = retrospective.failFeedback(command.llmUsageId(), command.errorCode(), command.errorMessage(), clock.instant());
+		if (!repository.updateRetrospectiveResult(failed)) {
+			throw new RetrospectiveMutationRejectedException("retrospective feedback failure could not be updated.");
+		}
+		return failed;
+	}
+
 	private Retrospective createRetrospective(
 		RequestRetrospectiveCommand command,
 		RetrospectiveMembershipContext context,
@@ -90,6 +112,11 @@ public class RetrospectiveService {
 	private RetrospectiveProgress requireProgress(UUID weekId, UUID memberId) {
 		return repository.findProgress(weekId, memberId)
 			.orElseThrow(() -> new RetrospectiveNotFoundException("member week progress was not found."));
+	}
+
+	private Retrospective requireRetrospective(UUID retrospectiveId) {
+		return repository.findRetrospectiveById(retrospectiveId)
+			.orElseThrow(() -> new RetrospectiveNotFoundException("retrospective was not found."));
 	}
 
 	private static Map<String, Object> inputSummary(

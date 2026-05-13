@@ -46,6 +46,14 @@ final class RetrospectiveJdbcSql {
 		limit 1
 		""";
 
+	static final String SELECT_RETROSPECTIVE_BY_ID = """
+		select id, progress_id, curriculum_week_id, member_id, llm_usage_id, trigger_type,
+		       input_summary, ai_feedback, next_week_adjustment, status, requested_at,
+		       completed_at, created_at, updated_at
+		from retrospective
+		where id = ?
+		""";
+
 	static final String SELECT_TASK_SUMMARIES = """
 		select wt.id as task_id, wt.display_order, wt.task_type, wt.title, wt.required,
 		       wt.due_at, coalesce(tc.status, 'TODO') as completion_status, tc.completed_at,
@@ -65,6 +73,17 @@ final class RetrospectiveJdbcSql {
 		  input_summary, ai_feedback, next_week_adjustment, status, requested_at,
 		  completed_at, created_at, updated_at
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String UPDATE_RETROSPECTIVE_RESULT = """
+		update retrospective
+		set llm_usage_id = ?,
+		    ai_feedback = ?,
+		    next_week_adjustment = ?,
+		    status = ?,
+		    completed_at = ?,
+		    updated_at = ?
+		where id = ?
 		""";
 
 	private RetrospectiveJdbcSql() {

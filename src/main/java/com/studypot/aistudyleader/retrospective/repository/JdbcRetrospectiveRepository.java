@@ -98,6 +98,27 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		) == 1;
 	}
 
+	@Override
+	public Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId) {
+		Objects.requireNonNull(retrospectiveId, "retrospectiveId must not be null");
+		return queryOne(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID, this::mapRetrospective, uuid(retrospectiveId));
+	}
+
+	@Override
+	public boolean updateRetrospectiveResult(Retrospective retrospective) {
+		Objects.requireNonNull(retrospective, "retrospective must not be null");
+		return jdbcTemplate.update(
+			RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_RESULT,
+			uuidOrNull(retrospective.llmUsageId()),
+			json(retrospective.aiFeedback(), "retrospective AI feedback"),
+			json(retrospective.nextWeekAdjustment(), "retrospective next week adjustment"),
+			retrospective.status().name(),
+			timestamp(retrospective.completedAt()),
+			timestamp(retrospective.updatedAt()),
+			uuid(retrospective.id())
+		) == 1;
+	}
+
 	private RetrospectiveMembershipContext mapMembership(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new RetrospectiveMembershipContext(
 			UuidBinary.fromBytes(resultSet.getBytes("group_id")),

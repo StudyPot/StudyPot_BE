@@ -21,4 +21,8 @@ public interface RetrospectiveRepository {
 	List<RetrospectiveTaskSummary> findTaskSummaries(UUID progressId, UUID weekId, UUID memberId);
 
 	boolean insertRetrospective(Retrospective retrospective);
+
+	Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId);
+
+	boolean updateRetrospectiveResult(Retrospective retrospective);
 }

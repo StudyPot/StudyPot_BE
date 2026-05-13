@@ -34,6 +34,7 @@ class JdbcRetrospectiveRepositoryTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000006304");
 	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000006305");
 	private static final UUID RETROSPECTIVE_ID = UUID.fromString("018f0000-0000-7000-8000-000000006306");
+	private static final UUID LLM_USAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000006307");
 	private static final Instant NOW = Instant.parse("2026-05-12T03:15:00Z");
 
 	private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
@@ -64,6 +65,14 @@ class JdbcRetrospectiveRepositoryTest {
 			.contains("coalesce(tc.status, 'TODO')")
 			.contains("wt.curriculum_week_id = ?")
 			.contains("order by wt.display_order");
+		assertThat(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID)
+			.contains("from retrospective")
+			.contains("where id = ?");
+		assertThat(RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_RESULT)
+			.contains("update retrospective")
+			.contains("ai_feedback = ?")
+			.contains("next_week_adjustment = ?")
+			.contains("status = ?");
 	}
 
 	@Test
@@ -120,5 +129,56 @@ class JdbcRetrospectiveRepositoryTest {
 		assertThat(args.getValue()[9]).isEqualTo("PENDING");
 		assertThat(args.getValue()[10]).isEqualTo(Timestamp.from(NOW));
 		assertThat(args.getValue()[11]).isNull();
+	}
+
+	@Test
+	void findRetrospectiveByIdQueriesPrimaryKey() {
+		Retrospective retrospective = completedRetrospective();
+		when(jdbcTemplate.query(eq(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(retrospective));
+
+		Optional<Retrospective> result = repository.findRetrospectiveById(RETROSPECTIVE_ID);
+
+		assertThat(result).contains(retrospective);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(RETROSPECTIVE_ID));
+	}
+
+	@Test
+	void updateRetrospectiveResultPersistsFeedbackAdjustmentAndStatus() {
+		Retrospective retrospective = completedRetrospective();
+		when(jdbcTemplate.update(eq(RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_RESULT), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.updateRetrospectiveResult(retrospective)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_RESULT), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(LLM_USAGE_ID));
+		assertThat(args.getValue()[1].toString()).contains("\"summary\"");
+		assertThat(args.getValue()[2].toString()).contains("\"difficulty\"");
+		assertThat(args.getValue()[3]).isEqualTo("COMPLETED");
+		assertThat(args.getValue()[4]).isEqualTo(Timestamp.from(NOW));
+		assertThat(args.getValue()[5]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[6]).containsExactly(UuidBinary.toBytes(RETROSPECTIVE_ID));
+	}
+
+	private static Retrospective completedRetrospective() {
+		return new Retrospective(
+			RETROSPECTIVE_ID,
+			PROGRESS_ID,
+			WEEK_ID,
+			MEMBER_ID,
+			LLM_USAGE_ID,
+			RetrospectiveTriggerType.MANUAL,
+			Map.of("progress", Map.of("status", "COMPLETED")),
+			Map.of("summary", "이번 주 학습 흐름이 좋습니다."),
+			Map.of("difficulty", "slightly_lower"),
+			RetrospectiveStatus.COMPLETED,
+			NOW.minusSeconds(120),
+			NOW,
+			NOW.minusSeconds(120),
+			NOW
+		);
 	}
 }
