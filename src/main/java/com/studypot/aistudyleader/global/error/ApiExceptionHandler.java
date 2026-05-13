@@ -25,6 +25,12 @@ import com.studypot.aistudyleader.llm.repository.LlmUsagePersistenceException;
 import com.studypot.aistudyleader.llm.service.LlmUsageAccessDeniedException;
 import com.studypot.aistudyleader.llm.service.LlmUsageGroupNotFoundException;
 import com.studypot.aistudyleader.llm.service.LlmUsageServiceUnavailableException;
+import com.studypot.aistudyleader.notification.repository.NotificationPersistenceException;
+import com.studypot.aistudyleader.notification.service.NotificationAccessDeniedException;
+import com.studypot.aistudyleader.notification.service.NotificationGroupNotFoundException;
+import com.studypot.aistudyleader.notification.service.NotificationMutationRejectedException;
+import com.studypot.aistudyleader.notification.service.NotificationNotFoundException;
+import com.studypot.aistudyleader.notification.service.NotificationServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
@@ -152,7 +158,9 @@ public class ApiExceptionHandler {
 		AiConversationResponseGenerationException.class,
 		AiConversationPersistenceException.class,
 		LlmUsageServiceUnavailableException.class,
-		LlmUsagePersistenceException.class
+		LlmUsagePersistenceException.class,
+		NotificationServiceUnavailableException.class,
+		NotificationPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -169,7 +177,9 @@ public class ApiExceptionHandler {
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
 		AiConversationNotFoundException.class,
-		LlmUsageGroupNotFoundException.class
+		LlmUsageGroupNotFoundException.class,
+		NotificationGroupNotFoundException.class,
+		NotificationNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -182,7 +192,8 @@ public class ApiExceptionHandler {
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
 		AiConversationAccessDeniedException.class,
-		LlmUsageAccessDeniedException.class
+		LlmUsageAccessDeniedException.class,
+		NotificationAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -196,7 +207,8 @@ public class ApiExceptionHandler {
 		WeekProgressUpdateRejectedException.class,
 		GroupRuleMutationRejectedException.class,
 		RetrospectiveMutationRejectedException.class,
-		AiConversationMutationRejectedException.class
+		AiConversationMutationRejectedException.class,
+		NotificationMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
