@@ -38,6 +38,26 @@ public record AiConversationMessage(
 		);
 	}
 
+	public static AiConversationMessage assistantMessage(
+		UUID id,
+		UUID conversationId,
+		UUID llmUsageId,
+		String content,
+		Map<String, Object> metadata,
+		Instant createdAt
+	) {
+		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
+		return new AiConversationMessage(
+			id,
+			conversationId,
+			llmUsageId,
+			AiConversationMessageSenderType.ASSISTANT,
+			content,
+			metadata,
+			createdAt
+		);
+	}
+
 	private static String requiredContent(String value) {
 		String normalized = value == null ? "" : value.strip();
 		if (normalized.isBlank()) {

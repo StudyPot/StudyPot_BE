@@ -79,6 +79,10 @@ class JdbcAiConversationRepositoryTest {
 			.contains("where id = ?");
 		assertThat(AiConversationJdbcSql.SELECT_MESSAGE_CONTEXT)
 			.contains("from ai_conversation ac")
+			.contains("ac.curriculum_week_id")
+			.contains("ac.retrospective_id")
+			.contains("ac.conversation_type")
+			.contains("coalesce(ac.summary, '') as summary")
 			.contains("join study_group sg on sg.id = ac.group_id")
 			.contains("join group_member gm on gm.id = ac.member_id")
 			.contains("gm.group_id = ac.group_id")
@@ -91,6 +95,19 @@ class JdbcAiConversationRepositoryTest {
 			.contains("m.conversation_id = ?")
 			.contains("order by m.created_at asc, m.id asc")
 			.contains("limit ?");
+		assertThat(AiConversationJdbcSql.SELECT_RECENT_MESSAGES_FOR_PROMPT)
+			.contains("from ai_conversation_message m")
+			.contains("order by m.created_at desc, m.id desc")
+			.contains("limit ?");
+		assertThat(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT)
+			.contains("left join task_completion tc on tc.weekly_task_id = wt.id")
+			.contains("tc.member_id = ?")
+			.doesNotContain("completion_note")
+			.doesNotContain("incomplete_reason");
+		assertThat(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT)
+			.contains("ai_feedback")
+			.contains("next_week_adjustment")
+			.doesNotContain("input_summary");
 	}
 
 	@Test
@@ -254,6 +271,19 @@ class JdbcAiConversationRepositoryTest {
 		assertThat(args.getValue()[3]).isEqualTo(Timestamp.from(cursor.createdAt()));
 		assertThat((byte[]) args.getValue()[4]).containsExactly(UuidBinary.toBytes(cursor.id()));
 		assertThat(args.getValue()[5]).isEqualTo(21);
+	}
+
+	@Test
+	void updateConversationSummaryUpdatesSummaryAndTimestamp() {
+		when(jdbcTemplate.update(eq(AiConversationJdbcSql.UPDATE_CONVERSATION_SUMMARY), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.updateConversationSummary(CONVERSATION_ID, "  새 요약  ", NOW)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(AiConversationJdbcSql.UPDATE_CONVERSATION_SUMMARY), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo("새 요약");
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(CONVERSATION_ID));
 	}
 
 	private static AiConversation teamLeadConversation(UUID weekId, UUID retrospectiveId) {

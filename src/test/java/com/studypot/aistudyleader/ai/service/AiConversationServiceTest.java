@@ -9,19 +9,30 @@ import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageCursor;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
+import com.studypot.aistudyleader.ai.domain.AiConversationPromptContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
+import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
+import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
@@ -229,6 +240,104 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void sendMessageGeneratesAssistantResponseAndRecordsSuccessfulUsageWhenProviderIsConfigured() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageContext = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			WEEK_ID,
+			null,
+			AiConversationType.TEAM_LEAD_CHAT,
+			"이전 요약",
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		repository.promptContext = new AiConversationPromptContext(
+			Map.of("conversationType", "TEAM_LEAD_CHAT"),
+			List.of(Map.of("senderType", "USER", "content", "이전 메시지")),
+			Map.of("weekId", WEEK_ID.toString(), "title", "2주차"),
+			List.of(Map.of("title", "필수 과제", "completionStatus", "TODO")),
+			Map.of("status", "IN_PROGRESS"),
+			Map.of("status", "NOT_AVAILABLE")
+		);
+		FakeAssistantGenerator generator = new FakeAssistantGenerator(new AiConversationAssistantResponse(
+			"이번 주 필수 과제 하나를 줄이는 방향으로 조정해볼게요.",
+			"과제 양 조정 요청을 확인했고 다음 주 난이도 조절 후보를 제안했습니다.",
+			Map.of("nextWeekAdjustmentCandidate", Map.of("difficulty", "LOWER")),
+			successResponse()
+		));
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		AiConversationService service = serviceWithAi(repository, generator, usageRecorder, MESSAGE_ID, LLM_USAGE_ID, ASSISTANT_MESSAGE_ID);
+
+		AiConversationMessage result = service.sendMessage(new SendAiConversationMessageCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			"필수 과제가 너무 많아요."
+		));
+
+		assertThat(result.id()).isEqualTo(ASSISTANT_MESSAGE_ID);
+		assertThat(result.senderType()).isEqualTo(AiConversationMessageSenderType.ASSISTANT);
+		assertThat(result.llmUsageId()).isEqualTo(LLM_USAGE_ID);
+		assertThat(result.content()).isEqualTo("이번 주 필수 과제 하나를 줄이는 방향으로 조정해볼게요.");
+		assertThat(result.metadata()).containsEntry("retrievalContextVersion", "db-first-v1");
+		assertThat(repository.insertedMessages)
+			.extracting(AiConversationMessage::senderType)
+			.containsExactly(AiConversationMessageSenderType.USER, AiConversationMessageSenderType.ASSISTANT);
+		assertThat(generator.request.userMessage().content()).isEqualTo("필수 과제가 너무 많아요.");
+		assertThat(generator.request.promptContext()).isSameAs(repository.promptContext);
+		assertThat(usageRecorder.recorded).hasSize(1);
+		assertThat(usageRecorder.recorded.getFirst().id()).isEqualTo(LLM_USAGE_ID);
+		assertThat(usageRecorder.recorded.getFirst().purpose()).isEqualTo(LlmUsagePurpose.TEAM_LEAD_CHAT);
+		assertThat(usageRecorder.recorded.getFirst().status()).isEqualTo(LlmUsageStatus.SUCCESS);
+		assertThat(repository.updatedSummary).isEqualTo("""
+			이전 요약
+			과제 양 조정 요청을 확인했고 다음 주 난이도 조절 후보를 제안했습니다.""");
+	}
+
+	@Test
+	void sendMessageKeepsUserMessageAndFailedUsageWithoutAssistantWhenProviderFails() {
+		CapturingRepository repository = new CapturingRepository();
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			LlmProvider.OPENAI,
+			"gpt-test",
+			42,
+			0,
+			BigDecimal.ZERO,
+			1_000,
+			LlmUsageStatus.TIMEOUT,
+			"AI_CHAT_TIMEOUT",
+			Map.of("purpose", "TEAM_LEAD_CHAT", "conversationId", CONVERSATION_ID.toString()),
+			"AI chat response timed out."
+		);
+		FakeAssistantGenerator generator = new FakeAssistantGenerator(new AiConversationResponseGenerationException(
+			"AI conversation response generation failed.",
+			failure
+		));
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		AiConversationService service = serviceWithAi(repository, generator, usageRecorder, MESSAGE_ID, LLM_USAGE_ID, ASSISTANT_MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.sendMessage(new SendAiConversationMessageCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				"응답 실패도 저장되어야 합니다."
+			)))
+			.isInstanceOf(AiConversationResponseGenerationException.class)
+			.hasMessage("AI conversation response generation failed.");
+
+		assertThat(repository.insertedMessages)
+			.extracting(AiConversationMessage::senderType)
+			.containsExactly(AiConversationMessageSenderType.USER);
+		assertThat(usageRecorder.recorded).hasSize(1);
+		assertThat(usageRecorder.recorded.getFirst().id()).isEqualTo(LLM_USAGE_ID);
+		assertThat(usageRecorder.recorded.getFirst().status()).isEqualTo(LlmUsageStatus.TIMEOUT);
+		assertThat(usageRecorder.recorded.getFirst().errorCode()).isEqualTo("AI_CHAT_TIMEOUT");
+		assertThat(repository.updatedSummary).isNull();
+	}
+
+	@Test
 	void sendUserMessageRejectsConversationOwnedByDifferentUser() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.messageContext = null;
@@ -371,6 +480,45 @@ class AiConversationServiceTest {
 		);
 	}
 
+	private static AiConversationService serviceWithAi(
+		CapturingRepository repository,
+		AiConversationAssistantResponseGenerator generator,
+		LlmUsageRecorder usageRecorder,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			generator,
+			usageRecorder
+		);
+	}
+
+	private static LlmStructuredResponse successResponse() {
+		return new LlmStructuredResponse(
+			LlmProvider.OPENAI,
+			"gpt-test",
+			"""
+				{"message":"이번 주 필수 과제 하나를 줄이는 방향으로 조정해볼게요.","conversationSummary":"과제 양 조정 요청을 확인했고 다음 주 난이도 조절 후보를 제안했습니다.","nextWeekAdjustmentCandidate":{"difficulty":"LOWER"}}""",
+			120,
+			64,
+			BigDecimal.valueOf(0.001),
+			900,
+			LlmUsageStatus.SUCCESS,
+			null,
+			Map.of("purpose", "TEAM_LEAD_CHAT", "conversationId", CONVERSATION_ID.toString()),
+			"Generated AI conversation response."
+		);
+	}
+
 	private static final class CapturingRepository implements AiConversationRepository {
 
 		private boolean groupExists = true;
@@ -393,9 +541,12 @@ class AiConversationServiceTest {
 			StudyGroupStatus.ACTIVE,
 			GroupMemberStatus.ACTIVE
 		);
+		private AiConversationPromptContext promptContext = AiConversationPromptContext.empty();
 		private List<AiConversationMessage> messages = List.of();
 		private AiConversationMessage insertedMessage;
+		private final List<AiConversationMessage> insertedMessages = new ArrayList<>();
 		private int lastMessageLimit;
+		private String updatedSummary;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -436,6 +587,7 @@ class AiConversationServiceTest {
 		@Override
 		public boolean insertMessage(AiConversationMessage message) {
 			insertedMessage = message;
+			insertedMessages.add(message);
 			return true;
 		}
 
@@ -443,6 +595,53 @@ class AiConversationServiceTest {
 		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
 			lastMessageLimit = limit;
 			return messages;
+		}
+
+		@Override
+		public AiConversationPromptContext findPromptContext(AiConversationMessageContext context, int recentMessageLimit) {
+			return promptContext;
+		}
+
+		@Override
+		public boolean updateConversationSummary(UUID conversationId, String summary, Instant updatedAt) {
+			updatedSummary = summary;
+			return true;
+		}
+	}
+
+	private static final class FakeAssistantGenerator implements AiConversationAssistantResponseGenerator {
+
+		private final AiConversationAssistantResponse response;
+		private final RuntimeException failure;
+		private AiConversationAssistantRequest request;
+
+		private FakeAssistantGenerator(AiConversationAssistantResponse response) {
+			this.response = response;
+			this.failure = null;
+		}
+
+		private FakeAssistantGenerator(RuntimeException failure) {
+			this.response = null;
+			this.failure = failure;
+		}
+
+		@Override
+		public AiConversationAssistantResponse generate(AiConversationAssistantRequest request) {
+			this.request = request;
+			if (failure != null) {
+				throw failure;
+			}
+			return response;
+		}
+	}
+
+	private static final class CapturingUsageRecorder implements LlmUsageRecorder {
+
+		private final List<LlmUsage> recorded = new ArrayList<>();
+
+		@Override
+		public void record(LlmUsage usage) {
+			recorded.add(usage);
 		}
 	}
 }

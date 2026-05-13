@@ -5,16 +5,21 @@ import com.studypot.aistudyleader.ai.domain.AiConversationMembershipContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessageCursor;
+import com.studypot.aistudyleader.ai.domain.AiConversationPromptContext;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -28,11 +33,25 @@ public class AiConversationService {
 	private final AiConversationRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final AiConversationAssistantResponseGenerator assistantResponseGenerator;
+	private final LlmUsageRecorder usageRecorder;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator, null, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.assistantResponseGenerator = assistantResponseGenerator;
+		this.usageRecorder = usageRecorder;
 	}
 
 	@Transactional
@@ -69,7 +88,7 @@ public class AiConversationService {
 		return conversation;
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = AiConversationResponseGenerationException.class)
 	public AiConversationMessage sendMessage(SendAiConversationMessageCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		AiConversationMessageContext context = requireMessageContext(command.conversationId(), command.authenticatedUserId());
@@ -89,7 +108,10 @@ public class AiConversationService {
 		if (!repository.insertMessage(message)) {
 			throw new AiConversationMutationRejectedException("AI conversation message could not be inserted.");
 		}
-		return message;
+		if (!assistantGenerationConfigured()) {
+			return message;
+		}
+		return generateAssistantMessage(command, context, message);
 	}
 
 	@Transactional(readOnly = true)
@@ -126,6 +148,97 @@ public class AiConversationService {
 				}
 				throw new AiConversationAccessDeniedException("authenticated user is not a member of this AI conversation.");
 			});
+	}
+
+	private AiConversationMessage generateAssistantMessage(
+		SendAiConversationMessageCommand command,
+		AiConversationMessageContext context,
+		AiConversationMessage userMessage
+	) {
+		AiConversationPromptContext promptContext = repository.findPromptContext(context, 20);
+		AiConversationAssistantResponse response;
+		try {
+			response = assistantResponseGenerator.generate(new AiConversationAssistantRequest(
+				command.authenticatedUserId(),
+				context,
+				userMessage,
+				promptContext
+			));
+		} catch (AiConversationResponseGenerationException exception) {
+			recordFailureUsage(command, context, exception);
+			throw exception;
+		}
+
+		Instant now = clock.instant();
+		UUID usageId = idGenerator.get();
+		usageRecorder.record(response.llmResponse().toUsage(
+			usageId,
+			command.authenticatedUserId(),
+			context.groupId(),
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			now
+		));
+		AiConversationMessage assistantMessage = AiConversationMessage.assistantMessage(
+			idGenerator.get(),
+			context.conversationId(),
+			usageId,
+			response.message(),
+			assistantMetadata(response.metadata()),
+			now
+		);
+		if (!repository.insertMessage(assistantMessage)) {
+			throw new AiConversationMutationRejectedException("AI conversation assistant message could not be inserted.");
+		}
+		updateConversationSummaryIfNeeded(context, response.conversationSummaryPatch(), now);
+		return assistantMessage;
+	}
+
+	private void recordFailureUsage(
+		SendAiConversationMessageCommand command,
+		AiConversationMessageContext context,
+		AiConversationResponseGenerationException exception
+	) {
+		usageRecorder.record(exception.failure().toUsage(
+			idGenerator.get(),
+			command.authenticatedUserId(),
+			context.groupId(),
+			clock.instant()
+		));
+	}
+
+	private void updateConversationSummaryIfNeeded(
+		AiConversationMessageContext context,
+		String conversationSummaryPatch,
+		Instant updatedAt
+	) {
+		if (conversationSummaryPatch == null || conversationSummaryPatch.isBlank()) {
+			return;
+		}
+		String summary = mergeSummary(context.summary(), conversationSummaryPatch);
+		if (!repository.updateConversationSummary(context.conversationId(), summary, updatedAt)) {
+			throw new AiConversationMutationRejectedException("AI conversation summary could not be updated.");
+		}
+	}
+
+	private boolean assistantGenerationConfigured() {
+		return assistantResponseGenerator != null && usageRecorder != null;
+	}
+
+	private static Map<String, Object> assistantMetadata(Map<String, Object> responseMetadata) {
+		Map<String, Object> metadata = new LinkedHashMap<>();
+		metadata.put("retrievalContextVersion", "db-first-v1");
+		if (responseMetadata != null) {
+			metadata.putAll(responseMetadata);
+		}
+		return Map.copyOf(metadata);
+	}
+
+	private static String mergeSummary(String currentSummary, String patch) {
+		String normalizedPatch = patch.strip();
+		if (currentSummary == null || currentSummary.isBlank()) {
+			return normalizedPatch;
+		}
+		return currentSummary.strip() + "\n" + normalizedPatch;
 	}
 
 	private UUID validateWeek(UUID groupId, UUID weekId) {
