@@ -99,9 +99,7 @@ class ProviderBackedRetrospectiveFeedbackGenerator implements RetrospectiveFeedb
 
 	private RetrospectiveFeedbackResult readFeedbackResult(String outputText) throws JsonProcessingException {
 		JsonNode node = objectMapper.readTree(outputText);
-		Map<String, Object> nextWeekAdjustment = node.has("nextWeekAdjustment") && node.get("nextWeekAdjustment").isObject()
-			? objectMapper.convertValue(node.get("nextWeekAdjustment"), OBJECT_MAP)
-			: Map.of();
+		Map<String, Object> nextWeekAdjustment = nextWeekAdjustment(node);
 		return RetrospectiveFeedbackResult.of(
 			node.path("summary").asText(null),
 			stringList(node.get("strengths")),
@@ -109,6 +107,14 @@ class ProviderBackedRetrospectiveFeedbackGenerator implements RetrospectiveFeedb
 			stringList(node.get("actionItems")),
 			nextWeekAdjustment
 		);
+	}
+
+	private Map<String, Object> nextWeekAdjustment(JsonNode node) {
+		JsonNode nextWeekAdjustment = node.get("nextWeekAdjustment");
+		if (nextWeekAdjustment == null || !nextWeekAdjustment.isObject() || nextWeekAdjustment.isEmpty()) {
+			throw new IllegalArgumentException("nextWeekAdjustment must be a non-empty object.");
+		}
+		return objectMapper.convertValue(nextWeekAdjustment, OBJECT_MAP);
 	}
 
 	private List<String> stringList(JsonNode node) {
@@ -141,6 +147,7 @@ class ProviderBackedRetrospectiveFeedbackGenerator implements RetrospectiveFeedb
 					"actionItems", stringArray,
 					"nextWeekAdjustment", Map.of(
 						"type", "object",
+						"minProperties", 1,
 						"properties", Map.of(
 							"difficulty", Map.of("type", "string"),
 							"taskChanges", stringArray,
