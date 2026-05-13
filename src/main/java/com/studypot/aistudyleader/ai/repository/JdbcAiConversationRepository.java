@@ -41,7 +41,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	@Override
 	public Optional<UUID> findWeekGroupId(UUID weekId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
-		return queryOne(AiConversationJdbcSql.SELECT_WEEK_GROUP_ID, (resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("group_id")), uuid(weekId));
+		return queryOne(AiConversationJdbcSql.SELECT_WEEK_GROUP_ID, (resultSet, rowNumber) -> requiredUuid(resultSet, "group_id"), uuid(weekId));
 	}
 
 	@Override
@@ -72,19 +72,19 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 
 	private AiConversationMembershipContext mapMembership(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new AiConversationMembershipContext(
-			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
-			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
-			StudyGroupStatus.valueOf(resultSet.getString("group_status")),
-			GroupMemberPermission.valueOf(resultSet.getString("permission")),
-			GroupMemberStatus.valueOf(resultSet.getString("member_status"))
+			requiredUuid(resultSet, "group_id"),
+			requiredUuid(resultSet, "member_id"),
+			StudyGroupStatus.valueOf(requiredString(resultSet, "group_status")),
+			GroupMemberPermission.valueOf(requiredString(resultSet, "permission")),
+			GroupMemberStatus.valueOf(requiredString(resultSet, "member_status"))
 		);
 	}
 
 	private AiRetrospectiveReference mapRetrospectiveReference(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new AiRetrospectiveReference(
-			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
-			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
-			UuidBinary.fromBytes(resultSet.getBytes("curriculum_week_id"))
+			requiredUuid(resultSet, "group_id"),
+			requiredUuid(resultSet, "member_id"),
+			requiredUuid(resultSet, "curriculum_week_id")
 		);
 	}
 
@@ -103,6 +103,22 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 
 	private static Timestamp timestamp(Instant instant) {
 		return instant == null ? null : Timestamp.from(instant);
+	}
+
+	private static UUID requiredUuid(ResultSet resultSet, String columnName) throws SQLException {
+		byte[] bytes = resultSet.getBytes(columnName);
+		if (bytes == null) {
+			throw new SQLException(columnName + " must not be null.");
+		}
+		return UuidBinary.fromBytes(bytes);
+	}
+
+	private static String requiredString(ResultSet resultSet, String columnName) throws SQLException {
+		String value = resultSet.getString(columnName);
+		if (value == null || value.isBlank()) {
+			throw new SQLException(columnName + " must not be blank.");
+		}
+		return value;
 	}
 
 	private interface ThrowingRowMapper<T> {

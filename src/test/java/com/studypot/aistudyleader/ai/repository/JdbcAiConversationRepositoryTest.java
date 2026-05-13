@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class JdbcAiConversationRepositoryTest {
@@ -116,5 +117,55 @@ class JdbcAiConversationRepositoryTest {
 		assertThat(args.getValue()[9]).isNull();
 		assertThat(args.getValue()[10]).isEqualTo(Timestamp.from(NOW));
 		assertThat(args.getValue()[11]).isEqualTo(Timestamp.from(NOW));
+	}
+
+	@Test
+	void insertConversationReturnsFalseWhenNoRowIsInserted() {
+		AiConversation conversation = teamLeadConversation(null, null);
+		when(jdbcTemplate.update(eq(AiConversationJdbcSql.INSERT_CONVERSATION), any(Object[].class))).thenReturn(0);
+
+		assertThat(repository.insertConversation(conversation)).isFalse();
+	}
+
+	@Test
+	void insertConversationPropagatesDataAccessException() {
+		AiConversation conversation = teamLeadConversation(null, null);
+		when(jdbcTemplate.update(eq(AiConversationJdbcSql.INSERT_CONVERSATION), any(Object[].class)))
+			.thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> repository.insertConversation(conversation))
+			.isInstanceOf(DataIntegrityViolationException.class)
+			.hasMessageContaining("duplicate key");
+	}
+
+	@Test
+	void insertConversationPersistsNullOptionalReferences() {
+		AiConversation conversation = teamLeadConversation(null, null);
+		when(jdbcTemplate.update(eq(AiConversationJdbcSql.INSERT_CONVERSATION), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.insertConversation(conversation)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(AiConversationJdbcSql.INSERT_CONVERSATION), args.capture());
+		assertThat(args.getValue()[3]).isNull();
+		assertThat(args.getValue()[4]).isNull();
+		assertThat(args.getValue()[9]).isNull();
+	}
+
+	private static AiConversation teamLeadConversation(UUID weekId, UUID retrospectiveId) {
+		return new AiConversation(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			weekId,
+			retrospectiveId,
+			AiConversationType.TEAM_LEAD_CHAT,
+			AiConversationStatus.OPEN,
+			"",
+			NOW,
+			null,
+			NOW,
+			NOW
+		);
 	}
 }
