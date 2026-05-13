@@ -81,6 +81,27 @@ class ProviderBackedRetrospectiveFeedbackGeneratorTest {
 			});
 	}
 
+	@Test
+	void generateRejectsMissingNextWeekAdjustmentWithFailureMetadata() {
+		ProviderBackedRetrospectiveFeedbackGenerator generator = new ProviderBackedRetrospectiveFeedbackGenerator(
+			new CapturingProvider(response("""
+				{"summary":"실습 시간이 부족했습니다.","strengths":["읽기 완료"],"risks":["실습 지연"],"actionItems":["실습량 조정"]}
+				""")),
+			JsonMapper.builder().findAndAddModules().build()
+		);
+
+		assertThatThrownBy(() -> generator.generate(retrospective()))
+			.isInstanceOf(RetrospectiveFeedbackGenerationException.class)
+			.hasMessage("retrospective feedback output was invalid.")
+			.hasCauseInstanceOf(IllegalArgumentException.class)
+			.satisfies(exception -> {
+				RetrospectiveFeedbackGenerationException generationException = (RetrospectiveFeedbackGenerationException) exception;
+				assertThat(generationException.failure().purpose()).isEqualTo(LlmUsagePurpose.RETROSPECTIVE_FEEDBACK);
+				assertThat(generationException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
+				assertThat(generationException.failure().errorCode()).isEqualTo("RETROSPECTIVE_RESPONSE_INVALID");
+			});
+	}
+
 	private static Retrospective retrospective() {
 		return new Retrospective(
 			RETROSPECTIVE_ID,

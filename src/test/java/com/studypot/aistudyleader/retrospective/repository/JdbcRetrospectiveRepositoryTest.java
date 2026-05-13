@@ -56,18 +56,20 @@ class JdbcRetrospectiveRepositoryTest {
 	void retrospectiveSqlUsesProgressWeekMemberKeyAndTaskSummaryLeftJoin() {
 		assertThat(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE)
 			.contains("from retrospective")
+			.contains("next_week_adjustment")
 			.contains("where progress_id = ?")
 			.contains("and curriculum_week_id = ?")
 			.contains("and member_id = ?");
+		assertThat(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID)
+			.contains("from retrospective")
+			.contains("next_week_adjustment")
+			.contains("where id = ?");
 		assertThat(RetrospectiveJdbcSql.SELECT_TASK_SUMMARIES)
 			.contains("from weekly_task wt")
 			.contains("left join task_completion tc")
 			.contains("coalesce(tc.status, 'TODO')")
 			.contains("wt.curriculum_week_id = ?")
 			.contains("order by wt.display_order");
-		assertThat(RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_BY_ID)
-			.contains("from retrospective")
-			.contains("where id = ?");
 		assertThat(RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_RESULT)
 			.contains("update retrospective")
 			.contains("ai_feedback = ?")
