@@ -19,6 +19,10 @@ class RetrospectiveFeedbackGenerationException extends RuntimeException {
 		this.failure = Objects.requireNonNull(failure, "failure must not be null");
 	}
 
+	/**
+	 * This exception is not used as a serialized transport object; the transient
+	 * failure metadata is available only on the live exception instance.
+	 */
 	LlmCallFailure failure() {
 		return failure;
 	}

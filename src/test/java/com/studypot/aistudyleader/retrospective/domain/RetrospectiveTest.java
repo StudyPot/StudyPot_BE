@@ -89,6 +89,38 @@ class RetrospectiveTest {
 	}
 
 	@Test
+	void startProcessingAllowsPendingAndFailedOnly() {
+		Retrospective pending = requestedRetrospective();
+		Retrospective processing = pending.startProcessing(NOW.plusSeconds(30));
+
+		assertThat(processing.status()).isEqualTo(RetrospectiveStatus.PROCESSING);
+		assertThat(processing.updatedAt()).isEqualTo(NOW.plusSeconds(30));
+
+		Retrospective failed = pending.failFeedback(LLM_USAGE_ID, "PROVIDER_TIMEOUT", "LLM provider timed out", NOW.plusSeconds(60));
+		assertThat(failed.startProcessing(NOW.plusSeconds(90)).status()).isEqualTo(RetrospectiveStatus.PROCESSING);
+	}
+
+	@Test
+	void startProcessingRejectsCompletedOrProcessingRetrospective() {
+		Retrospective processing = requestedRetrospective().startProcessing(NOW.plusSeconds(30));
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"요약",
+			java.util.List.of(),
+			java.util.List.of(),
+			java.util.List.of(),
+			Map.of()
+		);
+		Retrospective completed = processing.completeWithFeedback(LLM_USAGE_ID, feedbackResult, NOW.plusSeconds(120));
+
+		assertThatThrownBy(() -> processing.startProcessing(NOW.plusSeconds(90)))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("retrospective can start processing only from PENDING or FAILED status.");
+		assertThatThrownBy(() -> completed.startProcessing(NOW.plusSeconds(150)))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("retrospective can start processing only from PENDING or FAILED status.");
+	}
+
+	@Test
 	void completeWithFeedbackMapsOutputAndTimestamps() {
 		Retrospective retrospective = requestedRetrospective();
 		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(

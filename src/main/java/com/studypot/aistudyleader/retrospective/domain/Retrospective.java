@@ -91,6 +91,9 @@ public record Retrospective(
 
 	public Retrospective startProcessing(Instant now) {
 		Objects.requireNonNull(now, "now must not be null");
+		if (status != RetrospectiveStatus.PENDING && status != RetrospectiveStatus.FAILED) {
+			throw new IllegalStateException("retrospective can start processing only from PENDING or FAILED status.");
+		}
 		return new Retrospective(
 			id,
 			progressId,

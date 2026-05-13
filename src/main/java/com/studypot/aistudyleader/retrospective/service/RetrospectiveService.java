@@ -212,8 +212,9 @@ public class RetrospectiveService {
 	}
 
 	private static Map<String, Object> conversationSummary(RetrospectiveAiContext aiContext) {
-		if (!aiContext.conversationSummary().isEmpty()) {
-			return aiContext.conversationSummary();
+		Map<String, Object> summary = aiContext.conversationSummary();
+		if (summary != null && !summary.isEmpty()) {
+			return summary;
 		}
 		return Map.of(
 			"status", "NOT_AVAILABLE",

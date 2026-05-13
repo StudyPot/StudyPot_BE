@@ -34,11 +34,11 @@ class RetrospectiveApplicationConfiguration {
 	@ConditionalOnBean(LlmProviderClient.class)
 	RetrospectiveFeedbackGenerator retrospectiveFeedbackGenerator(
 		LlmProviderClient provider,
-		ObjectProvider<ObjectMapper> objectMapper
+		ObjectMapper objectMapper
 	) {
 		return new ProviderBackedRetrospectiveFeedbackGenerator(
 			provider,
-			objectMapper.getIfAvailable(ObjectMapper::new)
+			objectMapper
 		);
 	}
 }

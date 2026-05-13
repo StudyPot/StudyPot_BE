@@ -33,6 +33,7 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
+	private static final int PRIOR_RETROSPECTIVES_LIMIT = 3;
 
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
@@ -92,11 +93,11 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 			jdbcTemplate.query(
 				RetrospectiveJdbcSql.SELECT_PRIOR_RETROSPECTIVES,
 				this::mapPriorRetrospective,
-				uuid(memberId),
-				uuid(retrospectiveId),
-				uuid(weekId),
-				3
-			),
+					uuid(memberId),
+					uuid(retrospectiveId),
+					uuid(weekId),
+					PRIOR_RETROSPECTIVES_LIMIT
+				),
 			queryOne(
 				RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_CONVERSATION_SUMMARY,
 				this::mapConversationSummary,
