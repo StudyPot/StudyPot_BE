@@ -91,6 +91,8 @@ Workflow 단계:
 4. `oracle-was`에 compose file 업로드
 5. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
 
+Health check는 `docker compose up -d --force-recreate` 직후 단발로 판정하지 않는다. 작은 WAS에서 Spring Boot, Flyway, datasource 초기화가 1분 안팎 걸릴 수 있으므로 workflow는 `curl -fsS http://127.0.0.1:8080/actuator/health`를 5초 간격으로 최대 120초까지 재시도한다. 대기 중에는 `Waiting for studypot-api health` 로그와 container health/status를 남기고, container가 `unhealthy`가 되거나 제한 시간을 넘기면 `docker logs --tail=160 studypot-api`를 출력한 뒤 실패한다.
+
 필수 GitHub Secrets:
 
 ```text
