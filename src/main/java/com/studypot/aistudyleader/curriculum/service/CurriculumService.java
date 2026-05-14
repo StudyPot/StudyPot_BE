@@ -13,11 +13,13 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +35,7 @@ public class CurriculumService {
 	private final Supplier<CurriculumGenerator> generatorSupplier;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final NotificationEventPublisher notificationEvents;
 
 	public CurriculumService(
 		CurriculumRepository repository,
@@ -49,10 +52,21 @@ public class CurriculumService {
 		Clock clock,
 		Supplier<UUID> idGenerator
 	) {
+		this(repository, generatorSupplier, clock, idGenerator, NotificationEventPublisher.noop());
+	}
+
+	CurriculumService(
+		CurriculumRepository repository,
+		Supplier<CurriculumGenerator> generatorSupplier,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.generatorSupplier = Objects.requireNonNull(generatorSupplier, "generatorSupplier must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional(noRollbackFor = CurriculumGenerationException.class)
@@ -120,7 +134,19 @@ public class CurriculumService {
 		} catch (CurriculumPersistenceException exception) {
 			throw new CurriculumStartRejectedException("curriculum start persistence failed.", exception);
 		}
+		publishStartedWeekNotification(curriculum);
 		return curriculum;
+	}
+
+	private void publishStartedWeekNotification(Curriculum curriculum) {
+		curriculum.weeks().stream()
+			.min(Comparator.comparingInt(CurriculumWeek::weekNumber))
+			.ifPresent(week -> publishNotification(() -> notificationEvents.publishWeekStarted(
+				curriculum.groupId(),
+				week.id(),
+				week.weekNumber(),
+				week.title()
+			)));
 	}
 
 	private void saveFailedLlmUsage(LlmCallFailure failure, UUID userId, UUID groupId, Instant now) {
@@ -376,6 +402,14 @@ public class CurriculumService {
 				}
 				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
 			});
+	}
+
+	private static void publishNotification(Runnable task) {
+		try {
+			task.run();
+		} catch (RuntimeException ignored) {
+			// Notification creation must not roll back the primary curriculum command.
+		}
 	}
 
 	private static Map<String, Object> onboardingSummary(List<SubmittedOnboardingResponse> responses, Instant generatedAt) {

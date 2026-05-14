@@ -31,6 +31,15 @@ final class NotificationJdbcSql {
 		where id = ?
 		""";
 
+	static final String SELECT_NOTIFICATION_BY_IDEMPOTENCY_KEY = """
+		select id, group_id, recipient_user_id, related_onboarding_response_id, related_week_id,
+		       related_task_completion_id, related_retrospective_id, notification_type, channel,
+		       idempotency_key, title, body, payload, status, delivered_at, read_at, error_message,
+		       retry_count, scheduled_at, created_at
+		from notification
+		where idempotency_key = ?
+		""";
+
 	static final String SELECT_MY_NOTIFICATIONS = """
 		select id, group_id, recipient_user_id, related_onboarding_response_id, related_week_id,
 		       related_task_completion_id, related_retrospective_id, notification_type, channel,
@@ -66,6 +75,46 @@ final class NotificationJdbcSql {
 		  and sg.deleted_at is null
 		order by n.created_at desc, n.id desc
 		limit ?
+		""";
+
+	static final String SELECT_ACTIVE_GROUP_RECIPIENT_USER_IDS = """
+		select gm.user_id
+		from group_member gm
+		join study_group sg on sg.id = gm.group_id
+		where gm.group_id = ?
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		  and sg.deleted_at is null
+		order by gm.joined_at asc, gm.id asc
+		""";
+
+	static final String INSERT_NOTIFICATION = """
+		insert into notification (
+		  id, group_id, recipient_user_id, related_onboarding_response_id, related_week_id,
+		  related_task_completion_id, related_retrospective_id, notification_type, channel,
+		  idempotency_key, title, body, payload, status, delivered_at, read_at, error_message,
+		  retry_count, scheduled_at, created_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String MARK_NOTIFICATION_FAILED_BY_IDEMPOTENCY_KEY = """
+		update notification
+		set status = 'FAILED',
+		    delivered_at = null,
+		    read_at = null,
+		    error_message = ?,
+		    retry_count = retry_count + 1
+		where idempotency_key = ?
+		  and status in ('PENDING', 'FAILED')
+		""";
+
+	static final String RETRY_FAILED_NOTIFICATION = """
+		update notification
+		set status = 'DELIVERED',
+		    delivered_at = ?,
+		    error_message = null
+		where id = ?
+		  and status = 'FAILED'
 		""";
 
 	static final String MARK_NOTIFICATION_READ = """

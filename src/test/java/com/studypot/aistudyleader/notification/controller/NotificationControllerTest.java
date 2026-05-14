@@ -211,6 +211,13 @@ class NotificationControllerTest {
 		}
 
 		@Override
+		public Optional<Notification> findNotificationByIdempotencyKey(String idempotencyKey) {
+			return notifications.stream()
+				.filter(candidate -> candidate.idempotencyKey().equals(idempotencyKey))
+				.findFirst();
+		}
+
+		@Override
 		public List<Notification> findMyNotifications(UUID userId, boolean unreadOnly, int limit) {
 			lastUnreadOnly = unreadOnly;
 			return notifications.stream()
@@ -223,6 +230,35 @@ class NotificationControllerTest {
 			return notifications.stream()
 				.filter(candidate -> candidate.groupId().equals(groupId))
 				.toList();
+		}
+
+		@Override
+		public List<UUID> findActiveGroupRecipientUserIds(UUID groupId) {
+			return notifications.stream()
+				.map(Notification::recipientUserId)
+				.distinct()
+				.toList();
+		}
+
+		@Override
+		public Notification saveNotification(Notification notification) {
+			notifications = List.of(notification);
+			this.notification = notification;
+			return notification;
+		}
+
+		@Override
+		public Notification recordFailedNotification(Notification notification) {
+			notifications = List.of(notification);
+			this.notification = notification;
+			return notification;
+		}
+
+		@Override
+		public Notification retryFailedNotification(UUID notificationId, Instant deliveredAt) {
+			notification = notification.retryDelivered(deliveredAt);
+			notifications = List.of(notification);
+			return notification;
 		}
 
 		@Override

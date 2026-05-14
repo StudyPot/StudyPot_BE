@@ -60,6 +60,23 @@ class JdbcNotificationRepositoryTest {
 			.contains("join study_group sg on sg.id = n.group_id")
 			.contains("where n.group_id = ?")
 			.contains("sg.deleted_at is null");
+		assertThat(NotificationJdbcSql.SELECT_NOTIFICATION_BY_IDEMPOTENCY_KEY)
+			.contains("where idempotency_key = ?");
+		assertThat(NotificationJdbcSql.SELECT_ACTIVE_GROUP_RECIPIENT_USER_IDS)
+			.contains("gm.status = 'ACTIVE'")
+			.contains("gm.deleted_at is null");
+		assertThat(NotificationJdbcSql.INSERT_NOTIFICATION)
+			.contains("insert into notification")
+			.contains("idempotency_key")
+			.contains("retry_count");
+		assertThat(NotificationJdbcSql.MARK_NOTIFICATION_FAILED_BY_IDEMPOTENCY_KEY)
+			.contains("status = 'FAILED'")
+			.contains("retry_count = retry_count + 1")
+			.contains("where idempotency_key = ?");
+		assertThat(NotificationJdbcSql.RETRY_FAILED_NOTIFICATION)
+			.contains("status = 'DELIVERED'")
+			.contains("where id = ?")
+			.contains("and status = 'FAILED'");
 		assertThat(NotificationJdbcSql.MARK_NOTIFICATION_READ)
 			.contains("recipient_user_id = ?")
 			.contains("status = 'DELIVERED'")
@@ -150,6 +167,62 @@ class JdbcNotificationRepositoryTest {
 	}
 
 	@Test
+	void findActiveGroupRecipientUserIdsMapsActiveMembers() throws Exception {
+		when(jdbcTemplate.query(eq(NotificationJdbcSql.SELECT_ACTIVE_GROUP_RECIPIENT_USER_IDS), any(RowMapper.class), any(Object[].class)))
+			.thenAnswer(invocation -> {
+				@SuppressWarnings("unchecked")
+				RowMapper<UUID> mapper = invocation.getArgument(1);
+				ResultSet resultSet = mock(ResultSet.class);
+				when(resultSet.getBytes("user_id")).thenReturn(UuidBinary.toBytes(USER_ID));
+				return List.of(mapper.mapRow(resultSet, 0));
+			});
+
+		assertThat(repository.findActiveGroupRecipientUserIds(GROUP_ID)).containsExactly(USER_ID);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(NotificationJdbcSql.SELECT_ACTIVE_GROUP_RECIPIENT_USER_IDS), any(RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+	}
+
+	@Test
+	void saveNotificationInsertsDeliveredNotificationPayloadAndState() {
+		Notification notification = notification(NotificationStatus.DELIVERED, null);
+		when(jdbcTemplate.update(eq(NotificationJdbcSql.INSERT_NOTIFICATION), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.saveNotification(notification)).isSameAs(notification);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(NotificationJdbcSql.INSERT_NOTIFICATION), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(NOTIFICATION_ID));
+		assertThat(args.getValue()[7]).isEqualTo("RETROSPECTIVE_READY");
+		assertThat(args.getValue()[8]).isEqualTo("IN_APP");
+		assertThat(args.getValue()[9]).isEqualTo("notification:test");
+		assertThat(args.getValue()[12]).isEqualTo("{\"deepLink\":\"/retrospectives\"}");
+		assertThat(args.getValue()[13]).isEqualTo("DELIVERED");
+		assertThat(args.getValue()[14]).isEqualTo(Timestamp.from(NOW.minusSeconds(30)));
+		assertThat(args.getValue()[17]).isEqualTo(0);
+	}
+
+	@Test
+	void retryFailedNotificationMarksFailedRowDeliveredAndReloadsIt() throws Exception {
+		when(jdbcTemplate.update(eq(NotificationJdbcSql.RETRY_FAILED_NOTIFICATION), any(Object[].class))).thenReturn(1);
+		when(jdbcTemplate.query(eq(NotificationJdbcSql.SELECT_NOTIFICATION_BY_ID), any(RowMapper.class), any(Object[].class)))
+			.thenAnswer(invocation -> {
+				@SuppressWarnings("unchecked")
+				RowMapper<Notification> mapper = invocation.getArgument(1);
+				return List.of(mapper.mapRow(notificationRow(NotificationStatus.DELIVERED, null), 0));
+			});
+
+		Notification result = repository.retryFailedNotification(NOTIFICATION_ID, NOW);
+
+		assertThat(result.status()).isEqualTo(NotificationStatus.DELIVERED);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(NotificationJdbcSql.RETRY_FAILED_NOTIFICATION), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(NOTIFICATION_ID));
+	}
+
+	@Test
 	void markReadUpdatesOnlyRecipientDeliveredRows() {
 		when(jdbcTemplate.update(eq(NotificationJdbcSql.MARK_NOTIFICATION_READ), any(Object[].class))).thenReturn(1);
 
@@ -190,10 +263,11 @@ class JdbcNotificationRepositoryTest {
 		when(resultSet.getString("body")).thenReturn("AI 팀장 피드백을 확인해 주세요.");
 		when(resultSet.getString("payload")).thenReturn("{\"deepLink\":\"/retrospectives\"}");
 		when(resultSet.getString("status")).thenReturn(status.name());
-		when(resultSet.getTimestamp("delivered_at")).thenReturn(status == NotificationStatus.PENDING ? null : Timestamp.from(NOW.minusSeconds(30)));
+		when(resultSet.getTimestamp("delivered_at"))
+			.thenReturn(status == NotificationStatus.DELIVERED || status == NotificationStatus.READ ? Timestamp.from(NOW.minusSeconds(30)) : null);
 		when(resultSet.getTimestamp("read_at")).thenReturn(readAt == null ? null : Timestamp.from(readAt));
-		when(resultSet.getString("error_message")).thenReturn(null);
-		when(resultSet.getInt("retry_count")).thenReturn(0);
+		when(resultSet.getString("error_message")).thenReturn(status == NotificationStatus.FAILED ? "delivery failed" : null);
+		when(resultSet.getInt("retry_count")).thenReturn(status == NotificationStatus.FAILED ? 1 : 0);
 		when(resultSet.getTimestamp("scheduled_at")).thenReturn(null);
 		when(resultSet.getTimestamp("created_at")).thenReturn(Timestamp.from(NOW.minusSeconds(60)));
 		return resultSet;
@@ -212,10 +286,10 @@ class JdbcNotificationRepositoryTest {
 			"AI 팀장 피드백을 확인해 주세요.",
 			Map.of("deepLink", "/retrospectives"),
 			status,
-			status == NotificationStatus.PENDING ? null : NOW.minusSeconds(30),
+			status == NotificationStatus.DELIVERED || status == NotificationStatus.READ ? NOW.minusSeconds(30) : null,
 			readAt,
-			null,
-			0,
+			status == NotificationStatus.FAILED ? "delivery failed" : null,
+			status == NotificationStatus.FAILED ? 1 : 0,
 			null,
 			NOW.minusSeconds(60)
 		);

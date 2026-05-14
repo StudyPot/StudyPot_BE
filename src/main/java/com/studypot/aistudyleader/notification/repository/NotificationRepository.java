@@ -15,9 +15,19 @@ public interface NotificationRepository {
 
 	Optional<Notification> findNotification(UUID notificationId);
 
+	Optional<Notification> findNotificationByIdempotencyKey(String idempotencyKey);
+
 	List<Notification> findMyNotifications(UUID userId, boolean unreadOnly, int limit);
 
 	List<Notification> findGroupNotifications(UUID groupId, int limit);
+
+	List<UUID> findActiveGroupRecipientUserIds(UUID groupId);
+
+	Notification saveNotification(Notification notification);
+
+	Notification recordFailedNotification(Notification notification);
+
+	Notification retryFailedNotification(UUID notificationId, Instant deliveredAt);
 
 	boolean markNotificationRead(UUID notificationId, UUID recipientUserId, Instant readAt);
 

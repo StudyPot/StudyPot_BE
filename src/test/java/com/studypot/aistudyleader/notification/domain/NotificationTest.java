@@ -76,6 +76,57 @@ class NotificationTest {
 	}
 
 	@Test
+	void deliveredStatusRequiresDeliveredAt() {
+		assertThatThrownBy(() -> new Notification(
+			NOTIFICATION_ID,
+			GROUP_ID,
+			USER_ID,
+			new NotificationRelatedResources(null, null, null, null),
+			NotificationType.RETROSPECTIVE_READY,
+			NotificationChannel.IN_APP,
+			"notification:test",
+			"회고 피드백이 준비됐어요",
+			"AI 팀장 피드백을 확인해 주세요.",
+			Map.of("deepLink", "/retrospectives"),
+			NotificationStatus.DELIVERED,
+			null,
+			null,
+			null,
+			0,
+			null,
+			NOW.minusSeconds(30)
+		))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("deliveredAt is required when notification status is DELIVERED.");
+	}
+
+	@Test
+	void recordFailureMarksPendingOrDeliveredNotificationFailed() {
+		Notification delivered = notification(NotificationStatus.DELIVERED, null);
+
+		Notification failed = delivered.recordFailure("provider timeout", NOW.plusSeconds(60));
+
+		assertThat(failed.status()).isEqualTo(NotificationStatus.FAILED);
+		assertThat(failed.deliveredAt()).isNull();
+		assertThat(failed.readAt()).isNull();
+		assertThat(failed.errorMessage()).isEqualTo("provider timeout");
+		assertThat(failed.retryCount()).isEqualTo(1);
+	}
+
+	@Test
+	void retryDeliveredRestoresFailedNotificationToDeliveredState() {
+		Notification failed = notification(NotificationStatus.PENDING, null)
+			.recordFailure("provider timeout", NOW.plusSeconds(60));
+
+		Notification delivered = failed.retryDelivered(NOW.plusSeconds(120));
+
+		assertThat(delivered.status()).isEqualTo(NotificationStatus.DELIVERED);
+		assertThat(delivered.deliveredAt()).isEqualTo(NOW.plusSeconds(120));
+		assertThat(delivered.errorMessage()).isNull();
+		assertThat(delivered.retryCount()).isEqualTo(1);
+	}
+
+	@Test
 	void payloadRejectsNullKeysOrValues() {
 		Map<String, Object> payload = new LinkedHashMap<>();
 		payload.put("deepLink", null);

@@ -13,6 +13,7 @@ import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveFeedbackResult;
@@ -143,6 +144,38 @@ class RetrospectiveServiceTest {
 			.containsEntry("retrospectiveId", RETROSPECTIVE_ID.toString())
 			.containsEntry("taskCount", 2)
 			.containsEntry("ruleViolationCount", 1);
+	}
+
+	@Test
+	void requestPublishesRetrospectiveReadyAndNextWeekAdjustmentNotifications() {
+		CapturingRepository repository = readyRepository();
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		RetrospectiveFeedbackResult feedbackResult = RetrospectiveFeedbackResult.of(
+			"미완료 사유가 실습 시간 부족에 집중되어 있습니다.",
+			List.of("읽기 과제 정리가 명확합니다."),
+			List.of("실습 과제가 밀렸습니다."),
+			List.of("다음 주 실습량을 낮춥니다."),
+			Map.of("difficulty", "slightly_lower")
+		);
+		RetrospectiveService service = service(
+			repository,
+			new CapturingFeedbackGenerator(new RetrospectiveFeedbackGeneration(feedbackResult, successfulResponse())),
+			usageRecorder,
+			notifications,
+			RETROSPECTIVE_ID,
+			LLM_USAGE_ID
+		);
+
+		service.requestMyRetrospective(new RequestRetrospectiveCommand(
+			USER_ID,
+			WEEK_ID,
+			RetrospectiveTriggerType.MANUAL
+		));
+
+		RetrospectiveNotice expected = new RetrospectiveNotice(GROUP_ID, USER_ID, RETROSPECTIVE_ID, WEEK_ID);
+		assertThat(notifications.retrospectiveReady).containsExactly(expected);
+		assertThat(notifications.nextWeekAdjusted).containsExactly(expected);
 	}
 
 	@Test
@@ -462,6 +495,16 @@ class RetrospectiveServiceTest {
 		CapturingUsageRecorder usageRecorder,
 		UUID... ids
 	) {
+		return service(repository, generator, usageRecorder, NotificationEventPublisher.noop(), ids);
+	}
+
+	private static RetrospectiveService service(
+		CapturingRepository repository,
+		RetrospectiveFeedbackGenerator generator,
+		CapturingUsageRecorder usageRecorder,
+		NotificationEventPublisher notificationEvents,
+		UUID... ids
+	) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new RetrospectiveService(
 			repository,
@@ -474,7 +517,8 @@ class RetrospectiveServiceTest {
 				return id;
 			},
 			generator,
-			usageRecorder
+			usageRecorder,
+			notificationEvents
 		);
 	}
 
@@ -715,6 +759,52 @@ class RetrospectiveServiceTest {
 		@Override
 		public void record(LlmUsage usage) {
 			this.usage = usage;
+		}
+	}
+
+	private record RetrospectiveNotice(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+	}
+
+	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
+
+		private final List<RetrospectiveNotice> retrospectiveReady = new ArrayList<>();
+		private final List<RetrospectiveNotice> nextWeekAdjusted = new ArrayList<>();
+
+		@Override
+		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
+		}
+
+		@Override
+		public void publishWeekStarted(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+		}
+
+		@Override
+		public void publishTaskDueReminder(
+			UUID groupId,
+			UUID recipientUserId,
+			UUID weekId,
+			UUID taskCompletionId,
+			String taskTitle,
+			Instant dueAt
+		) {
+		}
+
+		@Override
+		public void publishTaskOverdueCheck(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishIncompleteReasonRequested(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishRetrospectiveReady(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+			retrospectiveReady.add(new RetrospectiveNotice(groupId, recipientUserId, retrospectiveId, weekId));
+		}
+
+		@Override
+		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+			nextWeekAdjusted.add(new RetrospectiveNotice(groupId, recipientUserId, retrospectiveId, weekId));
 		}
 	}
 }
