@@ -38,6 +38,9 @@ public record Notification(
 		body = normalizeOptionalText(body);
 		payload = copyPayload(payload);
 		Objects.requireNonNull(status, "status must not be null");
+		if (status == NotificationStatus.DELIVERED && deliveredAt == null) {
+			throw new IllegalArgumentException("deliveredAt is required when notification status is DELIVERED.");
+		}
 		if (status == NotificationStatus.READ && deliveredAt == null) {
 			throw new IllegalArgumentException("deliveredAt is required when notification status is READ.");
 		}
@@ -78,6 +81,59 @@ public record Notification(
 			deliveredAt,
 			now,
 			errorMessage,
+			retryCount,
+			scheduledAt,
+			createdAt
+		);
+	}
+
+	public Notification recordFailure(String redactedErrorMessage, Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		String safeErrorMessage = requireText(redactedErrorMessage, "redactedErrorMessage");
+		if (status == NotificationStatus.READ || status == NotificationStatus.SKIPPED) {
+			return this;
+		}
+		return new Notification(
+			id,
+			groupId,
+			recipientUserId,
+			relatedResources,
+			notificationType,
+			channel,
+			idempotencyKey,
+			title,
+			body,
+			payload,
+			NotificationStatus.FAILED,
+			null,
+			null,
+			safeErrorMessage,
+			retryCount + 1,
+			scheduledAt,
+			createdAt
+		);
+	}
+
+	public Notification retryDelivered(Instant deliveredAt) {
+		Objects.requireNonNull(deliveredAt, "deliveredAt must not be null");
+		if (status != NotificationStatus.FAILED) {
+			throw new IllegalStateException("only failed notifications can be retried.");
+		}
+		return new Notification(
+			id,
+			groupId,
+			recipientUserId,
+			relatedResources,
+			notificationType,
+			channel,
+			idempotencyKey,
+			title,
+			body,
+			payload,
+			NotificationStatus.DELIVERED,
+			deliveredAt,
+			null,
+			null,
 			retryCount,
 			scheduledAt,
 			createdAt

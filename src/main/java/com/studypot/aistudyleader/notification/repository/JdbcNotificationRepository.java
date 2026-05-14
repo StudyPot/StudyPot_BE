@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class JdbcNotificationRepository implements NotificationRepository {
@@ -58,6 +59,12 @@ class JdbcNotificationRepository implements NotificationRepository {
 	}
 
 	@Override
+	public Optional<Notification> findNotificationByIdempotencyKey(String idempotencyKey) {
+		String key = requireText(idempotencyKey, "idempotencyKey");
+		return queryOne(NotificationJdbcSql.SELECT_NOTIFICATION_BY_IDEMPOTENCY_KEY, this::mapNotification, key);
+	}
+
+	@Override
 	public List<Notification> findMyNotifications(UUID userId, boolean unreadOnly, int limit) {
 		Objects.requireNonNull(userId, "userId must not be null");
 		String sql = unreadOnly ? NotificationJdbcSql.SELECT_MY_UNREAD_NOTIFICATIONS : NotificationJdbcSql.SELECT_MY_NOTIFICATIONS;
@@ -68,6 +75,61 @@ class JdbcNotificationRepository implements NotificationRepository {
 	public List<Notification> findGroupNotifications(UUID groupId, int limit) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return jdbcTemplate.query(NotificationJdbcSql.SELECT_GROUP_NOTIFICATIONS, this::mapNotification, uuid(groupId), clampedLimit(limit));
+	}
+
+	@Override
+	public List<UUID> findActiveGroupRecipientUserIds(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(
+			NotificationJdbcSql.SELECT_ACTIVE_GROUP_RECIPIENT_USER_IDS,
+			(resultSet, rowNumber) -> requiredUuid(resultSet, "user_id"),
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public Notification saveNotification(Notification notification) {
+		Objects.requireNonNull(notification, "notification must not be null");
+		try {
+			insertNotification(notification);
+		} catch (DuplicateKeyException exception) {
+			return findNotificationByIdempotencyKey(notification.idempotencyKey())
+				.orElseThrow(() -> new NotificationPersistenceException("duplicate notification could not be loaded.", exception));
+		}
+		return notification;
+	}
+
+	@Override
+	public Notification recordFailedNotification(Notification notification) {
+		Objects.requireNonNull(notification, "notification must not be null");
+		try {
+			insertNotification(notification);
+			return notification;
+		} catch (DuplicateKeyException exception) {
+			jdbcTemplate.update(
+				NotificationJdbcSql.MARK_NOTIFICATION_FAILED_BY_IDEMPOTENCY_KEY,
+				notification.errorMessage(),
+				notification.idempotencyKey()
+			);
+			return findNotificationByIdempotencyKey(notification.idempotencyKey())
+				.orElseThrow(() -> new NotificationPersistenceException("failed notification could not be loaded.", exception));
+		}
+	}
+
+	@Override
+	public Notification retryFailedNotification(UUID notificationId, Instant deliveredAt) {
+		Objects.requireNonNull(notificationId, "notificationId must not be null");
+		Objects.requireNonNull(deliveredAt, "deliveredAt must not be null");
+		int updated = jdbcTemplate.update(
+			NotificationJdbcSql.RETRY_FAILED_NOTIFICATION,
+			timestamp(deliveredAt),
+			uuid(notificationId)
+		);
+		if (updated != 1) {
+			throw new NotificationPersistenceException("failed notification could not be retried.");
+		}
+		return findNotification(notificationId)
+			.orElseThrow(() -> new NotificationPersistenceException("retried notification could not be loaded."));
 	}
 
 	@Override
@@ -88,6 +150,32 @@ class JdbcNotificationRepository implements NotificationRepository {
 		Objects.requireNonNull(recipientUserId, "recipientUserId must not be null");
 		Objects.requireNonNull(readAt, "readAt must not be null");
 		return jdbcTemplate.update(NotificationJdbcSql.MARK_ALL_DELIVERED_NOTIFICATIONS_READ, timestamp(readAt), uuid(recipientUserId));
+	}
+
+	private void insertNotification(Notification notification) {
+		jdbcTemplate.update(
+			NotificationJdbcSql.INSERT_NOTIFICATION,
+			uuid(notification.id()),
+			uuid(notification.groupId()),
+			uuid(notification.recipientUserId()),
+			uuidOrNull(notification.relatedResources().onboardingResponseId()),
+			uuidOrNull(notification.relatedResources().weekId()),
+			uuidOrNull(notification.relatedResources().taskCompletionId()),
+			uuidOrNull(notification.relatedResources().retrospectiveId()),
+			notification.notificationType().name(),
+			notification.channel().name(),
+			notification.idempotencyKey(),
+			notification.title(),
+			notification.body(),
+			json(notification.payload(), "notification payload"),
+			notification.status().name(),
+			timestamp(notification.deliveredAt()),
+			timestamp(notification.readAt()),
+			notification.errorMessage(),
+			notification.retryCount(),
+			timestamp(notification.scheduledAt()),
+			timestamp(notification.createdAt())
+		);
 	}
 
 	private NotificationAccessContext mapAccessContext(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -143,8 +231,27 @@ class JdbcNotificationRepository implements NotificationRepository {
 		}
 	}
 
+	private String json(Map<String, Object> value, String fieldName) {
+		try {
+			return objectMapper.writeValueAsString(value == null ? Map.of() : value);
+		} catch (JsonProcessingException exception) {
+			throw new NotificationPersistenceException(fieldName + " could not be serialized.", exception);
+		}
+	}
+
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
+	}
+
+	private static byte[] uuidOrNull(UUID uuid) {
+		return uuid == null ? null : UuidBinary.toBytes(uuid);
+	}
+
+	private static String requireText(String value, String fieldName) {
+		if (value == null || value.isBlank()) {
+			throw new IllegalArgumentException(fieldName + " must not be blank.");
+		}
+		return value.strip();
 	}
 
 	private static UUID requiredUuid(ResultSet resultSet, String columnName) throws SQLException {

@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
@@ -19,20 +20,24 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class RetrospectiveService {
 
 	private static final String CONVERSATION_SUMMARY_SOURCE_PLACEHOLDER = "RETROSPECTIVE_CONVERSATION_PENDING";
+	private static final Logger log = LoggerFactory.getLogger(RetrospectiveService.class);
 
 	private final RetrospectiveRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 	private final RetrospectiveFeedbackGenerator feedbackGenerator;
 	private final LlmUsageRecorder usageRecorder;
+	private final NotificationEventPublisher notificationEvents;
 
 	public RetrospectiveService(RetrospectiveRepository repository, Clock clock, Supplier<UUID> idGenerator) {
-		this(repository, clock, idGenerator, null, null);
+		this(repository, clock, idGenerator, null, null, NotificationEventPublisher.noop());
 	}
 
 	public RetrospectiveService(
@@ -42,6 +47,24 @@ public class RetrospectiveService {
 		RetrospectiveFeedbackGenerator feedbackGenerator,
 		LlmUsageRecorder usageRecorder
 	) {
+		this(
+			repository,
+			clock,
+			idGenerator,
+			feedbackGenerator,
+			usageRecorder,
+			NotificationEventPublisher.noop()
+		);
+	}
+
+	public RetrospectiveService(
+		RetrospectiveRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		RetrospectiveFeedbackGenerator feedbackGenerator,
+		LlmUsageRecorder usageRecorder,
+		NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -50,6 +73,7 @@ public class RetrospectiveService {
 		}
 		this.feedbackGenerator = feedbackGenerator;
 		this.usageRecorder = usageRecorder;
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -145,9 +169,27 @@ public class RetrospectiveService {
 			));
 			Retrospective completed = processing.completeWithFeedback(llmUsageId, generation.feedbackResult(), now);
 			updateRetrospective(completed, "retrospective feedback could not be updated.");
+			publishCompletedRetrospectiveNotifications(userId, groupId, completed);
 			return completed;
 		} catch (RetrospectiveFeedbackGenerationException exception) {
 			return failGeneratedFeedback(userId, groupId, processing, exception);
+		}
+	}
+
+	private void publishCompletedRetrospectiveNotifications(UUID userId, UUID groupId, Retrospective completed) {
+		publishNotification(() -> notificationEvents.publishRetrospectiveReady(
+			groupId,
+			userId,
+			completed.id(),
+			completed.curriculumWeekId()
+		));
+		if (!completed.nextWeekAdjustment().isEmpty()) {
+			publishNotification(() -> notificationEvents.publishNextWeekAdjusted(
+				groupId,
+				userId,
+				completed.id(),
+				completed.curriculumWeekId()
+			));
 		}
 	}
 
@@ -275,6 +317,15 @@ public class RetrospectiveService {
 	private static void putInstant(Map<String, Object> target, String key, Instant value) {
 		if (value != null) {
 			target.put(key, value.toString());
+		}
+	}
+
+	private static void publishNotification(Runnable task) {
+		try {
+			task.run();
+		} catch (RuntimeException exception) {
+			log.warn("retrospective notification publishing failed", exception);
+			// Notification creation must not roll back the primary retrospective command.
 		}
 	}
 

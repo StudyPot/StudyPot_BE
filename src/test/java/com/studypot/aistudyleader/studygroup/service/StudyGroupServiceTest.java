@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.studygroup.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -57,6 +59,18 @@ class StudyGroupServiceTest {
 		assertThat(result.ownerMember().userId()).isEqualTo(USER_ID);
 		assertThat(result.ownerMember().permission()).isEqualTo(GroupMemberPermission.OWNER);
 		assertThat(result.ownerMember().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
+	}
+
+	@Test
+	void createGroupPublishesOnboardingNotificationForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		StudyGroupService service = service(repository, List.of("INVITE-0001"), notifications, GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroupCreationResult result = service.createGroup(command());
+
+		assertThat(notifications.onboardingRequests)
+			.containsExactly(new OnboardingRequest(result.group().id(), result.ownerMember().userId()));
 	}
 
 	@Test
@@ -115,6 +129,37 @@ class StudyGroupServiceTest {
 		assertThat(result.member().permission()).isEqualTo(GroupMemberPermission.MEMBER);
 		assertThat(result.member().status()).isEqualTo(GroupMemberStatus.PENDING_ONBOARDING);
 		assertThat(result.member().joinedAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void joinGroupPublishesOnboardingNotificationForJoinedMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		StudyGroupService service = service(repository, List.of("UNUSED"), notifications, JOINED_MEMBER_ID);
+
+		StudyGroupJoinResult result = service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(notifications.onboardingRequests)
+			.containsExactly(new OnboardingRequest(result.member().groupId(), result.member().userId()));
+	}
+
+	@Test
+	void notificationFailureDoesNotBreakGroupCreation() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(
+			repository,
+			List.of("INVITE-0001"),
+			new ThrowingNotificationPublisher(),
+			GROUP_ID,
+			OWNER_MEMBER_ID
+		);
+
+		StudyGroupCreationResult result = service.createGroup(command());
+
+		assertThat(result.group()).isSameAs(repository.savedGroup());
+		assertThat(repository.savedOwnerMember()).isNotNull();
 	}
 
 	@Test
@@ -262,6 +307,15 @@ class StudyGroupServiceTest {
 	}
 
 	private static StudyGroupService service(CapturingRepository repository, List<String> inviteCodes, UUID... ids) {
+		return service(repository, inviteCodes, NotificationEventPublisher.noop(), ids);
+	}
+
+	private static StudyGroupService service(
+		CapturingRepository repository,
+		List<String> inviteCodes,
+		NotificationEventPublisher notificationEvents,
+		UUID... ids
+	) {
 		Queue<String> codes = new ArrayDeque<>(inviteCodes);
 		Queue<UUID> uuidQueue = new ArrayDeque<>(List.of(ids));
 		Supplier<UUID> idGenerator = () -> {
@@ -282,7 +336,8 @@ class StudyGroupServiceTest {
 				}
 				return code;
 			},
-			3
+			3,
+			notificationEvents
 		);
 	}
 
@@ -389,6 +444,89 @@ class StudyGroupServiceTest {
 
 		GroupMember savedJoinedMember() {
 			return savedJoinedMember;
+		}
+	}
+
+	private record OnboardingRequest(UUID groupId, UUID recipientUserId) {
+	}
+
+	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
+
+		private final List<OnboardingRequest> onboardingRequests = new ArrayList<>();
+
+		@Override
+		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
+			onboardingRequests.add(new OnboardingRequest(groupId, recipientUserId));
+		}
+
+		@Override
+		public void publishWeekStarted(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+		}
+
+		@Override
+		public void publishTaskDueReminder(
+			UUID groupId,
+			UUID recipientUserId,
+			UUID weekId,
+			UUID taskCompletionId,
+			String taskTitle,
+			Instant dueAt
+		) {
+		}
+
+		@Override
+		public void publishTaskOverdueCheck(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishIncompleteReasonRequested(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishRetrospectiveReady(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+	}
+
+	private static final class ThrowingNotificationPublisher implements NotificationEventPublisher {
+
+		@Override
+		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
+			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishWeekStarted(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+		}
+
+		@Override
+		public void publishTaskDueReminder(
+			UUID groupId,
+			UUID recipientUserId,
+			UUID weekId,
+			UUID taskCompletionId,
+			String taskTitle,
+			Instant dueAt
+		) {
+		}
+
+		@Override
+		public void publishTaskOverdueCheck(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishIncompleteReasonRequested(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishRetrospectiveReady(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
 		}
 	}
 }

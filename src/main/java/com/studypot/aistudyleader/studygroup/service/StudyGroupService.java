@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.studygroup.service;
 
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
@@ -12,15 +13,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class StudyGroupService {
+
+	private static final Logger log = LoggerFactory.getLogger(StudyGroupService.class);
 
 	private final StudyGroupRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 	private final Supplier<String> inviteCodeGenerator;
 	private final int inviteCodeMaxAttempts;
+	private final NotificationEventPublisher notificationEvents;
 
 	public StudyGroupService(
 		StudyGroupRepository repository,
@@ -28,6 +34,24 @@ public class StudyGroupService {
 		Supplier<UUID> idGenerator,
 		Supplier<String> inviteCodeGenerator,
 		int inviteCodeMaxAttempts
+	) {
+		this(
+			repository,
+			clock,
+			idGenerator,
+			inviteCodeGenerator,
+			inviteCodeMaxAttempts,
+			NotificationEventPublisher.noop()
+		);
+	}
+
+	public StudyGroupService(
+		StudyGroupRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		Supplier<String> inviteCodeGenerator,
+		int inviteCodeMaxAttempts,
+		NotificationEventPublisher notificationEvents
 	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
@@ -37,6 +61,7 @@ public class StudyGroupService {
 			throw new IllegalArgumentException("inviteCodeMaxAttempts must be positive");
 		}
 		this.inviteCodeMaxAttempts = inviteCodeMaxAttempts;
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -46,6 +71,10 @@ public class StudyGroupService {
 			StudyGroupCreationResult result = createCandidate(command);
 			try {
 				repository.saveCreatedGroup(result.group(), result.ownerMember());
+				publishNotification(() -> notificationEvents.publishOnboardingRequested(
+					result.group().id(),
+					result.ownerMember().userId()
+				));
 				return result;
 			} catch (StudyGroupInviteCodeConflictException exception) {
 				// Try another generated invite code until the bounded retry budget is exhausted.
@@ -79,6 +108,7 @@ public class StudyGroupService {
 		} catch (GroupMemberDuplicateMembershipException exception) {
 			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
 		}
+		publishNotification(() -> notificationEvents.publishOnboardingRequested(member.groupId(), member.userId()));
 		return new StudyGroupJoinResult(member);
 	}
 
@@ -105,5 +135,14 @@ public class StudyGroupService {
 		);
 		GroupMember ownerMember = GroupMember.owner(idGenerator.get(), group.id(), command.authenticatedUserId(), null, now);
 		return new StudyGroupCreationResult(group, ownerMember);
+	}
+
+	private static void publishNotification(Runnable task) {
+		try {
+			task.run();
+		} catch (RuntimeException exception) {
+			log.warn("study group notification publishing failed", exception);
+			// Notification creation must not roll back the primary study-group command.
+		}
 	}
 }

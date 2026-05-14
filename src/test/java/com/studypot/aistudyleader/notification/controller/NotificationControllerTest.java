@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -211,6 +212,13 @@ class NotificationControllerTest {
 		}
 
 		@Override
+		public Optional<Notification> findNotificationByIdempotencyKey(String idempotencyKey) {
+			return notifications.stream()
+				.filter(candidate -> Objects.equals(idempotencyKey, candidate.idempotencyKey()))
+				.findFirst();
+		}
+
+		@Override
 		public List<Notification> findMyNotifications(UUID userId, boolean unreadOnly, int limit) {
 			lastUnreadOnly = unreadOnly;
 			return notifications.stream()
@@ -223,6 +231,36 @@ class NotificationControllerTest {
 			return notifications.stream()
 				.filter(candidate -> candidate.groupId().equals(groupId))
 				.toList();
+		}
+
+		@Override
+		public List<UUID> findActiveGroupRecipientUserIds(UUID groupId) {
+			return notifications.stream()
+				.filter(candidate -> candidate.groupId().equals(groupId))
+				.map(Notification::recipientUserId)
+				.distinct()
+				.toList();
+		}
+
+		@Override
+		public Notification saveNotification(Notification notification) {
+			notifications = List.of(notification);
+			this.notification = notification;
+			return notification;
+		}
+
+		@Override
+		public Notification recordFailedNotification(Notification notification) {
+			notifications = List.of(notification);
+			this.notification = notification;
+			return notification;
+		}
+
+		@Override
+		public Notification retryFailedNotification(UUID notificationId, Instant deliveredAt) {
+			notification = notification.retryDelivered(deliveredAt);
+			notifications = List.of(notification);
+			return notification;
 		}
 
 		@Override
