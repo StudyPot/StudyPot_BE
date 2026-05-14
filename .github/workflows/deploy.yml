@@ -138,7 +138,28 @@ jobs:
         run: |
           deploy_user="${STUDYPOT_DEPLOY_USER:-opc}"
           deploy_dir="${STUDYPOT_DEPLOY_DIR:-/opt/studypot}"
+          printf -v deploy_dir_q '%q' "${deploy_dir}"
           ssh -i "${HOME}/.ssh/studypot_deploy" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}" \
-            "cd '${deploy_dir}' && \
-             sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps && \
-             curl -fsS http://127.0.0.1:8080/actuator/health"
+            "STUDYPOT_DEPLOY_DIR=${deploy_dir_q} bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "${STUDYPOT_DEPLOY_DIR}"
+
+          for attempt in {1..24}; do
+            sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps
+            if curl -fsS http://127.0.0.1:8080/actuator/health; then
+              exit 0
+            fi
+
+            status="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' studypot-api 2>/dev/null || true)"
+            echo "Waiting for studypot-api health (${attempt}/24). container_status=${status:-unknown}"
+            if [ "${status}" = "unhealthy" ]; then
+              sudo docker logs --tail=160 studypot-api || true
+              exit 1
+            fi
+            sleep 5
+          done
+
+          sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps
+          sudo docker logs --tail=160 studypot-api || true
+          exit 1
+          REMOTE
