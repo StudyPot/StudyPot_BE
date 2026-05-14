@@ -15,6 +15,7 @@ public class ProblemDetailFactory {
 	private static final URI FORBIDDEN_TYPE = URI.create("https://api.studypot.com/problems/forbidden");
 	private static final URI NOT_FOUND_TYPE = URI.create("https://api.studypot.com/problems/not-found");
 	private static final URI CONFLICT_TYPE = URI.create("https://api.studypot.com/problems/conflict");
+	private static final URI TOO_MANY_REQUESTS_TYPE = URI.create("https://api.studypot.com/problems/too-many-requests");
 	private static final URI SERVICE_UNAVAILABLE_TYPE = URI.create("https://api.studypot.com/problems/service-unavailable");
 
 	public ProblemDetail validationProblem(List<FieldErrorResponse> fieldErrors) {
@@ -42,6 +43,10 @@ public class ProblemDetailFactory {
 
 	public ProblemDetail conflict(String detail) {
 		return create(HttpStatus.CONFLICT, "Conflict", detail, CONFLICT_TYPE);
+	}
+
+	public ProblemDetail tooManyRequests(String detail) {
+		return create(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", detail, TOO_MANY_REQUESTS_TYPE);
 	}
 
 	public ProblemDetail serviceUnavailable(String detail) {
