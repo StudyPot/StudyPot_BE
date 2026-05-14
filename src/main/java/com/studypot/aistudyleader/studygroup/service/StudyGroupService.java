@@ -13,9 +13,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class StudyGroupService {
+
+	private static final Logger log = LoggerFactory.getLogger(StudyGroupService.class);
 
 	private final StudyGroupRepository repository;
 	private final Clock clock;
@@ -136,7 +140,8 @@ public class StudyGroupService {
 	private static void publishNotification(Runnable task) {
 		try {
 			task.run();
-		} catch (RuntimeException ignored) {
+		} catch (RuntimeException exception) {
+			log.warn("study group notification publishing failed", exception);
 			// Notification creation must not roll back the primary study-group command.
 		}
 	}

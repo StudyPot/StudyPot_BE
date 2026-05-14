@@ -114,6 +114,57 @@ class NotificationTest {
 	}
 
 	@Test
+	void recordFailureMarksPendingNotificationFailed() {
+		Notification pending = notification(NotificationStatus.PENDING, null);
+
+		Notification failed = pending.recordFailure("provider timeout", NOW.plusSeconds(60));
+
+		assertThat(failed.status()).isEqualTo(NotificationStatus.FAILED);
+		assertThat(failed.deliveredAt()).isNull();
+		assertThat(failed.readAt()).isNull();
+		assertThat(failed.errorMessage()).isEqualTo("provider timeout");
+		assertThat(failed.retryCount()).isEqualTo(1);
+	}
+
+	@Test
+	void recordFailureIncrementsAlreadyFailedNotification() {
+		Notification failedOnce = notification(NotificationStatus.PENDING, null)
+			.recordFailure("provider timeout", NOW.plusSeconds(60));
+
+		Notification failedTwice = failedOnce.recordFailure("provider timeout again", NOW.plusSeconds(120));
+
+		assertThat(failedTwice.status()).isEqualTo(NotificationStatus.FAILED);
+		assertThat(failedTwice.errorMessage()).isEqualTo("provider timeout again");
+		assertThat(failedTwice.retryCount()).isEqualTo(2);
+		assertThat(failedTwice.deliveredAt()).isNull();
+		assertThat(failedTwice.readAt()).isNull();
+	}
+
+	@Test
+	void recordFailureReturnsSameInstanceForReadOrSkippedNotification() {
+		Notification read = notification(NotificationStatus.READ, NOW.plusSeconds(30));
+		Notification skipped = notification(NotificationStatus.SKIPPED, null);
+
+		assertThat(read.recordFailure("provider timeout", NOW.plusSeconds(60))).isSameAs(read);
+		assertThat(skipped.recordFailure("provider timeout", NOW.plusSeconds(60))).isSameAs(skipped);
+	}
+
+	@Test
+	void recordFailureValidatesInputs() {
+		Notification pending = notification(NotificationStatus.PENDING, null);
+
+		assertThatThrownBy(() -> pending.recordFailure("provider timeout", null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("now must not be null");
+		assertThatThrownBy(() -> pending.recordFailure(null, NOW.plusSeconds(60)))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("redactedErrorMessage must not be blank.");
+		assertThatThrownBy(() -> pending.recordFailure(" ", NOW.plusSeconds(60)))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("redactedErrorMessage must not be blank.");
+	}
+
+	@Test
 	void retryDeliveredRestoresFailedNotificationToDeliveredState() {
 		Notification failed = notification(NotificationStatus.PENDING, null)
 			.recordFailure("provider timeout", NOW.plusSeconds(60));
@@ -124,6 +175,20 @@ class NotificationTest {
 		assertThat(delivered.deliveredAt()).isEqualTo(NOW.plusSeconds(120));
 		assertThat(delivered.errorMessage()).isNull();
 		assertThat(delivered.retryCount()).isEqualTo(1);
+	}
+
+	@Test
+	void retryDeliveredRejectsNonFailedStatusAndNullDeliveredAt() {
+		Notification failed = notification(NotificationStatus.PENDING, null)
+			.recordFailure("provider timeout", NOW.plusSeconds(60));
+		Notification delivered = notification(NotificationStatus.DELIVERED, null);
+
+		assertThatThrownBy(() -> failed.retryDelivered(null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("deliveredAt must not be null");
+		assertThatThrownBy(() -> delivered.retryDelivered(NOW.plusSeconds(120)))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("only failed notifications can be retried.");
 	}
 
 	@Test
@@ -167,7 +232,7 @@ class NotificationTest {
 			"AI 팀장 피드백을 확인해 주세요.",
 			Map.of("deepLink", "/retrospectives"),
 			status,
-			status == NotificationStatus.PENDING ? null : NOW,
+			status == NotificationStatus.DELIVERED || status == NotificationStatus.READ ? NOW : null,
 			readAt,
 			null,
 			0,

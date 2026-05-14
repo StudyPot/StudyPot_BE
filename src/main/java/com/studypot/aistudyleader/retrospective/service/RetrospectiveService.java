@@ -20,11 +20,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class RetrospectiveService {
 
 	private static final String CONVERSATION_SUMMARY_SOURCE_PLACEHOLDER = "RETROSPECTIVE_CONVERSATION_PENDING";
+	private static final Logger log = LoggerFactory.getLogger(RetrospectiveService.class);
 
 	private final RetrospectiveRepository repository;
 	private final Clock clock;
@@ -320,7 +323,8 @@ public class RetrospectiveService {
 	private static void publishNotification(Runnable task) {
 		try {
 			task.run();
-		} catch (RuntimeException ignored) {
+		} catch (RuntimeException exception) {
+			log.warn("retrospective notification publishing failed", exception);
 			// Notification creation must not roll back the primary retrospective command.
 		}
 	}

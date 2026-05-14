@@ -75,11 +75,13 @@ public class NotificationService implements NotificationEventPublisher {
 		repository.markAllDeliveredNotificationsRead(command.authenticatedUserId(), clock.instant());
 	}
 
+	@Transactional
 	public Notification createNotification(CreateNotificationCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		return repository.saveNotification(command.toDeliveredNotification(idGenerator.get(), clock.instant()));
 	}
 
+	@Transactional
 	public Notification recordNotificationFailure(RecordNotificationFailureCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		Instant now = clock.instant();
@@ -88,6 +90,7 @@ public class NotificationService implements NotificationEventPublisher {
 		);
 	}
 
+	@Transactional
 	public Notification retryNotification(RetryNotificationCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		Notification notification = repository.findNotification(command.notificationId())

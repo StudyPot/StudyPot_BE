@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -213,7 +214,7 @@ class NotificationControllerTest {
 		@Override
 		public Optional<Notification> findNotificationByIdempotencyKey(String idempotencyKey) {
 			return notifications.stream()
-				.filter(candidate -> candidate.idempotencyKey().equals(idempotencyKey))
+				.filter(candidate -> Objects.equals(idempotencyKey, candidate.idempotencyKey()))
 				.findFirst();
 		}
 
@@ -235,6 +236,7 @@ class NotificationControllerTest {
 		@Override
 		public List<UUID> findActiveGroupRecipientUserIds(UUID groupId) {
 			return notifications.stream()
+				.filter(candidate -> candidate.groupId().equals(groupId))
 				.map(Notification::recipientUserId)
 				.distinct()
 				.toList();

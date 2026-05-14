@@ -5,7 +5,6 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
-import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
@@ -13,9 +12,10 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
+import com.studypot.aistudyleader.llm.domain.LlmUsage;
+import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
-import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,9 +27,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class CurriculumService {
+
+	private static final Logger log = LoggerFactory.getLogger(CurriculumService.class);
 
 	private final CurriculumRepository repository;
 	private final Supplier<CurriculumGenerator> generatorSupplier;
@@ -407,7 +411,8 @@ public class CurriculumService {
 	private static void publishNotification(Runnable task) {
 		try {
 			task.run();
-		} catch (RuntimeException ignored) {
+		} catch (RuntimeException exception) {
+			log.warn("curriculum notification publishing failed", exception);
 			// Notification creation must not roll back the primary curriculum command.
 		}
 	}

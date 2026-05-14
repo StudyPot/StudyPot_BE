@@ -16,11 +16,14 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 class NotificationServiceTest {
@@ -31,6 +34,7 @@ class NotificationServiceTest {
 	private static final UUID MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000008104");
 	private static final UUID NOTIFICATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000008105");
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000008106");
+	private static final UUID SECOND_NOTIFICATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000008107");
 	private static final Instant NOW = Instant.parse("2026-05-13T05:20:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -130,6 +134,19 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	void createNotificationReturnsExistingRowForSameIdempotencyKey() {
+		FakeRepository repository = new FakeRepository();
+		NotificationService service = new NotificationService(repository, CLOCK, ids(NOTIFICATION_ID, SECOND_NOTIFICATION_ID));
+		CreateNotificationCommand command = command(NotificationType.WEEK_STARTED, "notification:week-started");
+
+		Notification first = service.createNotification(command);
+		Notification second = service.createNotification(command);
+
+		assertThat(second).isSameAs(first);
+		assertThat(repository.savedNotifications).containsExactly(first);
+	}
+
+	@Test
 	void recordNotificationFailureStoresRedactedFailureAndRetryCount() {
 		FakeRepository repository = new FakeRepository();
 		NotificationService service = new NotificationService(repository, CLOCK, () -> NOTIFICATION_ID);
@@ -172,11 +189,14 @@ class NotificationServiceTest {
 	void publishWeekStartedCreatesDeliveredNotificationsForActiveRecipients() {
 		FakeRepository repository = new FakeRepository();
 		repository.activeRecipientUserIds = List.of(USER_ID, OTHER_USER_ID);
-		NotificationService service = new NotificationService(repository, CLOCK, () -> NOTIFICATION_ID);
+		NotificationService service = new NotificationService(repository, CLOCK, ids(NOTIFICATION_ID, SECOND_NOTIFICATION_ID));
 
 		service.publishWeekStarted(GROUP_ID, WEEK_ID, 1, "JPA 입문");
 
 		assertThat(repository.savedNotifications).hasSize(2);
+		assertThat(repository.savedNotifications)
+			.extracting(Notification::id)
+			.doesNotHaveDuplicates();
 		assertThat(repository.savedNotifications)
 			.extracting(Notification::recipientUserId)
 			.containsExactly(USER_ID, OTHER_USER_ID);
@@ -305,6 +325,17 @@ class NotificationServiceTest {
 		);
 	}
 
+	private static Supplier<UUID> ids(UUID... ids) {
+		Queue<UUID> queue = new ArrayDeque<>(List.of(ids));
+		return () -> {
+			UUID id = queue.poll();
+			if (id == null) {
+				throw new AssertionError("no deterministic notification id left");
+			}
+			return id;
+		};
+	}
+
 	private static NotificationAccessContext access(GroupMemberPermission permission, GroupMemberStatus memberStatus) {
 		return new NotificationAccessContext(GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, permission, memberStatus);
 	}
@@ -344,7 +375,10 @@ class NotificationServiceTest {
 
 		@Override
 		public Optional<Notification> findNotification(UUID notificationId) {
-			return Optional.ofNullable(notification);
+			return savedNotifications.stream()
+				.filter(candidate -> candidate.id().equals(notificationId))
+				.findFirst()
+				.or(() -> Optional.ofNullable(notification).filter(candidate -> candidate.id().equals(notificationId)));
 		}
 
 		@Override
@@ -376,6 +410,10 @@ class NotificationServiceTest {
 
 		@Override
 		public Notification saveNotification(Notification notification) {
+			Optional<Notification> existing = findNotificationByIdempotencyKey(notification.idempotencyKey());
+			if (existing.isPresent()) {
+				return existing.orElseThrow();
+			}
 			savedNotification = notification;
 			savedNotifications.add(notification);
 			return notification;
@@ -391,8 +429,15 @@ class NotificationServiceTest {
 		public Notification retryFailedNotification(UUID notificationId, Instant deliveredAt) {
 			retryNotificationId = notificationId;
 			retryDeliveredAt = deliveredAt;
-			notification = notification.retryDelivered(deliveredAt);
-			return notification;
+			Notification target = findNotification(notificationId).orElseThrow();
+			Notification retried = target.retryDelivered(deliveredAt);
+			for (int index = 0; index < savedNotifications.size(); index++) {
+				if (savedNotifications.get(index).id().equals(notificationId)) {
+					savedNotifications.set(index, retried);
+				}
+			}
+			notification = retried;
+			return retried;
 		}
 
 		@Override

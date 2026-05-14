@@ -64,6 +64,8 @@ Complete the MVP in-app notification generation and retry boundary on top of the
 ## Verification
 - [x] 2026-05-14 09:12 KST: `./gradlew test --no-daemon` passed.
 - [x] 2026-05-14 09:13 KST: `./gradlew check build --no-daemon` passed.
+- [x] 2026-05-14 09:21 KST: CodeRabbit 지적사항 1회 반영 후 `./gradlew test --no-daemon` passed.
+- [x] 2026-05-14 09:22 KST: CodeRabbit 지적사항 1회 반영 후 `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - SPT-49 can create delivered `IN_APP` notification rows for onboarding request, week start, retrospective ready, and next-week adjustment events.
