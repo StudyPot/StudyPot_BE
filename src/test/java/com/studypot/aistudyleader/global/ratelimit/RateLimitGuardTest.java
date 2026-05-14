@@ -38,6 +38,17 @@ class RateLimitGuardTest {
 	}
 
 	@Test
+	void usersMeKeyRejectsInvalidInputs() {
+		assertThatThrownBy(() -> RateLimitKeyFactory.usersMe(null, Duration.ofSeconds(60)))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("userId must not be null");
+
+		assertThatThrownBy(() -> RateLimitKeyFactory.usersMe(USER_ID, Duration.ZERO))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("window must be positive duration");
+	}
+
+	@Test
 	void rejectsWhenUsersMeLimitIsExceeded() {
 		RateLimitDecision rejected = RateLimitDecision.rejected(61, 60, Duration.ofSeconds(11));
 		RateLimitGuard guard = new RateLimitGuard(new RecordingRateLimiter(rejected), properties(true, false));

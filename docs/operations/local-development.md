@@ -42,7 +42,7 @@ export STUDYPOT_REDIS_HEALTH_ENABLED=true
   - `/api/v1/users/me`: 60 requests per 60 seconds per authenticated user.
 - Redis keys are short-lived counters such as `rate:users-me:user:{userId}:60s`; they do not replace MySQL-owned records.
 - Redis actuator health is disabled by default with `STUDYPOT_REDIS_HEALTH_ENABLED=false` so local health checks do not require Redis unless the Redis path is being exercised.
-- If the rate limiter is enabled and `STUDYPOT_RATE_LIMIT_FAIL_CLOSED=false`, Redis failures fail open. Set `STUDYPOT_RATE_LIMIT_FAIL_CLOSED=true` only for flows that should be blocked when Redis is unavailable.
+- If the rate limiter is enabled, Redis failures fail closed by default with `STUDYPOT_RATE_LIMIT_FAIL_CLOSED=true`. Set it to `false` only for local experiments that should fail open.
 
 ## Google Login
 - Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.

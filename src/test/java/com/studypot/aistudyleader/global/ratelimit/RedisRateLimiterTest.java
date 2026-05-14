@@ -1,16 +1,20 @@
 package com.studypot.aistudyleader.global.ratelimit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 class RedisRateLimiterTest {
 
@@ -18,13 +22,11 @@ class RedisRateLimiterTest {
 	private static final Duration WINDOW = Duration.ofSeconds(60);
 
 	private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
-	private final ValueOperations<String, String> valueOperations = mockValueOperations();
 	private final RedisRateLimiter limiter = new RedisRateLimiter(redisTemplate);
 
 	@Test
 	void firstRequestStartsWindowAndIsAllowed() {
-		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-		when(valueOperations.increment(KEY)).thenReturn(1L);
+		when(redisTemplate.execute(any(RedisScript.class), eq(List.of(KEY)), eq("60000"))).thenReturn(1L);
 
 		RateLimitDecision decision = limiter.check(KEY, 60, WINDOW);
 
@@ -32,14 +34,13 @@ class RedisRateLimiterTest {
 		assertThat(decision.currentCount()).isEqualTo(1);
 		assertThat(decision.limit()).isEqualTo(60);
 		assertThat(decision.retryAfter()).isZero();
-		verify(redisTemplate).expire(KEY, 60, TimeUnit.SECONDS);
+		verify(redisTemplate, never()).getExpire(KEY, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
 	void rejectsRequestOverLimitWithRemainingTtl() {
-		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-		when(valueOperations.increment(KEY)).thenReturn(61L);
-		when(redisTemplate.getExpire(KEY)).thenReturn(12L);
+		when(redisTemplate.execute(any(RedisScript.class), eq(List.of(KEY)), eq("60000"))).thenReturn(61L);
+		when(redisTemplate.getExpire(KEY, TimeUnit.MILLISECONDS)).thenReturn(12_000L);
 
 		RateLimitDecision decision = limiter.check(KEY, 60, WINDOW);
 
@@ -47,24 +48,29 @@ class RedisRateLimiterTest {
 		assertThat(decision.currentCount()).isEqualTo(61);
 		assertThat(decision.limit()).isEqualTo(60);
 		assertThat(decision.retryAfter()).isEqualTo(Duration.ofSeconds(12));
-		verify(redisTemplate, never()).expire(KEY, 60, TimeUnit.SECONDS);
+		verify(redisTemplate, never()).delete(KEY);
 	}
 
 	@Test
 	void restoresExpiryWhenOverLimitCounterHasNoTtl() {
-		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-		when(valueOperations.increment(KEY)).thenReturn(61L);
-		when(redisTemplate.getExpire(KEY)).thenReturn(-1L);
+		when(redisTemplate.execute(any(RedisScript.class), eq(List.of(KEY)), eq("60000"))).thenReturn(61L);
+		when(redisTemplate.getExpire(KEY, TimeUnit.MILLISECONDS)).thenReturn(-1L);
 
 		RateLimitDecision decision = limiter.check(KEY, 60, WINDOW);
 
 		assertThat(decision.allowed()).isFalse();
 		assertThat(decision.retryAfter()).isEqualTo(WINDOW);
-		verify(redisTemplate).expire(KEY, 60, TimeUnit.SECONDS);
+		verify(redisTemplate).delete(KEY);
 	}
 
-	@SuppressWarnings("unchecked")
-	private static ValueOperations<String, String> mockValueOperations() {
-		return mock(ValueOperations.class);
+	@Test
+	void rejectsInvalidPolicyInputs() {
+		assertThatThrownBy(() -> limiter.check(KEY, 0, WINDOW))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("limit must be positive");
+
+		assertThatThrownBy(() -> limiter.check(KEY, 60, Duration.ZERO))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("window must be positive");
 	}
 }

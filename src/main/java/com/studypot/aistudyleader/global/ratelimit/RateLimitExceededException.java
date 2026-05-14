@@ -1,8 +1,12 @@
 package com.studypot.aistudyleader.global.ratelimit;
 
+import java.io.Serial;
 import java.util.Objects;
 
 public class RateLimitExceededException extends RuntimeException {
+
+	@Serial
+	private static final long serialVersionUID = 1L;
 
 	private final RateLimitDecision decision;
 

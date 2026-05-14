@@ -219,10 +219,12 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(RateLimitExceededException.class)
 	public ResponseEntity<ProblemDetail> handleRateLimitExceeded(RateLimitExceededException exception) {
-		long retryAfterSeconds = Math.max(0, exception.decision().retryAfter().toSeconds());
-		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-			.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds))
-			.body(problemDetailFactory.tooManyRequests(messageOrDefault(exception.getMessage())));
+		ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+		if (exception.decision() != null && exception.decision().retryAfter() != null) {
+			long retryAfterSeconds = Math.max(0, exception.decision().retryAfter().toSeconds());
+			response.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
+		}
+		return response.body(problemDetailFactory.tooManyRequests(messageOrDefault(exception.getMessage())));
 	}
 
 	@ExceptionHandler(InvalidOnboardingRequestException.class)

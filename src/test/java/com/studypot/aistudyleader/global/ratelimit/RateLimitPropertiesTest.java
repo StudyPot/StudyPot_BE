@@ -13,12 +13,15 @@ class RateLimitPropertiesTest {
 		RateLimitProperties properties = new RateLimitProperties(null, null, null, null, null, null);
 
 		assertThat(properties.enabled()).isFalse();
-		assertThat(properties.failClosed()).isFalse();
+		assertThat(properties.failClosed()).isTrue();
 		assertThat(properties.usersMe().limit()).isEqualTo(60);
 		assertThat(properties.usersMe().window()).isEqualTo(Duration.ofMinutes(1));
 		assertThat(properties.aiConversation().limit()).isEqualTo(5);
+		assertThat(properties.aiConversation().window()).isEqualTo(Duration.ofMinutes(1));
+		assertThat(properties.curriculumGeneration().limit()).isEqualTo(3);
 		assertThat(properties.curriculumGeneration().window()).isEqualTo(Duration.ofMinutes(10));
 		assertThat(properties.retrospectiveFeedback().limit()).isEqualTo(2);
+		assertThat(properties.retrospectiveFeedback().window()).isEqualTo(Duration.ofDays(1));
 	}
 
 	@Test

@@ -15,7 +15,7 @@ public record RateLimitProperties(
 
 	public RateLimitProperties {
 		enabled = Boolean.TRUE.equals(enabled);
-		failClosed = Boolean.TRUE.equals(failClosed);
+		failClosed = failClosed == null || failClosed;
 		usersMe = policyOrDefault(usersMe, 60, Duration.ofMinutes(1));
 		aiConversation = policyOrDefault(aiConversation, 5, Duration.ofMinutes(1));
 		curriculumGeneration = policyOrDefault(curriculumGeneration, 3, Duration.ofMinutes(10));
