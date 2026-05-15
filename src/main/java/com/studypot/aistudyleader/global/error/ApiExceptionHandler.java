@@ -36,6 +36,7 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundExce
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitExceededException;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectivePersistenceException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDeniedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
@@ -55,6 +56,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -213,6 +215,16 @@ public class ApiExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(RateLimitExceededException.class)
+	public ResponseEntity<ProblemDetail> handleRateLimitExceeded(RateLimitExceededException exception) {
+		ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+		if (exception.decision() != null && exception.decision().retryAfter() != null) {
+			long retryAfterSeconds = Math.max(0, exception.decision().retryAfter().toSeconds());
+			response.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
+		}
+		return response.body(problemDetailFactory.tooManyRequests(messageOrDefault(exception.getMessage())));
 	}
 
 	@ExceptionHandler(InvalidOnboardingRequestException.class)

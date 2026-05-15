@@ -48,6 +48,15 @@ class ProblemDetailFactoryTest {
 	}
 
 	@Test
+	void tooManyRequestsProblemUsesProblemDetailShape() {
+		var problemDetail = factory.tooManyRequests("Too many current user lookups.");
+
+		assertThat(problemDetail.getStatus()).isEqualTo(429);
+		assertThat(problemDetail.getTitle()).isEqualTo("Too Many Requests");
+		assertThat(problemDetail.getDetail()).isEqualTo("Too many current user lookups.");
+	}
+
+	@Test
 	void serviceUnavailableProblemUsesProblemDetailShape() {
 		var problemDetail = factory.serviceUnavailable("Auth service is unavailable.");
 

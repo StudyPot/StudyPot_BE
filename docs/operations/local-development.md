@@ -23,6 +23,27 @@ This page records the local backend smoke contract for real development work.
 - `STUDYPOT_LOCAL_DB_PASSWORD`
 - `STUDYPOT_LOCAL_CONFIG` if the local config lives outside `config/application-local.yml`.
 
+## Redis Rate Limit
+- Redis-backed rate limiting is disabled by default for local and test runs.
+- Keep `STUDYPOT_RATE_LIMIT_ENABLED=false` when Redis is not running.
+- To exercise the Redis path locally, start Redis and enable the rate limiter:
+
+```bash
+docker run --name studypot-redis -p 6379:6379 -d redis:7
+export STUDYPOT_RATE_LIMIT_ENABLED=true
+export STUDYPOT_REDIS_HOST=localhost
+export STUDYPOT_REDIS_PORT=6379
+export STUDYPOT_REDIS_HEALTH_ENABLED=true
+```
+
+- Local defaults:
+  - Host: `localhost`
+  - Port: `6379`
+  - `/api/v1/users/me`: 60 requests per 60 seconds per authenticated user.
+- Redis keys are short-lived counters such as `rate:users-me:user:{userId}:60s`; they do not replace MySQL-owned records.
+- Redis actuator health is disabled by default with `STUDYPOT_REDIS_HEALTH_ENABLED=false` so local health checks do not require Redis unless the Redis path is being exercised.
+- If the rate limiter is enabled, Redis failures fail closed by default with `STUDYPOT_RATE_LIMIT_FAIL_CLOSED=true`. Set it to `false` only for local experiments that should fail open.
+
 ## Google Login
 - Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.
 - Browser OAuth authorization, state storage, PKCE, callback handling, Google token exchange, and Google user-info loading are handled by Spring Security `oauth2-client`.

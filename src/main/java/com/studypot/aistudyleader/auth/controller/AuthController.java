@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.auth.controller;
 
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitGuard;
 import com.studypot.aistudyleader.auth.service.AuthSessionMetadata;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthSessionService;
@@ -35,6 +36,7 @@ class AuthController {
 
 	private final ObjectProvider<AuthSessionService> authSessionService;
 	private final ObjectProvider<AuthTokenCookiePort> tokenCookiePort;
+	private final ObjectProvider<RateLimitGuard> rateLimitGuard;
 
 	@Operation(
 		summary = "인증 토큰 갱신",
@@ -104,7 +106,9 @@ class AuthController {
 	})
 	@GetMapping(ApiPaths.V1 + "/users/me")
 	UserResponse currentUser(@AuthenticationPrincipal Jwt jwt) {
-		return UserResponse.from(authSessionService().currentUser(authenticatedUserId(jwt)));
+		UUID userId = authenticatedUserId(jwt);
+		rateLimitGuard.ifAvailable(guard -> guard.checkUsersMe(userId));
+		return UserResponse.from(authSessionService().currentUser(userId));
 	}
 
 	private AuthSessionService authSessionService() {
