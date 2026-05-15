@@ -25,11 +25,18 @@ import com.studypot.aistudyleader.llm.repository.LlmUsagePersistenceException;
 import com.studypot.aistudyleader.llm.service.LlmUsageAccessDeniedException;
 import com.studypot.aistudyleader.llm.service.LlmUsageGroupNotFoundException;
 import com.studypot.aistudyleader.llm.service.LlmUsageServiceUnavailableException;
+import com.studypot.aistudyleader.notification.repository.NotificationPersistenceException;
+import com.studypot.aistudyleader.notification.service.NotificationAccessDeniedException;
+import com.studypot.aistudyleader.notification.service.NotificationGroupNotFoundException;
+import com.studypot.aistudyleader.notification.service.NotificationMutationRejectedException;
+import com.studypot.aistudyleader.notification.service.NotificationNotFoundException;
+import com.studypot.aistudyleader.notification.service.NotificationServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitExceededException;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectivePersistenceException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDeniedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
@@ -49,6 +56,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -152,7 +160,9 @@ public class ApiExceptionHandler {
 		AiConversationResponseGenerationException.class,
 		AiConversationPersistenceException.class,
 		LlmUsageServiceUnavailableException.class,
-		LlmUsagePersistenceException.class
+		LlmUsagePersistenceException.class,
+		NotificationServiceUnavailableException.class,
+		NotificationPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -169,7 +179,9 @@ public class ApiExceptionHandler {
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
 		AiConversationNotFoundException.class,
-		LlmUsageGroupNotFoundException.class
+		LlmUsageGroupNotFoundException.class,
+		NotificationGroupNotFoundException.class,
+		NotificationNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -182,7 +194,8 @@ public class ApiExceptionHandler {
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
 		AiConversationAccessDeniedException.class,
-		LlmUsageAccessDeniedException.class
+		LlmUsageAccessDeniedException.class,
+		NotificationAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -196,11 +209,22 @@ public class ApiExceptionHandler {
 		WeekProgressUpdateRejectedException.class,
 		GroupRuleMutationRejectedException.class,
 		RetrospectiveMutationRejectedException.class,
-		AiConversationMutationRejectedException.class
+		AiConversationMutationRejectedException.class,
+		NotificationMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(RateLimitExceededException.class)
+	public ResponseEntity<ProblemDetail> handleRateLimitExceeded(RateLimitExceededException exception) {
+		ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+		if (exception.decision() != null && exception.decision().retryAfter() != null) {
+			long retryAfterSeconds = Math.max(0, exception.decision().retryAfter().toSeconds());
+			response.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
+		}
+		return response.body(problemDetailFactory.tooManyRequests(messageOrDefault(exception.getMessage())));
 	}
 
 	@ExceptionHandler(InvalidOnboardingRequestException.class)

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/tests/testlib.sh
+source "${SCRIPT_DIR}/testlib.sh"
+
+assert_contains "test_deployment_contracts.sh" "${TEST_ROOT}/scripts/tests/run.sh"
+
+assert_file_exists "${TEST_ROOT}/Dockerfile"
+assert_file_exists "${TEST_ROOT}/.dockerignore"
+assert_file_exists "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_file_exists "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_file_exists "${TEST_ROOT}/docs/operations/deployment.md"
+
+assert_contains "eclipse-temurin:21-jdk-alpine" "${TEST_ROOT}/Dockerfile"
+assert_contains "eclipse-temurin:21-jre-alpine" "${TEST_ROOT}/Dockerfile"
+assert_contains "./gradlew --no-daemon clean bootJar" "${TEST_ROOT}/Dockerfile"
+assert_contains "USER studypot" "${TEST_ROOT}/Dockerfile"
+assert_contains "EXPOSE 8080" "${TEST_ROOT}/Dockerfile"
+assert_contains "ENTRYPOINT" "${TEST_ROOT}/Dockerfile"
+
+assert_contains ".git" "${TEST_ROOT}/.dockerignore"
+assert_contains ".codex" "${TEST_ROOT}/.dockerignore"
+assert_contains "build" "${TEST_ROOT}/.dockerignore"
+assert_contains "config/application-local.yml" "${TEST_ROOT}/.dockerignore"
+assert_contains "src/main/resources/application-local.yml" "${TEST_ROOT}/.dockerignore"
+assert_contains ".env" "${TEST_ROOT}/.dockerignore"
+
+assert_contains "image: \"\${STUDYPOT_IMAGE:?STUDYPOT_IMAGE is required}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "platform: \"\${STUDYPOT_API_PLATFORM:-linux/amd64}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "container_name: studypot-api" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "mem_limit: \"\${STUDYPOT_API_MEMORY_LIMIT:-512m}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "SPRING_DATASOURCE_URL: \"\${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "STUDYPOT_AUTH_JWT_SECRET: \"\${STUDYPOT_AUTH_JWT_SECRET:?STUDYPOT_AUTH_JWT_SECRET is required}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "STUDYPOT_DATASOURCE_MAX_POOL_SIZE: \"\${STUDYPOT_DATASOURCE_MAX_POOL_SIZE:-3}\"" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "JAVA_TOOL_OPTIONS" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+assert_contains "/actuator/health" "${TEST_ROOT}/deploy/docker-compose.prod.yml"
+
+assert_contains "name: Deploy" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "branches: [develop]" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "workflow_dispatch" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "packages: write" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "./gradlew check build --no-daemon" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker/build-push-action@v6" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker/login-action@v3" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "ghcr.io/" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "echo \"tag=\${image}:\${GITHUB_SHA}\"" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "echo \"latest=\${image}:latest\"" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "platforms: linux/amd64" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "push: true" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_not_contains "load: true" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_not_contains "docker save" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "STUDYPOT_DEPLOY_SSH_KEY" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "STUDYPOT_DEPLOY_KNOWN_HOSTS" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "test -n \"\${STUDYPOT_DEPLOY_KNOWN_HOSTS}\"" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_not_contains "ssh-keyscan -H" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "deploy/docker-compose.prod.yml" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker login ghcr.io" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains ".previous-image.env" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "STUDYPOT_PREVIOUS_IMAGE" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker compose --env-file .env --env-file .image.env -f docker-compose.yml pull studypot-api" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker compose --env-file .env --env-file .image.env -f docker-compose.yml up -d --force-recreate studypot-api" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "curl -fsS http://127.0.0.1:8080/actuator/health" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "for attempt in {1..24}" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "Waiting for studypot-api health" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker inspect --format" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "sleep 5" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "docker logs --tail=160 studypot-api" "${TEST_ROOT}/.github/workflows/deploy.yml"
+
+assert_contains "수동 배포" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "GitHub Actions 배포" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "docker buildx build --platform linux/amd64 --load" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "GHCR" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "latest" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "STUDYPOT_DEPLOY_HOST" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "docker load" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "docker compose pull" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "최대 120초" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "Waiting for studypot-api health" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains ".previous-image.env" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "flyway_schema_history" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "DB password, JWT secret, OAuth secret, OpenAI key" "${TEST_ROOT}/docs/operations/deployment.md"
+
+for file in \
+  "${TEST_ROOT}/Dockerfile" \
+  "${TEST_ROOT}/.dockerignore" \
+  "${TEST_ROOT}/deploy/docker-compose.prod.yml" \
+  "${TEST_ROOT}/.github/workflows/deploy.yml" \
+  "${TEST_ROOT}/docs/operations/deployment.md"; do
+  assert_not_contains "studypot1234" "${file}"
+  assert_not_contains "GOCSPX-" "${file}"
+  assert_not_contains "sk-" "${file}"
+done

@@ -1,0 +1,26 @@
+.git
+.github
+.gradle
+.idea
+.vscode
+.claude
+.codex
+build
+out
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Local-only secrets and profiles must never enter the Docker build context.
+config/application-local.yml
+config/application-local.yaml
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+
+# Deployment runtime env files live on servers or in GitHub Secrets.
+.env
+.env.*
+deploy/.env
+deploy/.env.*
+

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,6 +26,8 @@ import com.studypot.aistudyleader.auth.domain.EmailAddress;
 import com.studypot.aistudyleader.auth.domain.AuthUser;
 import com.studypot.aistudyleader.auth.domain.OAuthAccount;
 import com.studypot.aistudyleader.auth.domain.OAuthProvider;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitDecision;
+import com.studypot.aistudyleader.global.ratelimit.RateLimiter;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -35,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,7 +54,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-@SpringBootTest(classes = {AiStudyLeaderApplication.class, AuthControllerTest.TestAuthBeans.class})
+@SpringBootTest(
+	classes = {AiStudyLeaderApplication.class, AuthControllerTest.TestAuthBeans.class},
+	properties = "studypot.rate-limit.enabled=true"
+)
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AuthControllerTest {
@@ -73,12 +80,19 @@ class AuthControllerTest {
 
 	private final MockMvc mockMvc;
 	private final AuthSessionService authSessionService;
+	private final ConfigurableRateLimiter rateLimiter;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Autowired
-	AuthControllerTest(MockMvc mockMvc, AuthSessionService authSessionService) {
+	AuthControllerTest(MockMvc mockMvc, AuthSessionService authSessionService, ConfigurableRateLimiter rateLimiter) {
 		this.mockMvc = mockMvc;
 		this.authSessionService = authSessionService;
+		this.rateLimiter = rateLimiter;
+	}
+
+	@BeforeEach
+	void resetRateLimiter() {
+		rateLimiter.allow();
 	}
 
 	@Test
@@ -167,6 +181,20 @@ class AuthControllerTest {
 			.andExpect(status().isUnauthorized())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.title").value("Unauthorized"));
+	}
+
+	@Test
+	void currentUserRateLimitReturnsTooManyRequests() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+		rateLimiter.reject(RateLimitDecision.rejected(61, 60, Duration.ofSeconds(12)));
+
+		mockMvc.perform(get(ME_PATH)
+				.header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().string(HttpHeaders.RETRY_AFTER, "12"))
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Too Many Requests"))
+			.andExpect(jsonPath("$.detail").value("current user lookup rate limit exceeded."));
 	}
 
 	@Test
@@ -283,6 +311,12 @@ class AuthControllerTest {
 
 		@Bean
 		@Primary
+		ConfigurableRateLimiter testRateLimiter() {
+			return new ConfigurableRateLimiter();
+		}
+
+		@Bean
+		@Primary
 		AuthSessionService testAuthSessionService(
 			GoogleOAuthCodeExchangePort google,
 			AuthAccountRepository authRepository,
@@ -304,6 +338,24 @@ class AuthControllerTest {
 				new DeterministicRefreshTokens("refresh-one", "refresh-two", "refresh-three"),
 				Duration.ofDays(30)
 			);
+		}
+	}
+
+	static final class ConfigurableRateLimiter implements RateLimiter {
+
+		private RateLimitDecision decision;
+
+		void allow() {
+			decision = RateLimitDecision.allowed(1, 60);
+		}
+
+		void reject(RateLimitDecision decision) {
+			this.decision = decision;
+		}
+
+		@Override
+		public RateLimitDecision check(String key, long limit, Duration window) {
+			return decision;
 		}
 	}
 

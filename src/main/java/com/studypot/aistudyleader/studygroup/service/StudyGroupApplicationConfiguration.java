@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.global.domain.UuidV7;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -30,9 +31,17 @@ class StudyGroupApplicationConfiguration {
 		StudyGroupRepository repository,
 		Clock clock,
 		@Qualifier("studyGroupUuidGenerator") Supplier<UUID> idGenerator,
-		@Qualifier("studyGroupInviteCodeGenerator") Supplier<String> inviteCodeGenerator
+		@Qualifier("studyGroupInviteCodeGenerator") Supplier<String> inviteCodeGenerator,
+		ObjectProvider<NotificationEventPublisher> notificationEvents
 	) {
-		return new StudyGroupService(repository, clock, idGenerator, inviteCodeGenerator, INVITE_CODE_MAX_ATTEMPTS);
+		return new StudyGroupService(
+			repository,
+			clock,
+			idGenerator,
+			inviteCodeGenerator,
+			INVITE_CODE_MAX_ATTEMPTS,
+			notificationEvents.getIfAvailable(NotificationEventPublisher::noop)
+		);
 	}
 
 	@Bean

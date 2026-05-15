@@ -26,6 +26,7 @@ import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -35,6 +36,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,6 +89,28 @@ class CurriculumServiceTest {
 		assertThat(result.weeks().getFirst().tasks().getFirst().id()).isEqualTo(TASK_ID);
 		assertThat(repository.generationRequest.onboardingSummary())
 			.containsEntry("submittedResponseCount", 1);
+	}
+
+	@Test
+	void startStudyPublishesStartedWeekNotification() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		CurriculumService service = service(
+			repository,
+			generation(),
+			notifications,
+			LLM_USAGE_ID,
+			CURRICULUM_ID,
+			WEEK_ID,
+			TASK_ID
+		);
+
+		service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID));
+
+		assertThat(notifications.weekStarts)
+			.containsExactly(new WeekStart(GROUP_ID, WEEK_ID, 1, "JPA 기초와 환경 구성"));
 	}
 
 	@Test
@@ -803,11 +827,37 @@ class CurriculumServiceTest {
 		);
 	}
 
+	private static CurriculumService service(
+		CapturingRepository repository,
+		CurriculumGeneration generation,
+		NotificationEventPublisher notificationEvents,
+		UUID... ids
+	) {
+		return service(
+			repository,
+			request -> {
+				repository.generationRequest = request;
+				return generation;
+			},
+			notificationEvents,
+			ids
+		);
+	}
+
 	private static CurriculumService service(CapturingRepository repository, CurriculumGenerator generator, UUID... ids) {
+		return service(repository, generator, NotificationEventPublisher.noop(), ids);
+	}
+
+	private static CurriculumService service(
+		CapturingRepository repository,
+		CurriculumGenerator generator,
+		NotificationEventPublisher notificationEvents,
+		UUID... ids
+	) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new CurriculumService(
 			repository,
-			generator,
+			() -> generator,
 			CLOCK,
 			() -> {
 				UUID id = idQueue.poll();
@@ -815,7 +865,8 @@ class CurriculumServiceTest {
 					throw new AssertionError("no deterministic id left");
 				}
 				return id;
-			}
+			},
+			notificationEvents
 		);
 	}
 
@@ -1138,6 +1189,50 @@ class CurriculumServiceTest {
 			updatedTaskCompletion = completion;
 			existingTaskCompletion = completion;
 			return true;
+		}
+	}
+
+	private record WeekStart(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+	}
+
+	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
+
+		private final List<WeekStart> weekStarts = new ArrayList<>();
+
+		@Override
+		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
+		}
+
+		@Override
+		public void publishWeekStarted(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+			weekStarts.add(new WeekStart(groupId, weekId, weekNumber, weekTitle));
+		}
+
+		@Override
+		public void publishTaskDueReminder(
+			UUID groupId,
+			UUID recipientUserId,
+			UUID weekId,
+			UUID taskCompletionId,
+			String taskTitle,
+			Instant dueAt
+		) {
+		}
+
+		@Override
+		public void publishTaskOverdueCheck(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishIncompleteReasonRequested(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishRetrospectiveReady(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
 		}
 	}
 }
