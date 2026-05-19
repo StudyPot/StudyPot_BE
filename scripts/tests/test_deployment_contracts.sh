@@ -83,6 +83,10 @@ assert_contains "Waiting for studypot-api health" "${TEST_ROOT}/docs/operations/
 assert_contains ".previous-image.env" "${TEST_ROOT}/docs/operations/deployment.md"
 assert_contains "flyway_schema_history" "${TEST_ROOT}/docs/operations/deployment.md"
 assert_contains "DB password, JWT secret, OAuth secret, OpenAI key" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "Redis/RabbitMQ production activation is a separate deployment task" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "현재 \`deploy/docker-compose.prod.yml\`은 \`studypot-api\`만 실행한다" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "별도 \`studypot-worker\` 컨테이너는 후속 배포 작업" "${TEST_ROOT}/docs/operations/deployment.md"
+assert_contains "MySQL은 계속 durable source of truth" "${TEST_ROOT}/docs/operations/deployment.md"
 
 for file in \
   "${TEST_ROOT}/Dockerfile" \

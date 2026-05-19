@@ -21,4 +21,4 @@
 ## 변경 통제
 - v1 문서는 `LOCKED_FOR_IMPLEMENTATION`.
 - 변경은 Change Request + ADR 필요.
-- 현재 변경: `CR-20260506-auth-api-entrypoints`, `ADR-20260506-auth-api-entrypoints`.
+- 현재 변경: `CR-20260519-redis-rabbitmq-realtime-infra`, `ADR-20260519-redis-rabbitmq-realtime-infra`.

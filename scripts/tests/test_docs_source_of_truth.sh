@@ -19,8 +19,16 @@ assert_contains "SPT-56\`: remaining documentation source-of-truth cleanup Task"
 assert_contains "작업\`/\`Task" "${TEST_ROOT}/docs/confluence/10-jira-mapping.md"
 assert_contains "CR-20260512-retrospective-rag-boundary" "${TEST_ROOT}/docs/specs/change-control-v1.md"
 assert_contains "ADR-20260512-retrospective-rag-boundary" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "CR-20260519-redis-rabbitmq-realtime-infra" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "ADR-20260519-redis-rabbitmq-realtime-infra" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "RabbitMQ is the async dispatch layer" "${TEST_ROOT}/docs/specs/change-control-v1.md"
+assert_contains "RabbitMQ must not own final notification status" "${TEST_ROOT}/docs/specs/adr/ADR-20260519-redis-rabbitmq-realtime-infra.md"
+assert_contains "Redis/RabbitMQ runtime boundaries" "${TEST_ROOT}/docs/specs/ai-contract-v1.md"
+assert_contains "Runtime Infrastructure Boundary" "${TEST_ROOT}/docs/specs/notification-contract-v1.md"
+assert_contains "not in current prod compose" "${TEST_ROOT}/docs/architecture/backend-map.md"
 assert_contains "DB-First Context Builder" "${TEST_ROOT}/docs/specs/ai-contract-v1.md"
 assert_contains "Vector store, GraphRAG, MCP, FastAPI service split" "${TEST_ROOT}/docs/confluence/06-ai-team-leader.md"
+assert_contains "CR-20260519-redis-rabbitmq-realtime-infra" "${TEST_ROOT}/docs/confluence/00-doc-hub.md"
 
 if rg -n "/Users/hyunwoo/Documents/New project 3" \
   "${TEST_ROOT}/ARCHITECTURE.md" \
