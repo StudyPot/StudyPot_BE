@@ -62,7 +62,6 @@ class RabbitNotificationConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(NotificationService.class)
 	RabbitNotificationJobWorker rabbitNotificationJobWorker(NotificationService notifications) {
 		return new RabbitNotificationJobWorker(notifications);
 	}
