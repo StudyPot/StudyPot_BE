@@ -23,6 +23,13 @@ This page records the local backend smoke contract for real development work.
 - `STUDYPOT_LOCAL_DB_PASSWORD`
 - `STUDYPOT_LOCAL_CONFIG` if the local config lives outside `config/application-local.yml`.
 
+## Redis/RabbitMQ Role Boundary
+- Redis/RabbitMQ boundary is approved by [CR-20260519-redis-rabbitmq-realtime-infra](../specs/change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](../specs/adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
+- MySQL remains the local source of truth for durable StudyPot state.
+- Redis is only for short-lived rate limit counters and TTL duplicate-lock state.
+- RabbitMQ is only for async job dispatch, retry handoff, and worker isolation.
+- Local and test defaults keep both Redis and RabbitMQ paths disabled unless a developer explicitly exercises them.
+
 ## Redis Rate Limit
 - Redis-backed rate limiting is disabled by default for local and test runs.
 - Keep `STUDYPOT_RATE_LIMIT_ENABLED=false` when Redis is not running.

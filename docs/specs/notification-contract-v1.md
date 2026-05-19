@@ -4,6 +4,7 @@
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
+- Runtime infra record: [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md)
 
 ## Responsibilities
 - Create in-app notifications for study events that require member attention.
@@ -28,6 +29,12 @@
 ## Delivery Channels
 - MVP channel is `IN_APP`.
 - External channels such as Discord, email, push, or Kakao are post-MVP and require a new Change Request and ADR.
+
+## Runtime Infrastructure Boundary
+- MySQL remains the durable source for notification status, recipient, related resources, idempotency key, retry count, redacted failure, payload, and read state.
+- RabbitMQ may dispatch in-app notification creation or retry jobs, but it does not define a new delivery channel and must not replace MySQL-owned notification records.
+- Redis may support short-lived rate limit or duplicate-lock protection around expensive upstream flows, but Redis does not store final notification state.
+- The current RabbitMQ listener runs in the Spring Boot application process when explicitly enabled; a separate notification worker container requires a later approved deployment task.
 
 ## Status Model
 | Status | Meaning |

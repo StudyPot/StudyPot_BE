@@ -8,6 +8,16 @@
 - 현재 공용 DB 연결 경로는 `oracle-was` 공인 IP만 `oracle-db:3306`에 접근하도록 제한한다.
 - 장기적으로는 같은 VCN 또는 VCN peering처럼 private 경로를 우선한다.
 
+## Redis/RabbitMQ 운영 배치
+- Redis/RabbitMQ boundary is approved by [CR-20260519-redis-rabbitmq-realtime-infra](../specs/change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](../specs/adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
+- 현재 `deploy/docker-compose.prod.yml`은 `studypot-api`만 실행한다. Redis와 RabbitMQ 컨테이너를 이 ADR에서 추가하지 않는다.
+- Redis/RabbitMQ production activation is a separate deployment task. 그 작업은 placement, capacity, compose/env pass-through, credentials, actuator health, smoke verification, and rollback을 함께 기록해야 한다.
+- 작은 `oracle-was`에는 API 부팅, Flyway, datasource, Swagger/health 검증 여유가 우선이다. Redis/RabbitMQ를 같은 호스트에 올리는 선택은 메모리/CPU/디스크 여유와 재시작 영향이 확인된 뒤에만 허용한다.
+- Redis를 켜려면 `STUDYPOT_RATE_LIMIT_ENABLED`, `STUDYPOT_REDIS_HOST`, `STUDYPOT_REDIS_PORT`, `STUDYPOT_REDIS_HEALTH_ENABLED`, 장애 정책 값을 production compose 환경에 명시적으로 전달해야 한다.
+- RabbitMQ를 켜려면 `STUDYPOT_NOTIFICATION_RABBITMQ_ENABLED`, `STUDYPOT_RABBITMQ_HOST`, `STUDYPOT_RABBITMQ_PORT`, `STUDYPOT_RABBITMQ_USERNAME`, `STUDYPOT_RABBITMQ_PASSWORD`, `STUDYPOT_RABBITMQ_HEALTH_ENABLED`, exchange/queue/routing-key 값을 production compose 환경에 명시적으로 전달해야 한다.
+- 현재 worker는 `studypot-api` 프로세스 안의 RabbitMQ listener다. 별도 `studypot-worker` 컨테이너는 후속 배포 작업에서 같은 image를 재사용할지, worker-only property를 둘지, API와 worker health check를 분리할지 결정한다.
+- MySQL은 계속 durable source of truth다. Redis는 rate limit/TTL lock, RabbitMQ는 async dispatch/DLQ boundary만 소유한다.
+
 ## 필수 서버 파일
 `oracle-was`의 배포 디렉터리는 기본값으로 `/opt/studypot`를 사용한다.
 

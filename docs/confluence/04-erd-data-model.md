@@ -17,6 +17,7 @@
 - 호스트 시작 시점에 제출된 온보딩 응답만 초기 커리큘럼 생성에 사용한다.
 - 늦게 합류한 멤버의 온보딩은 전체 초기 커리큘럼 자동 재생성이 아니라 향후 주차 조정에 반영한다.
 - MVP 알림은 서비스 내부 `IN_APP`이며 Discord와 외부 채널은 후속 CR/ADR 이후 확장한다.
+- Redis/RabbitMQ runtime boundary는 `CR-20260519-redis-rabbitmq-realtime-infra`와 `ADR-20260519-redis-rabbitmq-realtime-infra`가 승인한다. Redis는 TTL 기반 rate limit/lock 상태만, RabbitMQ는 async dispatch/DLQ boundary만 소유하며 durable AI/notification state는 MySQL에 남는다.
 - meeting-centered table은 P0에서 제외한다.
 
 ## Entity Set
