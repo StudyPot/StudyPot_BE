@@ -36,7 +36,7 @@
 - `retrospective` is the final week/member/progress feedback state.
 - `ai_conversation` and `ai_conversation_message` are the chat/input surface and may link to a retrospective when `conversationType = RETROSPECTIVE`.
 - SPT-81 does not add public API fields or OpenAPI paths. The DB-first context builder runs inside the backend before retrospective/chat LLM provider calls.
-- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks. SPT-82's Proposed ADR keeps the current API request/response boundary unchanged; streaming or service-split endpoints require a later approved task.
 
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |

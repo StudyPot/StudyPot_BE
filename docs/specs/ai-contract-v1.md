@@ -36,6 +36,7 @@
 - Store the final summarized input in `retrospective.input_summary` when a retrospective is created or updated.
 - Store redacted request/source metadata in `llm_usage.request_payload` for audit. Do not store secrets, OAuth tokens, provider credentials, or raw private notes that exceed the permission contract.
 - Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+- SPT-82 planning guidance is recorded in [ADR-20260519-ai-llm-rag-architecture](./adr/ADR-20260519-ai-llm-rag-architecture.md): the MVP default remains Spring Boot internal DB-first context building, with FastAPI/vector/graph/agent/MCP adoption gated by explicit transition criteria.
 
 ## Runtime Infrastructure Boundary
 - MySQL remains the durable source for AI outputs, conversation records, retrospective state, curriculum state, and `llm_usage` audit.
