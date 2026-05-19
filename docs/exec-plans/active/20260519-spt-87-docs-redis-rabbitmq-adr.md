@@ -101,3 +101,6 @@ Keep this as a documentation and contract task.
 - `git diff --check` - passed.
 - `bash scripts/tests/run.sh` - passed.
 - `./gradlew check build --no-daemon` - passed.
+- Reviewdog shellcheck raised `SC2016` on two deployment-test assertions that used single-quoted strings with backticks. Replaced them with escaped backticks inside double quotes.
+- `bash scripts/tests/test_deployment_contracts.sh` - passed after the reviewdog fix.
+- `git diff --check` - passed after the reviewdog fix.
