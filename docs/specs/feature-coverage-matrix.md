@@ -24,6 +24,8 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 
 `retrospective-feedback` and `ai-team-leader` DB-first context boundaries are approved by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md). The change does not add API paths, DB tables, enum values, or new feature IDs.
 
+Redis/RabbitMQ runtime infrastructure boundaries for `identity-core`, `curriculum-core`, `retrospective-feedback`, `ai-team-leader`, `notification`, and `n/a-harness` are approved by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md). The change does not add API paths, DB tables, enum values, notification types, permission actions, or new feature IDs.
+
 ## Coverage Rules
 - A feature is implementable only when PRD, requirements, API, DB, integration, and QA cells are populated.
 - All v1 feature rows are populated and locked.
