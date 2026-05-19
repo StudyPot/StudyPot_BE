@@ -44,6 +44,30 @@ export STUDYPOT_REDIS_HEALTH_ENABLED=true
 - Redis actuator health is disabled by default with `STUDYPOT_REDIS_HEALTH_ENABLED=false` so local health checks do not require Redis unless the Redis path is being exercised.
 - If the rate limiter is enabled, Redis failures fail closed by default with `STUDYPOT_RATE_LIMIT_FAIL_CLOSED=true`. Set it to `false` only for local experiments that should fail open.
 
+## RabbitMQ Notification Worker
+- RabbitMQ-backed notification jobs are disabled by default for local and test runs.
+- Keep `STUDYPOT_NOTIFICATION_RABBITMQ_ENABLED=false` when RabbitMQ is not running.
+- The default direct notification path still creates in-app notification rows through MySQL when RabbitMQ is disabled.
+- To exercise the RabbitMQ notification worker locally, start RabbitMQ and enable the worker:
+
+```bash
+docker run --name studypot-rabbitmq -p 5672:5672 -p 15672:15672 -d rabbitmq:4-management
+export STUDYPOT_NOTIFICATION_RABBITMQ_ENABLED=true
+export STUDYPOT_RABBITMQ_HOST=localhost
+export STUDYPOT_RABBITMQ_PORT=5672
+export STUDYPOT_RABBITMQ_USERNAME=guest
+export STUDYPOT_RABBITMQ_PASSWORD=guest
+export STUDYPOT_RABBITMQ_HEALTH_ENABLED=true
+```
+
+- Local defaults:
+  - Exchange: `studypot.notification.events`
+  - Queue: `studypot.notification.events`
+  - Routing key: `notification.create`
+- RabbitMQ owns async dispatch and worker isolation only. MySQL remains the durable source for notification status, idempotency key, retry count, and redacted failure records.
+- Duplicate RabbitMQ deliveries use the existing notification `idempotency_key` contract and must not create duplicate recipient notifications.
+- Worker failures are recorded through the existing notification failure path, then rejected without requeue so a broker dead-letter policy can own repeated failures when configured.
+
 ## Google Login
 - Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.
 - Browser OAuth authorization, state storage, PKCE, callback handling, Google token exchange, and Google user-info loading are handled by Spring Security `oauth2-client`.
