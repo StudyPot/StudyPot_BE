@@ -60,6 +60,7 @@ class ProviderBackedCurriculumGeneratorTest {
 		assertThat(provider.request.input()).containsKey("group");
 		assertThat(provider.request.input().toString()).contains("Backend Interview Study");
 		assertThat(provider.request.textFormat().toString()).contains("json_schema");
+		assertOpenAiCompatibleSchema(provider.request.textFormat());
 		assertThat(result.provider()).isEqualTo(LlmProvider.OPENAI);
 		assertThat(result.model()).isEqualTo("gpt-4o-mini");
 		assertThat(result.inputTokens()).isEqualTo(111);
@@ -133,6 +134,43 @@ class ProviderBackedCurriculumGeneratorTest {
 			Map.of("submittedResponseCount", 1),
 			Instant.parse("2026-05-11T03:30:00Z")
 		);
+	}
+
+	private static void assertOpenAiCompatibleSchema(Map<String, Object> textFormat) {
+		assertThat(textFormat).containsEntry("strict", true);
+
+		Map<String, Object> schema = objectMap(textFormat.get("schema"));
+		assertThat(schema).containsEntry("additionalProperties", false);
+		assertThat(required(schema)).containsExactly("title", "totalWeeks", "weeks");
+
+		Map<String, Object> properties = objectMap(schema.get("properties"));
+		Map<String, Object> weeks = objectMap(properties.get("weeks"));
+		Map<String, Object> weekSchema = objectMap(weeks.get("items"));
+		assertThat(weekSchema).containsEntry("additionalProperties", false);
+		assertThat(required(weekSchema))
+			.containsExactly("weekNumber", "title", "sprintGoal", "learningGoals", "resources", "tasks");
+
+		Map<String, Object> weekProperties = objectMap(weekSchema.get("properties"));
+		Map<String, Object> resources = objectMap(weekProperties.get("resources"));
+		Map<String, Object> resourceSchema = objectMap(resources.get("items"));
+		assertThat(resourceSchema).containsEntry("additionalProperties", false);
+		assertThat(required(resourceSchema)).containsExactly("title", "url");
+
+		Map<String, Object> tasks = objectMap(weekProperties.get("tasks"));
+		Map<String, Object> taskSchema = objectMap(tasks.get("items"));
+		assertThat(taskSchema).containsEntry("additionalProperties", false);
+		assertThat(required(taskSchema))
+			.containsExactly("taskType", "title", "description", "required");
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> objectMap(Object value) {
+		return (Map<String, Object>) value;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<String> required(Map<String, Object> schema) {
+		return (List<String>) schema.get("required");
 	}
 
 	private static final class CapturingProvider implements LlmProviderClient {
