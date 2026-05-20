@@ -37,6 +37,7 @@ base_ref="$(gh pr view "${pr}" --json baseRefName --jq .baseRefName)"
 head_ref="$(gh pr view "${pr}" --json headRefName --jq .headRefName)"
 head_before="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
 pr_title="$(gh pr view "${pr}" --json title --jq .title)"
+pr_body="$(gh pr view "${pr}" --json body --jq .body)"
 pr_url="$(gh pr view "${pr}" --json url --jq .url)"
 
 [[ "${base_ref}" == "develop" ]] || fail "finish-pr.sh only handles PRs targeting develop. Found: ${base_ref}"
@@ -58,6 +59,38 @@ require_latest_head_review_gates() {
   fi
 
   "${SCRIPT_DIR}/verify-coderabbit-review.sh" "${pr}" "${head_sha}"
+}
+
+extract_first_body_line_after_heading() {
+  local heading="$1"
+
+  awk -v heading="## ${heading}" '
+    $0 == heading { in_section = 1; next }
+    in_section && /^## / { exit }
+    in_section {
+      line = $0
+      sub(/\r$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == "" || line == "TBD") next
+      sub(/^- /, "", line)
+      print line
+      exit
+    }
+  '
+}
+
+derive_pr_change_summary() {
+  local summary
+
+  summary="$(printf '%s\n' "${pr_body}" | extract_first_body_line_after_heading "Goal")"
+  if [[ -z "${summary}" ]]; then
+    summary="$(printf '%s\n' "${pr_body}" | extract_first_body_line_after_heading "작업")"
+  fi
+  if [[ -z "${summary}" ]]; then
+    summary="${pr_title#*] }"
+  fi
+
+  printf '%s\n' "${summary}"
 }
 
 find_feature_worktree() {
@@ -125,13 +158,16 @@ sync_develop() {
 
 notify_auto_merge_completed() {
   local notification_head="$1"
+  local change_summary
 
   if [[ -z "${STUDYPOT_MM_WEBHOOK_URL:-}" ]]; then
     printf 'Mattermost 자동 merge 알림을 건너뜁니다: STUDYPOT_MM_WEBHOOK_URL 미설정.\n'
     return 0
   fi
 
-  if ! "${SCRIPT_DIR}/notify-pr-ready.sh" "${pr}" "${pr_url}" "${notification_head}" "merged"; then
+  change_summary="$(derive_pr_change_summary)"
+  if ! PR_TITLE="${pr_title}" PR_SUMMARY="${change_summary}" \
+    "${SCRIPT_DIR}/notify-pr-ready.sh" "${pr}" "${pr_url}" "${notification_head}" "merged"; then
     printf 'Mattermost 자동 merge 알림 전송에 실패했지만 merge/cleanup은 계속 진행합니다.\n'
   fi
 }

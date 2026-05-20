@@ -24,15 +24,28 @@ PR_URL="${pr_url}" \
 PR_HEAD_SHA="${head_sha}" \
 PR_READY_STATUS="${status}" \
 MM_MENTIONS="${STUDYPOT_MM_MENTIONS:-}" \
+PR_TITLE="${PR_TITLE:-}" \
+PR_SUMMARY="${PR_SUMMARY:-}" \
 python3 - <<'PY' > "${payload_file}"
 import json
 import os
+import re
 
 mentions = os.environ.get("MM_MENTIONS", "").strip()
 pr = os.environ["PR_NUMBER"]
 pr_url = os.environ["PR_URL"]
-head_sha = os.environ["PR_HEAD_SHA"]
 status = os.environ["PR_READY_STATUS"]
+title = os.environ.get("PR_TITLE", "").strip()
+summary = os.environ.get("PR_SUMMARY", "").strip()
+
+
+def one_line(value):
+    return re.sub(r"\s+", " ", value).strip()
+
+
+title = one_line(title)
+summary = one_line(summary)
+change_title = title or f"PR #{pr}"
 
 lines = []
 if mentions:
@@ -41,21 +54,23 @@ if status == "merged":
     lines.extend(
         [
             f"StudyPot PR #{pr} 자동 merge가 완료됐습니다.",
-            f"- PR 링크: {pr_url}",
-            f"- Head: `{head_sha}`",
-            "- 처리: review gate 통과 후 `scripts/task/finish-pr.sh`가 GitHub merge와 로컬 정리를 진행했습니다.",
-            "- Jira 처리: GitHub merge 후 연결된 Jira Task는 자동 또는 하네스 정리 단계에서 완료 처리됩니다.",
+            f"- 변경 내용: {change_title}",
         ]
     )
+    if summary and summary != change_title:
+        lines.append(f"- 요약: {summary}")
+    lines.append(f"- PR 링크: {pr_url}")
 else:
     lines.extend(
         [
             f"StudyPot PR #{pr} 자동 merge 상태 알림입니다.",
-            f"- PR 링크: {pr_url}",
-            f"- Head: `{head_sha}`",
+            f"- 변경 내용: {change_title}",
             f"- 상태: `{status}`",
+            f"- PR 링크: {pr_url}",
         ]
     )
+    if summary and summary != change_title:
+        lines.insert(-2, f"- 요약: {summary}")
 
 print(json.dumps({"text": "\n".join(lines)}, ensure_ascii=False))
 PY

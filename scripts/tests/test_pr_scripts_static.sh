@@ -72,7 +72,10 @@ assert_contains "gh pr merge \"\${pr}\" --merge" "${TEST_ROOT}/scripts/task/fini
 assert_contains "STUDYPOT_MM_WEBHOOK_URL" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
 assert_contains "STUDYPOT_MM_MENTIONS" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
 assert_contains "자동 merge가 완료" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
-assert_contains "scripts/task/finish-pr.sh" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
+assert_contains "변경 내용" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
+assert_contains "요약" "${TEST_ROOT}/scripts/task/notify-pr-ready.sh"
+assert_contains "derive_pr_change_summary" "${TEST_ROOT}/scripts/task/finish-pr.sh"
+assert_contains "PR_TITLE=\"\${pr_title}\" PR_SUMMARY=\"\${change_summary}\"" "${TEST_ROOT}/scripts/task/finish-pr.sh"
 
 assert_contains "Closes #" "${TEST_ROOT}/scripts/task/create-pr.sh"
 assert_contains "Jira: [" "${TEST_ROOT}/scripts/task/create-pr.sh"

@@ -115,7 +115,7 @@ Head: <current_pr_head_sha>
 - 자동 merge는 required `review-gate-pass` check와 최신 head CodeRabbit review marker가 모두 충족된 뒤에만 실행한다.
 - `STUDYPOT_MM_WEBHOOK_URL`: Mattermost incoming webhook URL. 로컬 Keychain 또는 환경변수로만 제공하며 repo에 저장하지 않는다.
 - `STUDYPOT_MM_MENTIONS`: 알림에 포함할 Mattermost mention 문자열. 기본 운영 값은 로컬 환경에서 관리한다.
-- 알림에는 PR 번호/URL, head SHA, 자동 merge 완료 상태, Jira/cleanup 처리 안내를 포함한다.
+- 알림에는 PR 번호/URL, 자동 merge 완료 상태, PR 제목 기반 변경 내용, 가능한 경우 `EXEC_PLAN`/PR body에서 추출한 요약을 포함한다. Head SHA, Jira 처리, cleanup 세부 절차는 Mattermost 본문에서 전면에 두지 않는다.
 - GitHub branch protection이 `BLOCKED`를 반환할 수 있으므로 자동 merge 모드에서는 checks/pass marker/thread 조건이 통과했고 `CHANGES_REQUESTED`가 없으면 `BLOCKED`를 merge CLI의 최종 판단 대상으로 허용한다.
 - webhook URL이 없으면 알림만 건너뛰고 merge/cleanup은 계속한다. URL 값은 로그/문서/PR body에 출력하지 않는다.
 
