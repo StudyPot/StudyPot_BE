@@ -8,8 +8,11 @@ import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
+import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
+import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
@@ -22,6 +25,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -47,7 +51,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 class StudyGroupController {
 
+	private static final int DEFAULT_DETAIL_KEYWORD_MAX_CANDIDATES = 5;
+
 	private final ObjectProvider<StudyGroupService> studyGroupService;
+	private final ObjectProvider<DetailKeywordSuggestionService> detailKeywordSuggestionService;
 
 	@Operation(
 		summary = "내 스터디 그룹 목록 조회",
@@ -84,6 +91,26 @@ class StudyGroupController {
 	}
 
 	@Operation(
+		summary = "AI 세부 키워드 추천",
+		description = "스터디 그룹 생성 전 큰 주제와 선택적 힌트를 받아 선택 가능한 세부 키워드 후보를 추천합니다. 추천 후보는 저장되지 않습니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "추천 키워드 후보 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "422", description = "필수 값이 비어 있거나 후보 개수 검증에 실패함"),
+		@ApiResponse(responseCode = "503", description = "AI 추천 서비스가 아직 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/groups/detail-keyword-suggestions")
+	DetailKeywordSuggestionsResponse suggestDetailKeywords(
+		Authentication authentication,
+		@Valid @RequestBody SuggestDetailKeywordsRequest request
+	) {
+		DetailKeywordSuggestions suggestions = detailKeywordService()
+			.suggest(request.toCommand(authenticatedUserId(authentication)));
+		return DetailKeywordSuggestionsResponse.from(suggestions);
+	}
+
+	@Operation(
 		summary = "초대 코드로 그룹 참여",
 		description = "스터디 그룹 ID와 초대 코드를 검증해 인증된 사용자를 온보딩 대기 멤버로 추가합니다."
 	)
@@ -109,6 +136,12 @@ class StudyGroupController {
 	private StudyGroupService service() {
 		return studyGroupService.getIfAvailable(() -> {
 			throw new StudyGroupServiceUnavailableException("study group service is not configured.");
+		});
+	}
+
+	private DetailKeywordSuggestionService detailKeywordService() {
+		return detailKeywordSuggestionService.getIfAvailable(() -> {
+			throw new StudyGroupServiceUnavailableException("detail keyword suggestion service is not configured.");
 		});
 	}
 
@@ -178,6 +211,42 @@ class StudyGroupController {
 				endsAt,
 				description
 			);
+		}
+	}
+
+	@Schema(description = "AI 세부 키워드 추천 요청입니다.")
+	private record SuggestDetailKeywordsRequest(
+		@Schema(description = "스터디의 큰 주제입니다.", example = "Spring Boot")
+		@NotBlank
+		@Size(max = 120)
+		String topic,
+		@Schema(description = "이미 고려 중인 키워드 힌트입니다. 생략하면 빈 목록으로 처리됩니다.", example = "[\"Backend\"]")
+		@Size(max = 10)
+		List<@NotBlank String> hintKeywords,
+		@Schema(description = "추천받을 최대 후보 개수입니다. 생략하면 5개입니다.", example = "5")
+		@Min(1)
+		@Max(10)
+		Integer maxCandidates
+	) {
+
+		SuggestDetailKeywordsCommand toCommand(UUID authenticatedUserId) {
+			return new SuggestDetailKeywordsCommand(
+				authenticatedUserId,
+				topic,
+				hintKeywords == null ? List.of() : hintKeywords,
+				maxCandidates == null ? DEFAULT_DETAIL_KEYWORD_MAX_CANDIDATES : maxCandidates
+			);
+		}
+	}
+
+	@Schema(description = "AI 세부 키워드 추천 응답입니다.")
+	private record DetailKeywordSuggestionsResponse(
+		@Schema(description = "선택 가능한 세부 키워드 후보 목록입니다.", example = "[\"JPA\", \"Spring Security\", \"Spring Batch\"]")
+		List<String> keywords
+	) {
+
+		private static DetailKeywordSuggestionsResponse from(DetailKeywordSuggestions suggestions) {
+			return new DetailKeywordSuggestionsResponse(suggestions.keywords());
 		}
 	}
 

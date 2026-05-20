@@ -36,7 +36,7 @@ class DetailKeywordSuggestionServiceTest {
 			LlmProvider.OPENAI,
 			"gpt-4o-mini",
 			"""
-				{"suggestions":[{"keyword":"JPA 성능 최적화","reason":"Spring Boot 주제와 기존 힌트를 더 세분화합니다."},{"keyword":"Spring Security 인증","reason":"보안 학습 범위를 명확히 합니다."}],"rationale":"호스트가 선택할 수 있는 세부 키워드 후보입니다."}
+				{"keywords":["JPA 성능 최적화","Spring Security 인증"]}
 				""",
 			45,
 			32,
@@ -69,9 +69,10 @@ class DetailKeywordSuggestionServiceTest {
 			.containsEntry("hintKeywords", List.of("JPA", "Security"))
 			.containsEntry("maxCandidates", 3);
 		assertThat(provider.request.textFormat().toString()).contains("detail_keyword_suggestions");
-		assertThat(result.suggestions()).extracting(DetailKeywordSuggestion::keyword)
+		assertThat(provider.request.textFormat().toString()).contains("keywords");
+		assertThat(provider.request.textFormat().toString()).doesNotContain("reason");
+		assertThat(result.keywords())
 			.containsExactly("JPA 성능 최적화", "Spring Security 인증");
-		assertThat(result.rationale()).isEqualTo("호스트가 선택할 수 있는 세부 키워드 후보입니다.");
 		assertThat(usageRecorder.usage.id()).isEqualTo(USAGE_ID);
 		assertThat(usageRecorder.usage.userId()).isEqualTo(USER_ID);
 		assertThat(usageRecorder.usage.groupId()).isNull();
@@ -125,7 +126,24 @@ class DetailKeywordSuggestionServiceTest {
 		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
 		DetailKeywordSuggestionService service = service(
 			new CapturingProvider(response("""
-				{"suggestions":[],"rationale":""}
+				{"keywords":[]}
+				""")),
+			usageRecorder
+		);
+
+		assertThatThrownBy(() -> service.suggest(command()))
+			.isInstanceOf(StudyGroupServiceUnavailableException.class)
+			.hasCauseInstanceOf(IllegalArgumentException.class);
+		assertThat(usageRecorder.usage.status()).isEqualTo(LlmUsageStatus.FAILED);
+		assertThat(usageRecorder.usage.errorCode()).isEqualTo("DETAIL_KEYWORD_RESPONSE_INVALID");
+	}
+
+	@Test
+	void suggestRejectsBlankProviderKeywordWithFailedUsage() {
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		DetailKeywordSuggestionService service = service(
+			new CapturingProvider(response("""
+				{"keywords":["JPA"," "]}
 				""")),
 			usageRecorder
 		);

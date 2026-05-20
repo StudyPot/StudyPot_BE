@@ -101,6 +101,27 @@
 }
 ```
 
+### Suggest Detail Keywords
+`POST /api/v1/groups/detail-keyword-suggestions`
+
+Request:
+```json
+{
+  "topic": "Spring Boot",
+  "hintKeywords": [],
+  "maxCandidates": 5
+}
+```
+
+Response:
+```json
+{
+  "keywords": ["JPA", "Spring Security", "Spring Batch"]
+}
+```
+
+Suggested keyword candidates are transient and are not persisted unless selected or directly entered in the later create-group request.
+
 ### Submit Onboarding
 ```json
 {
@@ -149,7 +170,7 @@
 
 ## Verification
 - OpenAPI YAML must parse before PR review.
-- Current local parse: `openapi=3.1.0`, `paths=25`, `schemas=31`.
+- Current local parse: `openapi=3.1.0`, `paths=28`, `schemas=33`.
 - Standard repo verification: `./gradlew check build --no-daemon`.
 
 ## 추적 링크

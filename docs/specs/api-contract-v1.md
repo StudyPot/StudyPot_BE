@@ -115,6 +115,29 @@ If both the JSON `refreshToken` and the `studypot_refresh_token` cookie are prov
 }
 ```
 
+### Suggest Detail Keywords
+`POST /api/v1/groups/detail-keyword-suggestions`
+
+Request:
+```json
+{
+  "topic": "Spring Boot",
+  "hintKeywords": [],
+  "maxCandidates": 5
+}
+```
+
+`hintKeywords` and `maxCandidates` can be omitted. The default candidate limit is 5.
+
+Response:
+```json
+{
+  "keywords": ["JPA", "Spring Security", "Spring Batch"]
+}
+```
+
+Suggested keywords are transient. Only the final selected or directly entered `detailKeywords` are persisted by `POST /api/v1/groups`.
+
 ### Submit Onboarding
 ```json
 {
