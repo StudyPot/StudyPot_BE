@@ -28,6 +28,7 @@
 - 2026-05-20: User decision: Mattermost merge-complete notifications should prioritize what changed or what feature was added, not head SHA, Jira 처리, or `finish-pr.sh` implementation details.
 - 2026-05-20: Scope is harness communication only. Auto merge, review gate, Jira transition, and cleanup behavior stay unchanged.
 - 2026-05-20: Apply TDD: update `test_auto_merge_notification.sh` first so the current metadata-heavy message fails, then update notification generation.
+- 2026-05-20: Keep Mattermost-facing summary Korean when possible; if an extracted PR body/EXEC_PLAN summary has no Korean text, fall back to the Korean PR title description.
 
 ## Goal
 Make StudyPot Mattermost merge-complete notifications useful at a glance by showing the PR title and a concise change summary before the PR link, while removing noisy operational metadata from the message body.

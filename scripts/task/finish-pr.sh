@@ -89,6 +89,15 @@ derive_pr_change_summary() {
   if [[ -z "${summary}" ]]; then
     summary="${pr_title#*] }"
   fi
+  if [[ -n "${summary}" ]] && ! SUMMARY_TEXT="${summary}" python3 - <<'PY'; then
+import os
+import sys
+
+text = os.environ.get("SUMMARY_TEXT", "")
+sys.exit(0 if any("\uac00" <= char <= "\ud7a3" for char in text) else 1)
+PY
+    summary="${pr_title#*] }"
+  fi
 
   printf '%s\n' "${summary}"
 }
