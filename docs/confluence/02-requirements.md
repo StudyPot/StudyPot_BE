@@ -5,7 +5,7 @@
 - Lock status: `LOCKED_FOR_IMPLEMENTATION`
 - Source of truth: `docs/specs/requirements-v1.md`
 - Supporting sources: `docs/specs/prd-v1.md`, `docs/specs/user-journeys-v1.md`, `docs/specs/notification-contract-v1.md`
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260520-onboarding-simplification-auto-merge`
 - 변경 규칙: 제품 범위, API, DB, AI, 알림, 권한, QA 의미 변경은 Change Request + ADR 필요
 
 ## MVP 골든패스
@@ -19,9 +19,9 @@
 | `study-group-core` | `REQ-GRP-001` | 호스트는 스터디 그룹을 만들 수 있다. | 필수 입력은 이름, 주제, 상세 키워드, 최대 인원, 시작/종료일이다. |
 | `study-group-core` | `REQ-GRP-002` | 생성된 그룹은 온보딩 플로우에 들어간다. | `study_group.status = ONBOARDING`, owner member는 `PENDING_ONBOARDING`이다. |
 | `study-group-core` | `REQ-INV-001` | 호스트는 초대 링크/코드를 공유할 수 있다. | 초대 코드는 유니크하고, 참여 시 pending member record를 만든다. |
-| `group-onboarding` | `REQ-ONB-001` | 호스트와 멤버는 그룹별 온보딩을 제출한다. | 응답은 키워드별 실력, 과제 선호도, 노트, 제출 시각을 저장한다. |
+| `group-onboarding` | `REQ-ONB-001` | 호스트와 멤버는 그룹별 온보딩을 제출한다. | 공개 응답은 전체 실력, 노트, 가능 시간, 제출 시각을 저장한다. 백엔드는 커리큘럼 컨텍스트용 내부 키워드 점수로 투영할 수 있다. |
 | `group-onboarding` | `REQ-ONB-002` | 온보딩은 반복 가능 시간대를 저장한다. | 슬롯은 요일, 시작 시각, 종료 시각, timezone을 포함한다. |
-| `group-onboarding` | `REQ-ONB-003` | 실력/과제 선호도 점수는 1-5 범위를 사용한다. | 범위를 벗어난 값은 거절된다. |
+| `group-onboarding` | `REQ-ONB-003` | 온보딩 실력 점수는 1-5 범위를 사용한다. | 범위를 벗어난 값은 거절된다. |
 | `curriculum-core` | `REQ-CUR-001` | 호스트는 온보딩이 시작된 뒤 스터디를 시작할 수 있다. | 모든 멤버가 온보딩을 완료하지 않아도 시작 가능하다. |
 | `curriculum-core` | `REQ-CUR-002` | AI 커리큘럼은 제출된 온보딩 응답을 사용한다. | `curriculum.onboarding_summary`에 생성 컨텍스트를 저장한다. |
 | `weekly-todo` | `REQ-TODO-001` | 커리큘럼 주차는 weekly task를 가진다. | task는 type, order, title, required flag, due timestamp를 가진다. |
@@ -52,7 +52,7 @@
 
 ## 주요 수용 기준
 - 그룹은 `ONBOARDING` 상태로 생성되고 초대 코드/링크를 통해 멤버가 합류한다.
-- 호스트와 멤버는 그룹별 온보딩을 제출하며, 점수 입력은 1-5 범위로 검증한다.
+- 호스트와 멤버는 그룹별 온보딩을 제출하며, 전체 실력 점수 입력은 1-5 범위로 검증한다.
 - 호스트 시작은 모든 초대자의 온보딩 완료를 요구하지 않는다.
 - 초기 커리큘럼 생성은 시작 시점까지 제출된 온보딩 응답만 사용한다.
 - weekly todo는 완료, 스킵, 미완료 및 미완료 사유 제출을 감사 가능하게 저장한다.

@@ -31,7 +31,7 @@
 - 읽은 문서는 `EXEC_PLAN`의 문서 섹션에 남긴다.
 - 구조 규칙은 문서와 테스트 둘 다로 유지한다.
 - feature 구현은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`가 만든 `codex/<slug>` worktree에서만 진행한다.
-- PR 생성, review gate 확인, merge/cleanup은 `scripts/task/create-pr.sh`, `scripts/task/verify-pr-ready.sh`, `scripts/task/finish-pr.sh`가 소유한다.
+- PR 생성, review gate 확인, 자동 merge/cleanup은 `scripts/task/create-pr.sh`, `scripts/task/verify-pr-ready.sh`, `scripts/task/finish-pr.sh`가 소유한다.
 
 ## 상세 문서
 - 문서 허브: [docs/index.md](./docs/index.md)

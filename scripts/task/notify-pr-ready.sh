@@ -9,7 +9,7 @@ source "${SCRIPT_DIR}/common.sh"
 pr="${1:-}"
 pr_url="${2:-}"
 head_sha="${3:-}"
-status="${4:-ready}"
+status="${4:-merged}"
 
 [[ -n "${pr}" && -n "${pr_url}" && -n "${head_sha}" ]] || fail "usage: notify-pr-ready.sh <PR_NUMBER> <PR_URL> <HEAD_SHA> [STATUS]"
 [[ -n "${STUDYPOT_MM_WEBHOOK_URL:-}" ]] || fail "STUDYPOT_MM_WEBHOOK_URL is required for PR-ready Mattermost notification."
@@ -37,17 +37,25 @@ status = os.environ["PR_READY_STATUS"]
 lines = []
 if mentions:
     lines.append(mentions)
-lines.extend(
-    [
-        f"StudyPot PR #{pr} 수동 merge 준비가 끝났습니다.",
-        f"- PR 링크: {pr_url}",
-        f"- Head: `{head_sha}`",
-        f"- 상태: `{status}`",
-        "- 필요한 작업: GitHub에서 변경 내용을 확인한 뒤 사람이 직접 merge 버튼을 눌러주세요.",
-        "- Jira 처리: GitHub merge 후 연결된 Jira Task는 자동으로 완료 처리됩니다.",
-        f"- merge 후 정리: `scripts/task/finish-pr.sh cleanup-merged {pr}`",
-    ]
-)
+if status == "merged":
+    lines.extend(
+        [
+            f"StudyPot PR #{pr} 자동 merge가 완료됐습니다.",
+            f"- PR 링크: {pr_url}",
+            f"- Head: `{head_sha}`",
+            "- 처리: review gate 통과 후 `scripts/task/finish-pr.sh`가 GitHub merge와 로컬 정리를 진행했습니다.",
+            "- Jira 처리: GitHub merge 후 연결된 Jira Task는 자동 또는 하네스 정리 단계에서 완료 처리됩니다.",
+        ]
+    )
+else:
+    lines.extend(
+        [
+            f"StudyPot PR #{pr} 자동 merge 상태 알림입니다.",
+            f"- PR 링크: {pr_url}",
+            f"- Head: `{head_sha}`",
+            f"- 상태: `{status}`",
+        ]
+    )
 
 print(json.dumps({"text": "\n".join(lines)}, ensure_ascii=False))
 PY
@@ -58,4 +66,4 @@ curl -fsS \
   --data-binary @"${payload_file}" \
   "${STUDYPOT_MM_WEBHOOK_URL}" >/dev/null
 
-printf 'Mattermost PR 준비 알림을 보냈습니다: PR %s.\n' "${pr}"
+printf 'Mattermost PR 자동 merge 알림을 보냈습니다: PR %s.\n' "${pr}"

@@ -26,6 +26,8 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 
 The authenticated pre-creation detail keyword suggestion API for `ai-team-leader` and `study-group-core` is approved by [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md) and [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md). It adds `POST /api/v1/groups/detail-keyword-suggestions`, keeps suggestions transient, and returns a keyword-only response.
 
+The simplified one-step onboarding API and PR auto-merge harness behavior are approved by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md). The public onboarding API accepts `skillLevel`, `additionalNote`, and `availabilitySlots`; internal DB JSON compatibility is preserved without a schema migration.
+
 Redis/RabbitMQ runtime infrastructure boundaries for `identity-core`, `curriculum-core`, `retrospective-feedback`, `ai-team-leader`, `notification`, and `n/a-harness` are approved by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md). The change does not add API paths, DB tables, enum values, notification types, permission actions, or new feature IDs.
 
 ## Coverage Rules

@@ -39,7 +39,7 @@ GitHub Actions Review Gate: PASS
 Head: <current_pr_head_sha>
 ```
 
-`finish-pr.sh`는 이 marker가 최신 PR head SHA와 일치해야 Mattermost manual merge 알림을 보낸다. 실제 merge 버튼은 사람이 GitHub에서 직접 누른다.
+`finish-pr.sh`는 이 marker가 최신 PR head SHA와 일치해야 자동 merge를 실행한다. Mattermost webhook이 설정된 경우 merge 완료 알림을 보낸다.
 
 ## 실패 복구
 - workflow 실패: GitHub Actions log에서 실패 job을 확인하고 코드/스크립트/문서를 수정한다.

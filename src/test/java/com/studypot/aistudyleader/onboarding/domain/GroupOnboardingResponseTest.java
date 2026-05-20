@@ -78,6 +78,20 @@ class GroupOnboardingResponseTest {
 	}
 
 	@Test
+	void skillLevelReturnsRoundedAverageKeywordScoreForApiResponse() {
+		GroupOnboardingResponse response = GroupOnboardingResponse.draft(
+			RESPONSE_ID,
+			CONTEXT,
+			Map.of("JPA", 2, "Security", 3),
+			Map.of(),
+			null,
+			NOW
+		);
+
+		assertThat(response.skillLevel()).isEqualTo(3);
+	}
+
+	@Test
 	void submitMarksDraftAsSubmittedAndStoresSubmittedAt() {
 		Instant submittedAt = NOW.plusSeconds(120);
 

@@ -8,8 +8,8 @@
 - 사용자가 "다음에 할 것"을 추천해 달라고 하면 먼저 Jira 전체 작업 맥락을 읽고 약 세 개의 다음 후보를 추천한다.
 - 작업 시작은 `scripts/task/init-task.sh <slug> "[title]" --jira SPT-123`로만 수행한다.
 - 작업 시작 시 Jira 이슈는 `해야 할 일`에서 `진행 중`으로 이동한다.
-- 사용자가 GitHub에서 직접 PR을 merge하면 GitHub Actions가 연결된 Jira 이슈를 `완료`로 이동한다.
-- `finish-pr.sh cleanup-merged` local cleanup은 develop sync, branch/worktree cleanup, Jira 상태 기록을 idempotent하게 수행한다.
+- `finish-pr.sh <PR_NUMBER>`가 review gate 통과 후 GitHub PR을 자동 merge하면 GitHub Actions가 연결된 Jira 이슈를 `완료`로 이동한다.
+- `finish-pr.sh` local cleanup은 develop sync, branch/worktree cleanup, Jira 상태 기록을 idempotent하게 수행한다. `finish-pr.sh cleanup-merged`는 외부 merge나 중단된 finish 복구에 사용한다.
 - Jira 전환 실패는 하네스 실패다.
 
 ## 인증 환경변수
@@ -27,8 +27,8 @@ export STRICT_JIRA_PROJECT_KEY="SPT"
 | --- | --- |
 | Task selected but not started | `해야 할 일` |
 | `init-task.sh --jira` succeeds | `진행 중` |
-| Human GitHub merge triggers `.github/workflows/jira-auto-done.yml` | `완료` |
-| `finish-pr.sh cleanup-merged` cleanup succeeds | `완료` recorded locally/idempotently |
+| Harness GitHub merge triggers `.github/workflows/jira-auto-done.yml` | `완료` |
+| `finish-pr.sh` or `finish-pr.sh cleanup-merged` cleanup succeeds | `완료` recorded locally/idempotently |
 
 The script discovers transition IDs from each issue's available transitions. It does not hardcode transition IDs.
 
@@ -75,9 +75,9 @@ scripts/task/jira-board.sh recommend-next --limit 3
   - `EXEC_PLAN`
   - verification evidence
   - review gate checklist
-- `finish-pr.sh <PR_NUMBER>` verifies PR readiness and sends the Korean Mattermost manual merge notification without changing Jira to `완료`.
+- `finish-pr.sh <PR_NUMBER>` verifies PR readiness, auto-merges the PR, sends the Korean Mattermost merge-complete notification when configured, and records local cleanup/Jira state.
 - GitHub merge 후 Jira Task는 자동으로 완료 처리된다.
-- `finish-pr.sh cleanup-merged <PR_NUMBER>` is still required after merge for local cleanup and idempotent Jira state recording.
+- `finish-pr.sh cleanup-merged <PR_NUMBER>` remains available after external merge or interrupted finish for local cleanup and idempotent Jira state recording.
 
 ## Failure And Recovery
 - If Jira is already `완료`, `init-task.sh --jira` fails.

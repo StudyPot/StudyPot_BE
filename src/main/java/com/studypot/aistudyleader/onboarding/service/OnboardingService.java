@@ -1,14 +1,18 @@
 package com.studypot.aistudyleader.onboarding.service;
 
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
+import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,27 +30,36 @@ public class OnboardingService {
 	}
 
 	@Transactional
-	public GroupOnboardingResponse saveMyDraft(SaveMyOnboardingCommand command) {
+	public GroupOnboardingResponse submitMyOnboarding(SubmitMyOnboardingCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		OnboardingMemberContext context = requireMemberContext(command.authenticatedUserId(), command.groupId());
 		Instant now = clock.instant();
-		UUID responseId = repository.findResponseByMemberId(context.memberId())
-			.map(GroupOnboardingResponse::id)
-			.orElseGet(idGenerator);
+		Optional<GroupOnboardingResponse> existingResponse = repository.findResponseByMemberId(context.memberId());
+		if (existingResponse.map(GroupOnboardingResponse::status).filter(GroupOnboardingStatus.SUBMITTED::equals).isPresent()) {
+			throw new OnboardingAlreadySubmittedException("onboarding response was already submitted.");
+		}
+		UUID responseId = existingResponse.map(GroupOnboardingResponse::id).orElseGet(idGenerator);
 		GroupOnboardingResponse response;
 		try {
+			Map<String, Integer> keywordSkillLevels = keywordSkillLevels(context, command.skillLevel());
 			response = GroupOnboardingResponse.draft(
 				responseId,
 				context,
-				command.keywordSkillLevels(),
-				command.taskPreferences(),
+				keywordSkillLevels,
+				Map.of(),
 				command.additionalNote(),
 				now
 			).withAvailabilitySlots(availabilitySlots(command.availabilitySlots(), responseId, context.memberId(), now));
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(exception);
 		}
-		return repository.saveDraft(response);
+		GroupOnboardingResponse saved = repository.saveDraft(response);
+		GroupOnboardingResponse submitted = repository.submit(saved.submit(now));
+		if (context.memberStatus() == GroupMemberStatus.PENDING_ONBOARDING
+			&& !repository.activatePendingMember(context.memberId(), now)) {
+			throw new OnboardingMembershipRequiredException("current group membership is required.");
+		}
+		return submitted;
 	}
 
 	@Transactional(readOnly = true)
@@ -55,21 +68,6 @@ public class OnboardingService {
 		OnboardingMemberContext context = requireMemberContext(query.authenticatedUserId(), query.groupId());
 		return repository.findResponseByMemberId(context.memberId())
 			.orElseThrow(() -> new OnboardingResponseNotFoundException("onboarding response was not found."));
-	}
-
-	@Transactional
-	public GroupOnboardingResponse submitMyOnboarding(SubmitMyOnboardingCommand command) {
-		Objects.requireNonNull(command, "command must not be null");
-		OnboardingMemberContext context = requireMemberContext(command.authenticatedUserId(), command.groupId());
-		GroupOnboardingResponse response = repository.findResponseByMemberId(context.memberId())
-			.orElseThrow(() -> new OnboardingResponseNotFoundException("onboarding response was not found."));
-		Instant now = clock.instant();
-		GroupOnboardingResponse submitted = repository.submit(response.submit(now));
-		if (context.memberStatus() == GroupMemberStatus.PENDING_ONBOARDING
-			&& !repository.activatePendingMember(context.memberId(), now)) {
-			throw new OnboardingMembershipRequiredException("current group membership is required.");
-		}
-		return submitted;
 	}
 
 	private OnboardingMemberContext requireMemberContext(UUID authenticatedUserId, UUID groupId) {
@@ -85,14 +83,27 @@ public class OnboardingService {
 	private static InvalidOnboardingRequestException invalidRequest(IllegalArgumentException exception) {
 		String message = exception.getMessage();
 		String field = "onboarding";
-		if (message != null && message.startsWith("keywordSkillLevels")) {
-			field = "keywordSkillLevels";
+		if (message != null && message.startsWith("skillLevel")) {
+			field = "skillLevel";
+		} else if (message != null && message.startsWith("keywordSkillLevels")) {
+			field = "skillLevel";
 		} else if (message != null && message.startsWith("taskPreferences")) {
-			field = "taskPreferences";
+			field = "onboarding";
 		} else if (message != null && message.startsWith("availabilitySlots")) {
 			field = "availabilitySlots";
 		}
 		return new InvalidOnboardingRequestException(field, message);
+	}
+
+	private static Map<String, Integer> keywordSkillLevels(OnboardingMemberContext context, int skillLevel) {
+		if (skillLevel < 1 || skillLevel > 5) {
+			throw new IllegalArgumentException("skillLevel must be between 1 and 5.");
+		}
+		Map<String, Integer> result = new LinkedHashMap<>();
+		for (String keyword : context.detailKeywords()) {
+			result.put(keyword, skillLevel);
+		}
+		return result;
 	}
 
 	private List<MemberAvailabilitySlot> availabilitySlots(
