@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.studygroup.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.global.domain.UuidV7;
+import com.studypot.aistudyleader.llm.service.LlmProviderConfiguredCondition;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
@@ -45,7 +47,7 @@ class StudyGroupApplicationConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean({LlmProviderClient.class, LlmUsageRecorder.class})
+	@Conditional(LlmProviderConfiguredCondition.class)
 	@ConditionalOnMissingBean(DetailKeywordSuggestionService.class)
 	DetailKeywordSuggestionService detailKeywordSuggestionService(
 		LlmProviderClient provider,

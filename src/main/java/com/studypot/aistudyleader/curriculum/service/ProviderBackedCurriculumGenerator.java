@@ -115,9 +115,19 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 	}
 
 	private Map<String, Object> schemaFormat() {
+		Map<String, Object> resourceSchema = Map.of(
+			"type", "object",
+			"required", List.of("title", "url"),
+			"additionalProperties", false,
+			"properties", Map.of(
+				"title", Map.of("type", "string"),
+				"url", Map.of("type", "string")
+			)
+		);
 		Map<String, Object> taskSchema = Map.of(
 			"type", "object",
-			"required", List.of("taskType", "title", "required"),
+			"required", List.of("taskType", "title", "description", "required"),
+			"additionalProperties", false,
 			"properties", Map.of(
 				"taskType", Map.of("type", "string", "enum", List.of("READING", "PRACTICE", "ASSIGNMENT", "PROJECT", "CUSTOM")),
 				"title", Map.of("type", "string"),
@@ -128,24 +138,24 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		Map<String, Object> weekSchema = Map.of(
 			"type", "object",
 			"required", List.of("weekNumber", "title", "sprintGoal", "learningGoals", "resources", "tasks"),
+			"additionalProperties", false,
 			"properties", Map.of(
 				"weekNumber", Map.of("type", "integer"),
 				"title", Map.of("type", "string"),
 				"sprintGoal", Map.of("type", "string"),
 				"learningGoals", Map.of("type", "array", "items", Map.of("type", "string")),
-				"resources", Map.of("type", "array", "items", Map.of(
-					"type", "object",
-					"properties", Map.of("title", Map.of("type", "string"), "url", Map.of("type", "string"))
-				)),
+				"resources", Map.of("type", "array", "items", resourceSchema),
 				"tasks", Map.of("type", "array", "items", taskSchema)
 			)
 		);
 		return Map.of(
 			"type", "json_schema",
 			"name", "curriculum_generation",
+			"strict", true,
 			"schema", Map.of(
 				"type", "object",
 				"required", List.of("title", "totalWeeks", "weeks"),
+				"additionalProperties", false,
 				"properties", Map.of(
 					"title", Map.of("type", "string"),
 					"totalWeeks", Map.of("type", "integer"),

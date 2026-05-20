@@ -23,6 +23,11 @@ spring:
     redis:
       host: ${STUDYPOT_REDIS_HOST:localhost}
       port: ${STUDYPOT_REDIS_PORT:6379}
+  rabbitmq:
+    host: ${STUDYPOT_RABBITMQ_HOST:localhost}
+    port: ${STUDYPOT_RABBITMQ_PORT:5672}
+    username: ${STUDYPOT_RABBITMQ_USERNAME:guest}
+    password: ${STUDYPOT_RABBITMQ_PASSWORD:guest}
 
 springdoc:
   packages-to-scan: com.studypot.aistudyleader
@@ -49,6 +54,8 @@ management:
   health:
     redis:
       enabled: ${STUDYPOT_REDIS_HEALTH_ENABLED:false}
+    rabbit:
+      enabled: ${STUDYPOT_RABBITMQ_HEALTH_ENABLED:false}
   endpoint:
     health:
       probes:
@@ -87,6 +94,12 @@ studypot:
     retrospective-feedback:
       limit: ${STUDYPOT_RATE_LIMIT_RETROSPECTIVE_FEEDBACK_LIMIT:2}
       window: ${STUDYPOT_RATE_LIMIT_RETROSPECTIVE_FEEDBACK_WINDOW:PT24H}
+  notification:
+    rabbitmq:
+      enabled: ${STUDYPOT_NOTIFICATION_RABBITMQ_ENABLED:false}
+      exchange: ${STUDYPOT_NOTIFICATION_RABBITMQ_EXCHANGE:studypot.notification.events}
+      queue: ${STUDYPOT_NOTIFICATION_RABBITMQ_QUEUE:studypot.notification.events}
+      routing-key: ${STUDYPOT_NOTIFICATION_RABBITMQ_ROUTING_KEY:notification.create}
   cors:
     allowed-origins: ${STUDYPOT_CORS_ALLOWED_ORIGINS:}
     allowed-origin-patterns: ${STUDYPOT_CORS_ALLOWED_ORIGIN_PATTERNS:}

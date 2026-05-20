@@ -44,7 +44,7 @@ Study groups lose momentum because the leader role is manual: collecting member 
 | --- | --- | --- |
 | Group creation | Host enters name, topic, detail keywords, max members, period. | `study_group` |
 | Invite | System exposes invite code/link and creates member on join. | `study_group.invite_code`, `group_member` |
-| Onboarding | Member submits skill, task preference, availability, note. | `group_onboarding_response`, `member_availability_slot` |
+| Onboarding | Member submits overall skill level, availability, and note. | `group_onboarding_response`, `member_availability_slot` |
 | Host start | Group becomes active and AI curriculum is generated. | `curriculum`, `curriculum_week`, `weekly_task` |
 | Weekly execution | Member completes tasks or submits incomplete reason. | `member_week_progress`, `task_completion` |
 | Retrospective | AI feedback and next-week adjustment are stored. | `retrospective`, `ai_conversation` |

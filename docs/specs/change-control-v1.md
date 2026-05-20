@@ -7,11 +7,26 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md)
+- ADR: [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md)
+- Result: The MVP onboarding API accepts one submitted payload with `skillLevel`, `additionalNote`, and `availabilitySlots`, hides internal score maps, and the PR finish harness auto-merges review-gate-passed PRs before cleanup.
+
+## Previous Approved Change
+- Change Request: [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md)
+- ADR: [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md)
+- Result: The MVP API exposes authenticated pre-creation detail keyword suggestions at `POST /api/v1/groups/detail-keyword-suggestions`, returning transient `keywords` only while preserving final keyword persistence through group creation.
+
+## Earlier Approved Change
+- Change Request: [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md)
+- ADR: [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md)
+- Result: Redis is the short-lived rate-limit/TTL-lock protection layer, RabbitMQ is the async dispatch layer, MySQL remains durable source of truth, and production Redis/RabbitMQ activation is deferred to a later deployment task.
+
+## Earlier Approved Change
 - Change Request: [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md)
 - ADR: [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md)
 - Result: The MVP AI boundary uses a deterministic DB-first context builder before retrospective/chat LLM calls, keeps retrospective/chat/API/DB shapes unchanged, and defers vector/graph retrieval or service-split choices to later tasks.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md)
 - ADR: [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md)
 - Result: The MVP API includes a read-only member week progress endpoint at `GET /api/v1/weeks/{weekId}/progress/me`.

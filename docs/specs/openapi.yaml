@@ -8,6 +8,8 @@ info:
     approvedChanges:
       - CR-20260508-oauth2-cookie-login
       - ADR-20260508-oauth2-cookie-login
+      - CR-20260520-detail-keyword-suggestion-api
+      - ADR-20260520-detail-keyword-suggestion-api
 servers:
   - url: /api/v1
 security:
@@ -163,6 +165,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StudyGroupResponse'
+  /groups/detail-keyword-suggestions:
+    post:
+      tags: [Groups]
+      operationId: suggestDetailKeywords
+      summary: AI detail keyword suggestions before group creation
+      description: Returns transient selectable detail keyword candidates for a broad study topic. Candidates are not persisted until selected or directly entered in createGroup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestDetailKeywordsRequest'
+      responses:
+        '200':
+          description: Suggested detail keywords
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailKeywordSuggestionsResponse'
+        '401':
+          description: Authentication required
+        '422':
+          description: Invalid request payload
+        '503':
+          description: Detail keyword suggestion service unavailable
   /groups/{groupId}:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -252,28 +279,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OnboardingResponse'
-    put:
+    post:
       tags: [Onboarding]
-      operationId: saveMyOnboarding
+      operationId: submitMyOnboarding
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SaveOnboardingRequest'
-      responses:
-        '200':
-          description: Saved onboarding response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OnboardingResponse'
-  /groups/{groupId}/onboarding/me/submit:
-    parameters:
-      - $ref: '#/components/parameters/GroupId'
-    post:
-      tags: [Onboarding]
-      operationId: submitMyOnboarding
+              $ref: '#/components/schemas/SubmitOnboardingRequest'
       responses:
         '200':
           description: Submitted onboarding response
@@ -602,6 +616,30 @@ components:
         startsAt: {type: string, format: date}
         endsAt: {type: string, format: date}
         description: {type: string}
+    SuggestDetailKeywordsRequest:
+      type: object
+      required: [topic]
+      properties:
+        topic: {type: string, minLength: 1, maxLength: 120, example: Spring Boot}
+        hintKeywords:
+          type: array
+          maxItems: 10
+          items: {type: string, minLength: 1}
+          default: []
+        maxCandidates:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+    DetailKeywordSuggestionsResponse:
+      type: object
+      required: [keywords]
+      properties:
+        keywords:
+          type: array
+          minItems: 1
+          items: {type: string}
+          example: [JPA, Spring Security, Spring Batch]
     UpdateGroupRequest:
       type: object
       properties:
@@ -649,16 +687,11 @@ components:
         startTime: {type: string, pattern: '^\\d{2}:\\d{2}$'}
         endTime: {type: string, pattern: '^\\d{2}:\\d{2}$'}
         timezone: {type: string}
-    SaveOnboardingRequest:
+    SubmitOnboardingRequest:
       type: object
-      required: [keywordSkillLevels, taskPreferences, availabilitySlots]
+      required: [skillLevel, availabilitySlots]
       properties:
-        keywordSkillLevels:
-          type: object
-          additionalProperties: {type: integer, minimum: 1, maximum: 5}
-        taskPreferences:
-          type: object
-          additionalProperties: {type: integer, minimum: 1, maximum: 5}
+        skillLevel: {type: integer, minimum: 1, maximum: 5}
         additionalNote: {type: string}
         availabilitySlots:
           type: array
@@ -666,13 +699,12 @@ components:
             $ref: '#/components/schemas/AvailabilitySlot'
     OnboardingResponse:
       type: object
-      required: [id, groupId, memberId, status]
+      required: [id, groupId, memberId, skillLevel, status]
       properties:
         id: {type: string, format: uuid}
         groupId: {type: string, format: uuid}
         memberId: {type: string, format: uuid}
-        keywordSkillLevels: {type: object}
-        taskPreferences: {type: object}
+        skillLevel: {type: integer, minimum: 1, maximum: 5}
         additionalNote: {type: string}
         availabilitySlots:
           type: array

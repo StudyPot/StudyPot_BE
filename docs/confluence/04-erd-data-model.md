@@ -17,6 +17,7 @@
 - 호스트 시작 시점에 제출된 온보딩 응답만 초기 커리큘럼 생성에 사용한다.
 - 늦게 합류한 멤버의 온보딩은 전체 초기 커리큘럼 자동 재생성이 아니라 향후 주차 조정에 반영한다.
 - MVP 알림은 서비스 내부 `IN_APP`이며 Discord와 외부 채널은 후속 CR/ADR 이후 확장한다.
+- Redis/RabbitMQ runtime boundary는 `CR-20260519-redis-rabbitmq-realtime-infra`와 `ADR-20260519-redis-rabbitmq-realtime-infra`가 승인한다. Redis는 TTL 기반 rate limit/lock 상태만, RabbitMQ는 async dispatch/DLQ boundary만 소유하며 durable AI/notification state는 MySQL에 남는다.
 - meeting-centered table은 P0에서 제외한다.
 
 ## Entity Set
@@ -243,8 +244,8 @@ erDiagram
 | Field | Contents |
 | --- | --- |
 | `study_group.detail_keywords` | Final selected or directly entered keyword strings. |
-| `group_onboarding_response.keyword_skill_levels` | Object keyed by detail keyword, value 1 to 5. |
-| `group_onboarding_response.task_preferences` | Object keyed by task type, value 1 to 5. |
+| `group_onboarding_response.keyword_skill_levels` | Internal object keyed by detail keyword, value 1 to 5. Public onboarding maps one `skillLevel` to this object. |
+| `group_onboarding_response.task_preferences` | Compatibility object. Simplified public onboarding stores `{}` until a later approved task reintroduces task preference input. |
 | `curriculum.onboarding_summary` | Submitted onboarding response summary used at host start. |
 | `curriculum_week.learning_goals` | Ordered learning goals. |
 | `curriculum_week.resources` | Recommended resources. |
@@ -259,7 +260,7 @@ erDiagram
 - `study_group.starts_at` must be before or equal to `study_group.ends_at`.
 - `study_group.max_members` must be positive.
 - `group_member` has one membership row per user/group.
-- `group_onboarding_response.keyword_skill_levels` and `task_preferences` are validated in service code as 1 to 5 score objects.
+- Public onboarding writes one `skillLevel`; service code stores it as keyword score JSON and stores `task_preferences` as an empty compatibility object.
 - `member_availability_slot.end_time` must be greater than `start_time`.
 - `curriculum_week.week_number` is unique per curriculum.
 - `weekly_task.display_order` is unique per curriculum week.

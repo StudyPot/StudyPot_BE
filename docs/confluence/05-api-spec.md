@@ -7,7 +7,7 @@
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
 - Current contract size: 25 paths, 31 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -36,7 +36,7 @@
 - `retrospective` is the final week/member/progress feedback state.
 - `ai_conversation` and `ai_conversation_message` are the chat/input surface and may link to a retrospective when `conversationType = RETROSPECTIVE`.
 - SPT-81 does not add public API fields or OpenAPI paths. The DB-first context builder runs inside the backend before retrospective/chat LLM provider calls.
-- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks. SPT-82's Proposed ADR keeps the current API request/response boundary unchanged; streaming or service-split endpoints require a later approved task.
 
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
@@ -54,8 +54,7 @@
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
-| `PUT` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Save draft/submitted onboarding response. |
-| `POST` | `/api/v1/groups/{groupId}/onboarding/me/submit` | `group-onboarding` | group member | Submit onboarding. |
+| `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
@@ -101,17 +100,39 @@
 }
 ```
 
+### Suggest Detail Keywords
+`POST /api/v1/groups/detail-keyword-suggestions`
+
+Request:
+```json
+{
+  "topic": "Spring Boot",
+  "hintKeywords": [],
+  "maxCandidates": 5
+}
+```
+
+Response:
+```json
+{
+  "keywords": ["JPA", "Spring Security", "Spring Batch"]
+}
+```
+
+Suggested keyword candidates are transient and are not persisted unless selected or directly entered in the later create-group request.
+
 ### Submit Onboarding
 ```json
 {
-  "keywordSkillLevels": {"JPA": 2, "Security": 1, "Testing": 3},
-  "taskPreferences": {"READING": 3, "PRACTICE": 5, "ASSIGNMENT": 4},
-  "additionalNote": "실습 과제 위주가 좋아요.",
+  "skillLevel": 3,
+  "additionalNote": "JPA는 처음이고 실습 과제 위주가 좋아요.",
   "availabilitySlots": [
     {"dayOfWeek": 2, "startTime": "20:00", "endTime": "22:00", "timezone": "Asia/Seoul"}
   ]
 }
 ```
+
+Public onboarding responses expose `skillLevel`, not internal keyword score or task preference maps.
 
 ### Task Completion
 ```json
@@ -149,7 +170,7 @@
 
 ## Verification
 - OpenAPI YAML must parse before PR review.
-- Current local parse: `openapi=3.1.0`, `paths=25`, `schemas=31`.
+- Current local parse: `openapi=3.1.0`, `paths=28`, `schemas=33`.
 - Standard repo verification: `./gradlew check build --no-daemon`.
 
 ## 추적 링크

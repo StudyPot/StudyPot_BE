@@ -29,15 +29,14 @@ Acceptance:
 - Joined member cannot access weekly todos until onboarding is submitted or host starts current-week assignment policy allows it.
 
 ## Journey 3: Member Submits Onboarding
-1. Member enters detail-keyword skill levels.
-2. Member enters task preference scores.
-3. Member enters optional note.
-4. Member enters recurring availability slots.
-5. Backend stores `group_onboarding_response` as `SUBMITTED` and creates `member_availability_slot` rows.
-6. Backend changes `group_member.status` to `ACTIVE` if the group is already active or ready to activate.
+1. Member enters one overall skill level for the study topic.
+2. Member enters optional note.
+3. Member enters recurring availability slots.
+4. Backend stores `group_onboarding_response` as `SUBMITTED` and creates `member_availability_slot` rows.
+5. Backend changes `group_member.status` to `ACTIVE` if the group is already active or ready to activate.
 
 Acceptance:
-- Skill and preference values are 1 to 5.
+- Skill level is 1 to 5.
 - Availability uses `day_of_week`, `start_time`, `end_time`, and `timezone`.
 - Each member has at most one active onboarding response per group.
 

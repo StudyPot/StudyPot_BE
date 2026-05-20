@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.ai.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
 import com.studypot.aistudyleader.global.domain.UuidV7;
+import com.studypot.aistudyleader.llm.service.LlmProviderConfiguredCondition;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import java.time.Clock;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
@@ -32,7 +34,7 @@ class AiConversationApplicationConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(LlmProviderClient.class)
+	@Conditional(LlmProviderConfiguredCondition.class)
 	@ConditionalOnMissingBean(AiConversationAssistantResponseGenerator.class)
 	AiConversationAssistantResponseGenerator aiConversationAssistantResponseGenerator(
 		LlmProviderClient provider,

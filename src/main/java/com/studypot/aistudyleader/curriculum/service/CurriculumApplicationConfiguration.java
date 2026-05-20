@@ -4,7 +4,6 @@ import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.global.domain.UuidV7;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import java.time.Clock;
-import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
@@ -21,11 +20,9 @@ class CurriculumApplicationConfiguration {
 		Clock clock,
 		ObjectProvider<NotificationEventPublisher> notificationEvents
 	) {
-		CurriculumGenerator configuredGenerator = generator.getIfAvailable();
-		Supplier<CurriculumGenerator> generatorSupplier = () -> configuredGenerator;
 		return new CurriculumService(
 			repository,
-			generatorSupplier,
+			generator::getIfAvailable,
 			clock,
 			UuidV7::generate,
 			notificationEvents.getIfAvailable(NotificationEventPublisher::noop)

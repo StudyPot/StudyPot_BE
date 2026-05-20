@@ -1,0 +1,61 @@
+{
+  "conversation": {
+    "id": "018f0000-0000-7000-8000-000000009505",
+    "groupId": "018f0000-0000-7000-8000-000000009502",
+    "memberId": "018f0000-0000-7000-8000-000000009503",
+    "weekId": "018f0000-0000-7000-8000-000000009504",
+    "conversationType": "TEAM_LEAD_CHAT",
+    "status": "OPEN",
+    "summary": "과제 조정 논의 authorization=Bearer raw-conversation-token"
+  },
+  "recentMessages": [
+    {
+      "id": "018f0000-0000-7000-8000-000000009506",
+      "senderType": "USER",
+      "content": "이번 주 JPA 실습 조정이 필요합니다. oauthToken=raw-message-token",
+      "metadata": {
+        "cookie": "SESSION=raw-message-cookie"
+      },
+      "createdAt": "2026-05-13T02:00:00Z"
+    }
+  ],
+  "currentUserMessage": "이번 주 JPA 실습 조정이 필요합니다. authorization: Bearer raw-current-token",
+  "week": {
+    "status": "AVAILABLE",
+    "id": "018f0000-0000-7000-8000-000000009504",
+    "weekNumber": 2,
+    "title": "2주차",
+    "sprintGoal": "JPA 실습 안정화"
+  },
+  "tasks": [
+    {
+      "id": "018f0000-0000-7000-8000-000000009507",
+      "displayOrder": 1,
+      "taskType": "PRACTICE",
+      "title": "JPA 실습",
+      "completionStatus": "INCOMPLETE",
+      "completionNote": "엔티티 매핑까지 완료",
+      "incompleteReason": "트랜잭션 실습이 지연되었습니다. apiKey=raw-task-api-key"
+    }
+  ],
+  "progress": {
+    "status": "AVAILABLE",
+    "id": "018f0000-0000-7000-8000-000000009508",
+    "progressStatus": "INCOMPLETE",
+    "completionNote": "강의는 완료",
+    "incompleteReason": "야근으로 실습 시간이 부족했습니다. refreshToken=raw-progress-token"
+  },
+  "retrospective": {
+    "status": "AVAILABLE",
+    "id": "018f0000-0000-7000-8000-000000009509",
+    "retrospectiveStatus": "FEEDBACK_READY",
+    "aiFeedback": {
+      "summary": "실습 지연"
+    },
+    "nextWeekAdjustment": {
+      "difficulty": "slightly_lower",
+      "providerKey": "raw-retrospective-provider-key",
+      "otherMemberPrivateNote": "raw-other-member-private-note"
+    }
+  }
+}

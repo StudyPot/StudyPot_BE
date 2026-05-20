@@ -53,7 +53,7 @@ PATH="${tmp}/bin:${PATH}" \
 FAKE_CURL_PAYLOAD="${payload}" \
 STUDYPOT_MM_WEBHOOK_URL="https://mattermost.example/hooks/test" \
 STUDYPOT_MM_MENTIONS="@hw62459930 @yjhn0410" \
-  "${notify_script}" "17" "https://github.com/StudyPot/StudyPot_BE/pull/17" "abc123" "ready"
+  "${notify_script}" "17" "https://github.com/StudyPot/StudyPot_BE/pull/17" "abc123" "merged"
 
 python3 - "${payload}" <<'PY'
 import json
@@ -68,11 +68,10 @@ required = [
     "PR #17",
     "https://github.com/StudyPot/StudyPot_BE/pull/17",
     "abc123",
-    "수동 merge 준비",
-    "GitHub",
-    "직접 merge 버튼",
-    "merge 후 정리",
-    "scripts/task/finish-pr.sh cleanup-merged 17",
+    "자동 merge가 완료",
+    "review gate",
+    "scripts/task/finish-pr.sh",
+    "Jira Task",
 ]
 missing = [value for value in required if value not in text]
 if missing:

@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/common.sh"
 # shellcheck source=scripts/task/jira-board.sh
 JIRA_BOARD_SOURCE_ONLY=1 source "${SCRIPT_DIR}/jira-board.sh"
 
-mode="notify-ready"
+mode="auto-merge"
 if [[ "${1:-}" == "cleanup-merged" ]]; then
   mode="cleanup-merged"
   shift
@@ -123,8 +123,21 @@ sync_develop() {
   fi
 }
 
-notify_ready_for_manual_merge() {
-  local head_after found_bot_activity
+notify_auto_merge_completed() {
+  local notification_head="$1"
+
+  if [[ -z "${STUDYPOT_MM_WEBHOOK_URL:-}" ]]; then
+    printf 'Mattermost 자동 merge 알림을 건너뜁니다: STUDYPOT_MM_WEBHOOK_URL 미설정.\n'
+    return 0
+  fi
+
+  if ! "${SCRIPT_DIR}/notify-pr-ready.sh" "${pr}" "${pr_url}" "${notification_head}" "merged"; then
+    printf 'Mattermost 자동 merge 알림 전송에 실패했지만 merge/cleanup은 계속 진행합니다.\n'
+  fi
+}
+
+auto_merge_ready_pr() {
+  local head_after found_bot_activity state_after_merge
 
   if [[ -n "${STRICT_REVIEW_BOT_LOGIN:-}" ]]; then
     found_bot_activity="$(gh pr view "${pr}" --json comments,reviews --jq "
@@ -135,16 +148,20 @@ notify_ready_for_manual_merge() {
     [[ "${found_bot_activity}" -gt 0 ]] || fail "required review bot activity not found: ${STRICT_REVIEW_BOT_LOGIN}"
   fi
 
-  STRICT_ALLOW_BLOCKED_FOR_MANUAL_MERGE=1 "${SCRIPT_DIR}/verify-pr-ready.sh" "${pr}"
+  STRICT_ALLOW_BLOCKED_FOR_AUTO_MERGE=1 "${SCRIPT_DIR}/verify-pr-ready.sh" "${pr}"
   head_after="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
   [[ "${head_before}" == "${head_after}" ]] || fail "PR head changed during verification."
 
   require_latest_head_review_gates "${head_after}"
   require_clean_feature_worktree
 
-  "${SCRIPT_DIR}/notify-pr-ready.sh" "${pr}" "${pr_url}" "${head_after}" "ready"
-  printf 'PR 수동 merge 준비 완료: %s\n' "${pr_url}"
-  printf '사용자가 GitHub에서 merge한 뒤 실행: scripts/task/finish-pr.sh cleanup-merged %s\n' "${pr}"
+  gh pr merge "${pr}" --merge
+  state_after_merge="$(gh pr view "${pr}" --json state --jq .state)"
+  [[ "${state_after_merge}" == "MERGED" ]] || fail "PR auto merge did not complete. Found: ${state_after_merge}"
+
+  notify_auto_merge_completed "${head_after}"
+  cleanup_merged_pr
+  printf 'PR 자동 merge 및 정리 완료: %s\n' "${pr_url}"
 }
 
 cleanup_merged_pr() {
@@ -166,8 +183,8 @@ cleanup_merged_pr() {
 }
 
 case "${mode}" in
-  notify-ready)
-    notify_ready_for_manual_merge
+  auto-merge)
+    auto_merge_ready_pr
     ;;
   cleanup-merged)
     cleanup_merged_pr

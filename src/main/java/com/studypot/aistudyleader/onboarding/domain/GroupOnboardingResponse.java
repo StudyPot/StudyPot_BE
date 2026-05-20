@@ -112,6 +112,17 @@ public final class GroupOnboardingResponse extends AggregateRoot<UUID> {
 		return taskPreferences;
 	}
 
+	public int skillLevel() {
+		if (keywordSkillLevels.isEmpty()) {
+			return 1;
+		}
+		double average = keywordSkillLevels.values().stream()
+			.mapToInt(Integer::intValue)
+			.average()
+			.orElse(1);
+		return (int) Math.round(average);
+	}
+
 	public Optional<String> additionalNote() {
 		return Optional.ofNullable(additionalNote);
 	}

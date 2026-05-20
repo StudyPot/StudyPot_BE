@@ -82,7 +82,7 @@ case "${merge_state}" in
     fail "PR merge state is blocked: ${merge_state}"
     ;;
   BLOCKED)
-    [[ "${STRICT_ALLOW_BLOCKED_FOR_MANUAL_MERGE:-0}" == "1" ]] || fail "PR merge state is blocked: ${merge_state}"
+    [[ "${STRICT_ALLOW_BLOCKED_FOR_AUTO_MERGE:-${STRICT_ALLOW_BLOCKED_FOR_MANUAL_MERGE:-0}}" == "1" ]] || fail "PR merge state is blocked: ${merge_state}"
     ;;
 esac
 

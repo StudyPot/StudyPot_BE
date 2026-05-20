@@ -26,7 +26,7 @@ if [[ "${STRICT_REQUIRE_LATEST_HEAD_COPILOT_REVIEW:-1}" == "1" ]]; then
   review_error="latest-head Copilot review activity is required from ${reviewer} for head ${head_sha}."
 else
   review_filter=".author.login == \"${reviewer}\""
-  review_error="Copilot review activity is required from ${reviewer} before manual merge notification."
+  review_error="Copilot review activity is required from ${reviewer} before auto merge finish."
 fi
 
 wait_seconds="${STRICT_COPILOT_REVIEW_WAIT_SECONDS:-600}"

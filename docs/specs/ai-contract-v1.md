@@ -5,6 +5,8 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- Redis/RabbitMQ runtime boundaries are authorized by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
+- Detail keyword suggestion API and keyword-only AI output are authorized by [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md) and [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md).
 
 ## AI Responsibilities
 | Purpose | Trigger | Output | Persistence |
@@ -35,13 +37,19 @@
 - Store the final summarized input in `retrospective.input_summary` when a retrospective is created or updated.
 - Store redacted request/source metadata in `llm_usage.request_payload` for audit. Do not store secrets, OAuth tokens, provider credentials, or raw private notes that exceed the permission contract.
 - Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+- SPT-82 planning guidance is recorded in [ADR-20260519-ai-llm-rag-architecture](./adr/ADR-20260519-ai-llm-rag-architecture.md): the MVP default remains Spring Boot internal DB-first context building, with FastAPI/vector/graph/agent/MCP adoption gated by explicit transition criteria.
+
+## Runtime Infrastructure Boundary
+- MySQL remains the durable source for AI outputs, conversation records, retrospective state, curriculum state, and `llm_usage` audit.
+- Redis may protect costly AI paths with short-lived rate limit counters and TTL-based duplicate generation locks, but Redis does not store final AI results or durable audit state.
+- RabbitMQ may dispatch asynchronous AI jobs in a later task, but the worker must persist success, failure, idempotency, retry, and audit outcomes back to MySQL.
+- A separate worker container, FastAPI service split, vector store, GraphRAG, MCP, and broader agent orchestration remain deferred until separately approved.
 
 ## Output Shapes
 ### Detail Keyword Suggestion
 ```json
 {
-  "suggestions": ["JPA", "Spring Security", "테스트 코드"],
-  "rationale": "그룹 topic과 기간에 맞춘 세부 키워드입니다."
+  "keywords": ["JPA", "Spring Security", "테스트 코드"]
 }
 ```
 

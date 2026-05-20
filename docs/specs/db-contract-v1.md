@@ -60,8 +60,8 @@
 | Field | Contents |
 | --- | --- |
 | `study_group.detail_keywords` | Final selected or directly entered keyword strings. |
-| `group_onboarding_response.keyword_skill_levels` | Object keyed by detail keyword, value 1 to 5. |
-| `group_onboarding_response.task_preferences` | Object keyed by task type, value 1 to 5. |
+| `group_onboarding_response.keyword_skill_levels` | Internal object keyed by detail keyword, value 1 to 5. Public onboarding maps one `skillLevel` to this object. |
+| `group_onboarding_response.task_preferences` | Compatibility object. Simplified public onboarding stores `{}` until a later approved task reintroduces task preference input. |
 | `curriculum.onboarding_summary` | Submitted onboarding response summary used at host start. |
 | `curriculum_week.learning_goals` | Ordered learning goals. |
 | `curriculum_week.resources` | Recommended resources. |

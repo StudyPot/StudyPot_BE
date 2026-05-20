@@ -56,6 +56,6 @@
 - v1 명세는 `LOCKED_FOR_IMPLEMENTATION` 상태이며, 기획/API/DB/AI/알림/권한/QA 변경은 Change Request와 ADR 없이는 금지합니다.
 - 구현 작업의 source of truth는 Jira Board입니다. Obsidian은 mirror/회고/세션 연속성 용도로만 사용합니다.
 - harness/infrastructure 작업은 `Related Feature IDs`에 `n/a-harness`를 사용합니다.
-- PR은 `develop` 대상으로 만들고, merge 전에는 CodeRabbit subagent review marker, GitHub Actions Review Gate marker, unresolved thread, required checks를 확인한 뒤 Mattermost manual merge 알림을 보냅니다. 실제 merge 버튼은 사람이 GitHub에서 직접 누르며, CodeRabbit review marker가 없으면 required `review-gate-pass` check가 merge를 막습니다.
+- PR은 `develop` 대상으로 만들고, merge 전에는 CodeRabbit subagent review marker, GitHub Actions Review Gate marker, unresolved thread, required checks를 확인합니다. `scripts/task/finish-pr.sh`는 조건이 충족된 PR을 자동 merge하고 로컬 정리를 수행하며, CodeRabbit review marker가 없으면 required `review-gate-pass` check가 merge를 막습니다.
 - 사람이 읽는 Mattermost 알림, PR body, PR review comment, review 증거 본문은 한글로 작성합니다. 기계가 읽는 marker token만 정해진 literal을 유지합니다.
 - 긴 설명보다 실행 가능한 계약을 문서에 남깁니다.
