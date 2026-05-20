@@ -102,8 +102,12 @@ class JdbcAiConversationRepositoryTest {
 		assertThat(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT)
 			.contains("left join task_completion tc on tc.weekly_task_id = wt.id")
 			.contains("tc.member_id = ?")
-			.doesNotContain("completion_note")
-			.doesNotContain("incomplete_reason");
+			.contains("tc.completion_note")
+			.contains("tc.incomplete_reason");
+		assertThat(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT)
+			.contains("from member_week_progress")
+			.contains("completion_note")
+			.contains("incomplete_reason");
 		assertThat(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT)
 			.contains("ai_feedback")
 			.contains("next_week_adjustment")

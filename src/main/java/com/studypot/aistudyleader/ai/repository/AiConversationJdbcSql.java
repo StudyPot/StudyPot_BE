@@ -109,7 +109,7 @@ final class AiConversationJdbcSql {
 	static final String SELECT_TASK_PROMPT_CONTEXT = """
 		select wt.id, wt.display_order, wt.task_type, wt.title, wt.description,
 		       wt.required, wt.due_at, coalesce(tc.status, 'TODO') as completion_status,
-		       tc.completed_at, tc.reason_submitted_at
+		       tc.completed_at, tc.reason_submitted_at, tc.completion_note, tc.incomplete_reason
 		from weekly_task wt
 		left join task_completion tc on tc.weekly_task_id = wt.id
 		  and tc.member_id = ?
@@ -119,7 +119,7 @@ final class AiConversationJdbcSql {
 		""";
 
 	static final String SELECT_PROGRESS_PROMPT_CONTEXT = """
-		select id, status, started_at, due_at, completed_at, reason_submitted_at
+		select id, status, started_at, due_at, completed_at, reason_submitted_at, completion_note, incomplete_reason
 		from member_week_progress
 		where curriculum_week_id = ?
 		  and member_id = ?

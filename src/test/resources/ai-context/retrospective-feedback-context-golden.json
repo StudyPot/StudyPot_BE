@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-05-13T03:10:00Z",
+  "progress": {
+    "status": "INCOMPLETE",
+    "completionNote": "강의는 완료",
+    "incompleteReason": "실습 시간이 부족했습니다. authorization=Bearer raw-progress-token"
+  },
+  "taskCompletionCounts": {
+    "DONE": 1,
+    "INCOMPLETE": 1
+  },
+  "tasks": [
+    {
+      "status": "INCOMPLETE",
+      "title": "JPA 실습",
+      "completionNote": "엔티티 매핑까지 완료",
+      "incompleteReason": "트랜잭션 실습이 지연되었습니다. apiKey=raw-task-key"
+    }
+  ],
+  "onboarding": {
+    "summary": "JPA 경험은 낮고 Spring Boot 기본기는 있음",
+    "oauthToken": "raw-onboarding-oauth-token"
+  },
+  "rules": [
+    {
+      "title": "매일 1커밋",
+      "cookie": "SESSION=raw-rule-cookie"
+    }
+  ],
+  "ruleViolations": [
+    {
+      "status": "OPEN",
+      "reason": "미제출",
+      "credential": "raw-rule-credential"
+    }
+  ],
+  "priorRetrospectives": [
+    {
+      "summary": "지난주 실습량이 많았습니다.",
+      "providerKey": "raw-prior-provider-key"
+    }
+  ],
+  "conversationSummary": {
+    "status": "AVAILABLE",
+    "summary": "과제량 조정을 논의했습니다. secret=raw-summary-secret",
+    "otherMemberPrivateNote": "raw-other-member-private-note"
+  }
+}

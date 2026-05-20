@@ -304,6 +304,8 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		result.put("completionStatus", requiredString(resultSet, "completion_status"));
 		putInstant(result, "completedAt", instant(resultSet.getTimestamp("completed_at")));
 		putInstant(result, "reasonSubmittedAt", instant(resultSet.getTimestamp("reason_submitted_at")));
+		putText(result, "completionNote", resultSet.getString("completion_note"));
+		putText(result, "incompleteReason", resultSet.getString("incomplete_reason"));
 		return result;
 	}
 
@@ -316,6 +318,8 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		putInstant(result, "dueAt", instant(resultSet.getTimestamp("due_at")));
 		putInstant(result, "completedAt", instant(resultSet.getTimestamp("completed_at")));
 		putInstant(result, "reasonSubmittedAt", instant(resultSet.getTimestamp("reason_submitted_at")));
+		putText(result, "completionNote", resultSet.getString("completion_note"));
+		putText(result, "incompleteReason", resultSet.getString("incomplete_reason"));
 		return result;
 	}
 
