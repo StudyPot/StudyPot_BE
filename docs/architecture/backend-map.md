@@ -39,6 +39,12 @@
 - The current RabbitMQ listener runs inside the same Spring Boot application process when enabled. A separate `studypot-worker` container is a later deployment task.
 - Current production compose runs only `studypot-api`; Redis and RabbitMQ are not part of `deploy/docker-compose.prod.yml`.
 
+## AI LLM/RAG Boundary
+- Planning reference: [ADR-20260519-ai-llm-rag-architecture](../specs/adr/ADR-20260519-ai-llm-rag-architecture.md).
+- MVP default is a Spring Boot internal `ContextBuilder -> LlmProviderClient -> ProviderAdapter` path.
+- DB-first context building remains the first retrieval layer for curriculum, retrospective feedback, and AI team leader chat.
+- FastAPI service split, vector store, GraphRAG/DRIFT, MCP, agentic orchestration, and streaming API contracts remain deferred until a later task proves the transition criteria and records the required Change Request/ADR if contracts change.
+
 ```mermaid
 flowchart LR
   FE[Frontend or API client] --> API

@@ -17,7 +17,7 @@
 - All AI calls create `llm_usage`.
 - `llm_usage.request_payload` stores redacted request/source metadata for audit. Raw secrets, OAuth tokens, provider credentials, and disallowed private raw notes are never stored in AI request logs.
 - Redis is short-lived protection state for rate limits and TTL duplicate locks. RabbitMQ is async dispatch state for later worker jobs. MySQL remains the durable source for AI outputs and `llm_usage`.
-- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks.
+- Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks. SPT-82's proposed default keeps MVP AI inside Spring Boot with DB-first context building and lists transition criteria for later FastAPI/RAG adoption.
 
 ## Source
 - `docs/specs/ai-contract-v1.md`
@@ -25,3 +25,4 @@
 - `docs/specs/adr/ADR-20260512-retrospective-rag-boundary.md`
 - `docs/specs/change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md`
 - `docs/specs/adr/ADR-20260519-redis-rabbitmq-realtime-infra.md`
+- `docs/specs/adr/ADR-20260519-ai-llm-rag-architecture.md`
