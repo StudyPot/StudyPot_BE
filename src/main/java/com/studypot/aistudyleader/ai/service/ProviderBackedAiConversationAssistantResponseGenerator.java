@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.ai.domain.AiConversationPromptContext;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
+import com.studypot.aistudyleader.llm.service.LlmPromptSanitizer;
 import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import java.util.LinkedHashMap;
@@ -79,7 +80,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 
 	private Map<String, Object> input(AiConversationAssistantRequest request) {
 		AiConversationPromptContext context = request.promptContext();
-		return Map.of(
+		return LlmPromptSanitizer.sanitizeMap(Map.of(
 			"conversation", context.conversation(),
 			"recentMessages", context.messages(),
 			"currentUserMessage", request.userMessage().content(),
@@ -87,7 +88,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			"tasks", context.tasks(),
 			"progress", context.progress(),
 			"retrospective", context.retrospective()
-		);
+		));
 	}
 
 	private Map<String, Object> requestPayload(AiConversationAssistantRequest request) {
@@ -103,7 +104,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		payload.put("recentMessageCount", request.promptContext().messages().size());
 		payload.put("taskCount", request.promptContext().tasks().size());
 		payload.put("retrospectiveStatus", statusOf(request.promptContext().retrospective()));
-		return payload;
+		return LlmPromptSanitizer.sanitizeMap(payload);
 	}
 
 	private GeneratedAiConversationResponse readResponse(String outputText) throws JsonProcessingException {

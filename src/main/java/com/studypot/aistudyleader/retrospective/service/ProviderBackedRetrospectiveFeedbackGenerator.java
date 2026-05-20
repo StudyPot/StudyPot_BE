@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
+import com.studypot.aistudyleader.llm.service.LlmPromptSanitizer;
 import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import com.studypot.aistudyleader.retrospective.domain.Retrospective;
@@ -75,17 +76,17 @@ class ProviderBackedRetrospectiveFeedbackGenerator implements RetrospectiveFeedb
 	}
 
 	private Map<String, Object> input(Retrospective retrospective) {
-		return Map.of(
+		return LlmPromptSanitizer.sanitizeMap(Map.of(
 			"retrospectiveId", retrospective.id().toString(),
 			"weekId", retrospective.curriculumWeekId().toString(),
 			"memberId", retrospective.memberId().toString(),
 			"context", retrospective.inputSummary()
-		);
+		));
 	}
 
 	private Map<String, Object> requestPayload(Retrospective retrospective) {
 		Map<String, Object> context = retrospective.inputSummary();
-		return Map.of(
+		return LlmPromptSanitizer.sanitizeMap(Map.of(
 			"purpose", "RETROSPECTIVE_FEEDBACK",
 			"retrospectiveId", retrospective.id().toString(),
 			"weekId", retrospective.curriculumWeekId().toString(),
@@ -94,7 +95,7 @@ class ProviderBackedRetrospectiveFeedbackGenerator implements RetrospectiveFeedb
 			"ruleViolationCount", countList(context.get("ruleViolations")),
 			"priorRetrospectiveCount", countList(context.get("priorRetrospectives")),
 			"conversationSummaryStatus", conversationSummaryStatus(context.get("conversationSummary"))
-		);
+		));
 	}
 
 	private RetrospectiveFeedbackResult readFeedbackResult(String outputText) throws JsonProcessingException {
