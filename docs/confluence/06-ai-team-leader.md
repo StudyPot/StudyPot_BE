@@ -7,7 +7,7 @@
 - `TEAM_LEAD_CHAT`
 
 ## Rules
-- Detail keyword suggestions are not stored unless selected.
+- Detail keyword suggestions are exposed through `POST /api/v1/groups/detail-keyword-suggestions`, return `keywords` only, and are not stored unless selected in group creation.
 - Curriculum uses onboarding responses submitted at host start.
 - Retrospective uses a DB-first context builder before the LLM provider call.
 - Retrospective context includes onboarding summary, current week, weekly tasks, member progress, task completions, incomplete reasons, relevant group rules/violations, prior feedback/adjustment, and conversation summary.
@@ -26,3 +26,5 @@
 - `docs/specs/change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md`
 - `docs/specs/adr/ADR-20260519-redis-rabbitmq-realtime-infra.md`
 - `docs/specs/adr/ADR-20260519-ai-llm-rag-architecture.md`
+- `docs/specs/change-requests/CR-20260520-detail-keyword-suggestion-api.md`
+- `docs/specs/adr/ADR-20260520-detail-keyword-suggestion-api.md`

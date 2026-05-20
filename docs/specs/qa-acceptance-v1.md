@@ -48,6 +48,7 @@
 | `ai-team-leader` | `QA-AI-002` | AI conversation stores user and assistant messages. |
 | `ai-team-leader` | `QA-AI-003` | Redacted request metadata excludes secrets/tokens. |
 | `ai-team-leader` | `QA-AI-004` | Invalid AI JSON output is rejected or marked failed. |
+| `ai-team-leader` | `QA-AI-005` | Detail keyword suggestion API returns a non-empty `keywords` list from an authenticated pre-creation request and does not persist candidates. |
 | `notification` | `QA-NOTI-001` | In-app notification stores recipient, title/body, idempotency key, status, and related resource links. |
 | `notification` | `QA-NOTI-002` | Duplicate idempotency key does not create duplicate recipient notifications. |
 | `notification` | `QA-NOTI-003` | Recipients can list and mark only their own notifications as read. |

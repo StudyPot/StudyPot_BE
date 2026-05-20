@@ -22,7 +22,7 @@ public class DetailKeywordSuggestionService {
 
 	private static final String INSTRUCTIONS = """
 		Suggest detailed study keywords for a new study group.
-		Return only JSON matching the schema. Do not persist candidates.
+		Return only JSON matching the schema with the top-level keywords array. Do not persist candidates.
 		Prefer concrete, selectable Korean study keywords.
 		""";
 
@@ -74,7 +74,7 @@ public class DetailKeywordSuggestionService {
 		try {
 			DetailKeywordSuggestions suggestions = readSuggestions(response.outputText());
 			LlmStructuredResponse summarized = response.withResponseSummary(
-				"Generated detail keyword suggestions: " + suggestions.suggestions().size()
+				"Generated detail keyword suggestions: " + suggestions.keywords().size()
 			);
 			usageRecorder.record(summarized.toUsage(
 				idGenerator.get(),
@@ -97,48 +97,36 @@ public class DetailKeywordSuggestionService {
 
 	private DetailKeywordSuggestions readSuggestions(String outputText) throws JsonProcessingException {
 		JsonNode node = objectMapper.readTree(outputText);
-		List<GeneratedSuggestion> generated = objectMapper.convertValue(
-			node.path("suggestions"),
-			new TypeReference<List<GeneratedSuggestion>>() {
+		JsonNode keywords = node.path("keywords");
+		if (!keywords.isArray()) {
+			throw new IllegalArgumentException("generated keywords must be an array");
+		}
+		List<String> generated = objectMapper.convertValue(
+			keywords,
+			new TypeReference<List<String>>() {
 			}
 		);
-		if (generated == null || generated.isEmpty()) {
-			throw new IllegalArgumentException("generated suggestions must not be empty");
-		}
-		String rationale = node.path("rationale").asText(null);
-		return new DetailKeywordSuggestions(
-			generated.stream()
-				.map(item -> new DetailKeywordSuggestion(item.keyword(), item.reason()))
-				.toList(),
-			rationale
-		);
+		return new DetailKeywordSuggestions(generated);
 	}
 
 	private Map<String, Object> schemaFormat() {
 		return Map.of(
 			"type", "json_schema",
 			"name", "detail_keyword_suggestions",
+			"strict", true,
 			"schema", Map.of(
 				"type", "object",
-				"required", List.of("suggestions", "rationale"),
+				"required", List.of("keywords"),
+				"additionalProperties", false,
 				"properties", Map.of(
-					"suggestions", Map.of(
+					"keywords", Map.of(
 						"type", "array",
-						"items", Map.of(
-							"type", "object",
-							"required", List.of("keyword", "reason"),
-							"properties", Map.of(
-								"keyword", Map.of("type", "string"),
-								"reason", Map.of("type", "string")
-							)
-						)
-					),
-					"rationale", Map.of("type", "string")
+						"minItems", 1,
+						"maxItems", 10,
+						"items", Map.of("type", "string")
+					)
 				)
 			)
 		);
-	}
-
-	private record GeneratedSuggestion(String keyword, String reason) {
 	}
 }

@@ -6,6 +6,7 @@
 - Changes require Change Request and ADR.
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Redis/RabbitMQ runtime boundaries are authorized by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
+- Detail keyword suggestion API and keyword-only AI output are authorized by [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md) and [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md).
 
 ## AI Responsibilities
 | Purpose | Trigger | Output | Persistence |
@@ -48,8 +49,7 @@
 ### Detail Keyword Suggestion
 ```json
 {
-  "suggestions": ["JPA", "Spring Security", "테스트 코드"],
-  "rationale": "그룹 topic과 기간에 맞춘 세부 키워드입니다."
+  "keywords": ["JPA", "Spring Security", "테스트 코드"]
 }
 ```
 

@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.studygroup.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -7,19 +8,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
+import com.studypot.aistudyleader.llm.service.LlmProviderClient;
+import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
+import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
+import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
+import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -42,15 +53,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 class StudyGroupControllerTest {
 
 	private static final String GROUPS_PATH = ApiPaths.V1 + "/groups";
+	private static final String DETAIL_KEYWORD_SUGGESTIONS_PATH = GROUPS_PATH + "/detail-keyword-suggestions";
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002861");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002862");
 	private static final String JOIN_PATH = GROUPS_PATH + "/" + GROUP_ID + "/join";
 
 	private final MockMvc mockMvc;
+	private final CapturingDetailKeywordProvider detailKeywordProvider;
 
 	@Autowired
-	StudyGroupControllerTest(MockMvc mockMvc) {
+	StudyGroupControllerTest(MockMvc mockMvc, CapturingDetailKeywordProvider detailKeywordProvider) {
 		this.mockMvc = mockMvc;
+		this.detailKeywordProvider = detailKeywordProvider;
 	}
 
 	@Test
@@ -104,6 +118,59 @@ class StudyGroupControllerTest {
 			.andExpect(jsonPath("$.inviteCode").value("INVITE-0001"))
 			.andExpect(jsonPath("$.startsAt").value("2026-05-10"))
 			.andExpect(jsonPath("$.endsAt").value("2026-06-21"));
+	}
+
+	@Test
+	void suggestDetailKeywordsRequiresAuthentication() throws Exception {
+		mockMvc.perform(post(DETAIL_KEYWORD_SUGGESTIONS_PATH)
+				.with(xsrf("keyword-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"topic":"Spring Boot"}
+					"""))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void suggestDetailKeywordsRejectsInvalidRequestWithProblemDetails() throws Exception {
+		mockMvc.perform(post(DETAIL_KEYWORD_SUGGESTIONS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("keyword-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "topic": " ",
+					  "hintKeywords": ["JPA"],
+					  "maxCandidates": 0
+					}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors").isArray());
+	}
+
+	@Test
+	void suggestDetailKeywordsReturnsKeywordListAndDefaultsCandidateLimit() throws Exception {
+		mockMvc.perform(post(DETAIL_KEYWORD_SUGGESTIONS_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("keyword-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"topic":"Spring Boot"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.keywords[0]").value("JPA"))
+			.andExpect(jsonPath("$.keywords[1]").value("Spring Security"))
+			.andExpect(jsonPath("$.suggestions").doesNotExist())
+			.andExpect(jsonPath("$.rationale").doesNotExist());
+
+		assertThat(detailKeywordProvider.request.input())
+			.containsEntry("topic", "Spring Boot")
+			.containsEntry("hintKeywords", List.of())
+			.containsEntry("maxCandidates", 5);
 	}
 
 	@Test
@@ -238,6 +305,56 @@ class StudyGroupControllerTest {
 				idGenerator,
 				() -> "INVITE-0001",
 				3
+			);
+		}
+
+		@Bean
+		CapturingDetailKeywordProvider detailKeywordProvider() {
+			return new CapturingDetailKeywordProvider();
+		}
+
+		@Bean
+		LlmUsageRecorder llmUsageRecorder() {
+			return usage -> {
+			};
+		}
+
+		@Bean
+		DetailKeywordSuggestionService detailKeywordSuggestionService(
+			CapturingDetailKeywordProvider provider,
+			LlmUsageRecorder usageRecorder
+		) {
+			return new DetailKeywordSuggestionService(
+				provider,
+				JsonMapper.builder().findAndAddModules().build(),
+				usageRecorder,
+				Clock.fixed(NOW, ZoneOffset.UTC),
+				() -> UUID.fromString("018f0000-0000-7000-8000-000000002865")
+			);
+		}
+	}
+
+	static final class CapturingDetailKeywordProvider implements LlmProviderClient {
+
+		private LlmStructuredRequest request;
+
+		@Override
+		public LlmStructuredResponse requestStructured(LlmStructuredRequest request) {
+			this.request = request;
+			return new LlmStructuredResponse(
+				LlmProvider.OPENAI,
+				"gpt-4o-mini",
+				"""
+					{"keywords":["JPA","Spring Security"]}
+					""",
+				20,
+				12,
+				BigDecimal.ZERO,
+				80,
+				LlmUsageStatus.SUCCESS,
+				null,
+				Map.of("purpose", "DETAIL_KEYWORD_SUGGEST"),
+				"raw provider response"
 			);
 		}
 	}
