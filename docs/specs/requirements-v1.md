@@ -5,6 +5,7 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- Onboarding simplification and auto-merge harness behavior are authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
 
 ## Priority Definitions
 | Priority | Meaning |
@@ -21,9 +22,9 @@
 | `study-group-core` | `REQ-GRP-001` | Host can create a study group. | Required inputs are name, topic, detail keywords, max members, starts/ends dates. |
 | `study-group-core` | `REQ-GRP-002` | Created group enters onboarding flow. | `study_group.status = ONBOARDING`, owner member is `PENDING_ONBOARDING`. |
 | `study-group-core` | `REQ-INV-001` | Host can share invite link/code. | Invite code is unique and creates pending member records. |
-| `group-onboarding` | `REQ-ONB-001` | Host and members submit group-specific onboarding. | Response stores keyword skills, task preferences, note, and submitted timestamp. |
+| `group-onboarding` | `REQ-ONB-001` | Host and members submit group-specific onboarding. | Public response stores overall skill level, note, availability slots, and submitted timestamp. The backend may project the skill level into internal keyword scores for curriculum context. |
 | `group-onboarding` | `REQ-ONB-002` | Onboarding stores recurring availability slots. | Slots include day of week, start time, end time, and timezone. |
-| `group-onboarding` | `REQ-ONB-003` | Skill and task preference scores use 1 to 5 scale. | Invalid values are rejected. |
+| `group-onboarding` | `REQ-ONB-003` | Onboarding skill level uses a 1 to 5 scale. | Invalid values are rejected. |
 | `curriculum-core` | `REQ-CUR-001` | Host can start study after onboarding begins. | Start does not require all members to submit onboarding. |
 | `curriculum-core` | `REQ-CUR-002` | AI curriculum uses submitted onboarding responses. | `curriculum.onboarding_summary` stores generation context. |
 | `weekly-todo` | `REQ-TODO-001` | Curriculum weeks contain weekly tasks. | Tasks have type, order, title, required flag, and due timestamp. |

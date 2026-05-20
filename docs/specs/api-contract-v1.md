@@ -55,8 +55,7 @@
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
-| `PUT` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Save draft/submitted onboarding response. |
-| `POST` | `/api/v1/groups/{groupId}/onboarding/me/submit` | `group-onboarding` | group member | Submit onboarding. |
+| `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
@@ -141,14 +140,15 @@ Suggested keywords are transient. Only the final selected or directly entered `d
 ### Submit Onboarding
 ```json
 {
-  "keywordSkillLevels": {"JPA": 2, "Security": 1, "Testing": 3},
-  "taskPreferences": {"READING": 3, "PRACTICE": 5, "ASSIGNMENT": 4},
-  "additionalNote": "실습 과제 위주가 좋아요.",
+  "skillLevel": 3,
+  "additionalNote": "JPA는 처음이고 실습 과제 위주가 좋아요.",
   "availabilitySlots": [
     {"dayOfWeek": 2, "startTime": "20:00", "endTime": "22:00", "timezone": "Asia/Seoul"}
   ]
 }
 ```
+
+The backend maps `skillLevel` to internal keyword score JSON for the group's detail keywords so existing curriculum and retrospective context builders continue to work. Public onboarding responses expose `skillLevel`, not `keywordSkillLevels` or `taskPreferences`.
 
 ### Task Completion
 ```json

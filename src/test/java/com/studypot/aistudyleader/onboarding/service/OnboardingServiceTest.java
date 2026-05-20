@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
+import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
@@ -36,30 +37,47 @@ class OnboardingServiceTest {
 	);
 
 	@Test
-	void saveMyDraftCreatesDraftResponseForCurrentMember() {
+	void submitMyOnboardingCreatesSubmittedResponseForCurrentMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		GroupOnboardingResponse result = service.saveMyDraft(command());
+		GroupOnboardingResponse result = service.submitMyOnboarding(command());
 
-		assertThat(repository.savedResponse).isSameAs(result);
-		assertThat(result.id()).isEqualTo(RESPONSE_ID);
+		assertThat(repository.savedResponse.id()).isEqualTo(RESPONSE_ID);
+		assertThat(repository.submittedResponse).isSameAs(result);
 		assertThat(result.groupId()).isEqualTo(GROUP_ID);
 		assertThat(result.memberId()).isEqualTo(MEMBER_ID);
-		assertThat(result.keywordSkillLevels()).containsEntry("JPA", 2);
-		assertThat(result.taskPreferences()).containsEntry("READING", 4);
+		assertThat(result.status()).isEqualTo(GroupOnboardingStatus.SUBMITTED);
+		assertThat(result.submittedAt()).contains(NOW);
+		assertThat(repository.activatedMemberId).isEqualTo(MEMBER_ID);
+		assertThat(repository.activatedAt).isEqualTo(NOW);
 	}
 
 	@Test
-	void saveMyDraftStoresAvailabilitySlotsForCurrentMember() {
+	void submitMyOnboardingMapsOverallSkillLevelToInternalKeywordScores() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		GroupOnboardingResponse result = service.submitMyOnboarding(command());
+
+		assertThat(result.skillLevel()).isEqualTo(3);
+		assertThat(result.keywordSkillLevels())
+			.containsExactlyInAnyOrderEntriesOf(Map.of("JPA", 3, "Security", 3));
+		assertThat(result.taskPreferences()).isEmpty();
+	}
+
+	@Test
+	void submitMyOnboardingStoresAvailabilitySlotsForCurrentMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
 		OnboardingService service = service(repository, RESPONSE_ID, SLOT_ID);
 
-		GroupOnboardingResponse result = service.saveMyDraft(commandWithSlots(
+		GroupOnboardingResponse result = service.submitMyOnboarding(commandWithSlots(
 			new AvailabilitySlotCommand(2, "20:00", "22:00", "Asia/Seoul")
 		));
 
@@ -73,28 +91,14 @@ class OnboardingServiceTest {
 	}
 
 	@Test
-	void saveMyDraftUpdatesExistingResponseWithoutCreatingDuplicateId() {
+	void submitMyOnboardingUpdatesExistingDraftWithoutCreatingDuplicateId() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse();
-		OnboardingService service = service(repository, RESPONSE_ID);
-
-		GroupOnboardingResponse result = service.saveMyDraft(command());
-
-		assertThat(result.id()).isEqualTo(EXISTING_RESPONSE_ID);
-		assertThat(repository.savedResponse.id()).isEqualTo(EXISTING_RESPONSE_ID);
-	}
-
-	@Test
-	void saveMyDraftReplacesExistingResponseSlotsWithCurrentRequestSlots() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.groupExists = true;
-		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
+		repository.existingResponse = existingDraft().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
 		OnboardingService service = service(repository, REPLACEMENT_SLOT_ID);
 
-		GroupOnboardingResponse result = service.saveMyDraft(commandWithSlots(
+		GroupOnboardingResponse result = service.submitMyOnboarding(commandWithSlots(
 			new AvailabilitySlotCommand(4, "21:00", "23:00", "Asia/Seoul")
 		));
 
@@ -106,54 +110,68 @@ class OnboardingServiceTest {
 	}
 
 	@Test
-	void saveMyDraftRejectsMissingGroup() {
+	void submitMyOnboardingRejectsAlreadySubmittedResponse() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.existingResponse = existingDraft().submit(NOW);
+		OnboardingService service = service(repository, REPLACEMENT_SLOT_ID);
+
+		assertThatThrownBy(() -> service.submitMyOnboarding(command()))
+			.isInstanceOf(OnboardingAlreadySubmittedException.class)
+			.hasMessage("onboarding response was already submitted.");
+		assertThat(repository.savedResponse).isNull();
+		assertThat(repository.submittedResponse).isNull();
+	}
+
+	@Test
+	void submitMyOnboardingRejectsMissingGroup() {
 		CapturingRepository repository = new CapturingRepository();
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		assertThatThrownBy(() -> service.saveMyDraft(command()))
+		assertThatThrownBy(() -> service.submitMyOnboarding(command()))
 			.isInstanceOf(OnboardingGroupNotFoundException.class)
 			.hasMessage("study group was not found.");
 	}
 
 	@Test
-	void saveMyDraftRejectsNonMember() {
+	void submitMyOnboardingRejectsNonMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		assertThatThrownBy(() -> service.saveMyDraft(command()))
+		assertThatThrownBy(() -> service.submitMyOnboarding(command()))
 			.isInstanceOf(OnboardingMembershipRequiredException.class)
 			.hasMessage("authenticated user is not a member of this study group.");
 	}
 
 	@Test
-	void saveMyDraftTranslatesInvalidScoresIntoFieldErrorException() {
+	void submitMyOnboardingTranslatesInvalidSkillLevelIntoFieldErrorException() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		assertThatThrownBy(() -> service.saveMyDraft(new SaveMyOnboardingCommand(
+		assertThatThrownBy(() -> service.submitMyOnboarding(new SubmitMyOnboardingCommand(
 				USER_ID,
 				GROUP_ID,
-				Map.of("Docker", 2),
-				Map.of(),
+				0,
 				null,
 				List.of()
 			)))
 			.isInstanceOf(InvalidOnboardingRequestException.class)
 			.extracting("field")
-			.isEqualTo("keywordSkillLevels");
+			.isEqualTo("skillLevel");
 	}
 
 	@Test
-	void saveMyDraftTranslatesInvalidAvailabilitySlotIntoFieldErrorException() {
+	void submitMyOnboardingTranslatesInvalidAvailabilitySlotIntoFieldErrorException() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
 		OnboardingService service = service(repository, RESPONSE_ID, SLOT_ID);
 
-		assertThatThrownBy(() -> service.saveMyDraft(commandWithSlots(
+		assertThatThrownBy(() -> service.submitMyOnboarding(commandWithSlots(
 				new AvailabilitySlotCommand(1, "22:00", "20:00", "Asia/Seoul")
 			)))
 			.isInstanceOf(InvalidOnboardingRequestException.class)
@@ -166,7 +184,7 @@ class OnboardingServiceTest {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
+		repository.existingResponse = existingDraft().withAvailabilitySlots(List.of(slot(SLOT_ID, EXISTING_RESPONSE_ID)));
 		OnboardingService service = service(repository, RESPONSE_ID);
 
 		GroupOnboardingResponse result = service.getMyResponse(new GetMyOnboardingQuery(USER_ID, GROUP_ID));
@@ -188,47 +206,15 @@ class OnboardingServiceTest {
 	}
 
 	@Test
-	void submitMyOnboardingSubmitsExistingResponseAndActivatesPendingMember() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.groupExists = true;
-		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse();
-		OnboardingService service = service(repository, RESPONSE_ID);
-
-		GroupOnboardingResponse result = service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID));
-
-		assertThat(result.status()).isEqualTo(com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus.SUBMITTED);
-		assertThat(result.submittedAt()).contains(NOW);
-		assertThat(repository.submittedResponse).isSameAs(result);
-		assertThat(repository.activatedMemberId).isEqualTo(MEMBER_ID);
-		assertThat(repository.activatedAt).isEqualTo(NOW);
-	}
-
-	@Test
-	void submitMyOnboardingRejectsWhenResponseDoesNotExist() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.groupExists = true;
-		repository.memberContext = CONTEXT;
-		OnboardingService service = service(repository, RESPONSE_ID);
-
-		assertThatThrownBy(() -> service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID)))
-			.isInstanceOf(OnboardingResponseNotFoundException.class)
-			.hasMessage("onboarding response was not found.");
-		assertThat(repository.submittedResponse).isNull();
-		assertThat(repository.activatedMemberId).isNull();
-	}
-
-	@Test
 	void submitMyOnboardingSkipsActivationForAlreadyActiveMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = new OnboardingMemberContext(GROUP_ID, MEMBER_ID, GroupMemberStatus.ACTIVE, List.of("JPA", "Security"));
-		repository.existingResponse = existingResponse();
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		GroupOnboardingResponse result = service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID));
+		GroupOnboardingResponse result = service.submitMyOnboarding(command());
 
-		assertThat(result.status()).isEqualTo(com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus.SUBMITTED);
+		assertThat(result.status()).isEqualTo(GroupOnboardingStatus.SUBMITTED);
 		assertThat(repository.activatedMemberId).isNull();
 	}
 
@@ -237,11 +223,10 @@ class OnboardingServiceTest {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
-		repository.existingResponse = existingResponse();
 		repository.activateResult = false;
 		OnboardingService service = service(repository, RESPONSE_ID);
 
-		assertThatThrownBy(() -> service.submitMyOnboarding(new SubmitMyOnboardingCommand(USER_ID, GROUP_ID)))
+		assertThatThrownBy(() -> service.submitMyOnboarding(command()))
 			.isInstanceOf(OnboardingMembershipRequiredException.class)
 			.hasMessage("current group membership is required.");
 	}
@@ -251,34 +236,32 @@ class OnboardingServiceTest {
 		return new OnboardingService(repository, CLOCK, idGenerator);
 	}
 
-	private static SaveMyOnboardingCommand command() {
-		return new SaveMyOnboardingCommand(
+	private static SubmitMyOnboardingCommand command() {
+		return new SubmitMyOnboardingCommand(
 			USER_ID,
 			GROUP_ID,
-			Map.of("JPA", 2),
-			Map.of("READING", 4),
-			"실습 위주가 좋아요.",
+			3,
+			"JPA는 처음이고 실습 위주가 좋아요.",
 			List.of()
 		);
 	}
 
-	private static SaveMyOnboardingCommand commandWithSlots(AvailabilitySlotCommand... slots) {
-		return new SaveMyOnboardingCommand(
+	private static SubmitMyOnboardingCommand commandWithSlots(AvailabilitySlotCommand... slots) {
+		return new SubmitMyOnboardingCommand(
 			USER_ID,
 			GROUP_ID,
-			Map.of("JPA", 2),
-			Map.of("READING", 4),
-			"실습 위주가 좋아요.",
+			3,
+			"JPA는 처음이고 실습 위주가 좋아요.",
 			List.of(slots)
 		);
 	}
 
-	private static GroupOnboardingResponse existingResponse() {
+	private static GroupOnboardingResponse existingDraft() {
 		return GroupOnboardingResponse.draft(
 			EXISTING_RESPONSE_ID,
 			CONTEXT,
-			Map.of("Security", 3),
-			Map.of("PRACTICE", 5),
+			Map.of("Security", 2, "JPA", 2),
+			Map.of(),
 			null,
 			NOW
 		);

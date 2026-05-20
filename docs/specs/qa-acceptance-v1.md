@@ -5,6 +5,7 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- Onboarding simplification is authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -28,8 +29,8 @@
 | `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
 | `study-group-core` | `QA-GRP-004` | Owner-only group updates reject non-owner access. |
-| `group-onboarding` | `QA-ONB-001` | Host and members can save and submit onboarding. |
-| `group-onboarding` | `QA-ONB-002` | Keyword skill levels and task preferences reject values outside 1 to 5. |
+| `group-onboarding` | `QA-ONB-001` | Host and members can submit onboarding in one request. |
+| `group-onboarding` | `QA-ONB-002` | Overall skill level rejects values outside 1 to 5. |
 | `group-onboarding` | `QA-ONB-003` | Availability slots reject invalid day/time windows. |
 | `group-onboarding` | `QA-ONB-004` | One member cannot create duplicate active onboarding responses. |
 | `curriculum-core` | `QA-CUR-001` | Host start creates curriculum from submitted onboarding summary. |

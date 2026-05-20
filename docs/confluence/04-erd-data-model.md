@@ -244,8 +244,8 @@ erDiagram
 | Field | Contents |
 | --- | --- |
 | `study_group.detail_keywords` | Final selected or directly entered keyword strings. |
-| `group_onboarding_response.keyword_skill_levels` | Object keyed by detail keyword, value 1 to 5. |
-| `group_onboarding_response.task_preferences` | Object keyed by task type, value 1 to 5. |
+| `group_onboarding_response.keyword_skill_levels` | Internal object keyed by detail keyword, value 1 to 5. Public onboarding maps one `skillLevel` to this object. |
+| `group_onboarding_response.task_preferences` | Compatibility object. Simplified public onboarding stores `{}` until a later approved task reintroduces task preference input. |
 | `curriculum.onboarding_summary` | Submitted onboarding response summary used at host start. |
 | `curriculum_week.learning_goals` | Ordered learning goals. |
 | `curriculum_week.resources` | Recommended resources. |
@@ -260,7 +260,7 @@ erDiagram
 - `study_group.starts_at` must be before or equal to `study_group.ends_at`.
 - `study_group.max_members` must be positive.
 - `group_member` has one membership row per user/group.
-- `group_onboarding_response.keyword_skill_levels` and `task_preferences` are validated in service code as 1 to 5 score objects.
+- Public onboarding writes one `skillLevel`; service code stores it as keyword score JSON and stores `task_preferences` as an empty compatibility object.
 - `member_availability_slot.end_time` must be greater than `start_time`.
 - `curriculum_week.week_number` is unique per curriculum.
 - `weekly_task.display_order` is unique per curriculum week.

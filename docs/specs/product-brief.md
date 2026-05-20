@@ -3,12 +3,12 @@
 ## Lock Status
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
-- Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
+- Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md), [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md)
 
 ## Product Summary
 AI Study Leader helps a host create a study group, collect member onboarding context, generate an AI curriculum, track weekly todos, and run weekly retrospective feedback through an AI team leader.
 
-The product replaces the manual study leader role for small groups. The leader does not need to schedule heavy synchronous sessions for MVP; instead, the system captures member skill, task preference, availability, progress, incomplete reasons, and AI feedback so the AI team leader can adjust the next week.
+The product replaces the manual study leader role for small groups. The leader does not need to schedule heavy synchronous sessions for MVP; instead, the system captures member skill, availability, extra context, progress, incomplete reasons, and AI feedback so the AI team leader can adjust the next week.
 
 ## Target Users
 - Study hosts who want to create a group and start a structured curriculum quickly.
@@ -18,7 +18,7 @@ The product replaces the manual study leader role for small groups. The leader d
 ## MVP Value
 - Fast group creation with topic, detail keywords, max members, and period.
 - Invite link flow for bringing members into the group.
-- Member-specific onboarding for skill, task preference, availability, and notes.
+- Member-specific onboarding for overall skill level, availability, and notes.
 - Host start action that turns submitted onboarding responses into an AI curriculum.
 - Weekly todo completion and incomplete-reason capture.
 - AI team leader retrospective feedback and weekly next-week adjustment.

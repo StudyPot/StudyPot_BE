@@ -32,6 +32,7 @@ import com.studypot.aistudyleader.notification.service.NotificationMutationRejec
 import com.studypot.aistudyleader.notification.service.NotificationNotFoundException;
 import com.studypot.aistudyleader.notification.service.NotificationServiceUnavailableException;
 import com.studypot.aistudyleader.onboarding.service.InvalidOnboardingRequestException;
+import com.studypot.aistudyleader.onboarding.service.OnboardingAlreadySubmittedException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingGroupNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequiredException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
@@ -208,6 +209,7 @@ public class ApiExceptionHandler {
 		TaskCompletionUpdateRejectedException.class,
 		WeekProgressUpdateRejectedException.class,
 		GroupRuleMutationRejectedException.class,
+		OnboardingAlreadySubmittedException.class,
 		RetrospectiveMutationRejectedException.class,
 		AiConversationMutationRejectedException.class,
 		NotificationMutationRejectedException.class

@@ -3,7 +3,6 @@ package com.studypot.aistudyleader.onboarding.controller;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,8 +24,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
@@ -43,7 +42,6 @@ class OnboardingControllerTest {
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000003061");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000003062");
 	private static final String ONBOARDING_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/onboarding/me";
-	private static final String ONBOARDING_SUBMIT_PATH = ONBOARDING_PATH + "/submit";
 
 	private final MockMvc mockMvc;
 
@@ -53,8 +51,8 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingRequiresAuthentication() throws Exception {
-		mockMvc.perform(put(ONBOARDING_PATH)
+	void submitMyOnboardingRequiresAuthentication() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
 				.with(xsrf("onboarding-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(validRequestJson()))
@@ -63,15 +61,34 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingRejectsInvalidAvailabilityTimeWindow() throws Exception {
-		mockMvc.perform(put(ONBOARDING_PATH)
+	void submitMyOnboardingRejectsInvalidSkillLevel() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "keywordSkillLevels": {"JPA": 2},
-					  "taskPreferences": {"READING": 4},
+					  "skillLevel": 0,
+					  "availabilitySlots": [
+					    {"dayOfWeek": 1, "startTime": "20:00", "endTime": "21:00", "timezone": "Asia/Seoul"}
+					  ]
+					}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"))
+			.andExpect(jsonPath("$.fieldErrors").isArray());
+	}
+
+	@Test
+	void submitMyOnboardingRejectsInvalidAvailabilityTimeWindow() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("onboarding-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "skillLevel": 3,
 					  "availabilitySlots": [
 					    {"dayOfWeek": 1, "startTime": "22:00", "endTime": "20:00", "timezone": "Asia/Seoul"}
 					  ]
@@ -84,15 +101,14 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingRejectsMalformedAvailabilityTime() throws Exception {
-		mockMvc.perform(put(ONBOARDING_PATH)
+	void submitMyOnboardingRejectsMalformedAvailabilityTime() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "keywordSkillLevels": {"JPA": 2},
-					  "taskPreferences": {"READING": 4},
+					  "skillLevel": 3,
 					  "availabilitySlots": [
 					    {"dayOfWeek": 1, "startTime": "8pm", "endTime": "21:00", "timezone": "Asia/Seoul"}
 					  ]
@@ -105,15 +121,14 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingRejectsInvalidAvailabilityTimezone() throws Exception {
-		mockMvc.perform(put(ONBOARDING_PATH)
+	void submitMyOnboardingRejectsInvalidAvailabilityTimezone() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "keywordSkillLevels": {"JPA": 2},
-					  "taskPreferences": {"READING": 4},
+					  "skillLevel": 3,
 					  "availabilitySlots": [
 					    {"dayOfWeek": 1, "startTime": "20:00", "endTime": "21:00", "timezone": "Mars/Base"}
 					  ]
@@ -126,8 +141,8 @@ class OnboardingControllerTest {
 	}
 
 	@Test
-	void saveMyOnboardingReturnsDraftResponse() throws Exception {
-		mockMvc.perform(put(ONBOARDING_PATH)
+	void submitMyOnboardingReturnsSubmittedResponseWithoutInternalMaps() throws Exception {
+		mockMvc.perform(post(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
@@ -136,57 +151,39 @@ class OnboardingControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
 			.andExpect(jsonPath("$.memberId").value(TestOnboardingBeans.MEMBER_ID.toString()))
-			.andExpect(jsonPath("$.keywordSkillLevels.JPA").value(2))
-			.andExpect(jsonPath("$.taskPreferences.READING").value(4))
-			.andExpect(jsonPath("$.additionalNote").value("실습 위주가 좋아요."))
+			.andExpect(jsonPath("$.skillLevel").value(3))
+			.andExpect(jsonPath("$.keywordSkillLevels").doesNotExist())
+			.andExpect(jsonPath("$.taskPreferences").doesNotExist())
+			.andExpect(jsonPath("$.additionalNote").value("JPA는 처음이고 실습 위주가 좋아요."))
 			.andExpect(jsonPath("$.availabilitySlots").isArray())
 			.andExpect(jsonPath("$.availabilitySlots[0].dayOfWeek").value(2))
 			.andExpect(jsonPath("$.availabilitySlots[0].startTime").value("20:00"))
 			.andExpect(jsonPath("$.availabilitySlots[0].endTime").value("22:00"))
 			.andExpect(jsonPath("$.availabilitySlots[0].timezone").value("Asia/Seoul"))
-			.andExpect(jsonPath("$.status").value("DRAFT"));
+			.andExpect(jsonPath("$.status").value("SUBMITTED"))
+			.andExpect(jsonPath("$.submittedAt").value("2026-05-09T08:30:00Z"));
 	}
 
 	@Test
-	void getMyOnboardingReturnsDraftResponse() throws Exception {
+	void getMyOnboardingReturnsSimplifiedResponse() throws Exception {
 		mockMvc.perform(get(ONBOARDING_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("onboarding-xsrf")))
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
-			.andExpect(jsonPath("$.keywordSkillLevels.JPA").value(2))
+			.andExpect(jsonPath("$.skillLevel").value(2))
+			.andExpect(jsonPath("$.keywordSkillLevels").doesNotExist())
+			.andExpect(jsonPath("$.taskPreferences").doesNotExist())
 			.andExpect(jsonPath("$.availabilitySlots[0].dayOfWeek").value(2))
 			.andExpect(jsonPath("$.status").value("DRAFT"));
-	}
-
-	@Test
-	void submitMyOnboardingRequiresAuthentication() throws Exception {
-		mockMvc.perform(post(ONBOARDING_SUBMIT_PATH)
-				.with(xsrf("onboarding-submit-xsrf")))
-			.andExpect(status().isUnauthorized())
-			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
-	}
-
-	@Test
-	void submitMyOnboardingReturnsSubmittedResponse() throws Exception {
-		mockMvc.perform(post(ONBOARDING_SUBMIT_PATH)
-				.with(user(USER_ID.toString()))
-				.with(xsrf("onboarding-submit-xsrf")))
-			.andExpect(status().isOk())
-			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
-			.andExpect(jsonPath("$.memberId").value(TestOnboardingBeans.MEMBER_ID.toString()))
-			.andExpect(jsonPath("$.status").value("SUBMITTED"))
-			.andExpect(jsonPath("$.submittedAt").value("2026-05-09T08:30:00Z"));
 	}
 
 	private static String validRequestJson() {
 		return """
 			{
-			  "keywordSkillLevels": {"JPA": 2},
-			  "taskPreferences": {"READING": 4},
-			  "additionalNote": "실습 위주가 좋아요.",
+			  "skillLevel": 3,
+			  "additionalNote": "JPA는 처음이고 실습 위주가 좋아요.",
 			  "availabilitySlots": [
 			    {"dayOfWeek": 2, "startTime": "20:00", "endTime": "22:00", "timezone": "Asia/Seoul"}
 			  ]
@@ -231,8 +228,8 @@ class OnboardingControllerTest {
 			private GroupOnboardingResponse response = GroupOnboardingResponse.draft(
 				RESPONSE_ID,
 				CONTEXT,
-				Map.of("JPA", 2),
-				Map.of("READING", 4),
+				Map.of("JPA", 2, "Security", 2),
+				Map.of(),
 				"실습 위주가 좋아요.",
 				NOW
 			).withAvailabilitySlots(List.of(slot()));
