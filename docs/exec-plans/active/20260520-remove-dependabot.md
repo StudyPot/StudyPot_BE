@@ -28,6 +28,7 @@
 - 2026-05-20: Open Dependabot PRs targeted `main` and had no reported checks, so they did not exercise the `develop` PR quality/review gate flow.
 - 2026-05-20: Dependabot labels in the config did not exist in GitHub, producing Dependabot warning comments on generated PRs.
 - 2026-05-20: This is a harness/infrastructure cleanup only; product, API, DB, AI, notification, and permission specs remain untouched.
+- 2026-05-20: PR #150 initially failed `harness-tests` because `scripts/tests/test_pr_scripts_static.sh` still required `.github/dependabot.yml`; removing Dependabot requires removing that stale static expectation too.
 
 ## Goal
 Remove Dependabot automation from this repository so GitHub no longer opens automatic dependency update PRs that bypass the StudyPot `develop` review gate path.
@@ -40,9 +41,10 @@ Delete `.github/dependabot.yml` and update the GitHub Actions review gate docume
 - [x] Create and start Jira task `SPT-100`.
 - [x] Remove `.github/dependabot.yml`.
 - [x] Remove the stale Dependabot note from `docs/operations/github-actions-review-gate.md`.
+- [x] Remove stale harness static-test expectations for `.github/dependabot.yml`.
 - [x] Run `./gradlew check build --no-daemon`.
 - [x] Commit with a `[type] 한글 내용` subject.
-- [ ] Create PR to `develop` through `scripts/task/create-pr.sh`.
+- [x] Create PR #150 to `develop` through `scripts/task/create-pr.sh`.
 - [ ] Run CodeRabbit review and finish the PR through the review gate.
 
 ## Done Criteria
