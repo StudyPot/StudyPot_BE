@@ -53,6 +53,8 @@ PATH="${tmp}/bin:${PATH}" \
 FAKE_CURL_PAYLOAD="${payload}" \
 STUDYPOT_MM_WEBHOOK_URL="https://mattermost.example/hooks/test" \
 STUDYPOT_MM_MENTIONS="@hw62459930 @yjhn0410" \
+PR_TITLE="[feat] 스터디 그룹 목록 조회 추가" \
+PR_SUMMARY="내 그룹 목록 조회 API와 관련 검증을 추가했습니다." \
   "${notify_script}" "17" "https://github.com/StudyPot/StudyPot_BE/pull/17" "abc123" "merged"
 
 python3 - "${payload}" <<'PY'
@@ -66,16 +68,20 @@ text = doc.get("text", "")
 required = [
     "@hw62459930 @yjhn0410",
     "PR #17",
+    "변경 내용",
+    "[feat] 스터디 그룹 목록 조회 추가",
+    "요약",
+    "내 그룹 목록 조회 API와 관련 검증을 추가했습니다.",
     "https://github.com/StudyPot/StudyPot_BE/pull/17",
-    "abc123",
     "자동 merge가 완료",
-    "review gate",
-    "scripts/task/finish-pr.sh",
-    "Jira Task",
 ]
 missing = [value for value in required if value not in text]
 if missing:
     raise SystemExit(f"missing notification text: {missing}")
+
+for noisy in ("abc123", "Head:", "scripts/task/finish-pr.sh", "Jira Task"):
+    if noisy in text:
+        raise SystemExit(f"noisy notification text should be omitted: {noisy}")
 PY
 
 missing_env_stderr="${tmp}/missing-env.stderr"
