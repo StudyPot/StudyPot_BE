@@ -151,6 +151,8 @@ STUDYPOT_AI_OPENAI_API_KEY=
 STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
 STUDYPOT_AI_OPENAI_MODEL=gpt-4o-mini
 STUDYPOT_AI_OPENAI_API_MODE=responses
+STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT=5s
+STUDYPOT_AI_OPENAI_READ_TIMEOUT=120s
 ```
 
 ## 수동 배포
@@ -211,6 +213,8 @@ STUDYPOT_AI_OPENAI_API_KEY
 STUDYPOT_AI_OPENAI_BASE_URL
 STUDYPOT_AI_OPENAI_MODEL
 STUDYPOT_AI_OPENAI_API_MODE
+STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT
+STUDYPOT_AI_OPENAI_READ_TIMEOUT
 ```
 
 - `STUDYPOT_DEPLOY_HOST`: `oracle-was` 접속 호스트
@@ -222,6 +226,8 @@ STUDYPOT_AI_OPENAI_API_MODE
 - `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
 - `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.
 - `STUDYPOT_AI_OPENAI_API_MODE`: 기본값은 `responses`; GMS `chat/completions` 호환 endpoint 사용 시 `chat-completions`.
+- `STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT`: 운영 provider 연결 제한. 기본값은 `5s`.
+- `STUDYPOT_AI_OPENAI_READ_TIMEOUT`: 운영 provider 응답 대기 제한. GMS curriculum/chat처럼 구조화 출력이 길어질 수 있는 경로를 위해 배포 기본값은 `120s`.
 - GHCR push와 remote pull은 workflow의 `GITHUB_TOKEN`을 사용한다. Workflow 권한에는 `packages: write`가 있어야 한다.
 
 ## Rollback

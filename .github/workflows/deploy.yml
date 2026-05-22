@@ -102,6 +102,8 @@ jobs:
           STUDYPOT_AI_OPENAI_BASE_URL: ${{ secrets.STUDYPOT_AI_OPENAI_BASE_URL }}
           STUDYPOT_AI_OPENAI_MODEL: ${{ secrets.STUDYPOT_AI_OPENAI_MODEL }}
           STUDYPOT_AI_OPENAI_API_MODE: ${{ secrets.STUDYPOT_AI_OPENAI_API_MODE }}
+          STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT: ${{ secrets.STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT }}
+          STUDYPOT_AI_OPENAI_READ_TIMEOUT: ${{ secrets.STUDYPOT_AI_OPENAI_READ_TIMEOUT }}
         run: |
           deploy_user="${STUDYPOT_DEPLOY_USER:-opc}"
           deploy_dir="${STUDYPOT_DEPLOY_DIR:-/opt/studypot}"
@@ -112,6 +114,8 @@ jobs:
             printf 'STUDYPOT_AI_OPENAI_BASE_URL=%s\n' "${STUDYPOT_AI_OPENAI_BASE_URL:-https://api.openai.com/v1}"
             printf 'STUDYPOT_AI_OPENAI_MODEL=%s\n' "${STUDYPOT_AI_OPENAI_MODEL:-gpt-4o-mini}"
             printf 'STUDYPOT_AI_OPENAI_API_MODE=%s\n' "${STUDYPOT_AI_OPENAI_API_MODE:-responses}"
+            printf 'STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT=%s\n' "${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:-5s}"
+            printf 'STUDYPOT_AI_OPENAI_READ_TIMEOUT=%s\n' "${STUDYPOT_AI_OPENAI_READ_TIMEOUT:-120s}"
           } > "${runtime_env}"
           chmod 600 "${runtime_env}"
           scp -i "${HOME}/.ssh/studypot_deploy" "${runtime_env}" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}:${deploy_dir}/.runtime.env"
