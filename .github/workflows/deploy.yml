@@ -81,11 +81,17 @@ jobs:
           STUDYPOT_DEPLOY_HOST: ${{ secrets.STUDYPOT_DEPLOY_HOST }}
           STUDYPOT_DEPLOY_USER: ${{ secrets.STUDYPOT_DEPLOY_USER }}
           STUDYPOT_DEPLOY_DIR: ${{ secrets.STUDYPOT_DEPLOY_DIR }}
+          STUDYPOT_DEPLOY_COMPOSE_FILE: ${{ secrets.STUDYPOT_DEPLOY_COMPOSE_FILE }}
         run: |
           deploy_user="${STUDYPOT_DEPLOY_USER:-opc}"
           deploy_dir="${STUDYPOT_DEPLOY_DIR:-/opt/studypot}"
+          deploy_compose_file="${STUDYPOT_DEPLOY_COMPOSE_FILE:-deploy/docker-compose.prod.yml}"
+          case "${deploy_compose_file}" in
+            /*|*..*) echo "Invalid STUDYPOT_DEPLOY_COMPOSE_FILE: ${deploy_compose_file}" >&2; exit 1 ;;
+          esac
+          test -f "${deploy_compose_file}"
           ssh -i "${HOME}/.ssh/studypot_deploy" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}" "mkdir -p '${deploy_dir}'"
-          scp -i "${HOME}/.ssh/studypot_deploy" deploy/docker-compose.prod.yml "${deploy_user}@${STUDYPOT_DEPLOY_HOST}:${deploy_dir}/docker-compose.yml"
+          scp -i "${HOME}/.ssh/studypot_deploy" "${deploy_compose_file}" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}:${deploy_dir}/docker-compose.yml"
 
       - name: Login to GHCR on oracle-was
         env:
