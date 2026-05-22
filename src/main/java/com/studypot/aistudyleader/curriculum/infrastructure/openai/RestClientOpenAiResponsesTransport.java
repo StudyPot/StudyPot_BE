@@ -17,16 +17,16 @@ class RestClientOpenAiResponsesTransport implements OpenAiResponsesTransport {
 		Objects.requireNonNull(request, "request must not be null");
 		try {
 			String responseBody = restClient.post()
-				.uri("/responses")
+				.uri(request.path())
 				.body(request.body())
 				.retrieve()
 				.body(String.class);
 			if (responseBody == null || responseBody.isBlank()) {
-				throw new OpenAiClientException("OpenAI Responses API returned an empty body.");
+				throw new OpenAiClientException("OpenAI API returned an empty body.");
 			}
 			return responseBody;
 		} catch (RestClientException exception) {
-			throw new OpenAiClientException("OpenAI Responses API request failed.", exception);
+			throw new OpenAiClientException("OpenAI API request failed.", exception);
 		}
 	}
 }

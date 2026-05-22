@@ -79,6 +79,14 @@ logging:
 studypot:
   openapi:
     public-docs-enabled: ${STUDYPOT_OPENAPI_PUBLIC_DOCS_ENABLED:false}
+  ai:
+    openai:
+      api-key: ${STUDYPOT_AI_OPENAI_API_KEY:}
+      base-url: ${STUDYPOT_AI_OPENAI_BASE_URL:https://api.openai.com/v1}
+      model: ${STUDYPOT_AI_OPENAI_MODEL:gpt-4o-mini}
+      api-mode: ${STUDYPOT_AI_OPENAI_API_MODE:responses}
+      connect-timeout: ${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:5s}
+      read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:30s}
   rate-limit:
     enabled: ${STUDYPOT_RATE_LIMIT_ENABLED:false}
     fail-closed: ${STUDYPOT_RATE_LIMIT_FAIL_CLOSED:true}

@@ -54,9 +54,11 @@ STUDYPOT_AI_OPENAI_API_KEY="${STUDYPOT_AI_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}"
 [[ -n "${STUDYPOT_AI_OPENAI_API_KEY}" ]] || fail "STUDYPOT_AI_OPENAI_API_KEY or OPENAI_API_KEY must be configured for real AI golden path verification."
 STUDYPOT_AI_OPENAI_BASE_URL="${STUDYPOT_AI_OPENAI_BASE_URL:-https://api.openai.com/v1}"
 STUDYPOT_AI_OPENAI_MODEL="${STUDYPOT_AI_OPENAI_MODEL:-gpt-4o-mini}"
+STUDYPOT_AI_OPENAI_API_MODE="${STUDYPOT_AI_OPENAI_API_MODE:-responses}"
 export STUDYPOT_AI_OPENAI_API_KEY
 export STUDYPOT_AI_OPENAI_BASE_URL
 export STUDYPOT_AI_OPENAI_MODEL
+export STUDYPOT_AI_OPENAI_API_MODE
 
 STUDYPOT_AUTH_JWT_SECRET="${STUDYPOT_AUTH_JWT_SECRET:-studypot-local-golden-path-jwt-secret-32-bytes-minimum}"
 STUDYPOT_AUTH_JWT_ISSUER="${STUDYPOT_AUTH_JWT_ISSUER:-${BASE_URL}}"
@@ -141,23 +143,44 @@ import urllib.request
 base_url = os.environ["STUDYPOT_AI_OPENAI_BASE_URL"].rstrip("/")
 model = os.environ["STUDYPOT_AI_OPENAI_MODEL"]
 api_key = os.environ["STUDYPOT_AI_OPENAI_API_KEY"]
-url = f"{base_url}/models/{model}"
+api_mode = os.environ.get("STUDYPOT_AI_OPENAI_API_MODE", "responses").strip().lower().replace("_", "-")
 
 
 def sanitize(text: str) -> str:
-    return re.sub(r"sk(?:-proj)?-[^\s\"']+", "sk-***", text)
+    redacted = re.sub(r"sk(?:-proj)?-[^\s\"']+", "sk-***", text)
+    return re.sub(
+        r"S[0-9A-Za-z]+-[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12}",
+        "gms-***",
+        redacted,
+    )
 
 
-request = urllib.request.Request(
-    url,
-    headers={
+def build_request() -> urllib.request.Request:
+    headers = {
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",
-    },
-)
+    }
+    if api_mode == "chat-completions":
+        body = json.dumps({
+            "model": model,
+            "messages": [
+                {"role": "developer", "content": "Answer in Korean"},
+                {"role": "user", "content": "StudyPot AI preflight. Reply with one short Korean sentence."},
+            ],
+            "max_completion_tokens": 32,
+        }).encode("utf-8")
+        return urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=body,
+            headers={**headers, "Content-Type": "application/json"},
+        )
+    return urllib.request.Request(
+        f"{base_url}/models/{model}",
+        headers=headers,
+    )
 
 try:
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with urllib.request.urlopen(build_request(), timeout=20) as response:
         if response.status < 200 or response.status >= 300:
             raise SystemExit(f"OpenAI API key preflight failed: status={response.status}")
 except urllib.error.HTTPError as exc:
