@@ -98,6 +98,18 @@ uuid_bin_sql() {
   printf "unhex(replace('%s','-',''))" "${value}"
 }
 
+sql_string_literal() {
+  SQL_VALUE="$1" python3 - <<'PY'
+import os
+
+value = os.environ["SQL_VALUE"].encode("utf-8")
+if not value:
+    print("''")
+else:
+    print(f"cast(0x{value.hex()} as char character set utf8mb4)")
+PY
+}
+
 wait_for_http() {
   local url="$1"
   local attempts="${2:-90}"
@@ -345,9 +357,12 @@ seed_user() {
   local user_id="$1"
   local email="$2"
   local nickname="$3"
+  local escaped_email_sql escaped_nickname_sql
+  escaped_email_sql="$(sql_string_literal "${email}")"
+  escaped_nickname_sql="$(sql_string_literal "${nickname}")"
   mysql_exec "${DB_NAME}" "
     insert into users (id, email, email_live_key, nickname, last_login_at, created_at, updated_at)
-    values ($(uuid_bin_sql "${user_id}"), '${email}', '${email}', '${nickname}', current_timestamp(6), current_timestamp(6), current_timestamp(6))
+    values ($(uuid_bin_sql "${user_id}"), ${escaped_email_sql}, ${escaped_email_sql}, ${escaped_nickname_sql}, current_timestamp(6), current_timestamp(6), current_timestamp(6))
     on duplicate key update deleted_at = null, updated_at = current_timestamp(6)
   " >/dev/null
 }
