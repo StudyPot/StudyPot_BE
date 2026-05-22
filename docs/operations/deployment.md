@@ -42,6 +42,7 @@ DNS와 Caddy:
 
 - `studypot.rumiclean.com`은 `rumiclean` public IP를 바라봐야 한다.
 - Caddy route는 `deploy/rumiclean/Caddyfile.studypot` 내용을 `/home/ec2-user/compose-cleanb/Caddyfile`에 추가한다.
+- `studypot-api`는 GitHub Actions Deploy health check를 위해 host loopback `127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}`에만 바인딩한다. public API 진입점은 계속 Caddy의 `https://studypot.rumiclean.com`이다.
 - RabbitMQ management UI는 public route로 열지 않는다. 필요하면 SSH tunnel로만 확인한다.
 - `STUDYPOT_MYSQL_JDBC_PARAMS`는 compose-local MySQL 기본값으로 `useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&connectionTimeZone=UTC`를 사용한다. MySQL을 별도 TLS endpoint로 옮길 때는 이 값을 TLS 검증용 JDBC parameter와 truststore 설정으로 교체한다.
 - `STUDYPOT_RABBITMQ_ERL_ARGS` 기본값은 작은 호스트용 Erlang VM scheduler 인자인 `+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none`이다. RabbitMQ 설정값은 이 환경변수에 넣지 않는다.
@@ -82,6 +83,7 @@ docker exec studypot-redis sh -lc 'redis-cli -a "${STUDYPOT_REDIS_PASSWORD}" pin
 docker exec studypot-rabbitmq rabbitmq-diagnostics -q ping
 docker exec studypot-mysql sh -lc 'mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -D studypot -e "select count(*) from flyway_schema_history where success = 1;"'
 docker exec studypot-api wget -q -O- http://127.0.0.1:8080/actuator/health
+curl -fsS http://127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}/actuator/health
 ```
 
 외부 DNS와 HTTPS 연결을 확인한다.

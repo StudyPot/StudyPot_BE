@@ -138,6 +138,8 @@ services:
       STUDYPOT_NOTIFICATION_RABBITMQ_QUEUE: "${STUDYPOT_NOTIFICATION_RABBITMQ_QUEUE:-studypot.notification.events}"
       STUDYPOT_NOTIFICATION_RABBITMQ_ROUTING_KEY: "${STUDYPOT_NOTIFICATION_RABBITMQ_ROUTING_KEY:-notification.create}"
       JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms128m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError}"
+    ports:
+      - "127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}:8080"
     expose:
       - "8080"
     depends_on:
