@@ -17,9 +17,6 @@
 - `.github/workflows/jira-auto-done.yml`
   - GitHub merge 후 Jira Task는 자동으로 완료 처리
   - `pull_request.closed` 이벤트에서 merged PR, target `develop`, head `codex/*`, linked `SPT-*` key를 확인한 뒤 Jira REST API로 `완료` 전환
-- `.github/dependabot.yml`
-  - GitHub Actions dependency update를 weekly로 확인
-
 ## Required Checks
 `verify-pr-ready.sh`의 기본 required check 목록:
 

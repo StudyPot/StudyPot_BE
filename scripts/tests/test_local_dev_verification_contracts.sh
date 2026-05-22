@@ -21,6 +21,8 @@ assert_contains "/swagger-ui.html" "${TEST_ROOT}/scripts/task/verify-local-dev.s
 assert_contains "flyway_schema_history" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
 assert_contains "show tables" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
 assert_contains "/api/v1/auth/refresh" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
+assert_contains "X-XSRF-TOKEN" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
+assert_contains "XSRF-TOKEN=local-dev-xsrf" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
 assert_contains "trap" "${TEST_ROOT}/scripts/task/verify-local-dev.sh"
 
 assert_file_exists "${TEST_ROOT}/config/application-local.example.yml"

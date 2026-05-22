@@ -1,0 +1,4 @@
+studypot.rumiclean.com {
+  encode gzip
+  reverse_proxy studypot-api:8080
+}

@@ -13,6 +13,8 @@ import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -21,14 +23,20 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	private final OpenAiResponsesTransport transport;
 	private final ObjectMapper objectMapper;
 	private final String model;
+	private final OpenAiApiMode apiMode;
 
 	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model) {
+		this(transport, objectMapper, model, OpenAiApiMode.RESPONSES);
+	}
+
+	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model, OpenAiApiMode apiMode) {
 		this.transport = Objects.requireNonNull(transport, "transport must not be null");
 		this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
 		if (model == null || model.isBlank()) {
 			throw new IllegalArgumentException("model must not be blank");
 		}
 		this.model = model.strip();
+		this.apiMode = Objects.requireNonNull(apiMode, "apiMode must not be null");
 	}
 
 	@Override
@@ -36,12 +44,12 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		Objects.requireNonNull(request, "request must not be null");
 		Instant startedAt = Instant.now();
 		try {
-			OpenAiResponseRequest responseRequest = responseRequest(request);
+			OpenAiResponseRequest responseRequest = requestFor(request);
 			String responseBody = transport.createResponse(responseRequest);
 			JsonNode response = objectMapper.readTree(responseBody);
-			JsonNode usage = response.path("usage");
-			int inputTokens = usage.path("input_tokens").asInt(0);
-			int outputTokens = usage.path("output_tokens").asInt(0);
+			TokenUsage usage = tokenUsage(response);
+			int inputTokens = usage.inputTokens();
+			int outputTokens = usage.outputTokens();
 			String outputText = outputText(response, request, inputTokens, outputTokens, elapsedMillis(startedAt));
 			return new LlmStructuredResponse(
 				LlmProvider.OPENAI,
@@ -54,7 +62,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 				LlmUsageStatus.SUCCESS,
 				null,
 				request.requestPayload(),
-				"OpenAI response output_text received."
+				"OpenAI structured response received."
 			);
 		} catch (LlmProviderCallException exception) {
 			throw exception;
@@ -65,13 +73,53 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 	}
 
-	private OpenAiResponseRequest responseRequest(LlmStructuredRequest request) {
+	private OpenAiResponseRequest requestFor(LlmStructuredRequest request) {
+		return switch (apiMode) {
+			case RESPONSES -> responsesRequest(request);
+			case CHAT_COMPLETIONS -> chatCompletionsRequest(request);
+		};
+	}
+
+	private OpenAiResponseRequest responsesRequest(LlmStructuredRequest request) {
 		return new OpenAiResponseRequest(Map.of(
 			"model", model,
 			"instructions", request.instructions(),
 			"input", inputJson(request),
 			"text", Map.of("format", request.textFormat())
 		));
+	}
+
+	private OpenAiResponseRequest chatCompletionsRequest(LlmStructuredRequest request) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("model", model);
+		body.put("messages", List.of(
+			Map.of("role", "developer", "content", request.instructions()),
+			Map.of("role", "user", "content", inputJson(request))
+		));
+		body.put("response_format", chatCompletionsResponseFormat(request.textFormat()));
+		return new OpenAiResponseRequest("/chat/completions", body);
+	}
+
+	private Map<String, Object> chatCompletionsResponseFormat(Map<String, Object> textFormat) {
+		if (textFormat.containsKey("json_schema") || !"json_schema".equals(textFormat.get("type"))) {
+			return textFormat;
+		}
+
+		Map<String, Object> jsonSchema = new LinkedHashMap<>();
+		copyIfPresent(textFormat, jsonSchema, "name");
+		copyIfPresent(textFormat, jsonSchema, "schema");
+		copyIfPresent(textFormat, jsonSchema, "strict");
+		return Map.of(
+			"type", "json_schema",
+			"json_schema", jsonSchema
+		);
+	}
+
+	private static void copyIfPresent(Map<String, Object> source, Map<String, Object> target, String key) {
+		Object value = source.get(key);
+		if (value != null) {
+			target.put(key, value);
+		}
 	}
 
 	private String inputJson(LlmStructuredRequest request) {
@@ -82,7 +130,34 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 	}
 
+	private TokenUsage tokenUsage(JsonNode response) {
+		JsonNode usage = response.path("usage");
+		return switch (apiMode) {
+			case RESPONSES -> new TokenUsage(
+				usage.path("input_tokens").asInt(0),
+				usage.path("output_tokens").asInt(0)
+			);
+			case CHAT_COMPLETIONS -> new TokenUsage(
+				usage.path("prompt_tokens").asInt(0),
+				usage.path("completion_tokens").asInt(0)
+			);
+		};
+	}
+
 	private String outputText(JsonNode response, LlmStructuredRequest request, int inputTokens, int outputTokens, Integer latencyMs) {
+		if (apiMode == OpenAiApiMode.CHAT_COMPLETIONS) {
+			return chatCompletionOutputText(response, request, inputTokens, outputTokens, latencyMs);
+		}
+		return responsesOutputText(response, request, inputTokens, outputTokens, latencyMs);
+	}
+
+	private String responsesOutputText(
+		JsonNode response,
+		LlmStructuredRequest request,
+		int inputTokens,
+		int outputTokens,
+		Integer latencyMs
+	) {
 		for (JsonNode output : response.path("output")) {
 			for (JsonNode content : output.path("content")) {
 				if ("output_text".equals(content.path("type").asText())) {
@@ -97,6 +172,37 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			request,
 			"OPENAI_OUTPUT_TEXT_MISSING",
 			"OpenAI response did not include output_text.",
+			inputTokens,
+			outputTokens,
+			latencyMs
+		);
+	}
+
+	private String chatCompletionOutputText(
+		JsonNode response,
+		LlmStructuredRequest request,
+		int inputTokens,
+		int outputTokens,
+		Integer latencyMs
+	) {
+		for (JsonNode choice : response.path("choices")) {
+			JsonNode content = choice.path("message").path("content");
+			if (content.isTextual() && !content.asText().isBlank()) {
+				return content.asText();
+			}
+			if (content.isArray()) {
+				for (JsonNode part : content) {
+					String text = part.path("text").asText();
+					if (!text.isBlank()) {
+						return text;
+					}
+				}
+			}
+		}
+		throw failure(
+			request,
+			"OPENAI_CHAT_COMPLETION_CONTENT_MISSING",
+			"OpenAI chat completion response did not include message content.",
 			inputTokens,
 			outputTokens,
 			latencyMs
@@ -160,5 +266,8 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			return 0;
 		}
 		return millis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) millis;
+	}
+
+	private record TokenUsage(int inputTokens, int outputTokens) {
 	}
 }

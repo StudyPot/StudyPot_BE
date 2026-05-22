@@ -22,6 +22,14 @@ Each entry must include:
 
 ## Entries
 
+### 2026-05-22 - AI Golden Path Blocked By Invalid OpenAI Key
+- Work / feature id: `SPT-102`, `n/a-harness`
+- Symptom: The first live `scripts/task/verify-ai-golden-path.sh` run reached the local backend and `/api/v1/users/me`, then `/api/v1/groups/detail-keyword-suggestions` failed with HTTP 503.
+- Cause: The local OpenAI credential was present but invalid; the application correctly hid the provider response behind a service-unavailable API error.
+- Fix: Add a secret-safe OpenAI API key preflight to the golden-path verification script so invalid credentials fail before Spring Boot startup and provider-returned key material is redacted.
+- Prevent next time: Before running a live AI golden path, verify the active `STUDYPOT_AI_OPENAI_API_KEY` or `OPENAI_API_KEY` through the script preflight rather than discovering credential issues inside the first product API call.
+- Next checkpoint: Rotate or replace the local OpenAI API key outside the repo, then rerun `scripts/task/verify-ai-golden-path.sh` and attach the redacted summary evidence to the PR/Jira context.
+
 ### 2026-05-07 - Stale Gradle Classes Created Duplicate Main Class
 - Work / feature id: `SPT-22`, `n/a-harness`
 - Symptom: `./gradlew check build --no-daemon` failed at `:resolveMainClassName` with two candidates: `com.studypot.aistudyleader.AiStudyLeaderApplication` and stale `com.studypot 2.aistudyleader.AiStudyLeaderApplication`.

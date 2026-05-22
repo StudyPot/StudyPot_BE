@@ -18,18 +18,110 @@
 - 현재 worker는 `studypot-api` 프로세스 안의 RabbitMQ listener다. 별도 `studypot-worker` 컨테이너는 후속 배포 작업에서 같은 image를 재사용할지, worker-only property를 둘지, API와 worker health check를 분리할지 결정한다.
 - MySQL은 계속 durable source of truth다. Redis는 rate limit/TTL lock, RabbitMQ는 async dispatch/DLQ boundary만 소유한다.
 
+## rumiclean 전체 이관
+`rumiclean` full-stack 배포는 `deploy/rumiclean/docker-compose.yml`을 사용한다. 기본 Oracle compose와 분리되어 있으며, GitHub Actions는 `STUDYPOT_DEPLOY_COMPOSE_FILE=deploy/rumiclean/docker-compose.yml` secret이 설정될 때 이 compose를 업로드한다. Secret이 없으면 기존 `deploy/docker-compose.prod.yml`을 계속 사용한다.
+
+운영 서버 경로:
+
+```text
+/home/ec2-user/compose-studypot/docker-compose.yml
+/home/ec2-user/compose-studypot/.env
+/home/ec2-user/compose-studypot/.runtime.env
+/home/ec2-user/compose-studypot/.image.env
+/home/ec2-user/compose-studypot/.previous-image.env
+/home/ec2-user/compose-studypot/backups/
+```
+
+서비스 배치:
+
+- `studypot-api`: Spring Boot API. Caddy가 접근할 수 있도록 `compose-cleanb_default` external network에도 붙는다.
+- `studypot-mysql`: StudyPot 전용 MySQL 8. 기존 RumiClean MySQL을 재사용하지 않는다.
+- `studypot-redis`: StudyPot 전용 Redis. rate limit과 TTL lock 전용이며 persistence는 사용하지 않는다.
+- `studypot-rabbitmq`: StudyPot 전용 RabbitMQ. notification async dispatch와 broker retry/DLQ boundary 전용이다.
+
+DNS와 Caddy:
+
+- `studypot.rumiclean.com`은 `rumiclean` public IP를 바라봐야 한다.
+- Caddy route는 `deploy/rumiclean/Caddyfile.studypot` 내용을 `/home/ec2-user/compose-cleanb/Caddyfile`에 추가한다.
+- `studypot-api`는 GitHub Actions Deploy health check를 위해 host loopback `127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}`에만 바인딩한다. public API 진입점은 계속 Caddy의 `https://studypot.rumiclean.com`이다.
+- RabbitMQ management UI는 public route로 열지 않는다. 필요하면 SSH tunnel로만 확인한다.
+- `STUDYPOT_MYSQL_JDBC_PARAMS`는 compose-local MySQL 기본값으로 `useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&connectionTimeZone=UTC`를 사용한다. MySQL을 별도 TLS endpoint로 옮길 때는 이 값을 TLS 검증용 JDBC parameter와 truststore 설정으로 교체한다.
+- `STUDYPOT_RABBITMQ_ERL_ARGS` 기본값은 작은 호스트용 Erlang VM scheduler 인자인 `+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none`이다. RabbitMQ 설정값은 이 환경변수에 넣지 않는다.
+
+Oracle 배포는 rollback 대상으로 보존한다. 이관 작업 중에는 `oracle-was`의 `studypot-api`, `oracle-db`의 `studypot` schema, 기존 `.env`, `.image.env`, `.previous-image.env`를 삭제하지 않는다.
+
+### DB migration 절차
+Oracle DB에서 timestamped dump를 만든다.
+
+```bash
+ssh oracle-db
+backup_dir=/tmp/studypot-migration-$(date -u +%Y%m%dT%H%M%SZ)
+mkdir -p "${backup_dir}"
+docker exec oracle-db-mysql sh -lc 'mysqldump --single-transaction --routines --triggers --hex-blob -uroot -p"${MYSQL_ROOT_PASSWORD}" studypot' > "${backup_dir}/studypot.sql"
+gzip "${backup_dir}/studypot.sql"
+```
+
+`rumiclean`으로 복사하고 StudyPot 전용 MySQL에 restore한다.
+
+```bash
+scp oracle-db:/tmp/studypot-migration-*/studypot.sql.gz /tmp/
+scp /tmp/studypot.sql.gz rumiclean:/home/ec2-user/compose-studypot/backups/
+ssh rumiclean
+cd /home/ec2-user/compose-studypot
+docker compose --env-file .env --env-file .image.env -f docker-compose.yml up -d studypot-mysql
+gzip -dc backups/studypot.sql.gz | docker exec -i studypot-mysql sh -lc 'mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" studypot'
+docker exec studypot-mysql sh -lc 'mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -D studypot -e "select installed_rank, version, success from flyway_schema_history order by installed_rank;"'
+```
+
+### Runtime smoke
+`rumiclean`에서 full stack을 시작한다.
+
+```bash
+cd /home/ec2-user/compose-studypot
+docker compose --env-file .env --env-file .image.env -f docker-compose.yml up -d
+docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps
+docker exec studypot-redis sh -lc 'redis-cli -a "${STUDYPOT_REDIS_PASSWORD}" ping'
+docker exec studypot-rabbitmq rabbitmq-diagnostics -q ping
+docker exec studypot-mysql sh -lc 'mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -D studypot -e "select count(*) from flyway_schema_history where success = 1;"'
+docker exec studypot-api wget -q -O- http://127.0.0.1:8080/actuator/health
+curl -fsS http://127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}/actuator/health
+```
+
+외부 DNS와 HTTPS 연결을 확인한다.
+
+```bash
+curl -fsS https://studypot.rumiclean.com/actuator/health
+```
+
+### Rollback
+API rollback은 이전 image tag를 사용한다.
+
+```bash
+ssh rumiclean
+cd /home/ec2-user/compose-studypot
+previous_image="$(sed -n 's/^STUDYPOT_PREVIOUS_IMAGE=//p' .previous-image.env | tail -n 1)"
+test -n "${previous_image}"
+printf 'STUDYPOT_IMAGE=%s\n' "${previous_image}" > .image.env
+docker compose --env-file .env --env-file .image.env -f docker-compose.yml up -d --force-recreate studypot-api
+curl -fsS https://studypot.rumiclean.com/actuator/health
+```
+
+전체 rollback이 필요하면 DNS/Caddy route를 Oracle 이전 경로로 되돌리고, Oracle `oracle-was`와 `oracle-db`의 보존된 배포를 사용한다. 이관 task에서는 Oracle 리소스를 삭제하지 않는다.
+
 ## 필수 서버 파일
 `oracle-was`의 배포 디렉터리는 기본값으로 `/opt/studypot`를 사용한다.
 
 ```text
 /opt/studypot/docker-compose.yml
 /opt/studypot/.env
+/opt/studypot/.runtime.env
 /opt/studypot/.image.env
 /opt/studypot/.previous-image.env
 ```
 
 - `docker-compose.yml`: repository의 `deploy/docker-compose.prod.yml`을 업로드한다.
 - `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다.
+- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다.
 - `.image.env`: 배포 workflow가 현재 배포할 GHCR image tag를 쓴다.
 - `.previous-image.env`: 배포 직전의 image tag를 rollback 참고용으로 남긴다.
 
@@ -56,6 +148,9 @@ STUDYPOT_GOOGLE_CLIENT_ID=
 STUDYPOT_GOOGLE_CLIENT_SECRET=
 STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI=
 STUDYPOT_AI_OPENAI_API_KEY=
+STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
+STUDYPOT_AI_OPENAI_MODEL=gpt-4o-mini
+STUDYPOT_AI_OPENAI_API_MODE=responses
 ```
 
 ## 수동 배포
@@ -99,7 +194,8 @@ Workflow 단계:
    - `ghcr.io/<owner>/studypot-api:<commit-sha>`
    - `ghcr.io/<owner>/studypot-api:latest`
 4. `oracle-was`에 compose file 업로드
-5. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
+5. GitHub Secrets의 AI runtime 값을 `.runtime.env`로 업로드
+6. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
 
 Health check는 `docker compose up -d --force-recreate` 직후 단발로 판정하지 않는다. 작은 WAS에서 Spring Boot, Flyway, datasource 초기화가 1분 안팎 걸릴 수 있으므로 workflow는 `curl -fsS http://127.0.0.1:8080/actuator/health`를 5초 간격으로 최대 120초까지 재시도한다. 대기 중에는 `Waiting for studypot-api health` 로그와 container health/status를 남기고, container가 `unhealthy`가 되거나 제한 시간을 넘기면 `docker logs --tail=160 studypot-api`를 출력한 뒤 실패한다.
 
@@ -111,6 +207,10 @@ STUDYPOT_DEPLOY_USER
 STUDYPOT_DEPLOY_SSH_KEY
 STUDYPOT_DEPLOY_KNOWN_HOSTS
 STUDYPOT_DEPLOY_DIR
+STUDYPOT_AI_OPENAI_API_KEY
+STUDYPOT_AI_OPENAI_BASE_URL
+STUDYPOT_AI_OPENAI_MODEL
+STUDYPOT_AI_OPENAI_API_MODE
 ```
 
 - `STUDYPOT_DEPLOY_HOST`: `oracle-was` 접속 호스트
@@ -118,6 +218,10 @@ STUDYPOT_DEPLOY_DIR
 - `STUDYPOT_DEPLOY_SSH_KEY`: `oracle-was` 접속 private key
 - `STUDYPOT_DEPLOY_KNOWN_HOSTS`: `ssh-keyscan -H <host>` 결과를 사람이 확인한 뒤 등록한 known_hosts 값. 이 secret은 필수이며 workflow는 값이 없으면 실패한다.
 - `STUDYPOT_DEPLOY_DIR`: 기본값은 `/opt/studypot`
+- `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.
+- `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
+- `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.
+- `STUDYPOT_AI_OPENAI_API_MODE`: 기본값은 `responses`; GMS `chat/completions` 호환 endpoint 사용 시 `chat-completions`.
 - GHCR push와 remote pull은 workflow의 `GITHUB_TOKEN`을 사용한다. Workflow 권한에는 `packages: write`가 있어야 한다.
 
 ## Rollback
