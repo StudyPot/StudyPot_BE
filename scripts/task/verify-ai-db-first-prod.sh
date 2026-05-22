@@ -374,17 +374,18 @@ request_json tasks GET "/api/v1/weeks/${WEEK_ID}/tasks" "${HOST_TOKEN}" "" "${TM
 json_assert_min_length "${TMP_DIR}/tasks.response.json" "" 1
 TASK_ID="$(json_get "${TMP_DIR}/tasks.response.json" "0.id")"
 note "ids.task=${TASK_ID}"
+TASK_BIN="$(uuid_bin_sql "${TASK_ID}")"
+mysql_exec -e "update weekly_task set due_at = timestampadd(second, -60, utc_timestamp(6)) where id = ${TASK_BIN}" >/dev/null
+note "task.due_at=past"
 
 write_json "${TMP_DIR}/progress.json" '{
   "status": "INCOMPLETE",
-  "completionNote": "Started the week but could not finish the Security task.",
   "incompleteReason": "Need more time for Spring Security filter-chain practice."
 }'
 request_json progress PUT "/api/v1/weeks/${WEEK_ID}/progress/me" "${HOST_TOKEN}" "${TMP_DIR}/progress.json" "${TMP_DIR}/progress.response.json" '^2'
 
 write_json "${TMP_DIR}/task-completion.json" '{
   "status": "INCOMPLETE",
-  "completionNote": "",
   "incompleteReason": "Could not finish JWT authorization testing before the deadline."
 }'
 request_json task_completion POST "/api/v1/tasks/${TASK_ID}/completion/me" "${HOST_TOKEN}" "${TMP_DIR}/task-completion.json" "${TMP_DIR}/task-completion.response.json" '^2'
