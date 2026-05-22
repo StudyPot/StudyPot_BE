@@ -59,6 +59,8 @@
 - `docker compose --env-file .env -f docker-compose.yml config` passed for `deploy/rumiclean/docker-compose.yml` with placeholder non-secret env values.
 - `bash scripts/tests/run.sh` passed after adding the rumiclean migration contract.
 - `./gradlew check build --no-daemon` passed after the rumiclean migration contract changes.
+- CodeRabbit reported one minor issue: rumiclean JDBC URL hard-coded `useSSL=false`. Fixed by introducing `STUDYPOT_MYSQL_JDBC_PARAMS` so same-host compose can keep the default while a future TLS MySQL endpoint can enforce SSL/truststore parameters.
+- After the CodeRabbit fix, `bash scripts/tests/test_rumiclean_migration_contracts.sh && bash scripts/tests/run.sh`, placeholder `docker compose config`, and `git diff --check` passed.
 
 ## Goal
 Migrate the complete StudyPot runtime from Oracle to the `rumiclean` AWS host, restore and verify all StudyPot MySQL data migrations, enable isolated Redis/RabbitMQ services, and make `https://studypot.rumiclean.com` serve the migrated API through Caddy while preserving rollback to the existing Oracle deployment.
