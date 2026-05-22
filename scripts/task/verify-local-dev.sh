@@ -112,6 +112,8 @@ echo "Checking auth service wiring"
 refresh_status="$(curl -sS -o "${LOG_DIR}/auth-refresh-response.json" -w "%{http_code}" \
   -X POST "${BASE_URL}/api/v1/auth/refresh" \
   -H "Content-Type: application/json" \
+  -H "X-XSRF-TOKEN: local-dev-xsrf" \
+  -b "XSRF-TOKEN=local-dev-xsrf" \
   -d '{"refreshToken":"local-dev-invalid-refresh-token"}')"
 [[ "${refresh_status}" != "503" ]] || fail "auth service is still not configured"
 [[ "${refresh_status}" == "401" ]] || fail "expected invalid refresh token to return 401, got ${refresh_status}"
