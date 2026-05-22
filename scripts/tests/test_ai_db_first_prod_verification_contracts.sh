@@ -43,6 +43,7 @@ assert_contains "retrievalContextVersion" "${target}"
 assert_contains "db-first-v1" "${target}"
 assert_contains "llm_usage" "${target}"
 assert_contains "request_payload" "${target}"
+assert_contains "update weekly_task set due_at = timestampadd(second, -60, utc_timestamp(6))" "${target}"
 assert_contains "input_tokens" "${target}"
 assert_contains "output_tokens" "${target}"
 assert_contains "latency_ms" "${target}"
@@ -54,3 +55,13 @@ assert_contains "trap 'rm -rf \"\${TMP_DIR}\"; cleanup' EXIT" "${target}"
 if grep -Eq 'echo .*(STUDYPOT_AI_OPENAI_API_KEY|OPENAI_API_KEY|AUTH_JWT_SECRET|HOST_TOKEN|MEMBER_TOKEN|Authorization: Bearer|MYSQL_PWD)' "${target}"; then
   fail "verify-ai-db-first-prod.sh must not echo secret-bearing variables"
 fi
+
+progress_fixture="$(awk '/progress.json/{capture=1} capture{print} /request_json progress/{exit}' "${target}")"
+[[ "${progress_fixture}" == *'"status": "INCOMPLETE"'* ]] || fail "progress fixture must exercise INCOMPLETE"
+[[ "${progress_fixture}" == *'"incompleteReason"'* ]] || fail "progress fixture must include incompleteReason"
+[[ "${progress_fixture}" != *'"completionNote"'* ]] || fail "INCOMPLETE progress fixture must not include completionNote"
+
+task_fixture="$(awk '/task-completion.json/{capture=1} capture{print} /request_json task_completion/{exit}' "${target}")"
+[[ "${task_fixture}" == *'"status": "INCOMPLETE"'* ]] || fail "task completion fixture must exercise INCOMPLETE"
+[[ "${task_fixture}" == *'"incompleteReason"'* ]] || fail "task completion fixture must include incompleteReason"
+[[ "${task_fixture}" != *'"completionNote"'* ]] || fail "INCOMPLETE task completion fixture must not include completionNote"
