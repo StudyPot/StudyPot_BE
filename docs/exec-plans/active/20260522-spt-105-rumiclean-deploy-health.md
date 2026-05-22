@@ -53,6 +53,7 @@ Make the rumiclean deployment contract compatible with the existing GitHub Actio
 - RED: `bash scripts/tests/test_rumiclean_migration_contracts.sh` failed because rumiclean compose did not bind `studypot-api` to host loopback for the GitHub Actions health check.
 - GREEN: added `127.0.0.1:${STUDYPOT_HTTP_PORT:-8080}:8080`, documented `STUDYPOT_HTTP_PORT`, and kept DB/Redis/RabbitMQ host ports private.
 - Verification passed: `bash scripts/tests/test_rumiclean_migration_contracts.sh`, placeholder `docker compose config`, `bash scripts/tests/run.sh`, `git diff --check`, and `./gradlew check build --no-daemon`.
+- reviewdog reported ShellCheck SC2016 on the literal compose-string assertion; changed it to double quotes with escaped `$` and re-ran the same verification set.
 
 ## Step Plan
 1. Add a failing assertion to `scripts/tests/test_rumiclean_migration_contracts.sh` for loopback-only API host binding and no public `0.0.0.0:8080`.
