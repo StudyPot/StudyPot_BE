@@ -93,6 +93,29 @@ jobs:
           ssh -i "${HOME}/.ssh/studypot_deploy" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}" "mkdir -p '${deploy_dir}'"
           scp -i "${HOME}/.ssh/studypot_deploy" "${deploy_compose_file}" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}:${deploy_dir}/docker-compose.yml"
 
+      - name: Upload runtime AI env
+        env:
+          STUDYPOT_DEPLOY_HOST: ${{ secrets.STUDYPOT_DEPLOY_HOST }}
+          STUDYPOT_DEPLOY_USER: ${{ secrets.STUDYPOT_DEPLOY_USER }}
+          STUDYPOT_DEPLOY_DIR: ${{ secrets.STUDYPOT_DEPLOY_DIR }}
+          STUDYPOT_AI_OPENAI_API_KEY: ${{ secrets.STUDYPOT_AI_OPENAI_API_KEY }}
+          STUDYPOT_AI_OPENAI_BASE_URL: ${{ secrets.STUDYPOT_AI_OPENAI_BASE_URL }}
+          STUDYPOT_AI_OPENAI_MODEL: ${{ secrets.STUDYPOT_AI_OPENAI_MODEL }}
+          STUDYPOT_AI_OPENAI_API_MODE: ${{ secrets.STUDYPOT_AI_OPENAI_API_MODE }}
+        run: |
+          deploy_user="${STUDYPOT_DEPLOY_USER:-opc}"
+          deploy_dir="${STUDYPOT_DEPLOY_DIR:-/opt/studypot}"
+          runtime_env="$(mktemp)"
+          trap 'rm -f "${runtime_env}"' EXIT
+          {
+            printf 'STUDYPOT_AI_OPENAI_API_KEY=%s\n' "${STUDYPOT_AI_OPENAI_API_KEY:-}"
+            printf 'STUDYPOT_AI_OPENAI_BASE_URL=%s\n' "${STUDYPOT_AI_OPENAI_BASE_URL:-https://api.openai.com/v1}"
+            printf 'STUDYPOT_AI_OPENAI_MODEL=%s\n' "${STUDYPOT_AI_OPENAI_MODEL:-gpt-4o-mini}"
+            printf 'STUDYPOT_AI_OPENAI_API_MODE=%s\n' "${STUDYPOT_AI_OPENAI_API_MODE:-responses}"
+          } > "${runtime_env}"
+          chmod 600 "${runtime_env}"
+          scp -i "${HOME}/.ssh/studypot_deploy" "${runtime_env}" "${deploy_user}@${STUDYPOT_DEPLOY_HOST}:${deploy_dir}/.runtime.env"
+
       - name: Login to GHCR on oracle-was
         env:
           STUDYPOT_DEPLOY_HOST: ${{ secrets.STUDYPOT_DEPLOY_HOST }}
@@ -131,8 +154,9 @@ jobs:
           fi
 
           printf 'STUDYPOT_IMAGE=%s\n' "${STUDYPOT_IMAGE}" > .image.env
-          sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml pull studypot-api
-          sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml up -d --force-recreate studypot-api
+          test -f .runtime.env || touch .runtime.env
+          sudo docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml pull studypot-api
+          sudo docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml up -d --force-recreate studypot-api
           sudo docker image prune -f
           REMOTE
 
@@ -151,7 +175,8 @@ jobs:
           cd "${STUDYPOT_DEPLOY_DIR}"
 
           for attempt in {1..24}; do
-            sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps
+            test -f .runtime.env || touch .runtime.env
+            sudo docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml ps
             if curl -fsS http://127.0.0.1:8080/actuator/health; then
               exit 0
             fi
@@ -165,7 +190,7 @@ jobs:
             sleep 5
           done
 
-          sudo docker compose --env-file .env --env-file .image.env -f docker-compose.yml ps
+          sudo docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml ps
           sudo docker logs --tail=160 studypot-api || true
           exit 1
           REMOTE

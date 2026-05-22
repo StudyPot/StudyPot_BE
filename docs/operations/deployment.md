@@ -26,6 +26,7 @@
 ```text
 /home/ec2-user/compose-studypot/docker-compose.yml
 /home/ec2-user/compose-studypot/.env
+/home/ec2-user/compose-studypot/.runtime.env
 /home/ec2-user/compose-studypot/.image.env
 /home/ec2-user/compose-studypot/.previous-image.env
 /home/ec2-user/compose-studypot/backups/
@@ -113,12 +114,14 @@ curl -fsS https://studypot.rumiclean.com/actuator/health
 ```text
 /opt/studypot/docker-compose.yml
 /opt/studypot/.env
+/opt/studypot/.runtime.env
 /opt/studypot/.image.env
 /opt/studypot/.previous-image.env
 ```
 
 - `docker-compose.yml`: repository의 `deploy/docker-compose.prod.yml`을 업로드한다.
 - `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다.
+- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다.
 - `.image.env`: 배포 workflow가 현재 배포할 GHCR image tag를 쓴다.
 - `.previous-image.env`: 배포 직전의 image tag를 rollback 참고용으로 남긴다.
 
@@ -145,6 +148,9 @@ STUDYPOT_GOOGLE_CLIENT_ID=
 STUDYPOT_GOOGLE_CLIENT_SECRET=
 STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI=
 STUDYPOT_AI_OPENAI_API_KEY=
+STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
+STUDYPOT_AI_OPENAI_MODEL=gpt-4o-mini
+STUDYPOT_AI_OPENAI_API_MODE=responses
 ```
 
 ## 수동 배포
@@ -188,7 +194,8 @@ Workflow 단계:
    - `ghcr.io/<owner>/studypot-api:<commit-sha>`
    - `ghcr.io/<owner>/studypot-api:latest`
 4. `oracle-was`에 compose file 업로드
-5. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
+5. GitHub Secrets의 AI runtime 값을 `.runtime.env`로 업로드
+6. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
 
 Health check는 `docker compose up -d --force-recreate` 직후 단발로 판정하지 않는다. 작은 WAS에서 Spring Boot, Flyway, datasource 초기화가 1분 안팎 걸릴 수 있으므로 workflow는 `curl -fsS http://127.0.0.1:8080/actuator/health`를 5초 간격으로 최대 120초까지 재시도한다. 대기 중에는 `Waiting for studypot-api health` 로그와 container health/status를 남기고, container가 `unhealthy`가 되거나 제한 시간을 넘기면 `docker logs --tail=160 studypot-api`를 출력한 뒤 실패한다.
 
@@ -200,6 +207,10 @@ STUDYPOT_DEPLOY_USER
 STUDYPOT_DEPLOY_SSH_KEY
 STUDYPOT_DEPLOY_KNOWN_HOSTS
 STUDYPOT_DEPLOY_DIR
+STUDYPOT_AI_OPENAI_API_KEY
+STUDYPOT_AI_OPENAI_BASE_URL
+STUDYPOT_AI_OPENAI_MODEL
+STUDYPOT_AI_OPENAI_API_MODE
 ```
 
 - `STUDYPOT_DEPLOY_HOST`: `oracle-was` 접속 호스트
@@ -207,6 +218,10 @@ STUDYPOT_DEPLOY_DIR
 - `STUDYPOT_DEPLOY_SSH_KEY`: `oracle-was` 접속 private key
 - `STUDYPOT_DEPLOY_KNOWN_HOSTS`: `ssh-keyscan -H <host>` 결과를 사람이 확인한 뒤 등록한 known_hosts 값. 이 secret은 필수이며 workflow는 값이 없으면 실패한다.
 - `STUDYPOT_DEPLOY_DIR`: 기본값은 `/opt/studypot`
+- `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.
+- `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
+- `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.
+- `STUDYPOT_AI_OPENAI_API_MODE`: 기본값은 `responses`; GMS `chat/completions` 호환 endpoint 사용 시 `chat-completions`.
 - GHCR push와 remote pull은 workflow의 `GITHUB_TOKEN`을 사용한다. Workflow 권한에는 `packages: write`가 있어야 한다.
 
 ## Rollback
