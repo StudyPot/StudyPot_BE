@@ -44,6 +44,7 @@ DNS와 Caddy:
 - Caddy route는 `deploy/rumiclean/Caddyfile.studypot` 내용을 `/home/ec2-user/compose-cleanb/Caddyfile`에 추가한다.
 - RabbitMQ management UI는 public route로 열지 않는다. 필요하면 SSH tunnel로만 확인한다.
 - `STUDYPOT_MYSQL_JDBC_PARAMS`는 compose-local MySQL 기본값으로 `useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&connectionTimeZone=UTC`를 사용한다. MySQL을 별도 TLS endpoint로 옮길 때는 이 값을 TLS 검증용 JDBC parameter와 truststore 설정으로 교체한다.
+- `STUDYPOT_RABBITMQ_ERL_ARGS` 기본값은 작은 호스트용 Erlang VM scheduler 인자인 `+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none`이다. RabbitMQ 설정값은 이 환경변수에 넣지 않는다.
 
 Oracle 배포는 rollback 대상으로 보존한다. 이관 작업 중에는 `oracle-was`의 `studypot-api`, `oracle-db`의 `studypot` schema, 기존 `.env`, `.image.env`, `.previous-image.env`를 삭제하지 않는다.
 
