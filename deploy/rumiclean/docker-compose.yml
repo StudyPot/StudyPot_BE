@@ -64,7 +64,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: "${STUDYPOT_RABBITMQ_USERNAME:?STUDYPOT_RABBITMQ_USERNAME is required}"
       RABBITMQ_DEFAULT_PASS: "${STUDYPOT_RABBITMQ_PASSWORD:?STUDYPOT_RABBITMQ_PASSWORD is required}"
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "${STUDYPOT_RABBITMQ_ERL_ARGS:--rabbit vm_memory_high_watermark.relative 0.4}"
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "${STUDYPOT_RABBITMQ_ERL_ARGS:-+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none}"
     volumes:
       - studypot_rabbitmq_data:/var/lib/rabbitmq
     expose:
