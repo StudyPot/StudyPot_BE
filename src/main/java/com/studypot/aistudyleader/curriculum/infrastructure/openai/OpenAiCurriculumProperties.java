@@ -10,7 +10,8 @@ record OpenAiCurriculumProperties(
 	String model,
 	OpenAiApiMode apiMode,
 	Duration connectTimeout,
-	Duration readTimeout
+	Duration readTimeout,
+	OpenAiOutputTokenLimits outputTokenLimits
 ) {
 
 	private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
@@ -25,6 +26,7 @@ record OpenAiCurriculumProperties(
 		apiMode = apiMode == null ? OpenAiApiMode.RESPONSES : apiMode;
 		connectTimeout = positiveOrDefault(connectTimeout, DEFAULT_CONNECT_TIMEOUT, "connectTimeout");
 		readTimeout = positiveOrDefault(readTimeout, DEFAULT_READ_TIMEOUT, "readTimeout");
+		outputTokenLimits = outputTokenLimits == null ? OpenAiOutputTokenLimits.defaults() : outputTokenLimits;
 	}
 
 	private static String blankToNull(String value) {

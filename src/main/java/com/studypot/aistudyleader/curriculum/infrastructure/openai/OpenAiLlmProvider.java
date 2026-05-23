@@ -24,12 +24,23 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	private final ObjectMapper objectMapper;
 	private final String model;
 	private final OpenAiApiMode apiMode;
+	private final OpenAiOutputTokenLimits outputTokenLimits;
 
 	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model) {
 		this(transport, objectMapper, model, OpenAiApiMode.RESPONSES);
 	}
 
 	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model, OpenAiApiMode apiMode) {
+		this(transport, objectMapper, model, apiMode, OpenAiOutputTokenLimits.defaults());
+	}
+
+	OpenAiLlmProvider(
+		OpenAiResponsesTransport transport,
+		ObjectMapper objectMapper,
+		String model,
+		OpenAiApiMode apiMode,
+		OpenAiOutputTokenLimits outputTokenLimits
+	) {
 		this.transport = Objects.requireNonNull(transport, "transport must not be null");
 		this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
 		if (model == null || model.isBlank()) {
@@ -37,6 +48,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 		this.model = model.strip();
 		this.apiMode = Objects.requireNonNull(apiMode, "apiMode must not be null");
+		this.outputTokenLimits = Objects.requireNonNull(outputTokenLimits, "outputTokenLimits must not be null");
 	}
 
 	@Override
@@ -61,7 +73,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 				elapsedMillis(startedAt),
 				LlmUsageStatus.SUCCESS,
 				null,
-				request.requestPayload(),
+				providerRequestPayload(request),
 				"OpenAI structured response received."
 			);
 		} catch (LlmProviderCallException exception) {
@@ -81,12 +93,13 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	}
 
 	private OpenAiResponseRequest responsesRequest(LlmStructuredRequest request) {
-		return new OpenAiResponseRequest(Map.of(
-			"model", model,
-			"instructions", request.instructions(),
-			"input", inputJson(request),
-			"text", Map.of("format", request.textFormat())
-		));
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("model", model);
+		body.put("instructions", request.instructions());
+		body.put("input", inputJson(request));
+		body.put("text", Map.of("format", request.textFormat()));
+		body.put("max_output_tokens", maxOutputTokens(request));
+		return new OpenAiResponseRequest(body);
 	}
 
 	private OpenAiResponseRequest chatCompletionsRequest(LlmStructuredRequest request) {
@@ -97,6 +110,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			Map.of("role", "user", "content", inputJson(request))
 		));
 		body.put("response_format", chatCompletionsResponseFormat(request.textFormat()));
+		body.put("max_completion_tokens", maxOutputTokens(request));
 		return new OpenAiResponseRequest("/chat/completions", body);
 	}
 
@@ -255,9 +269,20 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			latencyMs,
 			LlmUsageStatus.FAILED,
 			errorCode,
-			request.requestPayload(),
+			providerRequestPayload(request),
 			summary
 		);
+	}
+
+	private int maxOutputTokens(LlmStructuredRequest request) {
+		return outputTokenLimits.forPurpose(request.purpose());
+	}
+
+	private Map<String, Object> providerRequestPayload(LlmStructuredRequest request) {
+		Map<String, Object> result = new LinkedHashMap<>(request.requestPayload());
+		result.put("apiMode", apiMode.name());
+		result.put("maxOutputTokens", maxOutputTokens(request));
+		return Map.copyOf(result);
 	}
 
 	private static int elapsedMillis(Instant startedAt) {

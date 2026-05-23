@@ -300,6 +300,9 @@ trap 'rm -rf "${TMP_DIR}"; cleanup' EXIT
 
 note "env.ai_mode=${STUDYPOT_AI_OPENAI_API_MODE:-missing}"
 note "env.ai_model=${STUDYPOT_AI_OPENAI_MODEL:-missing}"
+note "env.ai_max_output_tokens.curriculum=${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:-missing}"
+note "env.ai_max_output_tokens.retrospective=${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:-missing}"
+note "env.ai_max_output_tokens.chat=${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:-missing}"
 note "env.base_url=${STUDYPOT_PROD_BASE_URL}"
 note "db.mysql_container=$(docker ps --format '{{.Names}}' | grep -Fx 'studypot-mysql' || true)"
 note "db.api_container=$(docker ps --format '{{.Names}}' | grep -Fx 'studypot-api' || true)"
@@ -500,7 +503,16 @@ for purpose in sorted(required):
         raise SystemExit(f"{purpose} status must be SUCCESS, got {status}")
     if input_tokens <= 0 or output_tokens <= 0 or latency_ms <= 0:
         raise SystemExit(f"{purpose} token/latency evidence must be positive")
+    api_mode = payload.get("apiMode")
+    if api_mode not in {"RESPONSES", "CHAT_COMPLETIONS"}:
+        raise SystemExit(f"{purpose} request payload apiMode missing or invalid: {api_mode}")
+    max_output_tokens = payload.get("maxOutputTokens")
+    if not isinstance(max_output_tokens, int) or max_output_tokens <= 0:
+        raise SystemExit(f"{purpose} request payload maxOutputTokens must be positive")
+    if output_tokens > max_output_tokens:
+        raise SystemExit(f"{purpose} output_tokens exceeded maxOutputTokens: {output_tokens} > {max_output_tokens}")
     print(f"usage.{purpose}=status:{status},model:{model},input_tokens:{input_tokens},output_tokens:{output_tokens},latency_ms:{latency_ms}")
+    print(f"usage.{purpose}.budget=apiMode:{api_mode},maxOutputTokens:{max_output_tokens}")
 
 chat_payload = latest["TEAM_LEAD_CHAT"][6]
 if chat_payload.get("purpose") != "TEAM_LEAD_CHAT":

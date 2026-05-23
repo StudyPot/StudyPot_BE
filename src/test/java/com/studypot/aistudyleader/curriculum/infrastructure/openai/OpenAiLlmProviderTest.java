@@ -49,6 +49,7 @@ class OpenAiLlmProviderTest {
 		assertThat(transport.request).containsEntry("model", "gpt-4o-mini");
 		assertThat(transport.path).isEqualTo("/responses");
 		assertThat(transport.request).containsEntry("instructions", "Return JSON only.");
+		assertThat(transport.request).containsEntry("max_output_tokens", 4096);
 		assertThat(transport.request.get("input").toString()).contains("Spring Boot");
 		assertThat(transport.request.get("text").toString()).contains("json_schema");
 		assertThat(result.provider()).isEqualTo(LlmProvider.OPENAI);
@@ -59,6 +60,8 @@ class OpenAiLlmProviderTest {
 		assertThat(result.totalCostUsd()).isEqualByComparingTo(BigDecimal.ZERO);
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("authorization", "Bearer secret");
+		assertThat(result.requestPayload()).containsEntry("apiMode", "RESPONSES");
+		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 4096);
 	}
 
 	@Test
@@ -94,6 +97,7 @@ class OpenAiLlmProviderTest {
 		assertThat(transport.path).isEqualTo("/chat/completions");
 		assertThat(transport.request).containsEntry("model", "gpt-5.2");
 		assertThat(transport.request).containsKey("messages");
+		assertThat(transport.request).containsEntry("max_completion_tokens", 256);
 		assertThat(transport.request.get("messages").toString()).contains("developer", "Answer in Korean", "user", "Spring Boot");
 		assertThat(transport.request.get("response_format").toString()).contains("json_schema", "sample");
 		assertThat(result.provider()).isEqualTo(LlmProvider.OPENAI);
@@ -102,6 +106,38 @@ class OpenAiLlmProviderTest {
 		assertThat(result.inputTokens()).isEqualTo(11);
 		assertThat(result.outputTokens()).isEqualTo(6);
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
+		assertThat(result.requestPayload()).containsEntry("apiMode", "CHAT_COMPLETIONS");
+		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 256);
+	}
+
+	@Test
+	void requestStructuredUsesConfiguredOutputTokenLimitForPurpose() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "choices": [
+			    {"message": {"role": "assistant", "content": "{\\"ok\\":true}"}}
+			  ],
+			  "usage": {"prompt_tokens": 11, "completion_tokens": 6}
+			}
+			""");
+		OpenAiLlmProvider provider = new OpenAiLlmProvider(
+			transport,
+			JsonMapper.builder().findAndAddModules().build(),
+			"gpt-5.2",
+			OpenAiApiMode.CHAT_COMPLETIONS,
+			new OpenAiOutputTokenLimits(111, 222, 333, 444)
+		);
+
+		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			"Return JSON only.",
+			Map.of("message", "이번 주 계획 도와줘"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "TEAM_LEAD_CHAT")
+		));
+
+		assertThat(transport.request).containsEntry("max_completion_tokens", 444);
+		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 444);
 	}
 
 	@Test
@@ -126,9 +162,11 @@ class OpenAiLlmProviderTest {
 				LlmProviderCallException providerException = (LlmProviderCallException) exception;
 				assertThat(providerException.failure().purpose()).isEqualTo(LlmUsagePurpose.CURRICULUM_GENERATE);
 				assertThat(providerException.failure().provider()).isEqualTo(LlmProvider.OPENAI);
-				assertThat(providerException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
-				assertThat(providerException.failure().errorCode()).isEqualTo("OPENAI_OUTPUT_TEXT_MISSING");
-			});
+					assertThat(providerException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
+					assertThat(providerException.failure().errorCode()).isEqualTo("OPENAI_OUTPUT_TEXT_MISSING");
+					assertThat(providerException.failure().requestPayload()).containsEntry("apiMode", "RESPONSES");
+					assertThat(providerException.failure().requestPayload()).containsEntry("maxOutputTokens", 4096);
+				});
 	}
 
 	private static final class CapturingTransport implements OpenAiResponsesTransport {
