@@ -86,5 +86,11 @@ studypot:
       api-key: ${STUDYPOT_AI_OPENAI_API_KEY:}
       base-url: ${STUDYPOT_AI_OPENAI_BASE_URL:https://api.openai.com/v1}
       model: ${STUDYPOT_AI_OPENAI_MODEL:gpt-4o-mini}
+      api-mode: ${STUDYPOT_AI_OPENAI_API_MODE:responses}
       connect-timeout: ${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:5s}
       read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:30s}
+      output-token-limits:
+        detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_DETAIL_KEYWORD_SUGGEST:256}
+        curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:4096}
+        retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
+        team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:1536}
