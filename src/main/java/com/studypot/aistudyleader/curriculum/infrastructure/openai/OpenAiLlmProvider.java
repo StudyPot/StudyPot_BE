@@ -281,7 +281,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	private Map<String, Object> providerRequestPayload(LlmStructuredRequest request) {
 		Map<String, Object> result = new LinkedHashMap<>(request.requestPayload());
 		result.put("apiMode", apiMode.name());
-		result.put("maxOutputTokens", maxOutputTokens(request));
+		result.put("outputBudget", maxOutputTokens(request));
 		return Map.copyOf(result);
 	}
 

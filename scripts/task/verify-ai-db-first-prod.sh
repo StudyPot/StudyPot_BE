@@ -506,13 +506,13 @@ for purpose in sorted(required):
     api_mode = payload.get("apiMode")
     if api_mode not in {"RESPONSES", "CHAT_COMPLETIONS"}:
         raise SystemExit(f"{purpose} request payload apiMode missing or invalid: {api_mode}")
-    max_output_tokens = payload.get("maxOutputTokens")
-    if not isinstance(max_output_tokens, int) or max_output_tokens <= 0:
-        raise SystemExit(f"{purpose} request payload maxOutputTokens must be positive")
-    if output_tokens > max_output_tokens:
-        raise SystemExit(f"{purpose} output_tokens exceeded maxOutputTokens: {output_tokens} > {max_output_tokens}")
+    output_budget = payload.get("outputBudget")
+    if not isinstance(output_budget, int) or output_budget <= 0:
+        raise SystemExit(f"{purpose} request payload outputBudget must be positive")
+    if output_tokens > output_budget:
+        raise SystemExit(f"{purpose} output_tokens exceeded outputBudget: {output_tokens} > {output_budget}")
     print(f"usage.{purpose}=status:{status},model:{model},input_tokens:{input_tokens},output_tokens:{output_tokens},latency_ms:{latency_ms}")
-    print(f"usage.{purpose}.budget=apiMode:{api_mode},maxOutputTokens:{max_output_tokens}")
+    print(f"usage.{purpose}.budget=apiMode:{api_mode},outputBudget:{output_budget}")
 
 chat_payload = latest["TEAM_LEAD_CHAT"][6]
 if chat_payload.get("purpose") != "TEAM_LEAD_CHAT":

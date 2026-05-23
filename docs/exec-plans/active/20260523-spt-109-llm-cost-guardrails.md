@@ -56,7 +56,7 @@ Add accuracy-preserving LLM cost guardrails so production AI calls have purpose-
 
 ## Done Criteria
 - OpenAI request payloads include purpose-specific output budgets.
-- Successful and failed `llm_usage` records include `apiMode` and `maxOutputTokens` in request payload metadata.
+- Successful and failed `llm_usage` records include `apiMode` and output budget request payload metadata. SPT-110 corrected the persisted key to `outputBudget` so LLM usage redaction keeps the value visible.
 - Runtime env supports separate budgets for detail keyword, curriculum, retrospective, and team-lead chat calls.
 - Production DB-first AI verification checks that deployed usage payloads expose positive token evidence and max output token budget metadata.
 - No model downgrade, no vector RAG addition, and no aggressive DB-first context truncation is introduced.

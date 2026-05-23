@@ -61,7 +61,7 @@ class OpenAiLlmProviderTest {
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("authorization", "Bearer secret");
 		assertThat(result.requestPayload()).containsEntry("apiMode", "RESPONSES");
-		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 4096);
+		assertThat(result.requestPayload()).containsEntry("outputBudget", 4096);
 	}
 
 	@Test
@@ -107,7 +107,7 @@ class OpenAiLlmProviderTest {
 		assertThat(result.outputTokens()).isEqualTo(6);
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("apiMode", "CHAT_COMPLETIONS");
-		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 256);
+		assertThat(result.requestPayload()).containsEntry("outputBudget", 256);
 	}
 
 	@Test
@@ -137,7 +137,7 @@ class OpenAiLlmProviderTest {
 		));
 
 		assertThat(transport.request).containsEntry("max_completion_tokens", 444);
-		assertThat(result.requestPayload()).containsEntry("maxOutputTokens", 444);
+		assertThat(result.requestPayload()).containsEntry("outputBudget", 444);
 	}
 
 	@Test
@@ -165,7 +165,7 @@ class OpenAiLlmProviderTest {
 					assertThat(providerException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
 					assertThat(providerException.failure().errorCode()).isEqualTo("OPENAI_OUTPUT_TEXT_MISSING");
 					assertThat(providerException.failure().requestPayload()).containsEntry("apiMode", "RESPONSES");
-					assertThat(providerException.failure().requestPayload()).containsEntry("maxOutputTokens", 4096);
+					assertThat(providerException.failure().requestPayload()).containsEntry("outputBudget", 4096);
 				});
 	}
 

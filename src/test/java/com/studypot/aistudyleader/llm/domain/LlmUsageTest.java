@@ -102,6 +102,17 @@ class LlmUsageTest {
 		assertThat(firstHeader).containsEntry("apiKey", "[REDACTED]");
 	}
 
+	@Test
+	void keepsNonSensitiveOutputBudgetMetadataWhileRedactingTokenNamedKeys() {
+		LlmUsage usage = usage(Map.of(
+			"outputBudget", 4096,
+			"maxOutputTokens", 4096
+		));
+
+		assertThat(usage.requestPayload()).containsEntry("outputBudget", 4096);
+		assertThat(usage.requestPayload()).containsEntry("maxOutputTokens", "[REDACTED]");
+	}
+
 	private static LlmUsage usage(Map<String, Object> requestPayload) {
 		return usage(120, 45, new BigDecimal("0.000321"), 230, requestPayload);
 	}
