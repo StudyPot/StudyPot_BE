@@ -46,7 +46,8 @@ class CurriculumOpenAiConfiguration {
 			objectMapper,
 			properties.model(),
 			properties.apiMode(),
-			properties.outputTokenLimits()
+			properties.outputTokenLimits(),
+			properties.models()
 		);
 	}
 
