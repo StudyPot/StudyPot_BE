@@ -141,6 +141,48 @@ class OpenAiLlmProviderTest {
 	}
 
 	@Test
+	void requestStructuredUsesPurposeSpecificModelForDetailKeywordOnly() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "choices": [
+			    {"message": {"role": "assistant", "content": "{\\"ok\\":true}"}}
+			  ],
+			  "usage": {"prompt_tokens": 11, "completion_tokens": 6}
+			}
+			""");
+		OpenAiLlmProvider provider = new OpenAiLlmProvider(
+			transport,
+			JsonMapper.builder().findAndAddModules().build(),
+			"gpt-5.2",
+			OpenAiApiMode.CHAT_COMPLETIONS,
+			OpenAiOutputTokenLimits.defaults(),
+			new OpenAiPurposeModels("gpt-5-nano")
+		);
+
+		LlmStructuredResponse detailResult = provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "DETAIL_KEYWORD_SUGGEST")
+		));
+
+		assertThat(transport.request).containsEntry("model", "gpt-5-nano");
+		assertThat(detailResult.model()).isEqualTo("gpt-5-nano");
+
+		LlmStructuredResponse curriculumResult = provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.CURRICULUM_GENERATE,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "CURRICULUM_GENERATE")
+		));
+
+		assertThat(transport.request).containsEntry("model", "gpt-5.2");
+		assertThat(curriculumResult.model()).isEqualTo("gpt-5.2");
+	}
+
+	@Test
 	void requestStructuredThrowsFailureWithAuditMetadataWhenOpenAiResponseHasNoOutputText() {
 		OpenAiLlmProvider provider = new OpenAiLlmProvider(
 			new CapturingTransport("""

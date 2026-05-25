@@ -22,9 +22,10 @@ class OpenAiLlmProvider implements LlmProviderClient {
 
 	private final OpenAiResponsesTransport transport;
 	private final ObjectMapper objectMapper;
-	private final String model;
+	private final String defaultModel;
 	private final OpenAiApiMode apiMode;
 	private final OpenAiOutputTokenLimits outputTokenLimits;
+	private final OpenAiPurposeModels purposeModels;
 
 	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model) {
 		this(transport, objectMapper, model, OpenAiApiMode.RESPONSES);
@@ -41,31 +42,44 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		OpenAiApiMode apiMode,
 		OpenAiOutputTokenLimits outputTokenLimits
 	) {
+		this(transport, objectMapper, model, apiMode, outputTokenLimits, OpenAiPurposeModels.none());
+	}
+
+	OpenAiLlmProvider(
+		OpenAiResponsesTransport transport,
+		ObjectMapper objectMapper,
+		String model,
+		OpenAiApiMode apiMode,
+		OpenAiOutputTokenLimits outputTokenLimits,
+		OpenAiPurposeModels purposeModels
+	) {
 		this.transport = Objects.requireNonNull(transport, "transport must not be null");
 		this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
 		if (model == null || model.isBlank()) {
 			throw new IllegalArgumentException("model must not be blank");
 		}
-		this.model = model.strip();
+		this.defaultModel = model.strip();
 		this.apiMode = Objects.requireNonNull(apiMode, "apiMode must not be null");
 		this.outputTokenLimits = Objects.requireNonNull(outputTokenLimits, "outputTokenLimits must not be null");
+		this.purposeModels = Objects.requireNonNull(purposeModels, "purposeModels must not be null");
 	}
 
 	@Override
 	public LlmStructuredResponse requestStructured(LlmStructuredRequest request) {
 		Objects.requireNonNull(request, "request must not be null");
 		Instant startedAt = Instant.now();
+		String requestModel = modelFor(request);
 		try {
-			OpenAiResponseRequest responseRequest = requestFor(request);
+			OpenAiResponseRequest responseRequest = requestFor(request, requestModel);
 			String responseBody = transport.createResponse(responseRequest);
 			JsonNode response = objectMapper.readTree(responseBody);
 			TokenUsage usage = tokenUsage(response);
 			int inputTokens = usage.inputTokens();
 			int outputTokens = usage.outputTokens();
-			String outputText = outputText(response, request, inputTokens, outputTokens, elapsedMillis(startedAt));
+			String outputText = outputText(response, request, requestModel, inputTokens, outputTokens, elapsedMillis(startedAt));
 			return new LlmStructuredResponse(
 				LlmProvider.OPENAI,
-				model,
+				requestModel,
 				outputText,
 				inputTokens,
 				outputTokens,
@@ -79,35 +93,35 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		} catch (LlmProviderCallException exception) {
 			throw exception;
 		} catch (JsonProcessingException exception) {
-			throw failure(request, "OPENAI_RESPONSE_INVALID_JSON", "OpenAI response could not be parsed.", exception, elapsedMillis(startedAt));
+			throw failure(request, requestModel, "OPENAI_RESPONSE_INVALID_JSON", "OpenAI response could not be parsed.", exception, elapsedMillis(startedAt));
 		} catch (RuntimeException exception) {
-			throw failure(request, "OPENAI_REQUEST_FAILED", "OpenAI request failed.", exception, elapsedMillis(startedAt));
+			throw failure(request, requestModel, "OPENAI_REQUEST_FAILED", "OpenAI request failed.", exception, elapsedMillis(startedAt));
 		}
 	}
 
-	private OpenAiResponseRequest requestFor(LlmStructuredRequest request) {
+	private OpenAiResponseRequest requestFor(LlmStructuredRequest request, String requestModel) {
 		return switch (apiMode) {
-			case RESPONSES -> responsesRequest(request);
-			case CHAT_COMPLETIONS -> chatCompletionsRequest(request);
+			case RESPONSES -> responsesRequest(request, requestModel);
+			case CHAT_COMPLETIONS -> chatCompletionsRequest(request, requestModel);
 		};
 	}
 
-	private OpenAiResponseRequest responsesRequest(LlmStructuredRequest request) {
+	private OpenAiResponseRequest responsesRequest(LlmStructuredRequest request, String requestModel) {
 		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("model", model);
+		body.put("model", requestModel);
 		body.put("instructions", request.instructions());
-		body.put("input", inputJson(request));
+		body.put("input", inputJson(request, requestModel));
 		body.put("text", Map.of("format", request.textFormat()));
 		body.put("max_output_tokens", maxOutputTokens(request));
 		return new OpenAiResponseRequest(body);
 	}
 
-	private OpenAiResponseRequest chatCompletionsRequest(LlmStructuredRequest request) {
+	private OpenAiResponseRequest chatCompletionsRequest(LlmStructuredRequest request, String requestModel) {
 		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("model", model);
+		body.put("model", requestModel);
 		body.put("messages", List.of(
 			Map.of("role", "developer", "content", request.instructions()),
-			Map.of("role", "user", "content", inputJson(request))
+			Map.of("role", "user", "content", inputJson(request, requestModel))
 		));
 		body.put("response_format", chatCompletionsResponseFormat(request.textFormat()));
 		body.put("max_completion_tokens", maxOutputTokens(request));
@@ -136,11 +150,11 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 	}
 
-	private String inputJson(LlmStructuredRequest request) {
+	private String inputJson(LlmStructuredRequest request, String requestModel) {
 		try {
 			return objectMapper.writeValueAsString(request.input());
 		} catch (JsonProcessingException exception) {
-			throw failure(request, "OPENAI_REQUEST_SERIALIZATION_FAILED", "OpenAI request input could not be serialized.", exception, null);
+			throw failure(request, requestModel, "OPENAI_REQUEST_SERIALIZATION_FAILED", "OpenAI request input could not be serialized.", exception, null);
 		}
 	}
 
@@ -158,16 +172,24 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		};
 	}
 
-	private String outputText(JsonNode response, LlmStructuredRequest request, int inputTokens, int outputTokens, Integer latencyMs) {
+	private String outputText(
+		JsonNode response,
+		LlmStructuredRequest request,
+		String requestModel,
+		int inputTokens,
+		int outputTokens,
+		Integer latencyMs
+	) {
 		if (apiMode == OpenAiApiMode.CHAT_COMPLETIONS) {
-			return chatCompletionOutputText(response, request, inputTokens, outputTokens, latencyMs);
+			return chatCompletionOutputText(response, request, requestModel, inputTokens, outputTokens, latencyMs);
 		}
-		return responsesOutputText(response, request, inputTokens, outputTokens, latencyMs);
+		return responsesOutputText(response, request, requestModel, inputTokens, outputTokens, latencyMs);
 	}
 
 	private String responsesOutputText(
 		JsonNode response,
 		LlmStructuredRequest request,
+		String requestModel,
 		int inputTokens,
 		int outputTokens,
 		Integer latencyMs
@@ -184,6 +206,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 		throw failure(
 			request,
+			requestModel,
 			"OPENAI_OUTPUT_TEXT_MISSING",
 			"OpenAI response did not include output_text.",
 			inputTokens,
@@ -195,6 +218,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	private String chatCompletionOutputText(
 		JsonNode response,
 		LlmStructuredRequest request,
+		String requestModel,
 		int inputTokens,
 		int outputTokens,
 		Integer latencyMs
@@ -215,6 +239,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		}
 		throw failure(
 			request,
+			requestModel,
 			"OPENAI_CHAT_COMPLETION_CONTENT_MISSING",
 			"OpenAI chat completion response did not include message content.",
 			inputTokens,
@@ -225,6 +250,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 
 	private LlmProviderCallException failure(
 		LlmStructuredRequest request,
+		String requestModel,
 		String errorCode,
 		String summary,
 		Throwable cause,
@@ -233,12 +259,13 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		return new LlmProviderCallException(
 			summary,
 			cause,
-			failureAudit(request, errorCode, summary, 0, 0, latencyMs)
+			failureAudit(request, requestModel, errorCode, summary, 0, 0, latencyMs)
 		);
 	}
 
 	private LlmProviderCallException failure(
 		LlmStructuredRequest request,
+		String requestModel,
 		String errorCode,
 		String summary,
 		int inputTokens,
@@ -247,12 +274,13 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	) {
 		return new LlmProviderCallException(
 			summary,
-			failureAudit(request, errorCode, summary, inputTokens, outputTokens, latencyMs)
+			failureAudit(request, requestModel, errorCode, summary, inputTokens, outputTokens, latencyMs)
 		);
 	}
 
 	private LlmCallFailure failureAudit(
 		LlmStructuredRequest request,
+		String requestModel,
 		String errorCode,
 		String summary,
 		int inputTokens,
@@ -262,7 +290,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		return new LlmCallFailure(
 			request.purpose(),
 			LlmProvider.OPENAI,
-			model,
+			requestModel,
 			inputTokens,
 			outputTokens,
 			BigDecimal.ZERO,
@@ -276,6 +304,10 @@ class OpenAiLlmProvider implements LlmProviderClient {
 
 	private int maxOutputTokens(LlmStructuredRequest request) {
 		return outputTokenLimits.forPurpose(request.purpose());
+	}
+
+	private String modelFor(LlmStructuredRequest request) {
+		return purposeModels.modelFor(request.purpose(), defaultModel);
 	}
 
 	private Map<String, Object> providerRequestPayload(LlmStructuredRequest request) {

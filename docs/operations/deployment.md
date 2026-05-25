@@ -150,6 +150,7 @@ STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI=
 STUDYPOT_AI_OPENAI_API_KEY=
 STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
 STUDYPOT_AI_OPENAI_MODEL=gpt-4o-mini
+STUDYPOT_AI_OPENAI_MODEL_DETAIL_KEYWORD_SUGGEST=
 STUDYPOT_AI_OPENAI_API_MODE=responses
 STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT=5s
 STUDYPOT_AI_OPENAI_READ_TIMEOUT=120s
@@ -216,6 +217,7 @@ STUDYPOT_DEPLOY_DIR
 STUDYPOT_AI_OPENAI_API_KEY
 STUDYPOT_AI_OPENAI_BASE_URL
 STUDYPOT_AI_OPENAI_MODEL
+STUDYPOT_AI_OPENAI_MODEL_DETAIL_KEYWORD_SUGGEST
 STUDYPOT_AI_OPENAI_API_MODE
 STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT
 STUDYPOT_AI_OPENAI_READ_TIMEOUT
@@ -233,6 +235,7 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT
 - `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.
 - `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
 - `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.
+- `STUDYPOT_AI_OPENAI_MODEL_DETAIL_KEYWORD_SUGGEST`: 세부 키워드 추천 전용 모델 override. 값이 비어 있으면 `STUDYPOT_AI_OPENAI_MODEL`을 그대로 사용한다. GMS nano 모델을 붙일 때는 이 값만 nano 계열로 설정하고 커리큘럼/회고/채팅은 전역 모델을 유지한다.
 - `STUDYPOT_AI_OPENAI_API_MODE`: 기본값은 `responses`; GMS `chat/completions` 호환 endpoint 사용 시 `chat-completions`.
 - `STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT`: 운영 provider 연결 제한. 기본값은 `5s`.
 - `STUDYPOT_AI_OPENAI_READ_TIMEOUT`: 운영 provider 응답 대기 제한. GMS curriculum/chat처럼 구조화 출력이 길어질 수 있는 경로를 위해 배포 기본값은 `120s`.
