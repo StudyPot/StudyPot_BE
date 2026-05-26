@@ -121,8 +121,8 @@ curl -fsS https://studypot.rumiclean.com/actuator/health
 ```
 
 - `docker-compose.yml`: repository의 `deploy/docker-compose.prod.yml`을 업로드한다.
-- `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다. 정상 GitHub Actions 배포에서 프론트엔드 OAuth redirect/CORS 및 cross-site cookie policy 값은 `.runtime.env`가 원본이다.
-- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. OAuth frontend success/failure URI, CORS allowed origins, cookie SameSite policy, AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다. This is the GitHub Actions-managed runtime override surface.
+- `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다. 정상 GitHub Actions 배포에서 프론트엔드 OAuth redirect/CORS 및 cross-site cookie SameSite/Secure policy 값은 `.runtime.env`가 원본이다.
+- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. OAuth frontend success/failure URI, CORS allowed origins, cookie SameSite/Secure policy, AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다. This is the GitHub Actions-managed runtime override surface.
 - `.image.env`: 배포 workflow가 현재 배포할 GHCR image tag를 쓴다.
 - `.previous-image.env`: 배포 직전의 image tag를 rollback 참고용으로 남긴다.
 
@@ -139,7 +139,6 @@ STUDYPOT_AUTH_JWT_ISSUER=https://api.example.com
 
 STUDYPOT_CORS_ALLOW_CREDENTIALS=true
 STUDYPOT_AUTH_COOKIE_DOMAIN=example.com
-STUDYPOT_AUTH_COOKIE_SECURE=true
 
 STUDYPOT_GOOGLE_CLIENT_ID=
 STUDYPOT_GOOGLE_CLIENT_SECRET=
@@ -151,6 +150,7 @@ STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI=https://app.example.com/auth/success
 STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI=https://app.example.com/auth/failure
 STUDYPOT_CORS_ALLOWED_ORIGINS=https://app.example.com
 STUDYPOT_AUTH_COOKIE_SAME_SITE=None
+STUDYPOT_AUTH_COOKIE_SECURE=true
 
 STUDYPOT_AI_OPENAI_API_KEY=
 STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
@@ -210,7 +210,7 @@ Workflow 단계:
    - `ghcr.io/<owner>/studypot-api:<commit-sha>`
    - `ghcr.io/<owner>/studypot-api:latest`
 4. `oracle-was`에 compose file 업로드
-5. GitHub Secrets의 frontend OAuth/CORS 및 AI runtime 값을 `.runtime.env`로 업로드
+5. GitHub Secrets의 frontend OAuth/CORS, cookie policy, AI runtime 값을 `.runtime.env`로 업로드
 6. `oracle-was`에서 GHCR login, `docker compose pull`, `docker compose up -d`, health check
 
 Health check는 `docker compose up -d --force-recreate` 직후 단발로 판정하지 않는다. 작은 WAS에서 Spring Boot, Flyway, datasource 초기화가 1분 안팎 걸릴 수 있으므로 workflow는 `curl -fsS http://127.0.0.1:8080/actuator/health`를 5초 간격으로 최대 120초까지 재시도한다. 대기 중에는 `Waiting for studypot-api health` 로그와 container health/status를 남기고, container가 `unhealthy`가 되거나 제한 시간을 넘기면 `docker logs --tail=160 studypot-api`를 출력한 뒤 실패한다.
@@ -227,6 +227,7 @@ STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI
 STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI
 STUDYPOT_CORS_ALLOWED_ORIGINS
 STUDYPOT_AUTH_COOKIE_SAME_SITE
+STUDYPOT_AUTH_COOKIE_SECURE
 STUDYPOT_AI_OPENAI_API_KEY
 STUDYPOT_AI_OPENAI_BASE_URL
 STUDYPOT_AI_OPENAI_MODEL
@@ -248,7 +249,8 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`: OAuth callback 성공 후 Spring success handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/success`다.
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`: OAuth callback 실패 후 Spring failure handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/failure`다.
 - `STUDYPOT_CORS_ALLOWED_ORIGINS`: credentialed browser API 호출을 허용할 프론트엔드 origin 목록. 쉼표로 구분하며 Netlify 운영 origin은 `https://studypot.netlify.app`다.
-- `STUDYPOT_AUTH_COOKIE_SAME_SITE`: token cookie SameSite policy. Netlify와 API가 서로 다른 site이므로 운영값은 `None`이어야 하며, `STUDYPOT_AUTH_COOKIE_SECURE=true`와 함께 사용한다.
+- `STUDYPOT_AUTH_COOKIE_SAME_SITE`: token cookie SameSite policy. Netlify와 API가 서로 다른 site이므로 운영값은 `None`이어야 한다.
+- `STUDYPOT_AUTH_COOKIE_SECURE`: token cookie Secure flag. `SameSite=None` 쿠키는 브라우저가 `Secure` 없이는 거부하므로 운영값은 `true`여야 한다.
 - `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.
 - `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
 - `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.

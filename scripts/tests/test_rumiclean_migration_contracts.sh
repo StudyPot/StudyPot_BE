@@ -71,6 +71,7 @@ assert_contains "STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI=https://studypot.netl
 assert_contains "STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI=https://studypot.netlify.app/auth/failure" "${env_example}"
 assert_contains "STUDYPOT_CORS_ALLOWED_ORIGINS=https://studypot.netlify.app,https://studypot.rumiclean.com" "${env_example}"
 assert_contains "STUDYPOT_AUTH_COOKIE_SAME_SITE=None" "${env_example}"
+assert_contains "STUDYPOT_AUTH_COOKIE_SECURE=true" "${env_example}"
 assert_contains "STUDYPOT_GOOGLE_CLIENT_ID=" "${env_example}"
 assert_contains "STUDYPOT_GOOGLE_CLIENT_SECRET=" "${env_example}"
 assert_contains "client-id: \${STUDYPOT_GOOGLE_CLIENT_ID:}" "${application_config}"
@@ -94,7 +95,9 @@ assert_contains "STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI: \${{ secrets.STUDYPO
 assert_contains "STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI: \${{ secrets.STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI }}" "${workflow}"
 assert_contains "STUDYPOT_CORS_ALLOWED_ORIGINS: \${{ secrets.STUDYPOT_CORS_ALLOWED_ORIGINS }}" "${workflow}"
 assert_contains "STUDYPOT_AUTH_COOKIE_SAME_SITE: \${{ secrets.STUDYPOT_AUTH_COOKIE_SAME_SITE }}" "${workflow}"
+assert_contains "STUDYPOT_AUTH_COOKIE_SECURE: \${{ secrets.STUDYPOT_AUTH_COOKIE_SECURE }}" "${workflow}"
 assert_contains "printf 'STUDYPOT_AUTH_COOKIE_SAME_SITE=%s\\n' \"\${STUDYPOT_AUTH_COOKIE_SAME_SITE}\"" "${workflow}"
+assert_contains "printf 'STUDYPOT_AUTH_COOKIE_SECURE=%s\\n' \"\${STUDYPOT_AUTH_COOKIE_SECURE}\"" "${workflow}"
 assert_contains "printf 'STUDYPOT_CORS_ALLOWED_ORIGINS=%s\\n' \"\${STUDYPOT_CORS_ALLOWED_ORIGINS}\"" "${workflow}"
 assert_contains "scp -i" "${workflow}"
 
