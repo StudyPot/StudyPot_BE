@@ -141,6 +141,8 @@ studypot:
       frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI}
   oauth:
     google:
+      client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:}
+      client-secret: ${STUDYPOT_GOOGLE_CLIENT_SECRET:}
       token-uri: ${STUDYPOT_GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
       userinfo-uri: ${STUDYPOT_GOOGLE_USERINFO_URI:https://openidconnect.googleapis.com/v1/userinfo}
       authorization-uri: ${STUDYPOT_GOOGLE_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}
