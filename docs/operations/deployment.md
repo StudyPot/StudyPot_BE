@@ -47,6 +47,7 @@ DNS와 Caddy:
 - RabbitMQ management UI는 public route로 열지 않는다. 필요하면 SSH tunnel로만 확인한다.
 - `STUDYPOT_MYSQL_JDBC_PARAMS`는 compose-local MySQL 기본값으로 `useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&connectionTimeZone=UTC`를 사용한다. MySQL을 별도 TLS endpoint로 옮길 때는 이 값을 TLS 검증용 JDBC parameter와 truststore 설정으로 교체한다.
 - `STUDYPOT_RABBITMQ_ERL_ARGS` 기본값은 작은 호스트용 Erlang VM scheduler 인자인 `+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none`이다. RabbitMQ 설정값은 이 환경변수에 넣지 않는다.
+- Google OAuth 성공/실패 리디렉션은 `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`와 `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`가 가리키는 프론트엔드 handler가 실제로 응답해야 완료된다. 현재 `deploy/rumiclean/Caddyfile.studypot` snippet은 API-only catch-all이므로, 같은 `studypot.rumiclean.com` 도메인에 프론트엔드를 붙일 때는 `/api/*`, `/actuator/*`, Swagger/OpenAPI 경로만 `studypot-api`로 보내고 `/auth/success` 및 `/auth/failure`를 포함한 프론트 경로는 프론트엔드 upstream으로 보내도록 Caddy route를 분리한다.
 
 Oracle 배포는 rollback 대상으로 보존한다. 이관 작업 중에는 `oracle-was`의 `studypot-api`, `oracle-db`의 `studypot` schema, 기존 `.env`, `.image.env`, `.previous-image.env`를 삭제하지 않는다.
 
@@ -159,6 +160,8 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE=4096
 STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK=2048
 STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT=1536
 ```
+
+`STUDYPOT_GOOGLE_CLIENT_ID`와 `STUDYPOT_GOOGLE_CLIENT_SECRET`는 Spring `studypot.oauth.google.client-id/client-secret`로 매핑되어 OAuth2 login filter를 켠다. 값이 비어 있으면 `/api/oauth2/authorization/google`은 Google로 redirect하지 못하고 `/error` 401처럼 보일 수 있다.
 
 ## 수동 배포
 수동 배포는 GitHub Actions 자동화를 붙이기 전에 Dockerfile, compose, DB 연결, Flyway, health check를 분리해서 확인하기 위한 1회성 검증이다.
