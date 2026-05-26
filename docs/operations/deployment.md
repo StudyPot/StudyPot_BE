@@ -121,8 +121,8 @@ curl -fsS https://studypot.rumiclean.com/actuator/health
 ```
 
 - `docker-compose.yml`: repository의 `deploy/docker-compose.prod.yml`을 업로드한다.
-- `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다. 정상 GitHub Actions 배포에서 프론트엔드 OAuth redirect/CORS 값은 `.runtime.env`가 원본이다.
-- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. OAuth frontend success/failure URI, CORS allowed origins, AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다. This is the GitHub Actions-managed runtime override surface.
+- `.env`: 서버에만 보관하는 runtime 환경변수와 secret을 담는다. 정상 GitHub Actions 배포에서 프론트엔드 OAuth redirect/CORS 및 cross-site cookie policy 값은 `.runtime.env`가 원본이다.
+- `.runtime.env`: GitHub Actions가 관리하는 배포 runtime override 파일이다. OAuth frontend success/failure URI, CORS allowed origins, cookie SameSite policy, AI provider key/base URL/model/API mode처럼 GitHub Secrets에서 주입하는 값을 담으며 repository에는 커밋하지 않는다. This is the GitHub Actions-managed runtime override surface.
 - `.image.env`: 배포 workflow가 현재 배포할 GHCR image tag를 쓴다.
 - `.previous-image.env`: 배포 직전의 image tag를 rollback 참고용으로 남긴다.
 
@@ -140,7 +140,6 @@ STUDYPOT_AUTH_JWT_ISSUER=https://api.example.com
 STUDYPOT_CORS_ALLOW_CREDENTIALS=true
 STUDYPOT_AUTH_COOKIE_DOMAIN=example.com
 STUDYPOT_AUTH_COOKIE_SECURE=true
-STUDYPOT_AUTH_COOKIE_SAME_SITE=Lax
 
 STUDYPOT_GOOGLE_CLIENT_ID=
 STUDYPOT_GOOGLE_CLIENT_SECRET=
@@ -151,6 +150,7 @@ STUDYPOT_AUTH_OAUTH2_BACKEND_CALLBACK_URI=
 STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI=https://app.example.com/auth/success
 STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI=https://app.example.com/auth/failure
 STUDYPOT_CORS_ALLOWED_ORIGINS=https://app.example.com
+STUDYPOT_AUTH_COOKIE_SAME_SITE=None
 
 STUDYPOT_AI_OPENAI_API_KEY=
 STUDYPOT_AI_OPENAI_BASE_URL=https://api.openai.com/v1
@@ -166,6 +166,8 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT=1536
 ```
 
 `STUDYPOT_GOOGLE_CLIENT_ID`와 `STUDYPOT_GOOGLE_CLIENT_SECRET`는 Spring `studypot.oauth.google.client-id/client-secret`로 매핑되어 OAuth2 login filter를 켠다. 값이 비어 있으면 `/api/oauth2/authorization/google`은 Google로 redirect하지 못하고 `/error` 401처럼 보일 수 있다.
+
+Netlify frontend(`https://studypot.netlify.app`)와 rumiclean API(`https://studypot.rumiclean.com`)처럼 서로 다른 site 사이에서 credentialed XHR/fetch가 token cookie를 보내려면 `STUDYPOT_AUTH_COOKIE_SAME_SITE=None`과 `STUDYPOT_AUTH_COOKIE_SECURE=true`가 함께 필요하다. 운영 smoke에서는 token `Set-Cookie`에 `SameSite=None; Secure`가 있는지 확인한다. 프론트엔드 요청도 `credentials: "include"` 또는 Axios `withCredentials: true`를 사용해야 한다.
 
 ## 수동 배포
 수동 배포는 GitHub Actions 자동화를 붙이기 전에 Dockerfile, compose, DB 연결, Flyway, health check를 분리해서 확인하기 위한 1회성 검증이다.
@@ -224,6 +226,7 @@ STUDYPOT_DEPLOY_DIR
 STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI
 STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI
 STUDYPOT_CORS_ALLOWED_ORIGINS
+STUDYPOT_AUTH_COOKIE_SAME_SITE
 STUDYPOT_AI_OPENAI_API_KEY
 STUDYPOT_AI_OPENAI_BASE_URL
 STUDYPOT_AI_OPENAI_MODEL
@@ -245,6 +248,7 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`: OAuth callback 성공 후 Spring success handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/success`다.
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`: OAuth callback 실패 후 Spring failure handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/failure`다.
 - `STUDYPOT_CORS_ALLOWED_ORIGINS`: credentialed browser API 호출을 허용할 프론트엔드 origin 목록. 쉼표로 구분하며 Netlify 운영 origin은 `https://studypot.netlify.app`다.
+- `STUDYPOT_AUTH_COOKIE_SAME_SITE`: token cookie SameSite policy. Netlify와 API가 서로 다른 site이므로 운영값은 `None`이어야 하며, `STUDYPOT_AUTH_COOKIE_SECURE=true`와 함께 사용한다.
 - `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.
 - `STUDYPOT_AI_OPENAI_BASE_URL`: 기본값은 `https://api.openai.com/v1`; GMS 사용 시 `https://gms.ssafy.io/gmsapi/api.openai.com/v1`.
 - `STUDYPOT_AI_OPENAI_MODEL`: 기본값은 `gpt-4o-mini`; GMS 사용 시 발급 계약에 맞는 모델명을 사용한다.
