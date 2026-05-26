@@ -84,9 +84,16 @@ studypot:
       api-key: ${STUDYPOT_AI_OPENAI_API_KEY:}
       base-url: ${STUDYPOT_AI_OPENAI_BASE_URL:https://api.openai.com/v1}
       model: ${STUDYPOT_AI_OPENAI_MODEL:gpt-4o-mini}
+      models:
+        detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_MODEL_DETAIL_KEYWORD_SUGGEST:}
       api-mode: ${STUDYPOT_AI_OPENAI_API_MODE:responses}
       connect-timeout: ${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:5s}
       read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:30s}
+      output-token-limits:
+        detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_DETAIL_KEYWORD_SUGGEST:256}
+        curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:4096}
+        retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
+        team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:1536}
   rate-limit:
     enabled: ${STUDYPOT_RATE_LIMIT_ENABLED:false}
     fail-closed: ${STUDYPOT_RATE_LIMIT_FAIL_CLOSED:true}
@@ -134,6 +141,8 @@ studypot:
       frontend-failure-uri: ${STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI}
   oauth:
     google:
+      client-id: ${STUDYPOT_GOOGLE_CLIENT_ID:}
+      client-secret: ${STUDYPOT_GOOGLE_CLIENT_SECRET:}
       token-uri: ${STUDYPOT_GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
       userinfo-uri: ${STUDYPOT_GOOGLE_USERINFO_URI:https://openidconnect.googleapis.com/v1/userinfo}
       authorization-uri: ${STUDYPOT_GOOGLE_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}

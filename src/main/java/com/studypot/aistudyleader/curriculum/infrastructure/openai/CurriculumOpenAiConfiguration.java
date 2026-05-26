@@ -41,7 +41,14 @@ class CurriculumOpenAiConfiguration {
 		ObjectMapper objectMapper,
 		OpenAiCurriculumProperties properties
 	) {
-		return new OpenAiLlmProvider(transport, objectMapper, properties.model(), properties.apiMode());
+		return new OpenAiLlmProvider(
+			transport,
+			objectMapper,
+			properties.model(),
+			properties.apiMode(),
+			properties.outputTokenLimits(),
+			properties.models()
+		);
 	}
 
 	@Bean
