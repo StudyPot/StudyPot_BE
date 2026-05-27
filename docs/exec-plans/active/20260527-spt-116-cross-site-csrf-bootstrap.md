@@ -79,6 +79,7 @@ Add a safe CSRF bootstrap endpoint under the auth boundary. The endpoint will is
 - Configured `CookieCsrfTokenRepository` after `csrf.spa()` so the SPA request handler stays active while `XSRF-TOKEN` inherits the configured auth cookie path, domain, Secure flag, and SameSite policy.
 - Added `GET /api/v1/auth/csrf` to public auth OpenAPI customization and security authorization.
 - Added CR/ADR `20260527-cross-site-csrf-bootstrap` and updated locked API, auth-permission, OpenAPI, feature-coverage, deployment, and local-development docs.
+- CodeRabbit review on PR #184 found the `/api/v1/auth/csrf` endpoint-index row still referenced the older OAuth cookie-login CR/ADR. Updated that row to point at `CR-20260527-cross-site-csrf-bootstrap` and `ADR-20260527-cross-site-csrf-bootstrap`.
 
 ## Verification
 - `./gradlew test --tests 'com.studypot.aistudyleader.auth.controller.AuthControllerTest.csrfBootstrapReturnsReadableTokenAndCrossSiteCookiePolicy' --tests 'com.studypot.aistudyleader.auth.controller.AuthControllerTest.crossSiteRefreshCanUseBootstrappedCsrfToken' --no-daemon` -> PASS.
@@ -90,3 +91,4 @@ Add a safe CSRF bootstrap endpoint under the auth boundary. The endpoint will is
 - `bash scripts/tests/test_deployment_contracts.sh` -> PASS.
 - `bash scripts/tests/run.sh` -> PASS.
 - `./gradlew check build --no-daemon` -> PASS (`BUILD SUCCESSFUL in 45s`).
+- CodeRabbit follow-up: `bash scripts/tests/test_auth_api_contracts.sh` -> PASS after correcting the endpoint-index CR/ADR links.
