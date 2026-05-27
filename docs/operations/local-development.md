@@ -89,6 +89,7 @@ export STUDYPOT_RABBITMQ_HEALTH_ENABLED=true
 - Frontend origins allowed to send credentialed requests are configured with `STUDYPOT_CORS_ALLOWED_ORIGINS`, for example `https://localhost:3000`.
 - Token cookies are HttpOnly. Browser JavaScript should call backend APIs with credentials included rather than reading token values directly.
 - Cookie-backed unsafe requests must echo the readable `XSRF-TOKEN` cookie in the `X-XSRF-TOKEN` header. Bearer-token API requests are not required to send this CSRF header.
+- If the frontend and backend are on different sites and frontend JavaScript cannot read the backend-domain `XSRF-TOKEN` cookie, call `GET /api/v1/auth/csrf` with credentials included and send the returned `token` value as the `X-XSRF-TOKEN` header on unsafe cookie-backed requests.
 - For plain HTTP-only local smoke runs, set `STUDYPOT_AUTH_COOKIE_SECURE=false`; keep it `true` for HTTPS local and production-like testing.
 
 ## Smoke Verification

@@ -6,13 +6,14 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Backend-owned OAuth2 cookie-login contract changes are authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md) under the v1 change-control process.
+- Cross-site CSRF bootstrap for cookie-backed browser sessions is authorized by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md).
 - Member week progress read endpoint is authorized by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
 - Authentication: bearer access token or `studypot_access_token` HttpOnly cookie unless endpoint is explicitly anonymous.
-- Public auth endpoints: `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `POST /api/v1/auth/oauth/google`, and `POST /api/v1/auth/refresh` are explicitly anonymous and do not require authentication.
+- Public auth endpoints: `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `GET /api/v1/auth/csrf`, `POST /api/v1/auth/oauth/google`, and `POST /api/v1/auth/refresh` are explicitly anonymous and do not require authentication.
 - IDs: UUID strings at the API boundary; persistence stores UUIDv7 as `BINARY(16)`.
 - Error format: RFC 9457-style problem detail.
 - Pagination: cursor pagination for list endpoints that can grow.
@@ -43,6 +44,7 @@
 | `GET` | `/api/oauth2/authorization/google` | `identity-core` | anonymous/browser | Start backend-owned Google OAuth2 login and redirect to Google; authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md). |
 | `GET` | `/api/login/oauth2/code/google` | `identity-core` | Google OAuth/browser | Complete Google OAuth2 login, issue HttpOnly token cookies, and redirect to frontend; authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md). |
 | `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens; authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md). |
+| `GET` | `/api/v1/auth/csrf` | `identity-core` | anonymous/browser | Bootstrap a readable CSRF token value and matching `XSRF-TOKEN` cookie for cross-site cookie-backed unsafe requests; authorized by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md). |
 | `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens; authorized by [CR-20260508-oauth2-cookie-login](./change-requests/CR-20260508-oauth2-cookie-login.md) and [ADR-20260508-oauth2-cookie-login](./adr/ADR-20260508-oauth2-cookie-login.md). |
 | `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
 | `POST` | `/api/v1/auth/logout-all` | `identity-core` | authenticated | Revoke all refresh tokens for the current user. |
@@ -94,6 +96,8 @@
 ```
 
 ### Refresh Token
+Browser clients that rely on HttpOnly cookies and cannot read the backend-domain `XSRF-TOKEN` cookie directly, such as a Netlify frontend calling the rumiclean API, must first call `GET /api/v1/auth/csrf` with credentials included. The response body and `X-XSRF-TOKEN` response header contain the token value to echo in the `X-XSRF-TOKEN` request header, while the backend sets the matching `XSRF-TOKEN` cookie using the configured browser cookie policy.
+
 ```json
 {
   "refreshToken": "raw-refresh-token-issued-by-backend"
@@ -177,6 +181,7 @@ The backend maps `skillLevel` to internal keyword score JSON for the group's det
 - MVP login provider is Google OAuth.
 - Browser clients should start Google login at `GET /api/oauth2/authorization/google`; backend-owned callback handling must not expose access or refresh token values in redirect URLs.
 - Compatibility clients may still obtain the Google authorization code themselves and send it to `POST /auth/oauth/google`.
+- Cross-site browser clients should bootstrap CSRF with `GET /api/v1/auth/csrf` before cookie-backed unsafe requests such as refresh, logout, group creation, onboarding submit, and task updates.
 - The backend exchanges the authorization code, upserts `users` and `oauth_account`, stores application refresh-token hashes in `refresh_token`, and issues an access/refresh token pair. Backend-owned OAuth callback (`GET /api/login/oauth2/code/google`) issues tokens as HttpOnly cookies only; compatibility endpoint (`POST /api/v1/auth/oauth/google`) returns the JSON token response and also sets the same HttpOnly cookies.
 - `POST /api/v1/auth/refresh` rotates the refresh token; the old refresh token must not be accepted again. The refresh token may come from the JSON body or `studypot_refresh_token` HttpOnly cookie.
 - `studypot_access_token` and `studypot_refresh_token` cookies are HttpOnly, Path=/, Secure in production, use the configured SameSite policy, and expire with the corresponding token TTL.

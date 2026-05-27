@@ -84,6 +84,7 @@ class SecurityConfigurationTest {
 			.andExpect(jsonPath("$.components.securitySchemes.cookieAccessToken.name").value("studypot_access_token"))
 			.andExpect(jsonPath("$.security[0].bearerAuth").isArray())
 			.andExpect(jsonPath("$.security[1].cookieAccessToken").isArray())
+			.andExpect(jsonPath("$.paths['/api/v1/auth/csrf'].get.security").isEmpty())
 			.andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post.security").isEmpty());
 
 		mockMvc.perform(get("/v3/api-docs/swagger-config"))

@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.global.security;
 
+import com.studypot.aistudyleader.auth.infrastructure.security.AuthProperties;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
@@ -22,6 +23,7 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -45,6 +47,7 @@ public class SecurityConfiguration {
 		ObjectProvider<OAuth2AuthorizationRequestResolver> authorizationRequestResolver,
 		@Qualifier("googleOAuth2LoginSuccessHandler") ObjectProvider<AuthenticationSuccessHandler> googleOAuth2LoginSuccessHandler,
 		@Qualifier("googleOAuth2LoginFailureHandler") ObjectProvider<AuthenticationFailureHandler> googleOAuth2LoginFailureHandler,
+		AuthProperties authProperties,
 		@Value("${studypot.openapi.public-docs-enabled:false}") boolean publicOpenApiDocsEnabled
 	) throws Exception {
 		ClientRegistrationRepository oauth2Registrations = clientRegistrationRepository.getIfAvailable();
@@ -55,6 +58,7 @@ public class SecurityConfiguration {
 		http
 			.csrf(csrf -> {
 				csrf.spa();
+				csrf.csrfTokenRepository(csrfTokenRepository(authProperties));
 				csrf.requireCsrfProtectionMatcher(SecurityConfiguration::requiresCsrfProtection);
 			})
 			.cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -76,6 +80,7 @@ public class SecurityConfiguration {
 				}
 				authorize
 					.requestMatchers(HttpMethod.POST, ApiPaths.V1 + "/auth/refresh").permitAll()
+					.requestMatchers(HttpMethod.GET, ApiPaths.V1 + "/auth/csrf").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/oauth2/authorization/google").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/login/oauth2/code/google").permitAll()
 					.requestMatchers(ApiPaths.V1 + "/**").authenticated()
@@ -122,6 +127,19 @@ public class SecurityConfiguration {
 	private static boolean hasBearerAuthorization(HttpServletRequest request) {
 		String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
 		return authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length());
+	}
+
+	private static CookieCsrfTokenRepository csrfTokenRepository(AuthProperties properties) {
+		CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+		repository.setCookieCustomizer(cookie -> {
+			cookie.path(properties.cookie().path())
+				.secure(properties.cookie().secure())
+				.sameSite(properties.cookie().sameSite());
+			if (properties.cookie().domain() != null) {
+				cookie.domain(properties.cookie().domain());
+			}
+		});
+		return repository;
 	}
 
 	@Bean

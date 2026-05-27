@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md)
+- ADR: [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md)
+- Result: The MVP API includes public `GET /api/v1/auth/csrf` so cross-site browser clients can bootstrap a readable CSRF token value and matching backend-domain `XSRF-TOKEN` cookie without exposing access or refresh token values.
+
+## Previous Approved Change
 - Change Request: [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md)
 - ADR: [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md)
 - Result: The MVP onboarding API accepts one submitted payload with `skillLevel`, `additionalNote`, and `availabilitySlots`, hides internal score maps, and the PR finish harness auto-merges review-gate-passed PRs before cleanup.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md)
 - ADR: [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md)
 - Result: The MVP API exposes authenticated pre-creation detail keyword suggestions at `POST /api/v1/groups/detail-keyword-suggestions`, returning transient `keywords` only while preserving final keyword persistence through group creation.

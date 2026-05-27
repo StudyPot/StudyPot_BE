@@ -14,6 +14,7 @@ assert_contains "CR-20260506-auth-api-entrypoints" "${TEST_ROOT}/docs/specs/adr/
 assert_contains "CR-20260506-auth-api-entrypoints" "${TEST_ROOT}/docs/specs/change-control-v1.md"
 
 assert_contains "/api/v1/auth/oauth/google" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
+assert_contains "/api/v1/auth/csrf" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
 assert_contains "/api/v1/auth/refresh" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
 assert_contains "/api/v1/auth/logout" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
 assert_contains "/api/v1/auth/logout-all" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
@@ -27,6 +28,7 @@ doc = YAML.load_file("docs/specs/openapi.yaml")
 paths = doc.fetch("paths")
 required_paths = [
   "/auth/oauth/google",
+  "/auth/csrf",
   "/auth/refresh",
   "/auth/logout",
   "/auth/logout-all"
@@ -34,6 +36,7 @@ required_paths = [
 required_paths.each { |path| abort("missing auth path #{path}") unless paths.key?(path) }
 
 abort("oauth login must be public") unless paths.fetch("/auth/oauth/google").fetch("post").fetch("security") == []
+abort("csrf bootstrap must be public") unless paths.fetch("/auth/csrf").fetch("get").fetch("security") == []
 abort("refresh must be public") unless paths.fetch("/auth/refresh").fetch("post").fetch("security") == []
 abort("logout should inherit bearer security") if paths.fetch("/auth/logout").fetch("post").key?("security")
 abort("logout-all should inherit bearer security") if paths.fetch("/auth/logout-all").fetch("post").key?("security")
@@ -41,6 +44,7 @@ abort("logout-all should inherit bearer security") if paths.fetch("/auth/logout-
 schemas = doc.fetch("components").fetch("schemas")
 %w[
   GoogleOAuthLoginRequest
+  CsrfTokenResponse
   RefreshTokenRequest
   LogoutRequest
   AuthTokenResponse

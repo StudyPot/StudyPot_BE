@@ -41,6 +41,7 @@ import org.springframework.context.annotation.Configuration;
 class OpenApiConfiguration {
 
 	private static final List<String> PUBLIC_AUTH_PATHS = List.of(
+		ApiPaths.V1 + "/auth/csrf",
 		ApiPaths.V1 + "/auth/oauth/google",
 		ApiPaths.V1 + "/auth/refresh"
 	);

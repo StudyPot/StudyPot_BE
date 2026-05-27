@@ -120,7 +120,7 @@ studypot:
     allowed-origin-patterns: ${STUDYPOT_CORS_ALLOWED_ORIGIN_PATTERNS:}
     allowed-methods: ${STUDYPOT_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD}
     allowed-headers: ${STUDYPOT_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With,X-XSRF-TOKEN,X-CSRF-TOKEN}
-    exposed-headers: ${STUDYPOT_CORS_EXPOSED_HEADERS:Location}
+    exposed-headers: ${STUDYPOT_CORS_EXPOSED_HEADERS:Location,X-XSRF-TOKEN}
     allow-credentials: ${STUDYPOT_CORS_ALLOW_CREDENTIALS:false}
   auth:
     jwt:
