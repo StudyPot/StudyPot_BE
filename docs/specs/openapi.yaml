@@ -8,6 +8,8 @@ info:
     approvedChanges:
       - CR-20260508-oauth2-cookie-login
       - ADR-20260508-oauth2-cookie-login
+      - CR-20260527-cross-site-csrf-bootstrap
+      - ADR-20260527-cross-site-csrf-bootstrap
       - CR-20260520-detail-keyword-suggestion-api
       - ADR-20260520-detail-keyword-suggestion-api
 servers:
@@ -83,6 +85,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      operationId: bootstrapCsrfToken
+      security: []
+      responses:
+        '200':
+          description: Issues a readable CSRF token value and matching XSRF-TOKEN cookie for cookie-backed browser requests.
+          headers:
+            X-XSRF-TOKEN:
+              schema: {type: string}
+              description: Token value the frontend must echo on unsafe cookie-backed requests.
+            Set-Cookie:
+              schema: {type: string}
+              description: Readable `XSRF-TOKEN` cookie scoped to the backend domain and configured with the deployed cross-site cookie policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfTokenResponse'
   /auth/refresh:
     post:
       tags: [Auth]
@@ -581,6 +602,13 @@ components:
       type: object
       properties:
         refreshToken: {type: string, minLength: 1}
+    CsrfTokenResponse:
+      type: object
+      required: [cookieName, headerName, token]
+      properties:
+        cookieName: {type: string, enum: [XSRF-TOKEN]}
+        headerName: {type: string, enum: [X-XSRF-TOKEN]}
+        token: {type: string, minLength: 1}
     LogoutRequest:
       type: object
       properties:

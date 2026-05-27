@@ -28,6 +28,7 @@ import com.studypot.aistudyleader.auth.domain.OAuthAccount;
 import com.studypot.aistudyleader.auth.domain.OAuthProvider;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitDecision;
 import com.studypot.aistudyleader.global.ratelimit.RateLimiter;
+import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,16 +57,25 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest(
 	classes = {AiStudyLeaderApplication.class, AuthControllerTest.TestAuthBeans.class},
-	properties = "studypot.rate-limit.enabled=true"
+	properties = {
+		"studypot.rate-limit.enabled=true",
+		"studypot.cors.allowed-origins=https://studypot.netlify.app",
+		"studypot.cors.allow-credentials=true",
+		"studypot.auth.cookie.domain=studypot.rumiclean.com",
+		"studypot.auth.cookie.secure=true",
+		"studypot.auth.cookie.same-site=None"
+	}
 )
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AuthControllerTest {
 
 	private static final String REFRESH_PATH = ApiPaths.V1 + "/auth/refresh";
+	private static final String CSRF_PATH = ApiPaths.V1 + "/auth/csrf";
 	private static final String LOGOUT_PATH = ApiPaths.V1 + "/auth/logout";
 	private static final String LOGOUT_ALL_PATH = ApiPaths.V1 + "/auth/logout-all";
 	private static final String ME_PATH = ApiPaths.V1 + "/users/me";
+	private static final String NETLIFY_ORIGIN = "https://studypot.netlify.app";
 
 	private static final GoogleOAuthProfile TEST_PROFILE = new GoogleOAuthProfile(
 		"google-123",
@@ -122,6 +132,51 @@ class AuthControllerTest {
 		mockMvc.perform(post(REFRESH_PATH)
 				.with(cookie("studypot_refresh_token", session.refreshToken()))
 				.with(xsrf("refresh-xsrf")))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void csrfBootstrapReturnsReadableTokenAndCrossSiteCookiePolicy() throws Exception {
+		MvcResult result = mockMvc.perform(get(CSRF_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN))
+			.andExpect(status().isOk())
+			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, NETLIFY_ORIGIN))
+			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andReturn();
+
+		JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+		String token = body.get("token").asText();
+		assertThat(token).isNotBlank();
+		assertThat(body.get("cookieName").asText()).isEqualTo("XSRF-TOKEN");
+		assertThat(body.get("headerName").asText()).isEqualTo("X-XSRF-TOKEN");
+		assertThat(result.getResponse().getHeader("X-XSRF-TOKEN")).isEqualTo(token);
+		Cookie xsrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
+		assertThat(xsrfCookie).isNotNull();
+		assertThat(xsrfCookie.getValue()).isEqualTo(token);
+		assertThat(xsrfCookie.getAttribute("SameSite")).isEqualTo("None");
+		assertThat(cookieHeaderFromSetCookie(result, "XSRF-TOKEN"))
+			.contains("XSRF-TOKEN=" + token)
+			.contains("Path=/")
+			.contains("Domain=studypot.rumiclean.com")
+			.contains("Secure")
+			.doesNotContain("HttpOnly");
+	}
+
+	@Test
+	void crossSiteRefreshCanUseBootstrappedCsrfToken() throws Exception {
+		MvcResult csrfResult = mockMvc.perform(get(CSRF_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN))
+			.andExpect(status().isOk())
+			.andReturn();
+		JsonNode body = objectMapper.readTree(csrfResult.getResponse().getContentAsString());
+		String token = body.get("token").asText();
+
+		mockMvc.perform(post(REFRESH_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN)
+				.header("X-XSRF-TOKEN", token)
+				.with(cookie("XSRF-TOKEN", token))
+				.with(cookie("studypot_refresh_token", "invalid-refresh-token")))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -238,14 +293,19 @@ class AuthControllerTest {
 	}
 
 	private static String cookieValueFromSetCookie(MvcResult result, String name) {
+		String setCookie = cookieHeaderFromSetCookie(result, name);
 		String prefix = name + "=";
-		String setCookie = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE)
+		int end = setCookie.indexOf(';');
+		return end < 0 ? setCookie.substring(prefix.length()) : setCookie.substring(prefix.length(), end);
+	}
+
+	private static String cookieHeaderFromSetCookie(MvcResult result, String name) {
+		String prefix = name + "=";
+		return result.getResponse().getHeaders(HttpHeaders.SET_COOKIE)
 			.stream()
 			.filter(header -> header.startsWith(prefix))
 			.findFirst()
 			.orElseThrow();
-		int end = setCookie.indexOf(';');
-		return end < 0 ? setCookie.substring(prefix.length()) : setCookie.substring(prefix.length(), end);
 	}
 
 	private static RequestPostProcessor cookie(String name, String value) {

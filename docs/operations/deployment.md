@@ -169,6 +169,8 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT=1536
 
 Netlify frontend(`https://studypot.netlify.app`)와 rumiclean API(`https://studypot.rumiclean.com`)처럼 서로 다른 site 사이에서 credentialed XHR/fetch가 token cookie를 보내려면 `STUDYPOT_AUTH_COOKIE_SAME_SITE=None`과 `STUDYPOT_AUTH_COOKIE_SECURE=true`가 함께 필요하다. 운영 smoke에서는 token `Set-Cookie`에 `SameSite=None; Secure`가 있는지 확인한다. 프론트엔드 요청도 `credentials: "include"` 또는 Axios `withCredentials: true`를 사용해야 한다.
 
+Cross-site 프론트엔드는 backend-domain `XSRF-TOKEN` cookie를 `document.cookie`로 읽을 수 없다. OAuth success handler 또는 앱 부팅 시 `GET https://studypot.rumiclean.com/api/v1/auth/csrf`를 credentials 포함으로 호출하고, 응답 body 또는 exposed `X-XSRF-TOKEN` header의 값을 이후 cookie-backed unsafe 요청의 `X-XSRF-TOKEN` request header로 보내야 한다. 이 endpoint는 같은 값의 `XSRF-TOKEN` cookie를 backend domain에 설정하며, 운영에서는 auth cookie와 같은 `Domain`, `Secure`, `SameSite=None` 정책을 따른다.
+
 ## 수동 배포
 수동 배포는 GitHub Actions 자동화를 붙이기 전에 Dockerfile, compose, DB 연결, Flyway, health check를 분리해서 확인하기 위한 1회성 검증이다.
 
@@ -249,6 +251,7 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_SUCCESS_URI`: OAuth callback 성공 후 Spring success handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/success`다.
 - `STUDYPOT_AUTH_OAUTH2_FRONTEND_FAILURE_URI`: OAuth callback 실패 후 Spring failure handler가 이동시킬 프론트엔드 route. Netlify 운영값은 `https://studypot.netlify.app/auth/failure`다.
 - `STUDYPOT_CORS_ALLOWED_ORIGINS`: credentialed browser API 호출을 허용할 프론트엔드 origin 목록. 쉼표로 구분하며 Netlify 운영 origin은 `https://studypot.netlify.app`다.
+- `STUDYPOT_CORS_EXPOSED_HEADERS`: 기본값은 `Location,X-XSRF-TOKEN`이다. Cross-site CSRF bootstrap 응답 header를 프론트엔드가 읽어야 하므로 override할 때도 `X-XSRF-TOKEN`을 유지한다.
 - `STUDYPOT_AUTH_COOKIE_SAME_SITE`: token cookie SameSite policy. Netlify와 API가 서로 다른 site이므로 운영값은 `None`이어야 한다.
 - `STUDYPOT_AUTH_COOKIE_SECURE`: token cookie Secure flag. `SameSite=None` 쿠키는 브라우저가 `Secure` 없이는 거부하므로 운영값은 `true`여야 한다.
 - `STUDYPOT_AI_OPENAI_API_KEY`: 운영 AI provider key. 값은 로그, PR, repository 파일에 남기지 않는다.

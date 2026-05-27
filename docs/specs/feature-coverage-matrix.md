@@ -28,6 +28,8 @@ The authenticated pre-creation detail keyword suggestion API for `ai-team-leader
 
 The simplified one-step onboarding API and PR auto-merge harness behavior are approved by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md). The public onboarding API accepts `skillLevel`, `additionalNote`, and `availabilitySlots`; internal DB JSON compatibility is preserved without a schema migration.
 
+The cross-site CSRF bootstrap endpoint for `identity-core` is approved by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md). It adds public safe `GET /api/v1/auth/csrf` so browser clients on a different site can send CSRF headers for cookie-backed unsafe requests without exposing access or refresh token values.
+
 Redis/RabbitMQ runtime infrastructure boundaries for `identity-core`, `curriculum-core`, `retrospective-feedback`, `ai-team-leader`, `notification`, and `n/a-harness` are approved by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md). The change does not add API paths, DB tables, enum values, notification types, permission actions, or new feature IDs.
 
 ## Coverage Rules

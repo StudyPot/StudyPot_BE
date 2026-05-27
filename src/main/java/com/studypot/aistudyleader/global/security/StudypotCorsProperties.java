@@ -31,7 +31,7 @@ public record StudypotCorsProperties(
 		"X-XSRF-TOKEN",
 		"X-CSRF-TOKEN"
 	);
-	private static final List<String> DEFAULT_EXPOSED_HEADERS = List.of("Location");
+	private static final List<String> DEFAULT_EXPOSED_HEADERS = List.of("Location", "X-XSRF-TOKEN");
 
 	public StudypotCorsProperties {
 		allowedOrigins = normalize(allowedOrigins);

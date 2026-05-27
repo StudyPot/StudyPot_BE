@@ -24,8 +24,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.DeferredCsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,6 +40,24 @@ class AuthController {
 	private final ObjectProvider<AuthSessionService> authSessionService;
 	private final ObjectProvider<AuthTokenCookiePort> tokenCookiePort;
 	private final ObjectProvider<RateLimitGuard> rateLimitGuard;
+
+	@Operation(
+		summary = "CSRF 토큰 발급",
+		description = "다른 site의 브라우저 프론트엔드가 cookie-backed unsafe 요청에 사용할 `X-XSRF-TOKEN` 값을 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "CSRF 토큰 쿠키와 프론트엔드가 읽을 수 있는 토큰 값이 발급됨")
+	})
+	@GetMapping(ApiPaths.V1 + "/auth/csrf")
+	CsrfTokenResponse csrf(
+		@RequestAttribute(name = "org.springframework.security.web.csrf.DeferredCsrfToken") DeferredCsrfToken deferredCsrfToken,
+		HttpServletResponse servletResponse
+	) {
+		CsrfToken csrfToken = deferredCsrfToken.get();
+		String token = csrfToken.getToken();
+		servletResponse.setHeader(csrfToken.getHeaderName(), token);
+		return new CsrfTokenResponse("XSRF-TOKEN", csrfToken.getHeaderName(), token);
+	}
 
 	@Operation(
 		summary = "인증 토큰 갱신",
@@ -140,6 +161,17 @@ class AuthController {
 	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
 		AuthTokenCookiePort port = tokenCookiePort.getIfAvailable();
 		return port == null ? Optional.empty() : port.refreshToken(servletRequest);
+	}
+
+	@Schema(description = "브라우저가 cookie-backed unsafe 요청에 사용할 CSRF 토큰 응답입니다.")
+	private record CsrfTokenResponse(
+		@Schema(description = "백엔드 도메인에 설정되는 CSRF 쿠키 이름입니다.", example = "XSRF-TOKEN")
+		String cookieName,
+		@Schema(description = "프론트엔드가 unsafe 요청에 포함해야 하는 헤더 이름입니다.", example = "X-XSRF-TOKEN")
+		String headerName,
+		@Schema(description = "프론트엔드가 헤더 값으로 보내야 하는 CSRF 토큰입니다.")
+		String token
+	) {
 	}
 
 	@Schema(description = "토큰 갱신 후 클라이언트가 확인할 수 있는 세션 요약 응답입니다.")
