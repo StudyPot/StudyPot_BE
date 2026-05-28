@@ -69,6 +69,27 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	}
 
 	@Test
+	void requestCarriesTeamLeaderOperatingContractForDbGroundedCoaching() {
+		provider.response = response("""
+			{"message":"이번 주 진행률과 미완료 사유를 보면 실습 과제를 먼저 줄이는 게 맞겠습니다.","conversationSummary":"진행률과 미완료 사유를 근거로 다음 행동을 정했습니다."}""");
+
+		generator.generate(request("왜 자꾸 밀리는지 봐줘."));
+
+		assertThat(provider.request.instructions())
+			.contains("StudyPot team leader")
+			.contains("observed DB evidence")
+			.contains("inference")
+			.contains("next action")
+			.contains("uncertainty");
+		assertThat(provider.request.input())
+			.containsKey("teamLeaderOperatingContract");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("observedDbEvidence")
+			.contains("inferenceFromContext")
+			.contains("recommendedNextAction");
+	}
+
+	@Test
 	void goldenContextKeepsRequiredSourcesAndRedactsCredentialLikeValuesBeforeProviderCall() {
 		provider.response = response("""
 			{"message":"실습 과제를 쪼개서 진행해볼게요.","conversationSummary":"JPA 실습 지연과 과제 조정을 논의했습니다."}""");

@@ -797,23 +797,32 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void completeMyTaskRejectsWhenProgressDoesNotExist() {
+	void completeMyTaskCreatesWeekProgressWhenProgressDoesNotExist() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
 		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
-		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+		repository.weekDueAt = WEEK_DUE_AT;
+		CurriculumService service = service(repository, generation(), PROGRESS_ID, COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.DONE,
-				null,
-				null,
-				null
-			)))
-			.isInstanceOf(CurriculumNotFoundException.class)
-			.hasMessage("member week progress was not found.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"정리 완료",
+			null,
+			null
+		));
+
+		assertThat(repository.insertedProgress).isNotNull();
+		assertThat(repository.insertedProgress.id()).isEqualTo(PROGRESS_ID);
+		assertThat(repository.insertedProgress.curriculumWeekId()).isEqualTo(WEEK_ID);
+		assertThat(repository.insertedProgress.memberId()).isEqualTo(OWNER_MEMBER_ID);
+		assertThat(repository.insertedProgress.status()).isEqualTo(MemberWeekProgressStatus.IN_PROGRESS);
+		assertThat(result.id()).isEqualTo(COMPLETION_ID);
+		assertThat(result.progressId()).isEqualTo(PROGRESS_ID);
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(repository.insertedTaskCompletion).isSameAs(result);
 	}
 
 	private static CurriculumService service(CapturingRepository repository, CurriculumGeneration generation, UUID... ids) {

@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
@@ -259,12 +260,48 @@ public class CurriculumService {
 		}
 		WeeklyTask task = repository.findWeeklyTaskById(command.taskId())
 			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
-		MemberWeekProgress progress = repository.findMemberWeekProgress(task.curriculumWeekId(), context.memberId())
-			.orElseThrow(() -> new CurriculumNotFoundException("member week progress was not found."));
 		Instant now = clock.instant();
+		MemberWeekProgress progress = findOrCreateProgressForTaskCompletion(task.curriculumWeekId(), context.memberId(), now);
 		return repository.findTaskCompletion(command.taskId(), context.memberId())
 			.map(completion -> updateTaskCompletion(completion, command, now))
 			.orElseGet(() -> createTaskCompletion(command, task, progress, context.memberId(), now));
+	}
+
+	private MemberWeekProgress findOrCreateProgressForTaskCompletion(UUID weekId, UUID memberId, Instant now) {
+		return repository.findMemberWeekProgress(weekId, memberId)
+			.orElseGet(() -> createProgressForTaskCompletion(weekId, memberId, now));
+	}
+
+	private MemberWeekProgress createProgressForTaskCompletion(UUID weekId, UUID memberId, Instant now) {
+		Instant dueAt = repository.findWeekDueAt(weekId)
+			.orElseThrow(() -> new CurriculumNotFoundException("curriculum week was not found."));
+		MemberWeekProgress progress = MemberWeekProgress.create(
+			idGenerator.get(),
+			weekId,
+			memberId,
+			dueAt,
+			MemberWeekProgressStatus.IN_PROGRESS,
+			null,
+			null,
+			now
+		);
+		if (repository.insertMemberWeekProgress(progress)) {
+			return progress;
+		}
+		MemberWeekProgress racedProgress = repository.findMemberWeekProgress(weekId, memberId)
+			.orElseThrow(() -> new WeekProgressUpdateRejectedException("week progress could not be inserted."));
+		return ensureProgressStartedForTaskCompletion(racedProgress, now);
+	}
+
+	private MemberWeekProgress ensureProgressStartedForTaskCompletion(MemberWeekProgress progress, Instant now) {
+		if (progress.status() != MemberWeekProgressStatus.NOT_STARTED) {
+			return progress;
+		}
+		MemberWeekProgress updated = applyProgressUpdate(progress, MemberWeekProgressStatus.IN_PROGRESS, null, null, now);
+		if (!repository.updateMemberWeekProgress(updated)) {
+			throw new WeekProgressUpdateRejectedException("week progress could not be updated after concurrent insert.");
+		}
+		return updated;
 	}
 
 	private MemberWeekProgress updateProgress(MemberWeekProgress progress, UpdateWeekProgressCommand command, Instant now) {
@@ -337,8 +374,18 @@ public class CurriculumService {
 		UpdateWeekProgressCommand command,
 		Instant now
 	) {
+		return applyProgressUpdate(progress, command.status(), command.completionNote(), command.incompleteReason(), now);
+	}
+
+	private static MemberWeekProgress applyProgressUpdate(
+		MemberWeekProgress progress,
+		MemberWeekProgressStatus status,
+		String completionNote,
+		String incompleteReason,
+		Instant now
+	) {
 		try {
-			return progress.update(command.status(), command.completionNote(), command.incompleteReason(), now);
+			return progress.update(status, completionNote, incompleteReason, now);
 		} catch (IllegalArgumentException exception) {
 			throw new InvalidWeekProgressRequestException("status", exception.getMessage());
 		}
