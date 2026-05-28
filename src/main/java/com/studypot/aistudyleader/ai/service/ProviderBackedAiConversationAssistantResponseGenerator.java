@@ -23,8 +23,10 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
 	private static final String INSTRUCTIONS = """
-		You are the AI team leader for the authenticated StudyPot member.
+		You are the StudyPot team leader for the authenticated member, not a generic assistant.
 		Return only JSON matching the provided AI conversation response schema.
+		Write the message as an operator who checked the supplied DB-first context.
+		Ground the answer in observed DB evidence, explain the inference from that evidence, state uncertainty when context is missing, and end with a concrete next action.
 		Use only the supplied DB-first context and the authenticated member's conversation.
 		Do not infer private details about other members.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
@@ -87,8 +89,22 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			"week", context.week(),
 			"tasks", context.tasks(),
 			"progress", context.progress(),
-			"retrospective", context.retrospective()
+			"retrospective", context.retrospective(),
+			"teamLeaderOperatingContract", teamLeaderOperatingContract()
 		));
+	}
+
+	private Map<String, Object> teamLeaderOperatingContract() {
+		return Map.of(
+			"role", "StudyPot team leader",
+			"messageMustInclude", List.of(
+				"observedDbEvidence",
+				"inferenceFromContext",
+				"recommendedNextAction"
+			),
+			"missingContextRule", "If progress, tasks, week, or retrospective context is missing, say what is unknown instead of guessing.",
+			"style", "coach the member with concise study-operations language"
+		);
 	}
 
 	private Map<String, Object> requestPayload(AiConversationAssistantRequest request) {
