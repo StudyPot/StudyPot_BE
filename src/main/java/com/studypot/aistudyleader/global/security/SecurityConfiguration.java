@@ -59,7 +59,7 @@ public class SecurityConfiguration {
 			.csrf(csrf -> {
 				csrf.spa();
 				csrf.csrfTokenRepository(csrfTokenRepository(authProperties));
-				csrf.requireCsrfProtectionMatcher(SecurityConfiguration::requiresCsrfProtection);
+				csrf.requireCsrfProtectionMatcher(request -> false);
 			})
 			.cors(cors -> cors.configurationSource(corsConfigurationSource))
 			.formLogin(AbstractHttpConfigurer::disable)
@@ -90,7 +90,11 @@ public class SecurityConfiguration {
 					.bearerTokenResolver(bearerTokenResolver)
 					.jwt(Customizer.withDefaults()))
 				.addFilterAfter(
-					new BrowserCsrfProtectionFilter(accessDeniedHandler, SecurityConfiguration::requiresCsrfProtection),
+					new BrowserCsrfProtectionFilter(
+						accessDeniedHandler,
+						SecurityConfiguration::requiresCsrfProtection,
+						corsConfigurationSource
+					),
 					CsrfFilter.class
 				);
 

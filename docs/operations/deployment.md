@@ -169,7 +169,7 @@ STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT=1536
 
 Netlify frontend(`https://studypot.netlify.app`)와 rumiclean API(`https://studypot.rumiclean.com`)처럼 서로 다른 site 사이에서 credentialed XHR/fetch가 token cookie를 보내려면 `STUDYPOT_AUTH_COOKIE_SAME_SITE=None`과 `STUDYPOT_AUTH_COOKIE_SECURE=true`가 함께 필요하다. 운영 smoke에서는 token `Set-Cookie`에 `SameSite=None; Secure`가 있는지 확인한다. 프론트엔드 요청도 `credentials: "include"` 또는 Axios `withCredentials: true`를 사용해야 한다.
 
-Cross-site 프론트엔드는 backend-domain `XSRF-TOKEN` cookie를 `document.cookie`로 읽을 수 없다. OAuth success handler 또는 앱 부팅 시 `GET https://studypot.rumiclean.com/api/v1/auth/csrf`를 credentials 포함으로 호출하고, 응답 body 또는 exposed `X-XSRF-TOKEN` header의 값을 이후 cookie-backed unsafe 요청의 `X-XSRF-TOKEN` request header로 보내야 한다. 이 endpoint는 같은 값의 `XSRF-TOKEN` cookie를 backend domain에 설정하며, 운영에서는 auth cookie와 같은 `Domain`, `Secure`, `SameSite=None` 정책을 따른다.
+Cross-site 프론트엔드는 backend-domain `XSRF-TOKEN` cookie를 `document.cookie`로 읽을 수 없다. OAuth success handler 또는 앱 부팅 시 `GET https://studypot.rumiclean.com/api/v1/auth/csrf`를 credentials 포함으로 호출하고, 응답 body 또는 exposed `X-XSRF-TOKEN` header의 값을 이후 cookie-backed unsafe 요청의 `X-XSRF-TOKEN` request header로 보내야 한다. 이 endpoint는 같은 값의 `XSRF-TOKEN` cookie를 backend domain에 설정하며, 운영에서는 auth cookie와 같은 `Domain`, `Secure`, `SameSite=None` 정책을 따른다. 브라우저가 이후 unsafe 요청에 `XSRF-TOKEN` cookie를 싣지 못해도, request `Origin`이 `STUDYPOT_CORS_ALLOWED_ORIGINS`의 credentialed origin과 일치하고 custom CSRF header가 있으면 backend CSRF 검증은 통과한다. Header가 없거나 허용되지 않은 origin이면 계속 403이어야 한다.
 
 ## 수동 배포
 수동 배포는 GitHub Actions 자동화를 붙이기 전에 Dockerfile, compose, DB 연결, Flyway, health check를 분리해서 확인하기 위한 1회성 검증이다.

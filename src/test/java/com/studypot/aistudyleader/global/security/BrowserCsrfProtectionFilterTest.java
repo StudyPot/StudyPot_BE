@@ -11,9 +11,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.web.cors.CorsConfiguration;
 
 class BrowserCsrfProtectionFilterTest {
 
@@ -78,6 +81,57 @@ class BrowserCsrfProtectionFilterTest {
 	}
 
 	@Test
+	void requestPassesThroughWhenTrustedCorsOriginHasCsrfHeaderWithoutXsrfCookie() throws Exception {
+		BrowserCsrfProtectionFilter trustedOriginFilter = new BrowserCsrfProtectionFilter(
+			accessDeniedHandler,
+			req -> true,
+			req -> corsConfiguration("https://studypot.netlify.app", true)
+		);
+		when(request.getCookies()).thenReturn(null);
+		when(request.getHeader("X-XSRF-TOKEN")).thenReturn("bootstrapped-token");
+		when(request.getHeader(HttpHeaders.ORIGIN)).thenReturn("https://studypot.netlify.app");
+
+		trustedOriginFilter.doFilter(request, response, filterChain);
+
+		verify(filterChain).doFilter(request, response);
+		verify(accessDeniedHandler, never()).handle(any(), any(), any());
+	}
+
+	@Test
+	void requestIsRejectedWhenUntrustedOriginHasCsrfHeaderWithoutXsrfCookie() throws Exception {
+		BrowserCsrfProtectionFilter trustedOriginFilter = new BrowserCsrfProtectionFilter(
+			accessDeniedHandler,
+			req -> true,
+			req -> corsConfiguration("https://studypot.netlify.app", true)
+		);
+		when(request.getCookies()).thenReturn(null);
+		when(request.getHeader("X-XSRF-TOKEN")).thenReturn("attacker-token");
+		when(request.getHeader(HttpHeaders.ORIGIN)).thenReturn("https://evil.example");
+
+		trustedOriginFilter.doFilter(request, response, filterChain);
+
+		verify(filterChain, never()).doFilter(any(), any());
+		verify(accessDeniedHandler).handle(any(), any(), any());
+	}
+
+	@Test
+	void requestIsRejectedWhenCorsOriginIsAllowedWithoutCredentials() throws Exception {
+		BrowserCsrfProtectionFilter trustedOriginFilter = new BrowserCsrfProtectionFilter(
+			accessDeniedHandler,
+			req -> true,
+			req -> corsConfiguration("https://studypot.netlify.app", false)
+		);
+		when(request.getCookies()).thenReturn(null);
+		when(request.getHeader("X-XSRF-TOKEN")).thenReturn("bootstrapped-token");
+		when(request.getHeader(HttpHeaders.ORIGIN)).thenReturn("https://studypot.netlify.app");
+
+		trustedOriginFilter.doFilter(request, response, filterChain);
+
+		verify(filterChain, never()).doFilter(any(), any());
+		verify(accessDeniedHandler).handle(any(), any(), any());
+	}
+
+	@Test
 	void requestPassesThroughWhenXCsrfTokenHeaderMatches() throws Exception {
 		when(request.getCookies()).thenReturn(new Cookie[]{new Cookie("XSRF-TOKEN", "abc123")});
 		when(request.getHeader("X-XSRF-TOKEN")).thenReturn(null);
@@ -107,5 +161,12 @@ class BrowserCsrfProtectionFilterTest {
 		assertThatNullPointerException()
 			.isThrownBy(() -> new BrowserCsrfProtectionFilter(accessDeniedHandler, null))
 			.withMessage("requirementMatcher must not be null");
+	}
+
+	private static CorsConfiguration corsConfiguration(String origin, boolean allowCredentials) {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(List.of(origin));
+		configuration.setAllowCredentials(allowCredentials);
+		return configuration;
 	}
 }
