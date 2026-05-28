@@ -5,6 +5,7 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Changes require Change Request and ADR.
 - Cross-site CSRF bootstrap for cookie-backed browser sessions is authorized by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md).
+- Cross-site CSRF trusted-origin header validation is authorized by [CR-20260528-cross-site-csrf-trusted-origin-header](./change-requests/CR-20260528-cross-site-csrf-trusted-origin-header.md) and [ADR-20260528-cross-site-csrf-trusted-origin-header](./adr/ADR-20260528-cross-site-csrf-trusted-origin-header.md).
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 
 ## Roles and Statuses
@@ -66,7 +67,7 @@
 - Cookie authentication changes in this locked document are approved by `CR-20260508-oauth2-cookie-login` and `ADR-20260508-oauth2-cookie-login`; future changes still require the Change Request + ADR flow in `docs/specs/change-control-v1.md`.
 - Bearer token authentication or `studypot_access_token` HttpOnly cookie authentication is required for all `/api/v1` endpoints except explicit public auth endpoints and public invite metadata endpoints if added later.
 - `GET /api/oauth2/authorization/google`, `GET /api/login/oauth2/code/google`, `GET /api/v1/auth/csrf`, `POST /api/v1/auth/oauth/google`, and `POST /api/v1/auth/refresh` are explicit public auth endpoints.
-- Cookie-backed unsafe browser requests must include a CSRF header matching the backend-domain `XSRF-TOKEN` cookie. Cross-site frontends that cannot read that cookie directly may call `GET /api/v1/auth/csrf` to receive the header value without exposing access or refresh token values.
+- Cookie-backed unsafe browser requests must include CSRF evidence. Same-site or cookie-available clients may send a CSRF header matching the backend-domain `XSRF-TOKEN` cookie. Cross-site frontends that cannot read or attach that cookie directly may call `GET /api/v1/auth/csrf` to receive the header value and then send it in `X-XSRF-TOKEN`; the header-only path is accepted only for request origins allowed by the configured credentialed CORS policy.
 - `POST /api/v1/auth/logout` and `POST /api/v1/auth/logout-all` require authenticated access via bearer token or access-token cookie.
 - Browser login token cookies must be HttpOnly. Production cookies must also be Secure and must use a SameSite policy compatible with the deployed frontend/API domains.
 - OAuth callback state mismatch must not issue application token cookies under any condition.

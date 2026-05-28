@@ -40,6 +40,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.annotation.DirtiesContext;
@@ -47,13 +48,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@SpringBootTest(classes = {AiStudyLeaderApplication.class, StudyGroupControllerTest.TestStudyGroupBeans.class})
+@SpringBootTest(
+	classes = {AiStudyLeaderApplication.class, StudyGroupControllerTest.TestStudyGroupBeans.class},
+	properties = {
+		"studypot.cors.allowed-origins=https://studypot.netlify.app",
+		"studypot.cors.allow-credentials=true"
+	}
+)
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class StudyGroupControllerTest {
 
 	private static final String GROUPS_PATH = ApiPaths.V1 + "/groups";
 	private static final String DETAIL_KEYWORD_SUGGESTIONS_PATH = GROUPS_PATH + "/detail-keyword-suggestions";
+	private static final String NETLIFY_ORIGIN = "https://studypot.netlify.app";
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002861");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002862");
 	private static final String JOIN_PATH = GROUPS_PATH + "/" + GROUP_ID + "/join";
@@ -171,6 +179,22 @@ class StudyGroupControllerTest {
 			.containsEntry("topic", "Spring Boot")
 			.containsEntry("hintKeywords", List.of())
 			.containsEntry("maxCandidates", 5);
+	}
+
+	@Test
+	void suggestDetailKeywordsAcceptsTrustedOriginCsrfHeaderWithoutXsrfCookie() throws Exception {
+		mockMvc.perform(post(DETAIL_KEYWORD_SUGGESTIONS_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN)
+				.header("X-XSRF-TOKEN", "bootstrapped-token")
+				.with(user(USER_ID.toString()))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"topic":"Spring Boot"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.keywords[0]").value("JPA"))
+			.andExpect(jsonPath("$.keywords[1]").value("Spring Security"));
 	}
 
 	@Test

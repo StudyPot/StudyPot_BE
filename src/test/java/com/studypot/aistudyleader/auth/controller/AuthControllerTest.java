@@ -181,6 +181,31 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void crossSiteRefreshCanUseBootstrappedCsrfHeaderWhenXsrfCookieIsUnavailable() throws Exception {
+		MvcResult csrfResult = mockMvc.perform(get(CSRF_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN))
+			.andExpect(status().isOk())
+			.andReturn();
+		JsonNode body = objectMapper.readTree(csrfResult.getResponse().getContentAsString());
+		String token = body.get("token").asText();
+
+		mockMvc.perform(post(REFRESH_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN)
+				.header("X-XSRF-TOKEN", token)
+				.with(cookie("studypot_refresh_token", "invalid-refresh-token")))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void crossSiteRefreshRejectsUntrustedOriginCsrfHeaderWithoutXsrfCookie() throws Exception {
+		mockMvc.perform(post(REFRESH_PATH)
+				.header(HttpHeaders.ORIGIN, "https://evil.example")
+				.header("X-XSRF-TOKEN", "attacker-token")
+				.with(cookie("studypot_refresh_token", "invalid-refresh-token")))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
 	void refreshSetsCookiesAndCookieAccessTokenAuthenticates() throws Exception {
 		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
 
@@ -227,6 +252,17 @@ class AuthControllerTest {
 		mockMvc.perform(post(LOGOUT_ALL_PATH)
 				.with(cookie("studypot_access_token", session.accessToken()))
 				.with(xsrf("logout-xsrf")))
+			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void cookieBackedLogoutAcceptsTrustedOriginCsrfHeaderWithoutXsrfCookie() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		mockMvc.perform(post(LOGOUT_ALL_PATH)
+				.header(HttpHeaders.ORIGIN, NETLIFY_ORIGIN)
+				.header("X-XSRF-TOKEN", "bootstrapped-token")
+				.with(cookie("studypot_access_token", session.accessToken())))
 			.andExpect(status().isNoContent());
 	}
 
