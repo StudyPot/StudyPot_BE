@@ -32,6 +32,17 @@ class OpenAiCurriculumPropertiesTest {
 	}
 
 	@Test
+	void defaultsDetailKeywordReasoningEffortToMinimal() {
+		contextRunner.run(context -> {
+			OpenAiReasoningEfforts reasoningEfforts = context.getBean(OpenAiCurriculumProperties.class).reasoningEfforts();
+
+			assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST))
+				.isEqualTo(OpenAiReasoningEffort.MINIMAL);
+			assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.CURRICULUM_GENERATE)).isNull();
+		});
+	}
+
+	@Test
 	void bindsChatCompletionsModeFromKebabCaseProperty() {
 		contextRunner
 			.withPropertyValues("studypot.ai.openai.api-mode=chat-completions")
@@ -73,6 +84,16 @@ class OpenAiCurriculumPropertiesTest {
 				assertThat(properties.models().modelFor(LlmUsagePurpose.CURRICULUM_GENERATE, properties.model()))
 					.isEqualTo("gpt-5.2");
 			});
+	}
+
+	@Test
+	void bindsReasoningEffortsFromKebabCaseProperties() {
+		contextRunner
+			.withPropertyValues("studypot.ai.openai.reasoning-efforts.detail-keyword-suggest=low")
+			.run(context -> assertThat(context.getBean(OpenAiCurriculumProperties.class)
+					.reasoningEfforts()
+					.forPurpose(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST))
+				.isEqualTo(OpenAiReasoningEffort.LOW));
 	}
 
 	@Configuration(proxyBeanMethods = false)

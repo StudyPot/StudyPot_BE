@@ -277,6 +277,44 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void getGroupReturnsCurrentMemberGroupFromRepository() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup group = group();
+		repository.readGroup = group;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroup result = service.getGroup(new GetStudyGroupQuery(USER_ID, GROUP_ID));
+
+		assertThat(repository.getRequestedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.getRequestedUserId).isEqualTo(USER_ID);
+		assertThat(result).isSameAs(group);
+	}
+
+	@Test
+	void getGroupRejectsMissingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getGroup(new GetStudyGroupQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void getGroupRejectsExistingGroupWhenUserIsNotMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getGroup(new GetStudyGroupQuery(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+		assertThat(repository.getRequestedUserId).isEqualTo(JOINER_ID);
+		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
 	void listQueryRejectsMissingAuthenticatedUserId() {
 		assertThatThrownBy(() -> new ListStudyGroupsQuery(null))
 			.isInstanceOf(NullPointerException.class)
@@ -378,7 +416,12 @@ class StudyGroupServiceTest {
 		private int currentMemberCount;
 		private boolean existingActiveOrOnboardingMember;
 		private boolean throwDuplicateMembershipOnJoin;
+		private boolean groupExists;
+		private UUID getRequestedGroupId;
+		private UUID getRequestedUserId;
+		private UUID existsRequestedGroupId;
 		private UUID listRequestedUserId;
+		private StudyGroup readGroup;
 		private List<StudyGroup> listedGroups = List.of();
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
@@ -396,6 +439,19 @@ class StudyGroupServiceTest {
 			}
 			this.savedGroup = group;
 			this.savedOwnerMember = ownerMember;
+		}
+
+		@Override
+		public boolean existsStudyGroup(UUID groupId) {
+			this.existsRequestedGroupId = groupId;
+			return groupExists;
+		}
+
+		@Override
+		public java.util.Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
+			this.getRequestedGroupId = groupId;
+			this.getRequestedUserId = userId;
+			return java.util.Optional.ofNullable(readGroup);
 		}
 
 		@Override

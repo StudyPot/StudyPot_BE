@@ -47,7 +47,8 @@ class CurriculumOpenAiConfiguration {
 			properties.model(),
 			properties.apiMode(),
 			properties.outputTokenLimits(),
-			properties.models()
+			properties.models(),
+			properties.reasoningEfforts()
 		);
 	}
 

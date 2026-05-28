@@ -183,6 +183,66 @@ class OpenAiLlmProviderTest {
 	}
 
 	@Test
+	void requestStructuredUsesMinimalReasoningForGpt5DetailKeywordChatCompletions() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "choices": [
+			    {"message": {"role": "assistant", "content": "{\\"keywords\\":[\\"JPA\\"]}"}, "finish_reason": "stop"}
+			  ],
+			  "usage": {"prompt_tokens": 11, "completion_tokens": 6}
+			}
+			""");
+		OpenAiLlmProvider provider = new OpenAiLlmProvider(
+			transport,
+			JsonMapper.builder().findAndAddModules().build(),
+			"gpt-5.2",
+			OpenAiApiMode.CHAT_COMPLETIONS,
+			OpenAiOutputTokenLimits.defaults(),
+			new OpenAiPurposeModels("gpt-5-nano")
+		);
+
+		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "DETAIL_KEYWORD_SUGGEST")
+		));
+
+		assertThat(transport.request).containsEntry("reasoning_effort", "minimal");
+		assertThat(result.requestPayload()).containsEntry("reasoningEffort", "minimal");
+	}
+
+	@Test
+	void requestStructuredOmitsReasoningForNonGpt5ChatCompletions() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "choices": [
+			    {"message": {"role": "assistant", "content": "{\\"keywords\\":[\\"JPA\\"]}"}, "finish_reason": "stop"}
+			  ],
+			  "usage": {"prompt_tokens": 11, "completion_tokens": 6}
+			}
+			""");
+		OpenAiLlmProvider provider = new OpenAiLlmProvider(
+			transport,
+			JsonMapper.builder().findAndAddModules().build(),
+			"gpt-4o-mini",
+			OpenAiApiMode.CHAT_COMPLETIONS
+		);
+
+		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "DETAIL_KEYWORD_SUGGEST")
+		));
+
+		assertThat(transport.request).doesNotContainKey("reasoning_effort");
+		assertThat(result.requestPayload()).doesNotContainKey("reasoningEffort");
+	}
+
+	@Test
 	void requestStructuredThrowsFailureWithAuditMetadataWhenOpenAiResponseHasNoOutputText() {
 		OpenAiLlmProvider provider = new OpenAiLlmProvider(
 			new CapturingTransport("""

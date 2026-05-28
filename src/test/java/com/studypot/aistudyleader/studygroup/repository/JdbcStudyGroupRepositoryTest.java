@@ -146,6 +146,33 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void existsStudyGroupChecksLiveGroupOnly() {
+		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.EXISTS_STUDY_GROUP), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(true);
+
+		assertThat(repository.existsStudyGroup(GROUP_ID)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).queryForObject(eq(StudyGroupJdbcSql.EXISTS_STUDY_GROUP), eq(Boolean.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+	}
+
+	@Test
+	void findGroupByIdForMemberUserIdQueriesVisibleMemberGroup() {
+		StudyGroup group = group();
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_GROUP_BY_ID_FOR_MEMBER_USER_ID), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(group));
+
+		Optional<StudyGroup> result = repository.findGroupByIdForMemberUserId(GROUP_ID, USER_ID);
+
+		assertThat(result).contains(group);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupJdbcSql.SELECT_GROUP_BY_ID_FOR_MEMBER_USER_ID), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
 	void findGroupsByMemberUserIdQueriesLiveMembershipGroups() {
 		StudyGroup group = group();
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
@@ -163,6 +190,17 @@ class JdbcStudyGroupRepositoryTest {
 	void myGroupsQueryUsesCurrentLiveMembershipAndVisibleGroupFilters() {
 		assertThat(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID)
 			.contains("join group_member gm on gm.group_id = sg.id")
+			.contains("gm.user_id = ?")
+			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null");
+	}
+
+	@Test
+	void groupDetailQueryUsesCurrentLiveMembershipAndVisibleGroupFilters() {
+		assertThat(StudyGroupJdbcSql.SELECT_GROUP_BY_ID_FOR_MEMBER_USER_ID)
+			.contains("join group_member gm on gm.group_id = sg.id")
+			.contains("sg.id = ?")
 			.contains("gm.user_id = ?")
 			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
 			.contains("gm.deleted_at is null")

@@ -43,6 +43,7 @@ import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDenie
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveNotFoundException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
@@ -190,6 +191,7 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler({
+		StudyGroupAccessDeniedException.class,
 		OnboardingMembershipRequiredException.class,
 		CurriculumAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
