@@ -12,7 +12,8 @@ record OpenAiCurriculumProperties(
 	OpenAiApiMode apiMode,
 	Duration connectTimeout,
 	Duration readTimeout,
-	OpenAiOutputTokenLimits outputTokenLimits
+	OpenAiOutputTokenLimits outputTokenLimits,
+	OpenAiReasoningEfforts reasoningEfforts
 ) {
 
 	private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
@@ -29,6 +30,7 @@ record OpenAiCurriculumProperties(
 		connectTimeout = positiveOrDefault(connectTimeout, DEFAULT_CONNECT_TIMEOUT, "connectTimeout");
 		readTimeout = positiveOrDefault(readTimeout, DEFAULT_READ_TIMEOUT, "readTimeout");
 		outputTokenLimits = outputTokenLimits == null ? OpenAiOutputTokenLimits.defaults() : outputTokenLimits;
+		reasoningEfforts = reasoningEfforts == null ? OpenAiReasoningEfforts.defaults() : reasoningEfforts;
 	}
 
 	private static String blankToNull(String value) {

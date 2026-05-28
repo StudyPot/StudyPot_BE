@@ -10,6 +10,7 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
+import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
 import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
@@ -88,6 +89,27 @@ class StudyGroupController {
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
 		return StudyGroupResponse.from(result.group());
+	}
+
+	@Operation(
+		summary = "스터디 그룹 상세 조회",
+		description = "인증된 그룹 멤버가 스터디 그룹 기본 정보를 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "그룹 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}")
+	StudyGroupResponse getGroup(
+		Authentication authentication,
+		@Parameter(description = "조회하려는 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
+		return StudyGroupResponse.from(group);
 	}
 
 	@Operation(

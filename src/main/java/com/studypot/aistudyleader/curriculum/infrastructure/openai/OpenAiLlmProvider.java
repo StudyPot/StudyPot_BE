@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -26,6 +27,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	private final OpenAiApiMode apiMode;
 	private final OpenAiOutputTokenLimits outputTokenLimits;
 	private final OpenAiPurposeModels purposeModels;
+	private final OpenAiReasoningEfforts reasoningEfforts;
 
 	OpenAiLlmProvider(OpenAiResponsesTransport transport, ObjectMapper objectMapper, String model) {
 		this(transport, objectMapper, model, OpenAiApiMode.RESPONSES);
@@ -53,6 +55,18 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		OpenAiOutputTokenLimits outputTokenLimits,
 		OpenAiPurposeModels purposeModels
 	) {
+		this(transport, objectMapper, model, apiMode, outputTokenLimits, purposeModels, OpenAiReasoningEfforts.defaults());
+	}
+
+	OpenAiLlmProvider(
+		OpenAiResponsesTransport transport,
+		ObjectMapper objectMapper,
+		String model,
+		OpenAiApiMode apiMode,
+		OpenAiOutputTokenLimits outputTokenLimits,
+		OpenAiPurposeModels purposeModels,
+		OpenAiReasoningEfforts reasoningEfforts
+	) {
 		this.transport = Objects.requireNonNull(transport, "transport must not be null");
 		this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
 		if (model == null || model.isBlank()) {
@@ -62,6 +76,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		this.apiMode = Objects.requireNonNull(apiMode, "apiMode must not be null");
 		this.outputTokenLimits = Objects.requireNonNull(outputTokenLimits, "outputTokenLimits must not be null");
 		this.purposeModels = Objects.requireNonNull(purposeModels, "purposeModels must not be null");
+		this.reasoningEfforts = Objects.requireNonNull(reasoningEfforts, "reasoningEfforts must not be null");
 	}
 
 	@Override
@@ -87,7 +102,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 				elapsedMillis(startedAt),
 				LlmUsageStatus.SUCCESS,
 				null,
-				providerRequestPayload(request),
+				providerRequestPayload(request, requestModel),
 				"OpenAI structured response received."
 			);
 		} catch (LlmProviderCallException exception) {
@@ -125,6 +140,10 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		));
 		body.put("response_format", chatCompletionsResponseFormat(request.textFormat()));
 		body.put("max_completion_tokens", maxOutputTokens(request));
+		OpenAiReasoningEffort reasoningEffort = reasoningEffortFor(request, requestModel);
+		if (reasoningEffort != null) {
+			body.put("reasoning_effort", reasoningEffort.apiValue());
+		}
 		return new OpenAiResponseRequest("/chat/completions", body);
 	}
 
@@ -297,7 +316,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			latencyMs,
 			LlmUsageStatus.FAILED,
 			errorCode,
-			providerRequestPayload(request),
+			providerRequestPayload(request, requestModel),
 			summary
 		);
 	}
@@ -310,10 +329,27 @@ class OpenAiLlmProvider implements LlmProviderClient {
 		return purposeModels.modelFor(request.purpose(), defaultModel);
 	}
 
-	private Map<String, Object> providerRequestPayload(LlmStructuredRequest request) {
+	private OpenAiReasoningEffort reasoningEffortFor(LlmStructuredRequest request, String requestModel) {
+		OpenAiReasoningEffort reasoningEffort = reasoningEfforts.forPurpose(request.purpose());
+		if (reasoningEffort == null || !supportsReasoningEffort(requestModel)) {
+			return null;
+		}
+		return reasoningEffort;
+	}
+
+	private static boolean supportsReasoningEffort(String model) {
+		String normalized = model.strip().toLowerCase(Locale.ROOT);
+		return normalized.startsWith("gpt-5");
+	}
+
+	private Map<String, Object> providerRequestPayload(LlmStructuredRequest request, String requestModel) {
 		Map<String, Object> result = new LinkedHashMap<>(request.requestPayload());
 		result.put("apiMode", apiMode.name());
 		result.put("outputBudget", maxOutputTokens(request));
+		OpenAiReasoningEffort reasoningEffort = reasoningEffortFor(request, requestModel);
+		if (apiMode == OpenAiApiMode.CHAT_COMPLETIONS && reasoningEffort != null) {
+			result.put("reasoningEffort", reasoningEffort.apiValue());
+		}
 		return Map.copyOf(result);
 	}
 

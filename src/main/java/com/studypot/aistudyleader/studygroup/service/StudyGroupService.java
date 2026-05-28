@@ -118,6 +118,18 @@ public class StudyGroupService {
 		return repository.findGroupsByMemberUserId(query.authenticatedUserId());
 	}
 
+	@Transactional(readOnly = true)
+	public StudyGroup getGroup(GetStudyGroupQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		return repository.findGroupByIdForMemberUserId(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new StudyGroupNotFoundException("study group was not found.");
+				}
+				throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+	}
+
 	private StudyGroupCreationResult createCandidate(CreateStudyGroupCommand command) {
 		Instant now = clock.instant();
 		StudyGroup group = StudyGroup.create(

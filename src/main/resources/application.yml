@@ -94,6 +94,8 @@ studypot:
         curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:4096}
         retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:1536}
+      reasoning-efforts:
+        detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_REASONING_EFFORT_DETAIL_KEYWORD_SUGGEST:minimal}
   rate-limit:
     enabled: ${STUDYPOT_RATE_LIMIT_ENABLED:false}
     fail-closed: ${STUDYPOT_RATE_LIMIT_FAIL_CLOSED:true}

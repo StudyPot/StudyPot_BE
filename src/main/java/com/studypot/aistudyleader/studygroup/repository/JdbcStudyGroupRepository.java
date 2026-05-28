@@ -90,6 +90,23 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public boolean existsStudyGroup(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+			StudyGroupJdbcSql.EXISTS_STUDY_GROUP,
+			Boolean.class,
+			uuid(groupId)
+		));
+	}
+
+	@Override
+	public Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_GROUP_BY_ID_FOR_MEMBER_USER_ID, this::mapStudyGroup, uuid(groupId), uuid(userId));
+	}
+
+	@Override
 	public Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId) {
 		return queryOne(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET, JdbcStudyGroupRepository::mapJoinTarget, uuid(groupId));
 	}

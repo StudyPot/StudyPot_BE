@@ -63,7 +63,9 @@ class StudyGroupControllerTest {
 	private static final String DETAIL_KEYWORD_SUGGESTIONS_PATH = GROUPS_PATH + "/detail-keyword-suggestions";
 	private static final String NETLIFY_ORIGIN = "https://studypot.netlify.app";
 	private static final UUID USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002861");
+	private static final UUID OTHER_USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002865");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002862");
+	private static final UUID MISSING_GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002866");
 	private static final String JOIN_PATH = GROUPS_PATH + "/" + GROUP_ID + "/join";
 
 	private final MockMvc mockMvc;
@@ -270,6 +272,40 @@ class StudyGroupControllerTest {
 			.andExpect(jsonPath("$[0].inviteCode").value("INVITE-0001"));
 	}
 
+	@Test
+	void getGroupReturnsMemberGroup() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.name").value("Backend Interview Study"))
+			.andExpect(jsonPath("$.topic").value("Spring Boot"))
+			.andExpect(jsonPath("$.detailKeywords[0]").value("JPA"))
+			.andExpect(jsonPath("$.status").value("ONBOARDING"))
+			.andExpect(jsonPath("$.inviteCode").value("INVITE-0001"));
+	}
+
+	@Test
+	void getGroupReturnsForbiddenForExistingGroupWhenUserIsNotMember() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(OTHER_USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"))
+			.andExpect(jsonPath("$.detail").value("authenticated user is not a member of this study group."));
+	}
+
+	@Test
+	void getGroupReturnsNotFoundForMissingGroup() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + MISSING_GROUP_ID)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Not Found"))
+			.andExpect(jsonPath("$.detail").value("study group was not found."));
+	}
+
 	private static String validRequestJson() {
 		return """
 			{
@@ -410,7 +446,24 @@ class StudyGroupControllerTest {
 
 		@Override
 		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
-			return List.of(StudyGroup.create(
+			return List.of(testGroup());
+		}
+
+		@Override
+		public boolean existsStudyGroup(UUID groupId) {
+			return GROUP_ID.equals(groupId);
+		}
+
+		@Override
+		public java.util.Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
+			if (!GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(testGroup());
+		}
+
+		private static StudyGroup testGroup() {
+			return StudyGroup.create(
 				GROUP_ID,
 				USER_ID,
 				"Backend Interview Study",
@@ -422,7 +475,7 @@ class StudyGroupControllerTest {
 				"Weekly backend interview prep",
 				"INVITE-0001",
 				TestStudyGroupBeans.NOW
-			));
+			);
 		}
 	}
 }
