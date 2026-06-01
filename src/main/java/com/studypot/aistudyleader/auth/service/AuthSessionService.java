@@ -120,20 +120,23 @@ public class AuthSessionService {
 
 	private RefreshTokenSession requireActiveRefreshToken(String rawRefreshToken, Instant now) {
 		if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
-			throw new RefreshTokenRejectedException("refresh token is required.");
+			throw RefreshTokenRejectedException.required();
 		}
 		String tokenHash = RefreshTokenHasher.sha256Hex(rawRefreshToken);
 		RefreshTokenSession session = refreshTokenRepository.findByTokenHash(tokenHash)
-			.orElseThrow(() -> new RefreshTokenRejectedException("refresh token is invalid."));
+			.orElseThrow(RefreshTokenRejectedException::invalid);
+		if (!session.expiresAt().isAfter(now)) {
+			throw RefreshTokenRejectedException.expired();
+		}
 		if (!session.isActiveAt(now)) {
-			throw new RefreshTokenRejectedException("refresh token is invalid or revoked.");
+			throw RefreshTokenRejectedException.invalidOrRevoked();
 		}
 		return session;
 	}
 
 	private void revokeOrReject(UUID refreshTokenId, Instant revokedAt) {
 		if (!refreshTokenRepository.revoke(refreshTokenId, revokedAt)) {
-			throw new RefreshTokenRejectedException("refresh token is invalid or revoked.");
+			throw RefreshTokenRejectedException.invalidOrRevoked();
 		}
 	}
 

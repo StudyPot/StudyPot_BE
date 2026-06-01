@@ -125,7 +125,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokenResponse'
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '401':
+          description: Refresh token is missing, invalid, expired, revoked, or reused; token cookies are cleared when present
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+              description: Expired `studypot_access_token` and `studypot_refresh_token` cookies when cookie support is configured.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /auth/logout:
     post:
       tags: [Auth]
@@ -623,6 +633,25 @@ components:
         expiresIn: {type: integer, minimum: 1}
         user:
           $ref: '#/components/schemas/UserResponse'
+    AuthSessionResponse:
+      type: object
+      required: [tokenType, expiresIn, user]
+      properties:
+        tokenType: {type: string, enum: [Bearer]}
+        expiresIn: {type: integer, minimum: 1}
+        user:
+          $ref: '#/components/schemas/UserResponse'
+    ProblemDetail:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        code:
+          type: string
+          description: Optional stable machine-readable error code.
     UserResponse:
       type: object
       required: [id, email, nickname]

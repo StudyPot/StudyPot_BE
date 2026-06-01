@@ -112,6 +112,33 @@ class AuthSessionServiceTest {
 	}
 
 	@Test
+	void refreshRejectsExpiredTokenWithoutIssuingReplacementToken() {
+		authRepository.save(AuthUser.create(
+			FIRST_USER_ID,
+			EmailAddress.from("member@example.com"),
+			"Study Member",
+			null,
+			NOW.minus(Duration.ofDays(40))
+		));
+		refreshTokenRepository.save(RefreshTokenSession.rehydrate(
+			FIRST_REFRESH_ID,
+			FIRST_USER_ID,
+			RefreshTokenHasher.sha256Hex("expired-refresh"),
+			null,
+			null,
+			NOW.minus(Duration.ofDays(1)),
+			null,
+			NOW.minus(Duration.ofDays(31))
+		));
+
+		assertThatThrownBy(() -> service.refresh("expired-refresh", metadata("Safari", "203.0.113.11")))
+			.isInstanceOf(RefreshTokenRejectedException.class)
+			.hasMessageContaining("expired");
+		assertThat(refreshTokenRepository.sessionsById).hasSize(1);
+		assertThat(refreshTokenRepository.sessionsById).doesNotContainKey(SECOND_REFRESH_ID);
+	}
+
+	@Test
 	void logoutRevokesOnlySubmittedRefreshTokenForAuthenticatedUser() {
 		google.nextProfile = verifiedProfile("google-123", "member@example.com", "Study Member");
 		AuthTokenResult issued = service.loginWithGoogle(command("code-123"), metadata("Chrome", "203.0.113.10"));

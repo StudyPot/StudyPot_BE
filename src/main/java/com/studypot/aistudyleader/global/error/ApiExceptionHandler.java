@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
+import com.studypot.aistudyleader.auth.service.RefreshTokenRejectedException;
 import com.studypot.aistudyleader.ai.repository.AiConversationPersistenceException;
 import com.studypot.aistudyleader.ai.service.AiConversationAccessDeniedException;
 import com.studypot.aistudyleader.ai.service.AiConversationMutationRejectedException;
@@ -117,6 +118,14 @@ public class ApiExceptionHandler {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(RefreshTokenRejectedException.class)
+	public ResponseEntity<ProblemDetail> handleRefreshTokenRejected(RefreshTokenRejectedException exception) {
+		ProblemDetail problemDetail = problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage()));
+		problemDetail.setProperty("code", exception.code());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+			.body(problemDetail);
 	}
 
 	@ExceptionHandler({AuthSessionRejectedException.class, OAuthLoginRejectedException.class})

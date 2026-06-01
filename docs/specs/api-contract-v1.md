@@ -106,6 +106,7 @@ Browser clients that rely on HttpOnly cookies and cannot read the backend-domain
 ```
 `POST /api/v1/auth/refresh` may also omit the request body when the `studypot_refresh_token` HttpOnly cookie is present.
 If both the JSON `refreshToken` and the `studypot_refresh_token` cookie are provided, the cookie value takes precedence and the JSON body value is ignored.
+On success, the response body returns only `tokenType`, `expiresIn`, and `user`; the raw access/refresh token values are delivered through rotated HttpOnly cookies. On missing, invalid, expired, revoked, or reused refresh tokens, the endpoint returns 401 Problem Detail with a refresh-token-specific `code` such as `REFRESH_TOKEN_REQUIRED`, `REFRESH_TOKEN_INVALID`, or `REFRESH_TOKEN_EXPIRED`, and clears the application token cookies when cookie support is configured.
 
 ### Create Group
 ```json

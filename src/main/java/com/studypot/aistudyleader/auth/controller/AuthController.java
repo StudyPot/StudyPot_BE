@@ -28,6 +28,7 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.DeferredCsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -70,14 +71,20 @@ class AuthController {
 	})
 	@PostMapping(ApiPaths.V1 + "/auth/refresh")
 	AuthSessionResponse refresh(
+		@RequestBody(required = false) RefreshTokenRequest requestBody,
 		HttpServletRequest servletRequest,
 		HttpServletResponse servletResponse
 	) {
 		AuthSessionService service = authSessionService();
-		String refreshToken = requireRefreshTokenCookie(servletRequest);
-		AuthTokenResult result = service.refresh(refreshToken, metadata(servletRequest));
-		tokenCookiePort.ifAvailable(port -> port.addTokenCookies(servletResponse, result));
-		return AuthSessionResponse.from(result);
+		try {
+			String refreshToken = requireRefreshToken(servletRequest, requestBody);
+			AuthTokenResult result = service.refresh(refreshToken, metadata(servletRequest));
+			tokenCookiePort.ifAvailable(port -> port.addTokenCookies(servletResponse, result));
+			return AuthSessionResponse.from(result);
+		} catch (RefreshTokenRejectedException exception) {
+			tokenCookiePort.ifAvailable(port -> port.clearTokenCookies(servletResponse));
+			throw exception;
+		}
 	}
 
 	@Operation(
@@ -96,7 +103,7 @@ class AuthController {
 		HttpServletRequest servletRequest,
 		HttpServletResponse servletResponse
 	) {
-		authSessionService().logout(authenticatedUserId(jwt), requireRefreshTokenCookie(servletRequest));
+		authSessionService().logout(authenticatedUserId(jwt), requireRefreshToken(servletRequest, null));
 		tokenCookiePort.ifAvailable(port -> port.clearTokenCookies(servletResponse));
 	}
 
@@ -153,14 +160,28 @@ class AuthController {
 		return new AuthSessionMetadata(request.getHeader("User-Agent"), request.getRemoteAddr());
 	}
 
-	private String requireRefreshTokenCookie(HttpServletRequest servletRequest) {
+	private String requireRefreshToken(HttpServletRequest servletRequest, RefreshTokenRequest requestBody) {
 		return refreshTokenCookie(servletRequest)
-			.orElseThrow(() -> new RefreshTokenRejectedException("refresh token is required."));
+			.or(() -> refreshTokenBody(requestBody))
+			.orElseThrow(RefreshTokenRejectedException::required);
 	}
 
 	private Optional<String> refreshTokenCookie(HttpServletRequest servletRequest) {
 		AuthTokenCookiePort port = tokenCookiePort.getIfAvailable();
 		return port == null ? Optional.empty() : port.refreshToken(servletRequest);
+	}
+
+	private static Optional<String> refreshTokenBody(RefreshTokenRequest requestBody) {
+		return Optional.ofNullable(requestBody)
+			.map(RefreshTokenRequest::refreshToken)
+			.filter(value -> !value.isBlank());
+	}
+
+	@Schema(description = "토큰 갱신 요청입니다. HttpOnly refresh-token 쿠키가 있으면 쿠키 값이 우선합니다.")
+	private record RefreshTokenRequest(
+		@Schema(description = "쿠키가 없는 호환 클라이언트가 제출하는 refresh token입니다.")
+		String refreshToken
+	) {
 	}
 
 	@Schema(description = "브라우저가 cookie-backed unsafe 요청에 사용할 CSRF 토큰 응답입니다.")
