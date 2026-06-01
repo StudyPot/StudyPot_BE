@@ -3,10 +3,12 @@ package com.studypot.aistudyleader.studygroup.repository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -26,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 class JdbcStudyGroupRepository implements StudyGroupRepository {
 
 	private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+	};
+	private static final TypeReference<java.util.Map<String, Integer>> SCORE_MAP = new TypeReference<>() {
 	};
 
 	private final JdbcTemplate jdbcTemplate;
@@ -162,6 +166,28 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		return jdbcTemplate.query(StudyGroupJdbcSql.SELECT_GROUPS_BY_MEMBER_USER_ID, this::mapStudyGroup, uuid(userId));
 	}
 
+	@Override
+	public Optional<StudyGroupMemberProfile> findMyGroupMemberProfile(UUID groupId, UUID userId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE, this::mapMemberProfile, uuid(groupId), uuid(userId));
+	}
+
+	@Override
+	public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		Objects.requireNonNull(displayName, "displayName must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_MY_GROUP_MEMBER_DISPLAY_NAME,
+			displayName,
+			timestamp(updatedAt),
+			uuid(groupId),
+			uuid(userId)
+		) == 1;
+	}
+
 	private static StudyGroupJoinTarget mapJoinTarget(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new StudyGroupJoinTarget(
 			UuidBinary.fromBytes(resultSet.getBytes("id")),
@@ -192,6 +218,45 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		);
 	}
 
+	private StudyGroupMemberProfile mapMemberProfile(ResultSet resultSet, int rowNumber) throws SQLException {
+		String onboardingStatus = resultSet.getString("onboarding_status");
+		boolean onboardingSubmitted = "SUBMITTED".equals(onboardingStatus);
+		StudyGroupMemberProfile.CurrentWeekSummary currentWeek = null;
+		UUID currentWeekId = uuid(resultSet.getBytes("current_week_id"));
+		if (currentWeekId != null) {
+			String progressStatus = resultSet.getString("progress_status");
+			currentWeek = new StudyGroupMemberProfile.CurrentWeekSummary(
+				currentWeekId,
+				resultSet.getInt("week_number"),
+				resultSet.getString("sprint_goal"),
+				instant(resultSet.getTimestamp("week_starts_at")),
+				instant(resultSet.getTimestamp("week_ends_at")),
+				progressStatus == null ? MemberWeekProgressStatus.NOT_STARTED : MemberWeekProgressStatus.valueOf(progressStatus)
+			);
+		}
+		return new StudyGroupMemberProfile(
+			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			resultSet.getString("display_name"),
+			com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission.valueOf(resultSet.getString("permission")),
+			com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+			new StudyGroupMemberProfile.OnboardingSummary(
+				onboardingSubmitted,
+				onboardingSubmitted ? skillLevel(readScoreMap(resultSet.getString("keyword_skill_levels"))) : null,
+				instant(resultSet.getTimestamp("onboarding_submitted_at"))
+			),
+			currentWeek,
+			new StudyGroupMemberProfile.TaskCompletionSummary(
+				resultSet.getInt("task_total_count"),
+				resultSet.getInt("task_done_count"),
+				resultSet.getInt("task_incomplete_count"),
+				resultSet.getInt("task_skipped_count")
+			),
+			new StudyGroupMemberProfile.RetrospectiveSummary(resultSet.getBoolean("retrospective_feedback_ready"))
+		);
+	}
+
 	private <T> Optional<T> queryOne(String sql, ThrowingRowMapper<T> mapper, Object... args) {
 		List<T> results = jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapper.map(resultSet, rowNumber), args);
 		return results.stream().findFirst();
@@ -211,6 +276,28 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		} catch (JsonProcessingException exception) {
 			throw new StudyGroupPersistenceException("study group detail keywords could not be deserialized.", exception);
 		}
+	}
+
+	private java.util.Map<String, Integer> readScoreMap(String value) {
+		if (value == null || value.isBlank()) {
+			return java.util.Map.of();
+		}
+		try {
+			return objectMapper.readValue(value, SCORE_MAP);
+		} catch (JsonProcessingException exception) {
+			throw new StudyGroupPersistenceException("study group skill levels could not be deserialized.", exception);
+		}
+	}
+
+	private static int skillLevel(java.util.Map<String, Integer> scoreMap) {
+		if (scoreMap.isEmpty()) {
+			return 1;
+		}
+		double average = scoreMap.values().stream()
+			.mapToInt(Integer::intValue)
+			.average()
+			.orElse(1);
+		return (int) Math.round(average);
 	}
 
 	private static boolean isInviteCodeConflict(DuplicateKeyException exception) {
@@ -239,6 +326,10 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
+	}
+
+	private static UUID uuid(byte[] value) {
+		return value == null ? null : UuidBinary.fromBytes(value);
 	}
 
 	private static Date date(LocalDate date) {

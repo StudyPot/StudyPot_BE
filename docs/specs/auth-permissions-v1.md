@@ -8,6 +8,7 @@
 - Cross-site CSRF trusted-origin header validation is authorized by [CR-20260528-cross-site-csrf-trusted-origin-header](./change-requests/CR-20260528-cross-site-csrf-trusted-origin-header.md) and [ADR-20260528-cross-site-csrf-trusted-origin-header](./adr/ADR-20260528-cross-site-csrf-trusted-origin-header.md).
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
+- Group member profile read/update is authorized by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
 
 ## Roles and Statuses
 | Concept | Values |
@@ -31,6 +32,8 @@
 | Join group by invite | no | yes | yes | yes | yes |
 | Read group summary | no | no | yes | yes | yes |
 | Update group | no | no | no | no | yes |
+| Read own group member profile | no | no | yes | yes | yes |
+| Update own group display name | no | no | yes | yes | yes |
 | Submit own onboarding | no | no | yes | yes | yes |
 | List member onboarding status | no | no | limited | yes | yes |
 | Start study | no | no | no | no | yes |
@@ -50,6 +53,7 @@
 
 ## Data Visibility
 - Members can read their own onboarding response.
+- Current group members can read their own group-scoped member profile and update only their own group display name.
 - Owners can see onboarding completion status and aggregate summaries needed to start the study.
 - Owners should not receive raw private notes beyond what is needed for group operation unless the product explicitly exposes them.
 - Members can read their own retrospective and conversation records.
@@ -62,6 +66,7 @@
 
 ## State Rules
 - A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.
+- A `PENDING_ONBOARDING` member can read/update their own group-scoped profile display name.
 - An `ACTIVE` member can read and participate in current/future weeks.
 - A `LEFT` member cannot create new progress, retrospective, conversation, or completion records.
 - `ARCHIVED` groups are read-only except for owner/admin audit access.

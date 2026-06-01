@@ -1,16 +1,19 @@
 package com.studypot.aistudyleader.studygroup.controller;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
+import com.studypot.aistudyleader.studygroup.service.GetMyGroupMemberProfileQuery;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
 import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
@@ -18,6 +21,7 @@ import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.service.UpdateMyGroupMemberProfileCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,6 +37,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -110,6 +116,54 @@ class StudyGroupController {
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
 		return StudyGroupResponse.from(group);
+	}
+
+	@Operation(
+		summary = "스터디 그룹 안의 내 마이페이지 조회",
+		description = "인증된 사용자가 특정 스터디 그룹 안에서 자신의 멤버 프로필, 온보딩 요약, 현재 주차와 과제 완료 요약을 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "내 그룹 멤버 프로필 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "현재 그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/members/me/profile")
+	StudyGroupMemberProfileResponse getMyGroupMemberProfile(
+		Authentication authentication,
+		@Parameter(description = "내 프로필을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		StudyGroupMemberProfile profile = service().getMyGroupMemberProfile(
+			new GetMyGroupMemberProfileQuery(authenticatedUserId(authentication), groupId)
+		);
+		return StudyGroupMemberProfileResponse.from(profile);
+	}
+
+	@Operation(
+		summary = "스터디 그룹 안의 내 마이페이지 수정",
+		description = "인증된 사용자가 특정 스터디 그룹 안에서 자신의 표시 이름을 수정하고 최신 프로필 요약을 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "내 그룹 멤버 프로필 수정 후 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "현재 그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "422", description = "표시 이름 검증 실패"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}/members/me/profile")
+	StudyGroupMemberProfileResponse updateMyGroupMemberProfile(
+		Authentication authentication,
+		@Parameter(description = "내 프로필을 수정할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Valid @RequestBody UpdateGroupMemberProfileRequest request
+	) {
+		StudyGroupMemberProfile profile = service().updateMyGroupMemberProfile(
+			request.toCommand(authenticatedUserId(authentication), groupId)
+		);
+		return StudyGroupMemberProfileResponse.from(profile);
 	}
 
 	@Operation(
@@ -306,6 +360,138 @@ class StudyGroupController {
 				group.startsAt(),
 				group.endsAt()
 			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 내 마이페이지 수정 요청입니다.")
+	private record UpdateGroupMemberProfileRequest(
+		@Schema(description = "그룹 안에서 표시할 내 이름입니다. 1자 이상 80자 이하입니다.", example = "현우")
+		@NotBlank
+		@Size(max = 80)
+		String displayName
+	) {
+
+		UpdateMyGroupMemberProfileCommand toCommand(UUID authenticatedUserId, UUID groupId) {
+			return new UpdateMyGroupMemberProfileCommand(authenticatedUserId, groupId, displayName);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 내 마이페이지 응답입니다.")
+	private record StudyGroupMemberProfileResponse(
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "그룹 멤버십 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID memberId,
+		@Schema(description = "인증된 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID userId,
+		@Schema(description = "그룹 안에서 표시할 내 이름입니다.", example = "현우")
+		String displayName,
+		@Schema(description = "그룹 내 권한입니다.", example = "MEMBER")
+		GroupMemberPermission permission,
+		@Schema(description = "그룹 참여/온보딩 상태입니다.", example = "ACTIVE")
+		GroupMemberStatus status,
+		@Schema(description = "내 온보딩 제출 요약입니다.")
+		OnboardingSummaryResponse onboarding,
+		@Schema(description = "현재 진행 중인 주차 요약입니다. 활성 주차가 없으면 null입니다.")
+		CurrentWeekSummaryResponse currentWeek,
+		@Schema(description = "현재 주차 과제 완료 통계입니다.")
+		TaskCompletionSummaryResponse taskCompletion,
+		@Schema(description = "최근 회고/AI 피드백 요약입니다.")
+		RetrospectiveSummaryResponse retrospective
+	) {
+
+		private static StudyGroupMemberProfileResponse from(StudyGroupMemberProfile profile) {
+			return new StudyGroupMemberProfileResponse(
+				profile.groupId(),
+				profile.memberId(),
+				profile.userId(),
+				profile.displayName(),
+				profile.permission(),
+				profile.status(),
+				OnboardingSummaryResponse.from(profile.onboarding()),
+				CurrentWeekSummaryResponse.from(profile.currentWeek()),
+				TaskCompletionSummaryResponse.from(profile.taskCompletion()),
+				RetrospectiveSummaryResponse.from(profile.retrospective())
+			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 내 온보딩 제출 요약입니다.")
+	private record OnboardingSummaryResponse(
+		@Schema(description = "온보딩 제출 여부입니다.", example = "true")
+		boolean submitted,
+		@Schema(description = "온보딩에서 제출한 전체 skill level입니다. 미제출이면 null입니다.", example = "3")
+		Integer skillLevel,
+		@Schema(description = "온보딩 제출 시각입니다. 미제출이면 null입니다.", example = "2026-05-10T01:00:00Z")
+		Instant submittedAt
+	) {
+
+		private static OnboardingSummaryResponse from(StudyGroupMemberProfile.OnboardingSummary summary) {
+			return new OnboardingSummaryResponse(summary.submitted(), summary.skillLevel(), summary.submittedAt());
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 현재 주차와 내 진행 상태 요약입니다.")
+	private record CurrentWeekSummaryResponse(
+		@Schema(description = "현재 주차 UUID입니다.", example = "018f6f55-8bf2-78d9-a332-6e74b1484520")
+		UUID weekId,
+		@Schema(description = "커리큘럼 안에서의 주차 번호입니다.", example = "2")
+		int weekNumber,
+		@Schema(description = "현재 주차 스프린트 목표입니다.", example = "JPA 실습")
+		String sprintGoal,
+		@Schema(description = "현재 주차 시작 시각입니다.", example = "2026-05-17T00:00:00Z")
+		Instant startsAt,
+		@Schema(description = "현재 주차 종료 시각입니다.", example = "2026-05-24T00:00:00Z")
+		Instant endsAt,
+		@Schema(description = "내 현재 주차 진행 상태입니다.", example = "IN_PROGRESS")
+		MemberWeekProgressStatus progressStatus
+	) {
+
+		private static CurrentWeekSummaryResponse from(StudyGroupMemberProfile.CurrentWeekSummary summary) {
+			if (summary == null) {
+				return null;
+			}
+			return new CurrentWeekSummaryResponse(
+				summary.weekId(),
+				summary.weekNumber(),
+				summary.sprintGoal(),
+				summary.startsAt(),
+				summary.endsAt(),
+				summary.progressStatus()
+			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 현재 주차 과제 완료 통계입니다.")
+	private record TaskCompletionSummaryResponse(
+		@Schema(description = "현재 주차 전체 과제 수입니다.", example = "4")
+		int totalCount,
+		@Schema(description = "완료한 현재 주차 과제 수입니다.", example = "2")
+		int doneCount,
+		@Schema(description = "미완료로 표시한 현재 주차 과제 수입니다.", example = "1")
+		int incompleteCount,
+		@Schema(description = "건너뜀 처리한 현재 주차 과제 수입니다.", example = "1")
+		int skippedCount
+	) {
+
+		private static TaskCompletionSummaryResponse from(StudyGroupMemberProfile.TaskCompletionSummary summary) {
+			return new TaskCompletionSummaryResponse(
+				summary.totalCount(),
+				summary.doneCount(),
+				summary.incompleteCount(),
+				summary.skippedCount()
+			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 안의 최근 회고/AI 피드백 준비 상태입니다.")
+	private record RetrospectiveSummaryResponse(
+		@Schema(description = "현재 주차에 완료된 회고/AI 피드백이 있는지 여부입니다.", example = "true")
+		boolean feedbackReady
+	) {
+
+		private static RetrospectiveSummaryResponse from(StudyGroupMemberProfile.RetrospectiveSummary summary) {
+			return new RetrospectiveSummaryResponse(summary.feedbackReady());
 		}
 	}
 

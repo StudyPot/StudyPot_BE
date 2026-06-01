@@ -10,10 +10,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -208,6 +212,61 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void findMyGroupMemberProfileQueriesCurrentMemberProfile() {
+		StudyGroupMemberProfile profile = profile();
+		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(profile));
+
+		Optional<StudyGroupMemberProfile> result = repository.findMyGroupMemberProfile(GROUP_ID, USER_ID);
+
+		assertThat(result).contains(profile);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void profileQueryUsesCurrentMembershipAndExistingSummaryTables() {
+		assertThat(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE)
+			.contains("join group_member gm on gm.group_id = sg.id")
+			.contains("left join group_onboarding_response gor")
+			.contains("left join curriculum_week cw")
+			.contains("left join member_week_progress mwp")
+			.contains("from retrospective r")
+			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null");
+	}
+
+	@Test
+	void updateMyGroupMemberDisplayNameUpdatesCurrentLiveMembership() {
+		when(jdbcTemplate.update(eq(StudyGroupJdbcSql.UPDATE_MY_GROUP_MEMBER_DISPLAY_NAME), any(Object[].class)))
+			.thenReturn(1);
+
+		boolean updated = repository.updateMyGroupMemberDisplayName(GROUP_ID, USER_ID, "현우", NOW);
+
+		assertThat(updated).isTrue();
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(StudyGroupJdbcSql.UPDATE_MY_GROUP_MEMBER_DISPLAY_NAME), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo("현우");
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void profileUpdateUsesCurrentLiveMemberFilter() {
+		assertThat(StudyGroupJdbcSql.UPDATE_MY_GROUP_MEMBER_DISPLAY_NAME)
+			.contains("join study_group sg on sg.id = gm.group_id")
+			.contains("gm.group_id = ?")
+			.contains("gm.user_id = ?")
+			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null");
+	}
+
+	@Test
 	void saveJoinedMemberInsertsMemberRow() {
 		GroupMember member = GroupMember.member(MEMBER_ID, GROUP_ID, USER_ID, null, NOW);
 
@@ -251,5 +310,27 @@ class JdbcStudyGroupRepositoryTest {
 
 	private static GroupMember owner(StudyGroup group) {
 		return GroupMember.owner(MEMBER_ID, group.id(), USER_ID, null, NOW);
+	}
+
+	private static StudyGroupMemberProfile profile() {
+		return new StudyGroupMemberProfile(
+			GROUP_ID,
+			MEMBER_ID,
+			USER_ID,
+			"현우",
+			GroupMemberPermission.OWNER,
+			GroupMemberStatus.ACTIVE,
+			new StudyGroupMemberProfile.OnboardingSummary(true, 3, NOW),
+			new StudyGroupMemberProfile.CurrentWeekSummary(
+				UUID.fromString("018f0000-0000-7000-8000-000000002844"),
+				1,
+				"JPA 실습",
+				NOW,
+				NOW.plusSeconds(604800),
+				MemberWeekProgressStatus.IN_PROGRESS
+			),
+			new StudyGroupMemberProfile.TaskCompletionSummary(4, 2, 1, 1),
+			new StudyGroupMemberProfile.RetrospectiveSummary(true)
+		);
 	}
 }

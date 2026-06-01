@@ -135,7 +135,7 @@ public final class GroupMember extends AggregateRoot<UUID> {
 		);
 	}
 
-	private static String normalizeDisplayName(String displayName) {
+	public static String normalizeDisplayName(String displayName) {
 		if (displayName == null || displayName.isBlank()) {
 			return null;
 		}

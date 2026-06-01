@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.notification.service.NotificationEventPublishe
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.repository.GroupMemberDuplicateMembershipException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupInviteCodeConflictException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupRepository;
@@ -128,6 +129,35 @@ public class StudyGroupService {
 				}
 				throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
 			});
+	}
+
+	@Transactional(readOnly = true)
+	public StudyGroupMemberProfile getMyGroupMemberProfile(GetMyGroupMemberProfileQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		return repository.findMyGroupMemberProfile(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> profileAccessFailure(query.groupId()));
+	}
+
+	@Transactional
+	public StudyGroupMemberProfile updateMyGroupMemberProfile(UpdateMyGroupMemberProfileCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		boolean updated = repository.updateMyGroupMemberDisplayName(
+			command.groupId(),
+			command.authenticatedUserId(),
+			command.displayName(),
+			clock.instant()
+		);
+		if (!updated) {
+			profileAccessFailure(command.groupId());
+		}
+		return getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(command.authenticatedUserId(), command.groupId()));
+	}
+
+	private StudyGroupMemberProfile profileAccessFailure(UUID groupId) {
+		if (!repository.existsStudyGroup(groupId)) {
+			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+		throw new StudyGroupAccessDeniedException("authenticated user is not a current member of this study group.");
 	}
 
 	private StudyGroupCreationResult createCandidate(CreateStudyGroupCommand command) {

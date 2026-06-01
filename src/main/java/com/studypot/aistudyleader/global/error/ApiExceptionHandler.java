@@ -44,6 +44,7 @@ import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDenie
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveNotFoundException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.service.InvalidStudyGroupMemberProfileRequestException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
@@ -249,6 +250,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidGroupRuleRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidGroupRuleRequest(InvalidGroupRuleRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidStudyGroupMemberProfileRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidStudyGroupMemberProfileRequest(InvalidStudyGroupMemberProfileRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

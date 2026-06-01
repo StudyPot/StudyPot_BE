@@ -11,7 +11,9 @@
 - Current-session logout and logout-all require bearer authentication.
 - Owner creates/updates group and starts study.
 - Pending member can submit onboarding.
+- Pending member can read/update their own group-scoped profile display name.
 - Active member can view curriculum, complete todos, request retrospective, and chat with AI.
+- Current group members can read/update only their own group member profile; `LEFT` members are not current members.
 - Active conversation members can list and stream only their own AI conversation messages.
 - Members can read and mark their own in-app notifications.
 - Owner can read group notification and LLM usage logs.

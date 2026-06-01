@@ -60,6 +60,8 @@
 | `PATCH` | `/api/v1/groups/{groupId}` | `study-group-core` | owner | Update mutable group fields before active lock. |
 | `POST` | `/api/v1/groups/{groupId}/join` | `study-group-core` | authenticated | Join by invite code/link. |
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
+| `GET` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Read my group-scoped member profile and current study summaries. |
+| `PATCH` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Update my group-scoped display name. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
@@ -162,6 +164,55 @@ Suggested keywords are transient. Only the final selected or directly entered `d
 ```
 
 The backend maps `skillLevel` to internal keyword score JSON for the group's detail keywords so existing curriculum and retrospective context builders continue to work. Public onboarding responses expose `skillLevel`, not `keywordSkillLevels` or `taskPreferences`.
+
+### Group Member Profile
+Approved by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
+
+`GET /api/v1/groups/{groupId}/members/me/profile` response:
+```json
+{
+  "groupId": "018f6f55-6fb1-7d62-a711-25f7c6d16a28",
+  "memberId": "018f6f55-75e9-78d2-9f5c-598945b93400",
+  "userId": "018f6f55-6f42-7e11-b479-120c5f2e9d42",
+  "displayName": "현우",
+  "permission": "MEMBER",
+  "status": "ACTIVE",
+  "onboarding": {
+    "submitted": true,
+    "skillLevel": 3,
+    "submittedAt": "2026-05-10T01:00:00Z"
+  },
+  "currentWeek": {
+    "weekId": "018f6f55-8bf2-78d9-a332-6e74b1484520",
+    "weekNumber": 2,
+    "sprintGoal": "JPA 실습",
+    "startsAt": "2026-05-17T00:00:00Z",
+    "endsAt": "2026-05-24T00:00:00Z",
+    "progressStatus": "IN_PROGRESS"
+  },
+  "taskCompletion": {
+    "totalCount": 4,
+    "doneCount": 2,
+    "incompleteCount": 1,
+    "skippedCount": 1
+  },
+  "retrospective": {
+    "feedbackReady": true
+  }
+}
+```
+
+`PATCH /api/v1/groups/{groupId}/members/me/profile` request:
+```json
+{
+  "displayName": "현우"
+}
+```
+
+- `displayName` is the group-scoped display name stored in `group_member.display_name`; it is distinct from global user nickname/email.
+- PATCH is limited to `displayName` with 1 to 80 non-blank characters. Introduction, goal, memo, and profile image fields are deferred until a DB/API change is approved.
+- Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Existing groups with no current membership, `LEFT` membership, deleted membership, or another user return forbidden. Missing groups return not found.
+- `currentWeek` is omitted/null when the group has no active current week. `taskCompletion` still returns zero counts in that case.
 
 ### Task Completion
 Request:
