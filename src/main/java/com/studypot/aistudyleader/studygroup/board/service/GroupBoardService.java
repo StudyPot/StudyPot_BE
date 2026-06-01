@@ -280,7 +280,7 @@ public class GroupBoardService {
 			if (parts.length != 3) {
 				throw new IllegalArgumentException("cursor format is invalid.");
 			}
-			return new GroupBoardPostCursor(Boolean.parseBoolean(parts[0]), Instant.parse(parts[1]), UUID.fromString(parts[2]));
+			return new GroupBoardPostCursor(parseCursorBoolean(parts[0]), Instant.parse(parts[1]), UUID.fromString(parts[2]));
 		} catch (IllegalArgumentException | DateTimeParseException exception) {
 			throw new InvalidGroupBoardRequestException("cursor", "cursor is invalid.");
 		}
@@ -305,6 +305,13 @@ public class GroupBoardService {
 		} catch (IllegalArgumentException | DateTimeParseException exception) {
 			throw new InvalidGroupBoardRequestException("cursor", "cursor is invalid.");
 		}
+	}
+
+	private static boolean parseCursorBoolean(String value) {
+		if (!"true".equals(value) && !"false".equals(value)) {
+			throw new IllegalArgumentException("cursor boolean is invalid.");
+		}
+		return Boolean.parseBoolean(value);
 	}
 
 	private static InvalidGroupBoardRequestException invalidRequest(String field, IllegalArgumentException exception) {

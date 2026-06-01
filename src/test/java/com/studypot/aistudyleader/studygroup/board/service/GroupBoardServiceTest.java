@@ -15,11 +15,13 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardRepository;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -157,6 +159,19 @@ class GroupBoardServiceTest {
 			)))
 			.isInstanceOf(InvalidGroupBoardRequestException.class)
 			.hasMessage("cursor is invalid.");
+
+		String invalidBooleanCursor = Base64.getUrlEncoder()
+			.withoutPadding()
+			.encodeToString(("maybe|" + NOW + "|" + POST_ID).getBytes(StandardCharsets.UTF_8));
+		assertThatThrownBy(() -> service.listPosts(new ListGroupBoardPostsQuery(
+				USER_ID,
+				GROUP_ID,
+				BOARD_ID,
+				invalidBooleanCursor,
+				20
+			)))
+			.isInstanceOf(InvalidGroupBoardRequestException.class)
+			.hasMessage("cursor is invalid.");
 	}
 
 	@Test
@@ -173,6 +188,21 @@ class GroupBoardServiceTest {
 			)))
 			.isInstanceOf(GroupBoardAccessDeniedException.class)
 			.hasMessage("only the comment author can update comment content.");
+	}
+
+	@Test
+	void updateCommentRejectsBlankContent() {
+		CapturingRepository repository = new CapturingRepository();
+		GroupBoardService service = service(repository);
+
+		assertThatThrownBy(() -> service.updateComment(new UpdateGroupBoardCommentCommand(
+				USER_ID,
+				GROUP_ID,
+				COMMENT_ID,
+				"  "
+			)))
+			.isInstanceOf(InvalidGroupBoardRequestException.class)
+			.hasMessage("content must not be blank.");
 	}
 
 	private static GroupBoardService service(CapturingRepository repository, UUID... ids) {
