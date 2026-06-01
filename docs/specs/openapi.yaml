@@ -16,6 +16,8 @@ info:
       - ADR-20260601-notification-sse-stream
       - CR-20260601-ai-conversation-sse-stream
       - ADR-20260601-ai-conversation-sse-stream
+      - CR-20260601-study-group-board-api
+      - ADR-20260601-study-group-board-api
 servers:
   - url: /api/v1
 security:
@@ -331,6 +333,243 @@ paths:
           description: Group not found
         '422':
           description: Invalid display name
+  /groups/{groupId}/boards:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      tags: [GroupBoards]
+      operationId: listGroupBoards
+      summary: List group boards
+      responses:
+        '200':
+          description: Group boards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupBoardResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required
+        '404':
+          description: Group not found
+  /groups/{groupId}/boards/{boardId}/posts:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/BoardId'
+    get:
+      tags: [GroupBoards]
+      operationId: listGroupBoardPosts
+      summary: List group board posts
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: {type: string}
+        - name: pageSize
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Board posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardPostPageResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required or cross-group board access
+        '404':
+          description: Group or board not found
+        '422':
+          description: Invalid cursor or page size
+    post:
+      tags: [GroupBoards]
+      operationId: createGroupBoardPost
+      summary: Create group board post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupBoardPostRequest'
+      responses:
+        '201':
+          description: Board post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardPostResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required, cross-group board access, or non-owner pinned post
+        '404':
+          description: Group or board not found
+        '422':
+          description: Invalid post title or content
+  /groups/{groupId}/posts/{postId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/PostId'
+    get:
+      tags: [GroupBoards]
+      operationId: getGroupBoardPost
+      summary: Get group board post
+      responses:
+        '200':
+          description: Board post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardPostResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required or cross-group post access
+        '404':
+          description: Group or post not found
+    patch:
+      tags: [GroupBoards]
+      operationId: updateGroupBoardPost
+      summary: Update group board post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupBoardPostRequest'
+      responses:
+        '200':
+          description: Board post updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardPostResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Post author or owner permission required
+        '404':
+          description: Group or post not found
+        '422':
+          description: Invalid update payload
+    delete:
+      tags: [GroupBoards]
+      operationId: deleteGroupBoardPost
+      summary: Delete group board post
+      responses:
+        '204':
+          description: Board post deleted
+        '401':
+          description: Authentication required
+        '403':
+          description: Post author or owner permission required
+        '404':
+          description: Group or post not found
+  /groups/{groupId}/posts/{postId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/PostId'
+    get:
+      tags: [GroupBoards]
+      operationId: listGroupBoardComments
+      summary: List group board post comments
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: {type: string}
+        - name: pageSize
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Board post comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardCommentPageResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required or cross-group post access
+        '404':
+          description: Group or post not found
+        '422':
+          description: Invalid cursor or page size
+    post:
+      tags: [GroupBoards]
+      operationId: createGroupBoardComment
+      summary: Create group board comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupBoardCommentRequest'
+      responses:
+        '201':
+          description: Board comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardCommentResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required or cross-group post access
+        '404':
+          description: Group or post not found
+        '422':
+          description: Invalid comment content
+  /groups/{groupId}/comments/{commentId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/CommentId'
+    patch:
+      tags: [GroupBoards]
+      operationId: updateGroupBoardComment
+      summary: Update group board comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupBoardCommentRequest'
+      responses:
+        '200':
+          description: Board comment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBoardCommentResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Comment author permission required
+        '404':
+          description: Group or comment not found
+        '422':
+          description: Invalid comment content
+    delete:
+      tags: [GroupBoards]
+      operationId: deleteGroupBoardComment
+      summary: Delete group board comment
+      responses:
+        '204':
+          description: Board comment deleted
+        '401':
+          description: Authentication required
+        '403':
+          description: Comment author or owner permission required
+        '404':
+          description: Group or comment not found
   /groups/{groupId}/start:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -660,6 +899,21 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    BoardId:
+      name: boardId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     WeekId:
       name: weekId
       in: path
@@ -882,6 +1136,115 @@ components:
       required: [feedbackReady]
       properties:
         feedbackReady: {type: boolean}
+    GroupBoardType:
+      type: string
+      enum: [NOTICE, QUESTION, RESOURCE, RETROSPECTIVE]
+    GroupBoardResponse:
+      type: object
+      required: [id, groupId, boardType, name, displayOrder, defaultBoard, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        groupId: {type: string, format: uuid}
+        boardType:
+          $ref: '#/components/schemas/GroupBoardType'
+        name: {type: string}
+        description: {type: string}
+        displayOrder: {type: integer, minimum: 1}
+        defaultBoard: {type: boolean}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    GroupBoardAuthorResponse:
+      type: object
+      required: [memberId]
+      properties:
+        memberId: {type: string, format: uuid}
+        userId: {type: string, format: uuid}
+        displayName: {type: string}
+    CreateGroupBoardPostRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 200}
+        content: {type: string, minLength: 1, maxLength: 10000}
+        pinned: {type: boolean, default: false}
+    UpdateGroupBoardPostRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title: {type: string, minLength: 1, maxLength: 200}
+        content: {type: string, minLength: 1, maxLength: 10000}
+        pinned: {type: boolean}
+    GroupBoardPostSummaryResponse:
+      type: object
+      required: [id, groupId, boardId, author, title, contentPreview, pinned, commentCount, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        groupId: {type: string, format: uuid}
+        boardId: {type: string, format: uuid}
+        author:
+          $ref: '#/components/schemas/GroupBoardAuthorResponse'
+        title: {type: string}
+        contentPreview: {type: string}
+        pinned: {type: boolean}
+        commentCount: {type: integer, minimum: 0}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    GroupBoardPostResponse:
+      type: object
+      required: [id, groupId, boardId, author, title, content, pinned, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        groupId: {type: string, format: uuid}
+        boardId: {type: string, format: uuid}
+        author:
+          $ref: '#/components/schemas/GroupBoardAuthorResponse'
+        title: {type: string}
+        content: {type: string}
+        pinned: {type: boolean}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    GroupBoardPostPageResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupBoardPostSummaryResponse'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfoResponse'
+    CreateGroupBoardCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content: {type: string, minLength: 1, maxLength: 3000}
+    UpdateGroupBoardCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content: {type: string, minLength: 1, maxLength: 3000}
+    GroupBoardCommentResponse:
+      type: object
+      required: [id, groupId, postId, author, content, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        groupId: {type: string, format: uuid}
+        postId: {type: string, format: uuid}
+        author:
+          $ref: '#/components/schemas/GroupBoardAuthorResponse'
+        content: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    GroupBoardCommentPageResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupBoardCommentResponse'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfoResponse'
     AvailabilitySlot:
       type: object
       required: [dayOfWeek, startTime, endTime, timezone]

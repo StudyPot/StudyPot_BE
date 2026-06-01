@@ -49,6 +49,12 @@ import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedExcep
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardPersistenceException;
+import com.studypot.aistudyleader.studygroup.board.service.GroupBoardAccessDeniedException;
+import com.studypot.aistudyleader.studygroup.board.service.GroupBoardMutationRejectedException;
+import com.studypot.aistudyleader.studygroup.board.service.GroupBoardNotFoundException;
+import com.studypot.aistudyleader.studygroup.board.service.GroupBoardServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.board.service.InvalidGroupBoardRequestException;
 import com.studypot.aistudyleader.studygroup.rules.repository.GroupRulePersistenceException;
 import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.rules.service.GroupRuleGroupNotFoundException;
@@ -159,6 +165,12 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
 	}
 
+	@ExceptionHandler({GroupBoardServiceUnavailableException.class, GroupBoardPersistenceException.class})
+	public ResponseEntity<ProblemDetail> handleGroupBoardServiceUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(problemDetailFactory.serviceUnavailable(messageOrDefault(exception.getMessage())));
+	}
+
 	@ExceptionHandler({CurriculumServiceUnavailableException.class, CurriculumGenerationException.class})
 	public ResponseEntity<ProblemDetail> handleCurriculumServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -187,6 +199,7 @@ public class ApiExceptionHandler {
 		OnboardingResponseNotFoundException.class,
 		CurriculumGroupNotFoundException.class,
 		CurriculumNotFoundException.class,
+		GroupBoardNotFoundException.class,
 		GroupRuleGroupNotFoundException.class,
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
@@ -204,6 +217,7 @@ public class ApiExceptionHandler {
 		StudyGroupAccessDeniedException.class,
 		OnboardingMembershipRequiredException.class,
 		CurriculumAccessDeniedException.class,
+		GroupBoardAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
 		AiConversationAccessDeniedException.class,
@@ -220,6 +234,7 @@ public class ApiExceptionHandler {
 		CurriculumStartRejectedException.class,
 		TaskCompletionUpdateRejectedException.class,
 		WeekProgressUpdateRejectedException.class,
+		GroupBoardMutationRejectedException.class,
 		GroupRuleMutationRejectedException.class,
 		OnboardingAlreadySubmittedException.class,
 		RetrospectiveMutationRejectedException.class,
@@ -250,6 +265,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidGroupRuleRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidGroupRuleRequest(InvalidGroupRuleRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidGroupBoardRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidGroupBoardRequest(InvalidGroupBoardRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

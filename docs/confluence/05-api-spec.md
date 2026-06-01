@@ -6,8 +6,8 @@
 - Human contract: `docs/specs/api-contract-v1.md`
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
-- Current contract size: 31 paths, 47 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`, `CR-20260601-task-completion-response-contract`, `CR-20260601-group-member-profile-api`
+- Current contract size: 36 paths, 59 schemas
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`, `CR-20260601-task-completion-response-contract`, `CR-20260601-group-member-profile-api`, `CR-20260601-study-group-board-api`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -25,6 +25,7 @@
 | --- | --- | --- |
 | Auth/User | `identity-core` | Current user and session identity. |
 | Study Group | `study-group-core` | Group creation, invite code, membership, and status. |
+| Study Group Board | `study-group-board` | Group-visible default boards, posts, and comments. |
 | Onboarding | `group-onboarding` | Group/member onboarding responses and availability slots. |
 | Curriculum | `curriculum-core` | Host-start generated curriculum, weeks, and tasks. |
 | Weekly Todo | `weekly-todo` | Member week progress and task completion/incomplete reasons. |
@@ -54,6 +55,16 @@
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
 | `GET` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Read my group-scoped member profile and current study summaries. |
 | `PATCH` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Update my group-scoped display name. |
+| `GET` | `/api/v1/groups/{groupId}/boards` | `study-group-board` | active group member | List or initialize default boards. |
+| `GET` | `/api/v1/groups/{groupId}/boards/{boardId}/posts` | `study-group-board` | active group member | List board posts. |
+| `POST` | `/api/v1/groups/{groupId}/boards/{boardId}/posts` | `study-group-board` | active group member | Create board post. |
+| `GET` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | active group member | Read board post. |
+| `PATCH` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | post author or owner | Update post content or pinned state. |
+| `DELETE` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | post author or owner | Delete board post. |
+| `GET` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | List post comments. |
+| `POST` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | Create post comment. |
+| `PATCH` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author | Update comment. |
+| `DELETE` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author or owner | Delete comment. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
@@ -186,6 +197,15 @@ Public onboarding responses expose `skillLevel`, not internal keyword score or t
 - PATCH is limited to 1 to 80 non-blank `displayName` characters.
 - Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Missing groups return not found; existing groups without current membership return forbidden.
 
+### Study Group Board
+- Approved by `CR-20260601-study-group-board-api`.
+- Default board types are `NOTICE`, `QUESTION`, `RESOURCE`, and `RETROSPECTIVE`; `GET /groups/{groupId}/boards` initializes missing default rows idempotently.
+- Posts require non-blank `title` up to 200 characters and `content` up to 10,000 characters.
+- Comments require non-blank `content` up to 3,000 characters.
+- Post lists use pinned-first newest-first cursor pagination. Comment lists use creation-order cursor pagination.
+- Only `ACTIVE` members can read/write boards. Authors can edit/delete their own content. OWNER users can delete any post/comment and update post `pinned`, but cannot rewrite another member's title/content.
+- Uploads, mentions, reactions, search, tags, realtime board events, board notifications, and AI summaries are deferred.
+
 ### Task Completion
 Request:
 ```json
@@ -219,6 +239,8 @@ Response:
 ## State Transition Rules
 - `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
 - `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
+- `group_board_post`: `PUBLISHED -> DELETED`.
+- `group_board_comment`: `PUBLISHED -> DELETED`.
 - `task_completion`: `TODO -> DONE`, `TODO -> INCOMPLETE`, `TODO -> SKIPPED`.
 - `retrospective`: `PENDING -> PROCESSING -> COMPLETED` or `FAILED`.
 - `notification`: `PENDING -> DELIVERED -> READ`; failed generation/delivery can become `FAILED` or `SKIPPED`.

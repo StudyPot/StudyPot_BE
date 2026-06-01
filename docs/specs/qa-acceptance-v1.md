@@ -9,6 +9,7 @@
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 - Group member profile read/update is authorized by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
+- Study group board APIs are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -34,6 +35,12 @@
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
 | `study-group-core` | `QA-GRP-004` | Owner-only group updates reject non-owner access. |
 | `study-group-core` | `QA-GRP-005` | Current members can read/update their own group member profile, while non-members and LEFT members are rejected. |
+| `study-group-board` | `QA-BOARD-001` | Active members can list group boards and missing default boards are initialized idempotently. |
+| `study-group-board` | `QA-BOARD-002` | Active members can create and read board posts, and invalid title/content/page cursor values return validation problems. |
+| `study-group-board` | `QA-BOARD-003` | Post list pagination orders pinned posts first, then newest posts, and returns a next cursor when more rows exist. |
+| `study-group-board` | `QA-BOARD-004` | Authors can update/delete their own posts; OWNER users can pin/delete; non-author OWNER users cannot rewrite another member's title/content. |
+| `study-group-board` | `QA-BOARD-005` | Active members can create/list/update/delete comments, with author-only content edits and OWNER moderation deletes. |
+| `study-group-board` | `QA-BOARD-006` | Non-members, PENDING_ONBOARDING members, LEFT members, deleted memberships, and cross-group resource access are rejected. |
 | `group-onboarding` | `QA-ONB-001` | Host and members can submit onboarding in one request. |
 | `group-onboarding` | `QA-ONB-002` | Overall skill level rejects values outside 1 to 5. |
 | `group-onboarding` | `QA-ONB-003` | Availability slots reject invalid day/time windows. |
@@ -68,6 +75,7 @@
 - Login from two sessions -> logout-all -> both refresh tokens rejected.
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
 - Group-scoped my profile read/update returns member, onboarding, current-week, task-completion, and retrospective summaries and rejects non-member access.
+- Group board default initialization -> post create/list/read/update/delete -> comment create/list/update/delete with author, owner, inactive member, and cross-group rejection checks.
 - Host start with only partial onboarding completion.
 - Current week task completion before due date.
 - Current week progress read after progress creation.
