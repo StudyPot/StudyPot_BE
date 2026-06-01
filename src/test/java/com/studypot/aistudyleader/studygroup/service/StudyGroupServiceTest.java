@@ -382,6 +382,17 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void taskCompletionSummaryAllowsUnattemptedTasksButRejectsImpossibleCounts() {
+		StudyGroupMemberProfile.TaskCompletionSummary summary =
+			new StudyGroupMemberProfile.TaskCompletionSummary(5, 2, 1, 1);
+
+		assertThat(summary.totalCount()).isEqualTo(5);
+		assertThatThrownBy(() -> new StudyGroupMemberProfile.TaskCompletionSummary(3, 2, 1, 1))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("status counts must not exceed totalCount.");
+	}
+
+	@Test
 	void updateMyGroupMemberProfileRejectsExistingGroupWhenUserIsNotCurrentMember() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.groupExists = true;

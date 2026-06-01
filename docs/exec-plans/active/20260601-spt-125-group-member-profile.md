@@ -66,6 +66,7 @@ Use TDD around `StudyGroupController` and `StudyGroupService`. Add a repository-
 - Docs: `ruby -ryaml -e 'doc = YAML.load_file("docs/specs/openapi.yaml"); puts "paths=#{doc.fetch("paths").size} schemas=#{doc.fetch("components").fetch("schemas").size}"'` returned `paths=31 schemas=47`.
 - Static: `git diff --check` passed.
 - Full: `./gradlew check build --no-daemon` passed.
+- Review fix: CodeRabbit raised 2 minor findings. The displayName validation message now has a non-blank fallback; task-completion summary now rejects status counts that exceed total tasks while still allowing unattempted tasks. `./gradlew test --tests 'com.studypot.aistudyleader.studygroup.service.StudyGroupServiceTest' --no-daemon` and `./gradlew check build --no-daemon` passed after the fix.
 
 ## Done Criteria
 - `GET /api/v1/groups/{groupId}/members/me/profile` returns the authenticated current member's group profile and summaries.

@@ -77,6 +77,10 @@ public record StudyGroupMemberProfile(
 			requireNonNegative(doneCount, "doneCount");
 			requireNonNegative(incompleteCount, "incompleteCount");
 			requireNonNegative(skippedCount, "skippedCount");
+			int statusCount = doneCount + incompleteCount + skippedCount;
+			if (statusCount > totalCount) {
+				throw new IllegalArgumentException("status counts must not exceed totalCount.");
+			}
 		}
 
 		private static void requireNonNegative(int value, String fieldName) {

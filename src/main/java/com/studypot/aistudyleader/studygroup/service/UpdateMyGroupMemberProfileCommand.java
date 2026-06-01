@@ -16,7 +16,11 @@ public record UpdateMyGroupMemberProfileCommand(
 		try {
 			displayName = GroupMember.normalizeDisplayName(displayName);
 		} catch (IllegalArgumentException exception) {
-			throw new InvalidStudyGroupMemberProfileRequestException("displayName", exception.getMessage());
+			String message = exception.getMessage();
+			if (message == null || message.isBlank()) {
+				message = "displayName is invalid.";
+			}
+			throw new InvalidStudyGroupMemberProfileRequestException("displayName", message);
 		}
 		if (displayName == null) {
 			throw new InvalidStudyGroupMemberProfileRequestException("displayName", "displayName must not be blank.");
