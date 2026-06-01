@@ -66,3 +66,4 @@ Use the existing MySQL-backed refresh token session as the source of truth. Keep
 - Focused: `scripts/tests/test_auth_api_contracts.sh` passed.
 - Focused: `./gradlew test --tests 'com.studypot.aistudyleader.auth.controller.AuthControllerTest' --tests 'com.studypot.aistudyleader.auth.service.AuthSessionServiceTest' --tests 'com.studypot.aistudyleader.global.security.SecurityConfigurationTest' --no-daemon` passed.
 - Full: `./gradlew check build --no-daemon` passed.
+- Reviewdog follow-up: `shellcheck -x scripts/tests/test_auth_api_contracts.sh`, `scripts/tests/test_auth_api_contracts.sh`, and `./gradlew check build --no-daemon` passed after adding the explicit `SC2016` shellcheck directive for the embedded Ruby contract check.

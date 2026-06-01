@@ -23,6 +23,7 @@ assert_contains "QA-ID-001\` to \`QA-ID-007" "${TEST_ROOT}/docs/specs/feature-co
 assert_contains "Public auth endpoints" "${TEST_ROOT}/docs/specs/api-contract-v1.md"
 assert_contains "Refresh tokens must be stored as hashes and rotated on refresh" "${TEST_ROOT}/docs/specs/auth-permissions-v1.md"
 
+# shellcheck disable=SC2016
 ruby -ryaml -e '
 doc = YAML.load_file("docs/specs/openapi.yaml")
 paths = doc.fetch("paths")
