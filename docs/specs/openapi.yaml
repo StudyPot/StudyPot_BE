@@ -288,6 +288,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GroupMemberResponse'
+  /groups/{groupId}/members/me/profile:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      tags: [Groups]
+      operationId: getMyGroupMemberProfile
+      responses:
+        '200':
+          description: My group member profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMemberProfileResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Current group membership required
+        '404':
+          description: Group not found
+    patch:
+      tags: [Groups]
+      operationId: updateMyGroupMemberProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupMemberProfileRequest'
+      responses:
+        '200':
+          description: Updated my group member profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMemberProfileResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Current group membership required
+        '404':
+          description: Group not found
+        '422':
+          description: Invalid display name
   /groups/{groupId}/start:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -785,6 +828,60 @@ components:
         status:
           $ref: '#/components/schemas/GroupMemberStatus'
         displayName: {type: string}
+    UpdateGroupMemberProfileRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName: {type: string, minLength: 1, maxLength: 80}
+    GroupMemberProfileResponse:
+      type: object
+      required: [groupId, memberId, userId, permission, status, onboarding, taskCompletion, retrospective]
+      properties:
+        groupId: {type: string, format: uuid}
+        memberId: {type: string, format: uuid}
+        userId: {type: string, format: uuid}
+        displayName: {type: string}
+        permission: {type: string, enum: [OWNER, MEMBER]}
+        status:
+          $ref: '#/components/schemas/GroupMemberStatus'
+        onboarding:
+          $ref: '#/components/schemas/GroupMemberProfileOnboardingSummary'
+        currentWeek:
+          $ref: '#/components/schemas/GroupMemberProfileCurrentWeekSummary'
+        taskCompletion:
+          $ref: '#/components/schemas/GroupMemberProfileTaskCompletionSummary'
+        retrospective:
+          $ref: '#/components/schemas/GroupMemberProfileRetrospectiveSummary'
+    GroupMemberProfileOnboardingSummary:
+      type: object
+      required: [submitted]
+      properties:
+        submitted: {type: boolean}
+        skillLevel: {type: integer, minimum: 1, maximum: 5}
+        submittedAt: {type: string, format: date-time}
+    GroupMemberProfileCurrentWeekSummary:
+      type: object
+      required: [weekId, weekNumber, progressStatus]
+      properties:
+        weekId: {type: string, format: uuid}
+        weekNumber: {type: integer, minimum: 1}
+        sprintGoal: {type: string}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        progressStatus: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, INCOMPLETE, FEEDBACK_READY]}
+    GroupMemberProfileTaskCompletionSummary:
+      type: object
+      required: [totalCount, doneCount, incompleteCount, skippedCount]
+      properties:
+        totalCount: {type: integer, minimum: 0}
+        doneCount: {type: integer, minimum: 0}
+        incompleteCount: {type: integer, minimum: 0}
+        skippedCount: {type: integer, minimum: 0}
+    GroupMemberProfileRetrospectiveSummary:
+      type: object
+      required: [feedbackReady]
+      properties:
+        feedbackReady: {type: boolean}
     AvailabilitySlot:
       type: object
       required: [dayOfWeek, startTime, endTime, timezone]

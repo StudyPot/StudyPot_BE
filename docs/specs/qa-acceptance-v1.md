@@ -8,6 +8,7 @@
 - Onboarding simplification is authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
+- Group member profile read/update is authorized by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -32,6 +33,7 @@
 | `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
 | `study-group-core` | `QA-GRP-004` | Owner-only group updates reject non-owner access. |
+| `study-group-core` | `QA-GRP-005` | Current members can read/update their own group member profile, while non-members and LEFT members are rejected. |
 | `group-onboarding` | `QA-ONB-001` | Host and members can submit onboarding in one request. |
 | `group-onboarding` | `QA-ONB-002` | Overall skill level rejects values outside 1 to 5. |
 | `group-onboarding` | `QA-ONB-003` | Availability slots reject invalid day/time windows. |
@@ -65,6 +67,7 @@
 - Google OAuth login -> read current user -> refresh token rotation -> old refresh token reuse rejected -> logout current session.
 - Login from two sessions -> logout-all -> both refresh tokens rejected.
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
+- Group-scoped my profile read/update returns member, onboarding, current-week, task-completion, and retrospective summaries and rejects non-member access.
 - Host start with only partial onboarding completion.
 - Current week task completion before due date.
 - Current week progress read after progress creation.

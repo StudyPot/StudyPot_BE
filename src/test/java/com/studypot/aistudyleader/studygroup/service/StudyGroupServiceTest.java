@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.repository.GroupMemberDuplicateMembershipException;
 import com.studypot.aistudyleader.studygroup.repository.StudyGroupInviteCodeConflictException;
@@ -38,6 +40,7 @@ class StudyGroupServiceTest {
 	private static final UUID THIRD_GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002826");
 	private static final UUID THIRD_OWNER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002827");
 	private static final UUID JOINED_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002828");
+	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000002829");
 	private static final Instant NOW = Instant.parse("2026-05-09T01:30:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -315,6 +318,85 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void getMyGroupMemberProfileReturnsRepositoryProfile() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupMemberProfile profile = profile("현우");
+		repository.profile = profile;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroupMemberProfile result = service.getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(USER_ID, GROUP_ID));
+
+		assertThat(repository.profileRequestedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.profileRequestedUserId).isEqualTo(USER_ID);
+		assertThat(result).isSameAs(profile);
+	}
+
+	@Test
+	void getMyGroupMemberProfileRejectsMissingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void getMyGroupMemberProfileRejectsExistingGroupWhenUserIsNotCurrentMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a current member of this study group.");
+		assertThat(repository.profileRequestedUserId).isEqualTo(JOINER_ID);
+	}
+
+	@Test
+	void updateMyGroupMemberProfileUpdatesDisplayNameAndReturnsRefreshedProfile() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.profile = profile("현우2");
+		repository.updateProfileSucceeds = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroupMemberProfile result = service.updateMyGroupMemberProfile(new UpdateMyGroupMemberProfileCommand(
+			USER_ID,
+			GROUP_ID,
+			" 현우2 "
+		));
+
+		assertThat(repository.updatedProfileGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.updatedProfileUserId).isEqualTo(USER_ID);
+		assertThat(repository.updatedDisplayName).isEqualTo("현우2");
+		assertThat(repository.updatedAt).isEqualTo(NOW);
+		assertThat(result.displayName()).isEqualTo("현우2");
+	}
+
+	@Test
+	void updateMyGroupMemberProfileRejectsBlankDisplayName() {
+		assertThatThrownBy(() -> new UpdateMyGroupMemberProfileCommand(USER_ID, GROUP_ID, " "))
+			.isInstanceOf(InvalidStudyGroupMemberProfileRequestException.class)
+			.hasMessage("displayName must not be blank.");
+	}
+
+	@Test
+	void updateMyGroupMemberProfileRejectsExistingGroupWhenUserIsNotCurrentMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateMyGroupMemberProfile(new UpdateMyGroupMemberProfileCommand(
+				JOINER_ID,
+				GROUP_ID,
+				"민수"
+			)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a current member of this study group.");
+	}
+
+	@Test
 	void listQueryRejectsMissingAuthenticatedUserId() {
 		assertThatThrownBy(() -> new ListStudyGroupsQuery(null))
 			.isInstanceOf(NullPointerException.class)
@@ -408,6 +490,28 @@ class StudyGroupServiceTest {
 		);
 	}
 
+	private static StudyGroupMemberProfile profile(String displayName) {
+		return new StudyGroupMemberProfile(
+			GROUP_ID,
+			OWNER_MEMBER_ID,
+			USER_ID,
+			displayName,
+			GroupMemberPermission.OWNER,
+			GroupMemberStatus.ACTIVE,
+			new StudyGroupMemberProfile.OnboardingSummary(true, 3, Instant.parse("2026-05-10T01:00:00Z")),
+			new StudyGroupMemberProfile.CurrentWeekSummary(
+				WEEK_ID,
+				2,
+				"JPA 실습",
+				Instant.parse("2026-05-17T00:00:00Z"),
+				Instant.parse("2026-05-24T00:00:00Z"),
+				MemberWeekProgressStatus.IN_PROGRESS
+			),
+			new StudyGroupMemberProfile.TaskCompletionSummary(4, 2, 1, 1),
+			new StudyGroupMemberProfile.RetrospectiveSummary(true)
+		);
+	}
+
 	private static final class CapturingRepository implements StudyGroupRepository {
 
 		private final Set<String> collidingCodes;
@@ -421,11 +525,19 @@ class StudyGroupServiceTest {
 		private UUID getRequestedUserId;
 		private UUID existsRequestedGroupId;
 		private UUID listRequestedUserId;
+		private UUID profileRequestedGroupId;
+		private UUID profileRequestedUserId;
+		private UUID updatedProfileGroupId;
+		private UUID updatedProfileUserId;
+		private String updatedDisplayName;
+		private Instant updatedAt;
 		private StudyGroup readGroup;
+		private StudyGroupMemberProfile profile;
 		private List<StudyGroup> listedGroups = List.of();
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
 		private GroupMember savedJoinedMember;
+		private boolean updateProfileSucceeds;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -484,6 +596,22 @@ class StudyGroupServiceTest {
 		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
 			this.listRequestedUserId = userId;
 			return listedGroups;
+		}
+
+		@Override
+		public java.util.Optional<StudyGroupMemberProfile> findMyGroupMemberProfile(UUID groupId, UUID userId) {
+			this.profileRequestedGroupId = groupId;
+			this.profileRequestedUserId = userId;
+			return java.util.Optional.ofNullable(profile);
+		}
+
+		@Override
+		public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
+			this.updatedProfileGroupId = groupId;
+			this.updatedProfileUserId = userId;
+			this.updatedDisplayName = displayName;
+			this.updatedAt = updatedAt;
+			return updateProfileSucceeds;
 		}
 
 		int attempts() {

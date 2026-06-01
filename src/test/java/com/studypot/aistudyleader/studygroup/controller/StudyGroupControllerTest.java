@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.studygroup.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
@@ -18,6 +20,9 @@ import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -66,7 +71,9 @@ class StudyGroupControllerTest {
 	private static final UUID OTHER_USER_ID = UUID.fromString("018f0000-0000-7000-8000-000000002865");
 	private static final UUID GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002862");
 	private static final UUID MISSING_GROUP_ID = UUID.fromString("018f0000-0000-7000-8000-000000002866");
+	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000002867");
 	private static final String JOIN_PATH = GROUPS_PATH + "/" + GROUP_ID + "/join";
+	private static final String PROFILE_PATH = GROUPS_PATH + "/" + GROUP_ID + "/members/me/profile";
 
 	private final MockMvc mockMvc;
 	private final CapturingDetailKeywordProvider detailKeywordProvider;
@@ -306,6 +313,76 @@ class StudyGroupControllerTest {
 			.andExpect(jsonPath("$.detail").value("study group was not found."));
 	}
 
+	@Test
+	void getMyGroupMemberProfileRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(PROFILE_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getMyGroupMemberProfileReturnsCurrentMemberSummaries() throws Exception {
+		mockMvc.perform(get(PROFILE_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.memberId").value(TestStudyGroupBeans.OWNER_MEMBER_ID.toString()))
+			.andExpect(jsonPath("$.userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$.displayName").value("현우"))
+			.andExpect(jsonPath("$.permission").value("OWNER"))
+			.andExpect(jsonPath("$.status").value("ACTIVE"))
+			.andExpect(jsonPath("$.onboarding.submitted").value(true))
+			.andExpect(jsonPath("$.onboarding.skillLevel").value(3))
+			.andExpect(jsonPath("$.onboarding.submittedAt").value("2026-05-10T01:00:00Z"))
+			.andExpect(jsonPath("$.currentWeek.weekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$.currentWeek.weekNumber").value(2))
+			.andExpect(jsonPath("$.currentWeek.sprintGoal").value("JPA 실습"))
+			.andExpect(jsonPath("$.currentWeek.progressStatus").value("IN_PROGRESS"))
+			.andExpect(jsonPath("$.taskCompletion.totalCount").value(4))
+			.andExpect(jsonPath("$.taskCompletion.doneCount").value(2))
+			.andExpect(jsonPath("$.taskCompletion.incompleteCount").value(1))
+			.andExpect(jsonPath("$.taskCompletion.skippedCount").value(1))
+			.andExpect(jsonPath("$.retrospective.feedbackReady").value(true));
+	}
+
+	@Test
+	void getMyGroupMemberProfileReturnsForbiddenForOtherUser() throws Exception {
+		mockMvc.perform(get(PROFILE_PATH)
+				.with(user(OTHER_USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void patchMyGroupMemberProfileUpdatesDisplayName() throws Exception {
+		mockMvc.perform(patch(PROFILE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("profile-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"displayName":"현우2"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.displayName").value("현우2"));
+	}
+
+	@Test
+	void patchMyGroupMemberProfileRejectsBlankDisplayName() throws Exception {
+		mockMvc.perform(patch(PROFILE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("profile-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"displayName":" "}
+					"""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Invalid request payload"));
+	}
+
 	private static String validRequestJson() {
 		return """
 			{
@@ -421,6 +498,8 @@ class StudyGroupControllerTest {
 
 	private static final class NoopStudyGroupRepository implements StudyGroupRepository {
 
+		private String profileDisplayName = "현우";
+
 		@Override
 		public void saveCreatedGroup(StudyGroup group, GroupMember ownerMember) {
 		}
@@ -450,6 +529,20 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Optional<StudyGroupMemberProfile> findMyGroupMemberProfile(UUID groupId, UUID userId) {
+			if (!GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(profile(profileDisplayName));
+		}
+
+		@Override
+		public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
+			this.profileDisplayName = displayName;
+			return GROUP_ID.equals(groupId) && USER_ID.equals(userId);
+		}
+
+		@Override
 		public boolean existsStudyGroup(UUID groupId) {
 			return GROUP_ID.equals(groupId);
 		}
@@ -475,6 +568,32 @@ class StudyGroupControllerTest {
 				"Weekly backend interview prep",
 				"INVITE-0001",
 				TestStudyGroupBeans.NOW
+			);
+		}
+
+		private static StudyGroupMemberProfile profile(String displayName) {
+			return new StudyGroupMemberProfile(
+				GROUP_ID,
+				TestStudyGroupBeans.OWNER_MEMBER_ID,
+				USER_ID,
+				displayName,
+				GroupMemberPermission.OWNER,
+				GroupMemberStatus.ACTIVE,
+				new StudyGroupMemberProfile.OnboardingSummary(
+					true,
+					3,
+					Instant.parse("2026-05-10T01:00:00Z")
+				),
+				new StudyGroupMemberProfile.CurrentWeekSummary(
+					WEEK_ID,
+					2,
+					"JPA 실습",
+					Instant.parse("2026-05-17T00:00:00Z"),
+					Instant.parse("2026-05-24T00:00:00Z"),
+					MemberWeekProgressStatus.IN_PROGRESS
+				),
+				new StudyGroupMemberProfile.TaskCompletionSummary(4, 2, 1, 1),
+				new StudyGroupMemberProfile.RetrospectiveSummary(true)
 			);
 		}
 	}

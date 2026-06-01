@@ -6,8 +6,8 @@
 - Human contract: `docs/specs/api-contract-v1.md`
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
-- Current contract size: 27 paths, 36 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`
+- Current contract size: 31 paths, 47 schemas
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`, `CR-20260601-task-completion-response-contract`, `CR-20260601-group-member-profile-api`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -52,6 +52,8 @@
 | `PATCH` | `/api/v1/groups/{groupId}` | `study-group-core` | owner | Update mutable group fields before active lock. |
 | `POST` | `/api/v1/groups/{groupId}/join` | `study-group-core` | authenticated | Join by invite code/link. |
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
+| `GET` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Read my group-scoped member profile and current study summaries. |
+| `PATCH` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Update my group-scoped display name. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
@@ -136,6 +138,53 @@ Suggested keyword candidates are transient and are not persisted unless selected
 ```
 
 Public onboarding responses expose `skillLevel`, not internal keyword score or task preference maps.
+
+### Group Member Profile
+`GET /api/v1/groups/{groupId}/members/me/profile` response:
+```json
+{
+  "groupId": "018f6f55-6fb1-7d62-a711-25f7c6d16a28",
+  "memberId": "018f6f55-75e9-78d2-9f5c-598945b93400",
+  "userId": "018f6f55-6f42-7e11-b479-120c5f2e9d42",
+  "displayName": "현우",
+  "permission": "MEMBER",
+  "status": "ACTIVE",
+  "onboarding": {
+    "submitted": true,
+    "skillLevel": 3,
+    "submittedAt": "2026-05-10T01:00:00Z"
+  },
+  "currentWeek": {
+    "weekId": "018f6f55-8bf2-78d9-a332-6e74b1484520",
+    "weekNumber": 2,
+    "sprintGoal": "JPA 실습",
+    "startsAt": "2026-05-17T00:00:00Z",
+    "endsAt": "2026-05-24T00:00:00Z",
+    "progressStatus": "IN_PROGRESS"
+  },
+  "taskCompletion": {
+    "totalCount": 4,
+    "doneCount": 2,
+    "incompleteCount": 1,
+    "skippedCount": 1
+  },
+  "retrospective": {
+    "feedbackReady": true
+  }
+}
+```
+
+`PATCH /api/v1/groups/{groupId}/members/me/profile` request:
+```json
+{
+  "displayName": "현우"
+}
+```
+
+- Approved by `CR-20260601-group-member-profile-api`.
+- `displayName` is the study-group member display name stored in `group_member.display_name`, not the global account profile.
+- PATCH is limited to 1 to 80 non-blank `displayName` characters.
+- Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Missing groups return not found; existing groups without current membership return forbidden.
 
 ### Task Completion
 Request:
