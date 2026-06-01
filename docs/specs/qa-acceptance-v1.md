@@ -25,6 +25,7 @@
 | `identity-core` | `QA-ID-004` | Google OAuth authorization-code exchange creates or updates the user, OAuth account, and application token pair. |
 | `identity-core` | `QA-ID-005` | Refresh token rotation returns a new token pair and rejects reuse of the old refresh token. |
 | `identity-core` | `QA-ID-006` | Current-session logout and logout-all revoke the intended refresh tokens. |
+| `identity-core` | `QA-ID-007` | Missing, invalid, expired, revoked, or reused refresh tokens return a stable 401 Problem Detail and clear application token cookies when present. |
 | `study-group-core` | `QA-GRP-001` | Group creation requires name, topic, detail keywords, max members, and period. |
 | `study-group-core` | `QA-GRP-002` | Creator becomes owner member with onboarding-aware status. |
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |

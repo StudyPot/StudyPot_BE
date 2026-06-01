@@ -226,10 +226,71 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void refreshCanUseJsonBodyWhenCookieIsMissing() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		MvcResult refreshResult = mockMvc.perform(post(REFRESH_PATH)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"refreshToken\":\"" + session.refreshToken() + "\"}")
+				.with(xsrf("refresh-xsrf")))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		JsonNode body = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
+		assertThat(body.has("accessToken")).isFalse();
+		assertThat(body.has("refreshToken")).isFalse();
+		assertThat(body.get("tokenType").asText()).isEqualTo("Bearer");
+		assertThat(body.at("/user/email").asText()).isEqualTo("member@example.com");
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_access_token")).isNotBlank();
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_refresh_token")).isNotBlank();
+	}
+
+	@Test
+	void refreshIgnoresStaleAccessTokenCookieWhenRefreshTokenIsValid() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		MvcResult refreshResult = mockMvc.perform(post(REFRESH_PATH)
+				.with(cookie("studypot_access_token", "stale-access-token"))
+				.with(cookie("studypot_refresh_token", session.refreshToken()))
+				.with(xsrf("refresh-xsrf")))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_access_token")).isNotBlank();
+		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_refresh_token")).isNotBlank();
+	}
+
+	@Test
 	void refreshWithoutCookieIsRejected() throws Exception {
 		mockMvc.perform(post(REFRESH_PATH)
 				.with(xsrf("refresh-xsrf")))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void rejectedRefreshClearsTokenCookiesAndReturnsStableProblemCode() throws Exception {
+		MvcResult result = mockMvc.perform(post(REFRESH_PATH)
+				.with(cookie("studypot_access_token", "stale-access-token"))
+				.with(cookie("studypot_refresh_token", "invalid-refresh-token"))
+				.with(xsrf("refresh-xsrf")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
+			.andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"))
+			.andReturn();
+
+		assertThat(cookieHeaderFromSetCookie(result, "studypot_access_token"))
+			.contains("studypot_access_token=")
+			.contains("Max-Age=0")
+			.contains("Path=/")
+			.contains("Secure")
+			.contains("SameSite=None");
+		assertThat(cookieHeaderFromSetCookie(result, "studypot_refresh_token"))
+			.contains("studypot_refresh_token=")
+			.contains("Max-Age=0")
+			.contains("Path=/")
+			.contains("Secure")
+			.contains("SameSite=None");
 	}
 
 	@Test
