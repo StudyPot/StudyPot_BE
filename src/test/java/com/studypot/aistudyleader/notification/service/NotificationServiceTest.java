@@ -134,6 +134,50 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	void createNotificationPublishesNewDeliveredNotificationToRealtimeStream() {
+		FakeRepository repository = new FakeRepository();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		NotificationService service = new NotificationService(repository, CLOCK, () -> NOTIFICATION_ID, streamPublisher);
+
+		Notification result = service.createNotification(command(NotificationType.ONBOARDING_REQUESTED, "notification:onboarding"));
+
+		assertThat(streamPublisher.publishedNotifications).containsExactly(result);
+	}
+
+	@Test
+	void createNotificationDoesNotPublishIdempotencyReplayAsNewStreamEvent() {
+		FakeRepository repository = new FakeRepository();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		NotificationService service = new NotificationService(
+			repository,
+			CLOCK,
+			ids(NOTIFICATION_ID, SECOND_NOTIFICATION_ID),
+			streamPublisher
+		);
+		CreateNotificationCommand command = command(NotificationType.WEEK_STARTED, "notification:week-started");
+
+		Notification first = service.createNotification(command);
+		Notification second = service.createNotification(command);
+
+		assertThat(second).isSameAs(first);
+		assertThat(streamPublisher.publishedNotifications).containsExactly(first);
+	}
+
+	@Test
+	void realtimeStreamPublishFailureDoesNotFailNotificationCreation() {
+		FakeRepository repository = new FakeRepository();
+		NotificationStreamPublisher streamPublisher = notification -> {
+			throw new IllegalStateException("stream unavailable");
+		};
+		NotificationService service = new NotificationService(repository, CLOCK, () -> NOTIFICATION_ID, streamPublisher);
+
+		Notification result = service.createNotification(command(NotificationType.ONBOARDING_REQUESTED, "notification:onboarding"));
+
+		assertThat(result).isSameAs(repository.savedNotification);
+		assertThat(result.status()).isEqualTo(NotificationStatus.DELIVERED);
+	}
+
+	@Test
 	void createNotificationReturnsExistingRowForSameIdempotencyKey() {
 		FakeRepository repository = new FakeRepository();
 		NotificationService service = new NotificationService(repository, CLOCK, ids(NOTIFICATION_ID, SECOND_NOTIFICATION_ID));
@@ -338,6 +382,16 @@ class NotificationServiceTest {
 
 	private static NotificationAccessContext access(GroupMemberPermission permission, GroupMemberStatus memberStatus) {
 		return new NotificationAccessContext(GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, permission, memberStatus);
+	}
+
+	private static final class CapturingStreamPublisher implements NotificationStreamPublisher {
+
+		private final List<Notification> publishedNotifications = new ArrayList<>();
+
+		@Override
+		public void publishNotificationCreated(Notification notification) {
+			publishedNotifications.add(notification);
+		}
 	}
 
 	private static final class FakeRepository implements NotificationRepository {

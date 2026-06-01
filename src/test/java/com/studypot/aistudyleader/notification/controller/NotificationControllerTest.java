@@ -5,7 +5,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
@@ -37,6 +39,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,6 +56,7 @@ class NotificationControllerTest {
 	private static final UUID NOTIFICATION_ID = UUID.fromString("018f0000-0000-7000-8000-000000008305");
 	private static final Instant NOW = Instant.parse("2026-05-13T06:00:00Z");
 	private static final String MY_NOTIFICATIONS_PATH = ApiPaths.V1 + "/users/me/notifications";
+	private static final String MY_NOTIFICATIONS_STREAM_PATH = ApiPaths.V1 + "/users/me/notifications/stream";
 	private static final String READ_PATH = ApiPaths.V1 + "/notifications/" + NOTIFICATION_ID + "/read";
 	private static final String READ_ALL_PATH = ApiPaths.V1 + "/users/me/notifications/read-all";
 	private static final String GROUP_NOTIFICATIONS_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/notifications";
@@ -76,6 +80,24 @@ class NotificationControllerTest {
 		mockMvc.perform(get(MY_NOTIFICATIONS_PATH))
 			.andExpect(status().isUnauthorized())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void subscribeMyNotificationStreamRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(MY_NOTIFICATIONS_STREAM_PATH)
+				.accept(MediaType.TEXT_EVENT_STREAM))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void subscribeMyNotificationStreamReturnsSseResponseForAuthenticatedUser() throws Exception {
+		mockMvc.perform(get(MY_NOTIFICATIONS_STREAM_PATH)
+				.accept(MediaType.TEXT_EVENT_STREAM)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(request().asyncStarted())
+			.andExpect(header().string(HttpHeaders.CONTENT_TYPE, org.hamcrest.Matchers.startsWith(MediaType.TEXT_EVENT_STREAM_VALUE)));
 	}
 
 	@Test

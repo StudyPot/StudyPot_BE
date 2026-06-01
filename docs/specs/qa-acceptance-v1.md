@@ -6,6 +6,7 @@
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Onboarding simplification is authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
+- Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -55,6 +56,7 @@
 | `notification` | `QA-NOTI-002` | Duplicate idempotency key does not create duplicate recipient notifications. |
 | `notification` | `QA-NOTI-003` | Recipients can list and mark only their own notifications as read. |
 | `notification` | `QA-NOTI-004` | Notification failure does not roll back core domain event. |
+| `notification` | `QA-NOTI-005` | Authenticated SSE subscribers receive only their own newly created in-app notifications, including notifications from other groups, and disconnected streams are cleaned up. |
 
 ## Required Scenario Tests
 - Google OAuth login -> read current user -> refresh token rotation -> old refresh token reuse rejected -> logout current session.
@@ -68,3 +70,4 @@
 - Retrospective/chat context builder excludes cross-member private raw notes while preserving allowed group-level summaries.
 - AI conversation message persistence and LLM usage logging.
 - In-app notification idempotency and read-state update.
+- In-app notification SSE subscribe, recipient isolation, cross-group recipient delivery, send-failure isolation, and disconnect cleanup.

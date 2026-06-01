@@ -17,7 +17,7 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 | `weekly-todo` | `prd-v1.md` | `REQ-TODO-001` to `REQ-TODO-003` | `api-contract-v1.md`, `openapi.yaml` | `member_week_progress`, `task_completion` | `auth-permissions-v1.md` | `QA-TODO-001` to `QA-TODO-005` | Not started | Not started | Planned |
 | `retrospective-feedback` | `prd-v1.md` | `REQ-RETRO-001` to `REQ-RETRO-002` | `api-contract-v1.md`, `openapi.yaml` | `retrospective`, `ai_conversation`, `ai_conversation_message` | `ai-contract-v1.md`, `auth-permissions-v1.md` | `QA-RETRO-001` to `QA-RETRO-004` | Not started | Not started | Planned |
 | `ai-team-leader` | `prd-v1.md` | `REQ-AI-001` to `REQ-AI-003` | `api-contract-v1.md`, `openapi.yaml` | `llm_usage`, AI JSON columns | `ai-contract-v1.md` | `QA-AI-001` to `QA-AI-005` | Not started | Not started | Planned |
-| `notification` | `prd-v1.md` | `REQ-NOTI-001` to `REQ-NOTI-003` | `api-contract-v1.md`, `openapi.yaml` | `notification` | `notification-contract-v1.md`, `auth-permissions-v1.md` | `QA-NOTI-001` to `QA-NOTI-004` | Not started | Not started | Planned |
+| `notification` | `prd-v1.md` | `REQ-NOTI-001` to `REQ-NOTI-003` | `api-contract-v1.md`, `openapi.yaml` | `notification` | `notification-contract-v1.md`, `auth-permissions-v1.md` | `QA-NOTI-001` to `QA-NOTI-005` | Not started | Not started | Planned |
 | `n/a-harness` | `prd-v1.md` | global workflow | `n/a` | schema verification | `jira-board-sync.md`, `pr-review-gate.md` | `QA-GLOBAL-001` to `QA-GLOBAL-005` | `SPT-19`, `SPT-50` | Not started | Planned |
 
 `weekly-todo` QA coverage through `QA-TODO-005` is approved by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
@@ -31,6 +31,8 @@ The simplified one-step onboarding API and PR auto-merge harness behavior are ap
 The cross-site CSRF bootstrap endpoint for `identity-core` is approved by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md). It adds public safe `GET /api/v1/auth/csrf` so browser clients on a different site can send CSRF headers for cookie-backed unsafe requests without exposing access or refresh token values.
 
 Redis/RabbitMQ runtime infrastructure boundaries for `identity-core`, `curriculum-core`, `retrospective-feedback`, `ai-team-leader`, `notification`, and `n/a-harness` are approved by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md). The change does not add API paths, DB tables, enum values, notification types, permission actions, or new feature IDs.
+
+Recipient-scoped notification SSE delivery for `notification` is approved by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md). It adds `GET /api/v1/users/me/notifications/stream`, keeps SSE as an in-app realtime transport rather than a new channel, and uses the existing list API for reconnect recovery.
 
 ## Coverage Rules
 - A feature is implementable only when PRD, requirements, API, DB, integration, and QA cells are populated.

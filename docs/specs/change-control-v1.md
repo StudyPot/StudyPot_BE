@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md)
+- ADR: [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md)
+- Result: The MVP API includes authenticated `GET /api/v1/users/me/notifications/stream` for recipient-scoped SSE delivery of newly created `IN_APP` notifications while MySQL remains the durable notification source of truth.
+
+## Previous Approved Change
 - Change Request: [CR-20260528-cross-site-csrf-trusted-origin-header](./change-requests/CR-20260528-cross-site-csrf-trusted-origin-header.md)
 - ADR: [ADR-20260528-cross-site-csrf-trusted-origin-header](./adr/ADR-20260528-cross-site-csrf-trusted-origin-header.md)
 - Result: Cross-site browser clients from configured credentialed CORS origins may send the bootstrapped CSRF value in `X-XSRF-TOKEN` for unsafe cookie-backed requests even when the backend-domain `XSRF-TOKEN` cookie is not present; untrusted origins and headerless unsafe requests remain forbidden.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md)
 - ADR: [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md)
 - Result: The MVP API includes public `GET /api/v1/auth/csrf` so cross-site browser clients can bootstrap a readable CSRF token value and matching backend-domain `XSRF-TOKEN` cookie without exposing access or refresh token values.

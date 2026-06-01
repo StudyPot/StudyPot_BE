@@ -12,6 +12,8 @@ info:
       - ADR-20260527-cross-site-csrf-bootstrap
       - CR-20260520-detail-keyword-suggestion-api
       - ADR-20260520-detail-keyword-suggestion-api
+      - CR-20260601-notification-sse-stream
+      - ADR-20260601-notification-sse-stream
 servers:
   - url: /api/v1
 security:
@@ -498,6 +500,18 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/NotificationResponse'
+  /users/me/notifications/stream:
+    get:
+      tags: [Notifications]
+      operationId: subscribeMyNotificationStream
+      summary: Subscribe to my in-app notification SSE stream
+      responses:
+        '200':
+          description: SSE stream for my newly created in-app notifications
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/NotificationStreamEvent'
   /notifications/{notificationId}/read:
     parameters:
       - $ref: '#/components/parameters/NotificationId'
@@ -880,6 +894,22 @@ components:
         scheduledAt: {type: string, format: date-time}
         deliveredAt: {type: string, format: date-time}
         readAt: {type: string, format: date-time}
+    NotificationStreamEvent:
+      type: object
+      description: >
+        Server-Sent Event frame. The stream first emits `connected`, then emits
+        `notification-created` with a `NotificationResponse` JSON payload for
+        each newly created delivered in-app notification for the authenticated
+        recipient.
+      properties:
+        event:
+          type: string
+          enum: [connected, notification-created]
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationResponse'
+            - type: object
+              additionalProperties: true
     LlmUsageResponse:
       type: object
       properties:

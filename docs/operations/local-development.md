@@ -75,6 +75,21 @@ export STUDYPOT_RABBITMQ_HEALTH_ENABLED=true
 - Duplicate RabbitMQ deliveries use the existing notification `idempotency_key` contract and must not create duplicate recipient notifications.
 - Worker failures are recorded through the existing notification failure path, then rejected without requeue so a broker dead-letter policy can own repeated failures when configured.
 
+## Notification SSE Stream
+- Recipient-scoped notification SSE is approved by [CR-20260601-notification-sse-stream](../specs/change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](../specs/adr/ADR-20260601-notification-sse-stream.md).
+- Local and test runs do not need Redis, RabbitMQ, FCM, Web Push, email, Discord, or Kakao to exercise the SSE path.
+- The stream endpoint is authenticated:
+
+```bash
+curl --no-buffer \
+  -H "Accept: text/event-stream" \
+  -H "Authorization: Bearer $STUDYPOT_ACCESS_TOKEN" \
+  http://localhost:8080/api/v1/users/me/notifications/stream
+```
+
+- The stream emits `connected` when established and `notification-created` after a new delivered `IN_APP` notification row is created for the same `recipient_user_id`.
+- If the browser reconnects or the backend process restarts, call `GET /api/v1/users/me/notifications` to reconcile missed events.
+
 ## Google Login
 - Browser login starts at `https://localhost:8080/api/oauth2/authorization/google` when the local backend is serving HTTPS on port `8080`.
 - Browser OAuth authorization, state storage, PKCE, callback handling, Google token exchange, and Google user-info loading are handled by Spring Security `oauth2-client`.

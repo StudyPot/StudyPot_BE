@@ -28,15 +28,26 @@ public class NotificationService implements NotificationEventPublisher {
 	private final NotificationRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final NotificationStreamPublisher streamPublisher;
 
 	public NotificationService(NotificationRepository repository, Clock clock) {
 		this(repository, clock, UuidV7::generate);
 	}
 
 	public NotificationService(NotificationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator, NotificationStreamPublisher.noop());
+	}
+
+	public NotificationService(
+		NotificationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		NotificationStreamPublisher streamPublisher
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
 	}
 
 	@Transactional(readOnly = true)
@@ -75,7 +86,12 @@ public class NotificationService implements NotificationEventPublisher {
 	@Transactional
 	public Notification createNotification(CreateNotificationCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
-		return repository.saveNotification(command.toDeliveredNotification(idGenerator.get(), clock.instant()));
+		Notification candidate = command.toDeliveredNotification(idGenerator.get(), clock.instant());
+		Notification savedNotification = repository.saveNotification(candidate);
+		if (savedNotification.id().equals(candidate.id())) {
+			publishAfterCommit(() -> streamPublisher.publishNotificationCreated(savedNotification));
+		}
+		return savedNotification;
 	}
 
 	@Transactional
