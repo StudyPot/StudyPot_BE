@@ -8,6 +8,7 @@
 - AI retrospective and next-week adjustment.
 - AI conversation and LLM usage logging.
 - In-app notification idempotency and read-state update.
+- In-app notification SSE subscribe, recipient-only delivery, cross-group recipient delivery, send-failure isolation, and disconnect cleanup.
 
 ## Verification
 - OpenAPI YAML parses.

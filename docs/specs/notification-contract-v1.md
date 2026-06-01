@@ -5,6 +5,7 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Change record: [CR-20260504-no-discord-inapp-notification](./change-requests/CR-20260504-no-discord-inapp-notification.md)
 - Runtime infra record: [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md)
+- Realtime stream record: [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md)
 
 ## Responsibilities
 - Create in-app notifications for study events that require member attention.
@@ -28,11 +29,16 @@
 
 ## Delivery Channels
 - MVP channel is `IN_APP`.
+- Authenticated browsers may subscribe to `GET /api/v1/users/me/notifications/stream` for SSE delivery of newly created `IN_APP` notification rows.
+- SSE emits `connected` when the stream is established and `notification-created` with the same `NotificationResponse` payload shape used by list/read APIs after a new delivered row is created.
+- SSE delivery is scoped by `recipient_user_id`, so a user's active stream receives their notifications regardless of which group produced the event and never receives another user's notifications.
+- SSE is a best-effort app-open transport. Clients must use `GET /api/v1/users/me/notifications` after reconnect to reconcile missed events.
 - External channels such as Discord, email, push, or Kakao are post-MVP and require a new Change Request and ADR.
 
 ## Runtime Infrastructure Boundary
 - MySQL remains the durable source for notification status, recipient, related resources, idempotency key, retry count, redacted failure, payload, and read state.
 - RabbitMQ may dispatch in-app notification creation or retry jobs, but it does not define a new delivery channel and must not replace MySQL-owned notification records.
+- The current SSE stream is in-process with the Spring Boot API and publishes only from the final row-creation service path; cross-process fan-out requires a later approved Redis Pub/Sub, Redis Streams, Kafka, or broker-backed task.
 - Redis may support short-lived rate limit or duplicate-lock protection around expensive upstream flows, but Redis does not store final notification state.
 - The current RabbitMQ listener runs in the Spring Boot application process when explicitly enabled; a separate notification worker container requires a later approved deployment task.
 
