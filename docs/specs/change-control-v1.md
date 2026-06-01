@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260601-task-completion-response-contract](./change-requests/CR-20260601-task-completion-response-contract.md)
+- ADR: [ADR-20260601-task-completion-response-contract](./adr/ADR-20260601-task-completion-response-contract.md)
+- Result: The MVP task completion mutation response includes frontend display fields `taskId`, `reasonSubmittedAt`, `completionNote`, and `evidenceUrl` while keeping the existing endpoint, request shape, DB schema, and permission boundary.
+
+## Previous Approved Change
 - Change Request: [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md)
 - ADR: [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md)
 - Result: The MVP API includes authenticated `GET /api/v1/ai-conversations/{conversationId}/stream` for AI team leader SSE lifecycle events and `GET /api/v1/ai-conversations/{conversationId}/messages` for cursor-based reconnect recovery.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md)
 - ADR: [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md)
 - Result: The MVP API includes authenticated `GET /api/v1/users/me/notifications/stream` for recipient-scoped SSE delivery of newly created `IN_APP` notifications while MySQL remains the durable notification source of truth.

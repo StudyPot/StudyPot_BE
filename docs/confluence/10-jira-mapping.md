@@ -15,6 +15,7 @@
 - `SPT-82`: AI LLM/RAG architecture research Task; proposed decision is recorded in `docs/specs/adr/ADR-20260519-ai-llm-rag-architecture.md`.
 - `SPT-121`: Notification SSE stream implementation Task; approved by `CR-20260601-notification-sse-stream`.
 - `SPT-122`: AI conversation SSE stream implementation Task; approved by `CR-20260601-ai-conversation-sse-stream`.
+- `SPT-126`: Task completion frontend contract reinforcement Task; approved by `CR-20260601-task-completion-response-contract`.
 
 ## Harness Start Rule
 - Start implementation only from Jira `SPT` issues of type `작업`/`Task`.

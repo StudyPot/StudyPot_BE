@@ -736,6 +736,41 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void completeMyTaskTreatsSameDoneRequestAsIdempotent() {
+		Instant completedAt = NOW.minusSeconds(120);
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
+		repository.existingTaskCompletion = completion(
+			TaskCompletionStatus.DONE,
+			completedAt,
+			"첫 완료",
+			null,
+			null,
+			"https://example.com/first"
+		);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"수정 완료",
+			null,
+			"https://example.com/second"
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(result.completedAt()).isEqualTo(completedAt);
+		assertThat(result.completionNote()).isEqualTo("첫 완료");
+		assertThat(result.evidenceUrl()).isEqualTo("https://example.com/first");
+		assertThat(repository.insertedTaskCompletion).isNull();
+		assertThat(repository.updatedTaskCompletion).isSameAs(result);
+	}
+
+	@Test
 	void completeMyTaskRejectsDoneAfterDueAt() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
@@ -794,6 +829,24 @@ class CurriculumServiceTest {
 			)))
 			.isInstanceOf(CurriculumAccessDeniedException.class)
 			.hasMessage("active group membership is required to complete weekly tasks.");
+	}
+
+	@Test
+	void completeMyTaskRejectsTaskFromAnotherGroup() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+				USER_ID,
+				TASK_ID,
+				TaskCompletionStatus.DONE,
+				null,
+				null,
+				null
+			)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
 	}
 
 	@Test

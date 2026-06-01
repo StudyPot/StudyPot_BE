@@ -877,12 +877,17 @@ components:
         evidenceUrl: {type: string}
     TaskCompletionResponse:
       type: object
+      required: [id, taskId, status]
       properties:
         id: {type: string, format: uuid}
+        taskId: {type: string, format: uuid}
         status:
           $ref: '#/components/schemas/TaskCompletionStatus'
         completedAt: {type: string, format: date-time}
+        reasonSubmittedAt: {type: string, format: date-time}
+        completionNote: {type: string}
         incompleteReason: {type: string}
+        evidenceUrl: {type: string}
     RetrospectiveResponse:
       type: object
       properties:

@@ -138,6 +138,7 @@ Suggested keyword candidates are transient and are not persisted unless selected
 Public onboarding responses expose `skillLevel`, not internal keyword score or task preference maps.
 
 ### Task Completion
+Request:
 ```json
 {
   "status": "INCOMPLETE",
@@ -146,6 +147,25 @@ Public onboarding responses expose `skillLevel`, not internal keyword score or t
   "evidenceUrl": null
 }
 ```
+
+Response:
+```json
+{
+  "id": "018f6f55-8f6c-7334-a781-84152e57e4f4",
+  "taskId": "018f6f55-8d26-73ed-828f-b955fbd6328a",
+  "status": "INCOMPLETE",
+  "completedAt": null,
+  "reasonSubmittedAt": "2026-05-24T10:30:30Z",
+  "completionNote": null,
+  "incompleteReason": "이번 주 개인 일정으로 실습을 못 끝냈습니다.",
+  "evidenceUrl": null
+}
+```
+
+- `DONE`: `completionNote` and `evidenceUrl` are optional; repeated `DONE` requests preserve the first completion values.
+- `INCOMPLETE`: `incompleteReason` is required and `reasonSubmittedAt` is returned.
+- `SKIPPED`: completion, incomplete, and evidence fields are empty.
+- Only active members of the task's group can update their own completion.
 
 ## State Transition Rules
 - `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.

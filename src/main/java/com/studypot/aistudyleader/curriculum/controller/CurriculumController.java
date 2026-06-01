@@ -377,25 +377,36 @@ class CurriculumController {
 		}
 	}
 
-	// completionNote and evidenceUrl are stored but intentionally omitted to match locked OpenAPI.
 	@Schema(description = "내 과제 완료 상태 저장 결과입니다.")
 	private record TaskCompletionResponse(
 		@Schema(description = "과제 완료 기록 UUID입니다.", example = "018f6f55-8f6c-7334-a781-84152e57e4f4")
 		UUID id,
+		@Schema(description = "완료 상태가 저장된 주차 과제 UUID입니다.", example = "018f6f55-8d26-73ed-828f-b955fbd6328a")
+		UUID taskId,
 		@Schema(description = "현재 과제 완료 상태입니다.", example = "DONE")
 		TaskCompletionStatus status,
 		@Schema(description = "완료 상태가 된 시각입니다. 완료 전이면 null입니다.", example = "2026-05-24T10:20:30Z")
 		Instant completedAt,
+		@Schema(description = "미완료 사유가 최초 제출된 시각입니다. 미완료가 아니면 null입니다.", example = "2026-05-24T10:30:30Z")
+		Instant reasonSubmittedAt,
+		@Schema(description = "완료 상태일 때 제출한 메모입니다.", example = "실습 코드를 GitHub에 정리했습니다.")
+		String completionNote,
 		@Schema(description = "미완료 상태일 때 제출한 사유입니다.", example = "테스트 작성까지 완료하지 못했습니다.")
-		String incompleteReason
+		String incompleteReason,
+		@Schema(description = "완료 증빙 URL입니다.", example = "https://github.com/example/study/blob/main/week1.md")
+		String evidenceUrl
 	) {
 
 		private static TaskCompletionResponse from(TaskCompletion completion) {
 			return new TaskCompletionResponse(
 				completion.id(),
+				completion.weeklyTaskId(),
 				completion.status(),
 				completion.completedAt(),
-				completion.incompleteReason()
+				completion.reasonSubmittedAt(),
+				completion.completionNote(),
+				completion.incompleteReason(),
+				completion.evidenceUrl()
 			);
 		}
 	}

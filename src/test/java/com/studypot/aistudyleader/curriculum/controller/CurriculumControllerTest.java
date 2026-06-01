@@ -407,10 +407,13 @@ class CurriculumControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
 			.andExpect(jsonPath("$.status").value("DONE"))
 			.andExpect(jsonPath("$.completedAt").value("2026-05-11T02:20:00Z"))
-			.andExpect(jsonPath("$.completionNote").doesNotExist())
-			.andExpect(jsonPath("$.evidenceUrl").doesNotExist());
+			.andExpect(jsonPath("$.reasonSubmittedAt").doesNotExist())
+			.andExpect(jsonPath("$.completionNote").value("정리 완료"))
+			.andExpect(jsonPath("$.incompleteReason").doesNotExist())
+			.andExpect(jsonPath("$.evidenceUrl").value("https://example.com/evidence"));
 	}
 
 	@Test
@@ -431,7 +434,12 @@ class CurriculumControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
 			.andExpect(jsonPath("$.status").value("INCOMPLETE"))
+			.andExpect(jsonPath("$.completedAt").doesNotExist())
+			.andExpect(jsonPath("$.reasonSubmittedAt").value("2026-05-11T02:20:00Z"))
+			.andExpect(jsonPath("$.completionNote").doesNotExist())
+			.andExpect(jsonPath("$.evidenceUrl").doesNotExist())
 			.andExpect(jsonPath("$.incompleteReason").value("실습을 끝내지 못했습니다."));
 	}
 
@@ -453,7 +461,13 @@ class CurriculumControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
-			.andExpect(jsonPath("$.status").value("SKIPPED"));
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.status").value("SKIPPED"))
+			.andExpect(jsonPath("$.completedAt").doesNotExist())
+			.andExpect(jsonPath("$.reasonSubmittedAt").doesNotExist())
+			.andExpect(jsonPath("$.completionNote").doesNotExist())
+			.andExpect(jsonPath("$.incompleteReason").doesNotExist())
+			.andExpect(jsonPath("$.evidenceUrl").doesNotExist());
 	}
 
 	@Test
@@ -492,6 +506,23 @@ class CurriculumControllerTest {
 	void completeTaskReturnsForbiddenForPendingMember() throws Exception {
 		repository.taskExists = true;
 		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+
+		mockMvc.perform(post(TASK_COMPLETION_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"status":"DONE"}
+					"""))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void completeTaskReturnsForbiddenForTaskInAnotherGroup() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = null;
 
 		mockMvc.perform(post(TASK_COMPLETION_PATH)
 				.with(user(USER_ID.toString()))

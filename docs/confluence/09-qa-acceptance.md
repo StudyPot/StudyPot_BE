@@ -5,6 +5,7 @@
 - Host start with partial onboarding completion.
 - Current week task completion.
 - Overdue incomplete reason capture.
+- Task completion frontend response fields for done, incomplete, skipped, repeated done, pending-member rejection, and cross-group rejection.
 - AI retrospective and next-week adjustment.
 - AI conversation and LLM usage logging.
 - AI conversation message-list recovery and SSE lifecycle events.
