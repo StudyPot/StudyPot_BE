@@ -2,15 +2,16 @@ package com.studypot.aistudyleader.ai.controller;
 
 import com.studypot.aistudyleader.ai.domain.AiConversation;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
-import com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType;
-import com.studypot.aistudyleader.ai.domain.AiConversationStatus;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.ai.service.AiConversationServiceUnavailableException;
+import com.studypot.aistudyleader.ai.service.ListAiConversationMessagesQuery;
 import com.studypot.aistudyleader.ai.service.OpenAiConversationCommand;
 import com.studypot.aistudyleader.ai.service.SendAiConversationMessageCommand;
+import com.studypot.aistudyleader.ai.service.SubscribeAiConversationStreamQuery;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,18 +21,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "AI 팀장", description = "그룹 멤버의 AI 팀장 대화 세션을 다루는 API입니다.")
 @RestController
@@ -39,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 class AiConversationController {
 
 	private final ObjectProvider<AiConversationService> aiConversationService;
+	private final ObjectProvider<AiConversationStreamService> aiConversationStreamService;
 
 	@Operation(
 		summary = "AI 팀장 대화 세션 열기",
@@ -89,9 +94,68 @@ class AiConversationController {
 		return AiConversationMessageResponse.from(message);
 	}
 
+	@Operation(
+		summary = "AI 팀장 대화 메시지 조회",
+		description = "인증된 대화 멤버가 재연결 복구나 초기 렌더링을 위해 AI 팀장 대화 메시지를 커서 기반으로 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "AI 대화 메시지 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 대화의 활성 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "대상 AI 대화를 찾을 수 없음"),
+		@ApiResponse(responseCode = "422", description = "커서 또는 페이지 크기가 올바르지 않음"),
+		@ApiResponse(responseCode = "503", description = "AI 대화 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/ai-conversations/{conversationId}/messages")
+	CursorPageResponse<AiConversationMessageResponse> listMessages(
+		Authentication authentication,
+		@Parameter(description = "메시지를 조회할 AI 대화 세션 UUID입니다.", required = true)
+		@PathVariable UUID conversationId,
+		@Parameter(description = "다음 페이지 조회용 커서입니다.")
+		@RequestParam(required = false) String cursor,
+		@Parameter(description = "조회할 메시지 수입니다. 1부터 100까지 허용됩니다.")
+		@RequestParam(defaultValue = "20") int pageSize
+	) {
+		CursorPageResponse<AiConversationMessage> page = service().listMessages(
+			new ListAiConversationMessagesQuery(authenticatedUserId(authentication), conversationId, cursor, pageSize)
+		);
+		return new CursorPageResponse<>(
+			page.items().stream().map(AiConversationMessageResponse::from).toList(),
+			page.pageInfo()
+		);
+	}
+
+	@Operation(
+		summary = "AI 팀장 대화 SSE 구독",
+		description = "인증된 대화 멤버가 AI 팀장 대화의 메시지 저장과 assistant 생성 이벤트를 SSE로 구독합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "SSE 연결 시작"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 대화의 활성 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "대상 AI 대화를 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "AI 대화 스트림 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(path = ApiPaths.V1 + "/ai-conversations/{conversationId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	SseEmitter subscribeConversationStream(
+		Authentication authentication,
+		@Parameter(description = "SSE로 구독할 AI 대화 세션 UUID입니다.", required = true)
+		@PathVariable UUID conversationId
+	) {
+		UUID authenticatedUserId = authenticatedUserId(authentication);
+		service().validateConversationStreamAccess(new SubscribeAiConversationStreamQuery(authenticatedUserId, conversationId));
+		return streamService().subscribe(conversationId);
+	}
+
 	private AiConversationService service() {
 		return aiConversationService.getIfAvailable(() -> {
 			throw new AiConversationServiceUnavailableException("AI conversation service is not configured.");
+		});
+	}
+
+	private AiConversationStreamService streamService() {
+		return aiConversationStreamService.getIfAvailable(() -> {
+			throw new AiConversationServiceUnavailableException("AI conversation stream service is not configured.");
 		});
 	}
 
@@ -146,47 +210,4 @@ class AiConversationController {
 		}
 	}
 
-	@Schema(description = "AI 팀장 대화 세션 응답입니다.")
-	private record AiConversationResponse(
-		@Schema(description = "AI 대화 세션 UUID입니다.", example = "018f6f55-900d-7b14-bd27-48ec1d752b8a")
-		UUID id,
-		@Schema(description = "대화 유형입니다.", example = "TEAM_LEAD_CHAT")
-		AiConversationType conversationType,
-		@Schema(description = "대화 세션 상태입니다.", example = "OPEN")
-		AiConversationStatus status,
-		@Schema(description = "현재까지의 대화 요약입니다.", example = "")
-		String summary
-	) {
-
-		private static AiConversationResponse from(AiConversation conversation) {
-			return new AiConversationResponse(
-				conversation.id(),
-				conversation.conversationType(),
-				conversation.status(),
-				conversation.summary()
-			);
-		}
-	}
-
-	@Schema(description = "AI 팀장 대화 메시지 응답입니다.")
-	private record AiConversationMessageResponse(
-		@Schema(description = "AI 대화 메시지 UUID입니다.", example = "018f6f55-900d-7b14-bd27-48ec1d752b8c")
-		UUID id,
-		@Schema(description = "메시지 발신자 유형입니다.", example = "USER")
-		AiConversationMessageSenderType senderType,
-		@Schema(description = "메시지 본문입니다.", example = "이번 주 과제 양을 조금 줄이고 싶어요.")
-		String content,
-		@Schema(description = "메시지 생성 시각입니다.")
-		Instant createdAt
-	) {
-
-		private static AiConversationMessageResponse from(AiConversationMessage message) {
-			return new AiConversationMessageResponse(
-				message.id(),
-				message.senderType(),
-				message.content(),
-				message.createdAt()
-			);
-		}
-	}
 }

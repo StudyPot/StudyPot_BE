@@ -7,6 +7,7 @@
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Redis/RabbitMQ runtime boundaries are authorized by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
 - Detail keyword suggestion API and keyword-only AI output are authorized by [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md) and [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md).
+- AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 
 ## AI Responsibilities
 | Purpose | Trigger | Output | Persistence |
@@ -108,6 +109,16 @@
 - If curriculum generation fails, group remains `ONBOARDING` unless a partial curriculum was explicitly accepted.
 - If retrospective generation fails, `retrospective.status = FAILED` and retry can create or update the same retrospective.
 - If chat response fails, store the user message and failed `llm_usage`; do not invent assistant content.
+- For subscribed 1:1 chat clients, chat response failure also emits best-effort `assistant-generation-failed` after failed `llm_usage` is recorded.
+
+## AI Conversation Realtime
+- `GET /api/v1/ai-conversations/{conversationId}/stream` is an app-open SSE transport for active conversation members.
+- SSE is not a new AI persistence model. MySQL remains the source of truth for `ai_conversation`, `ai_conversation_message`, conversation summary, and `llm_usage`.
+- The stream emits `connected`, `user-message-saved`, `assistant-generation-started`, `assistant-message-created`, and `assistant-generation-failed`.
+- `GET /api/v1/ai-conversations/{conversationId}/messages` is the reconnect recovery path for missed stream events.
+- `POST /api/v1/ai-conversations/{conversationId}/messages` remains synchronous and backward compatible.
+- Concurrent sends are accepted in MVP; clients should correlate stream events by message id and reconcile with the message list after reconnect.
+- WebSocket/STOMP, group chat/public-room context, cross-instance fan-out, and single-flight generation locks require later approved tasks.
 
 ## Deferred AI Scope
 - Live meeting assistant.

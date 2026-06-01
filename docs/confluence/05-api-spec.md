@@ -6,8 +6,8 @@
 - Human contract: `docs/specs/api-contract-v1.md`
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
-- Current contract size: 26 paths, 32 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`
+- Current contract size: 27 paths, 36 schemas
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -64,7 +64,9 @@
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
+| `GET` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | List AI team leader conversation messages for reconnect recovery. |
 | `POST` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | Send message and get assistant response. |
+| `GET` | `/api/v1/ai-conversations/{conversationId}/stream` | `ai-team-leader` | conversation member | Subscribe to AI team leader conversation SSE lifecycle events. |
 | `GET` | `/api/v1/users/me/notifications` | `notification` | authenticated | List my in-app notifications. |
 | `GET` | `/api/v1/users/me/notifications/stream` | `notification` | authenticated | Subscribe to my in-app notification SSE stream. |
 | `POST` | `/api/v1/notifications/{notificationId}/read` | `notification` | notification recipient | Mark one in-app notification as read. |

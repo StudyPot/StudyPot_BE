@@ -240,6 +240,24 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void sendUserMessagePublishesUserMessageSavedEvent() {
+		CapturingRepository repository = new CapturingRepository();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		AiConversationService service = serviceWithStream(repository, streamPublisher, MESSAGE_ID);
+
+		AiConversationMessage result = service.sendMessage(new SendAiConversationMessageCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			"이번 주 과제 양을 줄이고 싶어요."
+		));
+
+		assertThat(streamPublisher.events)
+			.extracting(StreamEvent::name)
+			.containsExactly(AiConversationStreamPublisher.USER_MESSAGE_SAVED_EVENT);
+		assertThat(streamPublisher.messages).containsExactly(result);
+	}
+
+	@Test
 	void sendMessageGeneratesAssistantResponseAndRecordsSuccessfulUsageWhenProviderIsConfigured() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.messageContext = new AiConversationMessageContext(
@@ -297,6 +315,46 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void sendMessagePublishesAssistantLifecycleEventsWhenProviderSucceeds() {
+		CapturingRepository repository = new CapturingRepository();
+		FakeAssistantGenerator generator = new FakeAssistantGenerator(new AiConversationAssistantResponse(
+			"이번 주 필수 과제 하나를 줄이는 방향으로 조정해볼게요.",
+			null,
+			Map.of(),
+			successResponse()
+		));
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		AiConversationService service = serviceWithAiAndStream(
+			repository,
+			generator,
+			usageRecorder,
+			streamPublisher,
+			MESSAGE_ID,
+			LLM_USAGE_ID,
+			ASSISTANT_MESSAGE_ID
+		);
+
+		AiConversationMessage result = service.sendMessage(new SendAiConversationMessageCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			"필수 과제가 너무 많아요."
+		));
+
+		assertThat(result.id()).isEqualTo(ASSISTANT_MESSAGE_ID);
+		assertThat(streamPublisher.events)
+			.extracting(StreamEvent::name)
+			.containsExactly(
+				AiConversationStreamPublisher.USER_MESSAGE_SAVED_EVENT,
+				AiConversationStreamPublisher.ASSISTANT_GENERATION_STARTED_EVENT,
+				AiConversationStreamPublisher.ASSISTANT_MESSAGE_CREATED_EVENT
+			);
+		assertThat(streamPublisher.messages)
+			.extracting(AiConversationMessage::senderType)
+			.containsExactly(AiConversationMessageSenderType.USER, AiConversationMessageSenderType.ASSISTANT);
+	}
+
+	@Test
 	void sendMessageKeepsUserMessageAndFailedUsageWithoutAssistantWhenProviderFails() {
 		CapturingRepository repository = new CapturingRepository();
 		LlmCallFailure failure = new LlmCallFailure(
@@ -335,6 +393,91 @@ class AiConversationServiceTest {
 		assertThat(usageRecorder.recorded.getFirst().status()).isEqualTo(LlmUsageStatus.TIMEOUT);
 		assertThat(usageRecorder.recorded.getFirst().errorCode()).isEqualTo("AI_CHAT_TIMEOUT");
 		assertThat(repository.updatedSummary).isNull();
+	}
+
+	@Test
+	void sendMessagePublishesFailureEventWhenProviderFails() {
+		CapturingRepository repository = new CapturingRepository();
+		LlmCallFailure failure = new LlmCallFailure(
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			LlmProvider.OPENAI,
+			"gpt-test",
+			42,
+			0,
+			BigDecimal.ZERO,
+			1_000,
+			LlmUsageStatus.TIMEOUT,
+			"AI_CHAT_TIMEOUT",
+			Map.of("purpose", "TEAM_LEAD_CHAT", "conversationId", CONVERSATION_ID.toString()),
+			"AI chat response timed out."
+		);
+		FakeAssistantGenerator generator = new FakeAssistantGenerator(new AiConversationResponseGenerationException(
+			"AI conversation response generation failed.",
+			failure
+		));
+		CapturingUsageRecorder usageRecorder = new CapturingUsageRecorder();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		AiConversationService service = serviceWithAiAndStream(
+			repository,
+			generator,
+			usageRecorder,
+			streamPublisher,
+			MESSAGE_ID,
+			LLM_USAGE_ID,
+			ASSISTANT_MESSAGE_ID
+		);
+
+		assertThatThrownBy(() -> service.sendMessage(new SendAiConversationMessageCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				"응답 실패도 저장되어야 합니다."
+			)))
+			.isInstanceOf(AiConversationResponseGenerationException.class);
+
+		assertThat(streamPublisher.events)
+			.extracting(StreamEvent::name)
+			.containsExactly(
+				AiConversationStreamPublisher.USER_MESSAGE_SAVED_EVENT,
+				AiConversationStreamPublisher.ASSISTANT_GENERATION_STARTED_EVENT,
+				AiConversationStreamPublisher.ASSISTANT_GENERATION_FAILED_EVENT
+			);
+		assertThat(streamPublisher.failures)
+			.singleElement()
+			.satisfies(failed -> {
+				assertThat(failed.conversationId()).isEqualTo(CONVERSATION_ID);
+				assertThat(failed.errorCode()).isEqualTo("AI_CHAT_TIMEOUT");
+			});
+	}
+
+	@Test
+	void streamPublishFailureDoesNotFailMessagePersistence() {
+		CapturingRepository repository = new CapturingRepository();
+		AiConversationStreamPublisher streamPublisher = new ThrowingStreamPublisher();
+		AiConversationService service = serviceWithStream(repository, streamPublisher, MESSAGE_ID);
+
+		AiConversationMessage result = service.sendMessage(new SendAiConversationMessageCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			"스트림 실패와 무관하게 저장되어야 합니다."
+		));
+
+		assertThat(result).isSameAs(repository.insertedMessage);
+		assertThat(result.senderType()).isEqualTo(AiConversationMessageSenderType.USER);
+	}
+
+	@Test
+	void validateConversationStreamAccessRejectsOtherUserConversation() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageContext = null;
+		repository.conversationExists = true;
+		AiConversationService service = service(repository, MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.validateConversationStreamAccess(new SubscribeAiConversationStreamQuery(
+				USER_ID,
+				CONVERSATION_ID
+			)))
+			.isInstanceOf(AiConversationAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this AI conversation.");
 	}
 
 	@Test
@@ -502,6 +645,52 @@ class AiConversationServiceTest {
 		);
 	}
 
+	private static AiConversationService serviceWithStream(
+		CapturingRepository repository,
+		AiConversationStreamPublisher streamPublisher,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			null,
+			null,
+			streamPublisher
+		);
+	}
+
+	private static AiConversationService serviceWithAiAndStream(
+		CapturingRepository repository,
+		AiConversationAssistantResponseGenerator generator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			generator,
+			usageRecorder,
+			streamPublisher
+		);
+	}
+
 	private static LlmStructuredResponse successResponse() {
 		return new LlmStructuredResponse(
 			LlmProvider.OPENAI,
@@ -642,6 +831,65 @@ class AiConversationServiceTest {
 		@Override
 		public void record(LlmUsage usage) {
 			recorded.add(usage);
+		}
+	}
+
+	private record StreamEvent(String name) {
+	}
+
+	private record FailureEvent(UUID conversationId, String errorCode) {
+	}
+
+	private static final class CapturingStreamPublisher implements AiConversationStreamPublisher {
+
+		private final List<StreamEvent> events = new ArrayList<>();
+		private final List<AiConversationMessage> messages = new ArrayList<>();
+		private final List<FailureEvent> failures = new ArrayList<>();
+
+		@Override
+		public void publishUserMessageSaved(AiConversationMessage message) {
+			events.add(new StreamEvent(USER_MESSAGE_SAVED_EVENT));
+			messages.add(message);
+		}
+
+		@Override
+		public void publishAssistantGenerationStarted(UUID conversationId) {
+			events.add(new StreamEvent(ASSISTANT_GENERATION_STARTED_EVENT));
+		}
+
+		@Override
+		public void publishAssistantMessageCreated(AiConversationMessage message) {
+			events.add(new StreamEvent(ASSISTANT_MESSAGE_CREATED_EVENT));
+			messages.add(message);
+		}
+
+		@Override
+		public void publishAssistantGenerationFailed(UUID conversationId, String errorCode) {
+			events.add(new StreamEvent(ASSISTANT_GENERATION_FAILED_EVENT));
+			failures.add(new FailureEvent(conversationId, errorCode));
+		}
+	}
+
+	private static final class ThrowingStreamPublisher implements AiConversationStreamPublisher {
+
+		@Override
+		public void publishUserMessageSaved(AiConversationMessage message) {
+			throw new IllegalStateException("stream unavailable");
+		}
+
+		@Override
+		public void publishAssistantGenerationStarted(UUID conversationId) {
+			throw new IllegalStateException("stream unavailable");
+		}
+
+		@Override
+		public void publishAssistantMessageCreated(AiConversationMessage message) {
+			throw new IllegalStateException("stream unavailable");
+		}
+
+		@Override
+		public void publishAssistantGenerationFailed(UUID conversationId, String errorCode) {
+			throw new IllegalStateException("stream unavailable");
 		}
 	}
 }

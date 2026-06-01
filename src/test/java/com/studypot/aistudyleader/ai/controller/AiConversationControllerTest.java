@@ -2,9 +2,12 @@ package com.studypot.aistudyleader.ai.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
@@ -40,6 +43,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
 import org.springframework.test.web.servlet.MockMvc;
@@ -59,6 +63,7 @@ class AiConversationControllerTest {
 	private static final UUID MESSAGE_ID = UUID.fromString("018f0000-0000-7000-8000-000000009307");
 	private static final String CONVERSATION_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/ai-conversations";
 	private static final String MESSAGE_PATH = ApiPaths.V1 + "/ai-conversations/" + CONVERSATION_ID + "/messages";
+	private static final String STREAM_PATH = ApiPaths.V1 + "/ai-conversations/" + CONVERSATION_ID + "/stream";
 
 	private final MockMvc mockMvc;
 	private final MutableAiConversationRepository repository;
@@ -213,6 +218,69 @@ class AiConversationControllerTest {
 	}
 
 	@Test
+	void listMessagesReturnsCursorPageForAuthenticatedConversationMember() throws Exception {
+		repository.messages = List.of(AiConversationMessage.userMessage(
+			MESSAGE_ID,
+			CONVERSATION_ID,
+			"저장된 메시지",
+			TestAiConversationBeans.NOW
+		));
+
+		mockMvc.perform(get(MESSAGE_PATH)
+				.queryParam("pageSize", "20")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.items[0].id").value(MESSAGE_ID.toString()))
+			.andExpect(jsonPath("$.items[0].senderType").value("USER"))
+			.andExpect(jsonPath("$.items[0].content").value("저장된 메시지"))
+			.andExpect(jsonPath("$.pageInfo.hasNext").value(false));
+
+		assertThat(repository.lastMessageLimit).isEqualTo(21);
+	}
+
+	@Test
+	void listMessagesReturnsForbiddenForOtherUserConversation() throws Exception {
+		repository.messageContext = null;
+
+		mockMvc.perform(get(MESSAGE_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
+	void subscribeConversationStreamRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(STREAM_PATH)
+				.accept(MediaType.TEXT_EVENT_STREAM))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void subscribeConversationStreamReturnsSseResponseForConversationMember() throws Exception {
+		mockMvc.perform(get(STREAM_PATH)
+				.accept(MediaType.TEXT_EVENT_STREAM)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(request().asyncStarted())
+			.andExpect(header().string(HttpHeaders.CONTENT_TYPE, org.hamcrest.Matchers.startsWith(MediaType.TEXT_EVENT_STREAM_VALUE)));
+	}
+
+	@Test
+	void subscribeConversationStreamReturnsForbiddenForOtherUserConversation() throws Exception {
+		repository.messageContext = null;
+
+		mockMvc.perform(get(STREAM_PATH)
+				.accept(MediaType.TEXT_EVENT_STREAM)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
 	void sendMessageReturnsValidationProblemWhenContentBlank() throws Exception {
 		mockMvc.perform(post(MESSAGE_PATH)
 				.with(user(USER_ID.toString()))
@@ -306,6 +374,8 @@ class AiConversationControllerTest {
 		private Deque<UUID> ids;
 		private AiConversation insertedConversation;
 		private AiConversationMessage insertedMessage;
+		private List<AiConversationMessage> messages;
+		private int lastMessageLimit;
 
 		void reset() {
 			groupExists = true;
@@ -329,6 +399,8 @@ class AiConversationControllerTest {
 			nextIds(CONVERSATION_ID);
 			insertedConversation = null;
 			insertedMessage = null;
+			messages = List.of();
+			lastMessageLimit = 0;
 		}
 
 		void nextIds(UUID... ids) {
@@ -387,7 +459,8 @@ class AiConversationControllerTest {
 
 		@Override
 		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
-			return List.of();
+			lastMessageLimit = limit;
+			return messages;
 		}
 
 		@Override

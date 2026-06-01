@@ -16,7 +16,7 @@ This matrix maps every MVP `feature_id` to source documents, API contracts, DB c
 | `curriculum-core` | `prd-v1.md` | `REQ-CUR-001` to `REQ-CUR-002` | `api-contract-v1.md`, `openapi.yaml` | `curriculum`, `curriculum_week`, `weekly_task` | `ai-contract-v1.md` | `QA-CUR-001` to `QA-CUR-003` | Not started | Not started | Planned |
 | `weekly-todo` | `prd-v1.md` | `REQ-TODO-001` to `REQ-TODO-003` | `api-contract-v1.md`, `openapi.yaml` | `member_week_progress`, `task_completion` | `auth-permissions-v1.md` | `QA-TODO-001` to `QA-TODO-005` | Not started | Not started | Planned |
 | `retrospective-feedback` | `prd-v1.md` | `REQ-RETRO-001` to `REQ-RETRO-002` | `api-contract-v1.md`, `openapi.yaml` | `retrospective`, `ai_conversation`, `ai_conversation_message` | `ai-contract-v1.md`, `auth-permissions-v1.md` | `QA-RETRO-001` to `QA-RETRO-004` | Not started | Not started | Planned |
-| `ai-team-leader` | `prd-v1.md` | `REQ-AI-001` to `REQ-AI-003` | `api-contract-v1.md`, `openapi.yaml` | `llm_usage`, AI JSON columns | `ai-contract-v1.md` | `QA-AI-001` to `QA-AI-005` | Not started | Not started | Planned |
+| `ai-team-leader` | `prd-v1.md` | `REQ-AI-001` to `REQ-AI-003` | `api-contract-v1.md`, `openapi.yaml` | `llm_usage`, AI JSON columns | `ai-contract-v1.md` | `QA-AI-001` to `QA-AI-006` | Not started | Not started | Planned |
 | `notification` | `prd-v1.md` | `REQ-NOTI-001` to `REQ-NOTI-003` | `api-contract-v1.md`, `openapi.yaml` | `notification` | `notification-contract-v1.md`, `auth-permissions-v1.md` | `QA-NOTI-001` to `QA-NOTI-005` | Not started | Not started | Planned |
 | `n/a-harness` | `prd-v1.md` | global workflow | `n/a` | schema verification | `jira-board-sync.md`, `pr-review-gate.md` | `QA-GLOBAL-001` to `QA-GLOBAL-005` | `SPT-19`, `SPT-50` | Not started | Planned |
 
@@ -33,6 +33,8 @@ The cross-site CSRF bootstrap endpoint for `identity-core` is approved by [CR-20
 Redis/RabbitMQ runtime infrastructure boundaries for `identity-core`, `curriculum-core`, `retrospective-feedback`, `ai-team-leader`, `notification`, and `n/a-harness` are approved by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md). The change does not add API paths, DB tables, enum values, notification types, permission actions, or new feature IDs.
 
 Recipient-scoped notification SSE delivery for `notification` is approved by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md). It adds `GET /api/v1/users/me/notifications/stream`, keeps SSE as an in-app realtime transport rather than a new channel, and uses the existing list API for reconnect recovery.
+
+AI conversation SSE delivery and message-list recovery for `ai-team-leader` are approved by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md). It adds `GET /api/v1/ai-conversations/{conversationId}/stream` and `GET /api/v1/ai-conversations/{conversationId}/messages` while keeping `POST /messages` synchronous and DB-first.
 
 ## Coverage Rules
 - A feature is implementable only when PRD, requirements, API, DB, integration, and QA cells are populated.

@@ -14,6 +14,8 @@ info:
       - ADR-20260520-detail-keyword-suggestion-api
       - CR-20260601-notification-sse-stream
       - ADR-20260601-notification-sse-stream
+      - CR-20260601-ai-conversation-sse-stream
+      - ADR-20260601-ai-conversation-sse-stream
 servers:
   - url: /api/v1
 security:
@@ -462,6 +464,25 @@ paths:
   /ai-conversations/{conversationId}/messages:
     parameters:
       - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [AI]
+      operationId: listAiConversationMessages
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: {type: string}
+        - name: pageSize
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Conversation messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiConversationMessagePageResponse'
     post:
       tags: [AI]
       operationId: sendAiConversationMessage
@@ -478,6 +499,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiConversationMessageResponse'
+  /ai-conversations/{conversationId}/stream:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [AI]
+      operationId: subscribeAiConversationStream
+      summary: Subscribe to AI conversation SSE stream
+      responses:
+        '200':
+          description: SSE stream for AI conversation message lifecycle events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/AiConversationStreamEvent'
   /users/me/notifications:
     get:
       tags: [Notifications]
@@ -882,6 +917,46 @@ components:
         senderType: {type: string, enum: [USER, ASSISTANT, SYSTEM]}
         content: {type: string}
         createdAt: {type: string, format: date-time}
+    AiConversationMessagePageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiConversationMessageResponse'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfoResponse'
+    PageInfoResponse:
+      type: object
+      properties:
+        nextCursor: {type: string, nullable: true}
+        hasNext: {type: boolean}
+    AiConversationGenerationFailedResponse:
+      type: object
+      properties:
+        conversationId: {type: string, format: uuid}
+        errorCode: {type: string}
+    AiConversationStreamEvent:
+      type: object
+      description: >
+        Server-Sent Event frame for 1:1 AI team leader conversation lifecycle.
+        The stream emits `connected`, then best-effort message lifecycle events
+        for the authenticated conversation member.
+      properties:
+        event:
+          type: string
+          enum:
+            - connected
+            - user-message-saved
+            - assistant-generation-started
+            - assistant-message-created
+            - assistant-generation-failed
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/AiConversationMessageResponse'
+            - $ref: '#/components/schemas/AiConversationGenerationFailedResponse'
+            - type: object
+              additionalProperties: true
     NotificationResponse:
       type: object
       properties:

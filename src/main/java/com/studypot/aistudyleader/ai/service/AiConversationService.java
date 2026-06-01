@@ -23,18 +23,22 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 public class AiConversationService {
 
 	private static final Base64.Encoder CURSOR_ENCODER = Base64.getUrlEncoder().withoutPadding();
 	private static final Base64.Decoder CURSOR_DECODER = Base64.getUrlDecoder();
+	private static final Logger log = LoggerFactory.getLogger(AiConversationService.class);
 
 	private final AiConversationRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 	private final AiConversationAssistantResponseGenerator assistantResponseGenerator;
 	private final LlmUsageRecorder usageRecorder;
+	private final AiConversationStreamPublisher streamPublisher;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -47,11 +51,23 @@ public class AiConversationService {
 		AiConversationAssistantResponseGenerator assistantResponseGenerator,
 		LlmUsageRecorder usageRecorder
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, AiConversationStreamPublisher.noop());
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 		this.assistantResponseGenerator = assistantResponseGenerator;
 		this.usageRecorder = usageRecorder;
+		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
 	}
 
 	@Transactional
@@ -108,6 +124,7 @@ public class AiConversationService {
 		if (!repository.insertMessage(message)) {
 			throw new AiConversationMutationRejectedException("AI conversation message could not be inserted.");
 		}
+		publishStreamEventSafely(() -> streamPublisher.publishUserMessageSaved(message), "user-message-saved");
 		if (!assistantGenerationConfigured()) {
 			return message;
 		}
@@ -128,6 +145,15 @@ public class AiConversationService {
 		}
 		List<AiConversationMessage> items = List.copyOf(fetched.subList(0, query.pageSize()));
 		return CursorPageResponse.firstPage(items, encodeCursor(items.getLast()));
+	}
+
+	@Transactional(readOnly = true)
+	public void validateConversationStreamAccess(SubscribeAiConversationStreamQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		AiConversationMessageContext context = requireMessageContext(query.conversationId(), query.authenticatedUserId());
+		if (!context.hasActiveMembership()) {
+			throw new AiConversationAccessDeniedException("active group membership is required to stream AI conversation messages.");
+		}
 	}
 
 	private AiConversationMembershipContext requireMembership(UUID groupId, UUID userId) {
@@ -157,6 +183,8 @@ public class AiConversationService {
 	) {
 		AiConversationPromptContext promptContext = repository.findPromptContext(context, 20);
 		AiConversationAssistantResponse response;
+		publishStreamEventSafely(() -> streamPublisher.publishAssistantGenerationStarted(context.conversationId()),
+			"assistant-generation-started");
 		try {
 			response = assistantResponseGenerator.generate(new AiConversationAssistantRequest(
 				command.authenticatedUserId(),
@@ -166,6 +194,10 @@ public class AiConversationService {
 			));
 		} catch (AiConversationResponseGenerationException exception) {
 			recordFailureUsage(command, context, exception);
+			publishStreamEventSafely(
+				() -> streamPublisher.publishAssistantGenerationFailed(context.conversationId(), exception.failure().errorCode()),
+				"assistant-generation-failed"
+			);
 			throw exception;
 		}
 
@@ -190,7 +222,17 @@ public class AiConversationService {
 			throw new AiConversationMutationRejectedException("AI conversation assistant message could not be inserted.");
 		}
 		updateConversationSummaryIfNeeded(context, response.conversationSummaryPatch(), now);
+		publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(assistantMessage), "assistant-message-created");
 		return assistantMessage;
+	}
+
+	private void publishStreamEventSafely(Runnable task, String eventName) {
+		try {
+			task.run();
+		} catch (RuntimeException exception) {
+			log.warn("AI conversation stream publish failed eventName={}", eventName);
+			log.debug("AI conversation stream publish failure detail", exception);
+		}
 	}
 
 	private void recordFailureUsage(

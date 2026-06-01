@@ -23,14 +23,16 @@ class AiConversationApplicationConfiguration {
 		AiConversationRepository repository,
 		Clock clock,
 		ObjectProvider<AiConversationAssistantResponseGenerator> assistantResponseGenerator,
-		ObjectProvider<LlmUsageRecorder> usageRecorder
+		ObjectProvider<LlmUsageRecorder> usageRecorder,
+		ObjectProvider<AiConversationStreamPublisher> streamPublisher
 	) {
 		AiConversationAssistantResponseGenerator generator = assistantResponseGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
+		AiConversationStreamPublisher publisher = streamPublisher.getIfAvailable(AiConversationStreamPublisher::noop);
 		if (generator == null || recorder == null) {
-			return new AiConversationService(repository, clock, UuidV7::generate);
+			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher);
 		}
-		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder);
+		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher);
 	}
 
 	@Bean

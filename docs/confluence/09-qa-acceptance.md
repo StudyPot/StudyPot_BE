@@ -7,6 +7,7 @@
 - Overdue incomplete reason capture.
 - AI retrospective and next-week adjustment.
 - AI conversation and LLM usage logging.
+- AI conversation message-list recovery and SSE lifecycle events.
 - In-app notification idempotency and read-state update.
 - In-app notification SSE subscribe, recipient-only delivery, cross-group recipient delivery, send-failure isolation, and disconnect cleanup.
 

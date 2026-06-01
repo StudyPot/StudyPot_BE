@@ -7,6 +7,7 @@
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Onboarding simplification is authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
+- AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -52,6 +53,7 @@
 | `ai-team-leader` | `QA-AI-003` | Redacted request metadata excludes secrets/tokens. |
 | `ai-team-leader` | `QA-AI-004` | Invalid AI JSON output is rejected or marked failed. |
 | `ai-team-leader` | `QA-AI-005` | Detail keyword suggestion API returns a non-empty `keywords` list from an authenticated pre-creation request and does not persist candidates. |
+| `ai-team-leader` | `QA-AI-006` | Active conversation members can list and subscribe to their own AI conversation messages through SSE, receive user/assistant success/failure lifecycle events, and disconnected streams are cleaned up. |
 | `notification` | `QA-NOTI-001` | In-app notification stores recipient, title/body, idempotency key, status, and related resource links. |
 | `notification` | `QA-NOTI-002` | Duplicate idempotency key does not create duplicate recipient notifications. |
 | `notification` | `QA-NOTI-003` | Recipients can list and mark only their own notifications as read. |
@@ -69,5 +71,6 @@
 - AI retrospective feedback with next-week adjustment.
 - Retrospective/chat context builder excludes cross-member private raw notes while preserving allowed group-level summaries.
 - AI conversation message persistence and LLM usage logging.
+- AI conversation message-list recovery and SSE lifecycle events for user save, assistant generation start, assistant success, assistant failure, send-failure isolation, and disconnect cleanup.
 - In-app notification idempotency and read-state update.
 - In-app notification SSE subscribe, recipient isolation, cross-group recipient delivery, send-failure isolation, and disconnect cleanup.
