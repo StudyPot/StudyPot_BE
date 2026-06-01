@@ -164,6 +164,7 @@ Suggested keywords are transient. Only the final selected or directly entered `d
 The backend maps `skillLevel` to internal keyword score JSON for the group's detail keywords so existing curriculum and retrospective context builders continue to work. Public onboarding responses expose `skillLevel`, not `keywordSkillLevels` or `taskPreferences`.
 
 ### Task Completion
+Request:
 ```json
 {
   "status": "INCOMPLETE",
@@ -172,6 +173,25 @@ The backend maps `skillLevel` to internal keyword score JSON for the group's det
   "evidenceUrl": null
 }
 ```
+
+Response:
+```json
+{
+  "id": "018f6f55-8f6c-7334-a781-84152e57e4f4",
+  "taskId": "018f6f55-8d26-73ed-828f-b955fbd6328a",
+  "status": "INCOMPLETE",
+  "completedAt": null,
+  "reasonSubmittedAt": "2026-05-24T10:30:30Z",
+  "completionNote": null,
+  "incompleteReason": "이번 주 개인 일정으로 실습을 못 끝냈습니다.",
+  "evidenceUrl": null
+}
+```
+
+- `DONE`: `completionNote` and `evidenceUrl` are optional. `incompleteReason` is not allowed. If the task is already `DONE`, repeated `DONE` requests are idempotent and preserve the first completion timestamp, note, and evidence URL.
+- `INCOMPLETE`: `incompleteReason` is required. `completionNote` and `evidenceUrl` are not allowed. `reasonSubmittedAt` stores the first incomplete-reason submission timestamp.
+- `SKIPPED`: completion, incomplete, and evidence fields are not allowed.
+- The API is member-scoped. A user can mutate only their own completion for a task in a group where they have active membership; another group's task returns forbidden.
 
 ## State Transition Rules
 - `refresh_token`: active -> revoked when used for logout, logout-all, or detected reuse after rotation.

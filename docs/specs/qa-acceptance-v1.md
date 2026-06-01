@@ -44,6 +44,7 @@
 | `weekly-todo` | `QA-TODO-003` | Overdue incomplete task requires incomplete reason. |
 | `weekly-todo` | `QA-TODO-004` | Cross-member completion updates are rejected. |
 | `weekly-todo` | `QA-TODO-005` | Member can read own existing week progress without mutating it. |
+| `weekly-todo` | `QA-TODO-006` | Task completion responses include frontend display fields and reject cross-group task access. |
 | `retrospective-feedback` | `QA-RETRO-001` | Retrospective can be requested from current week progress. |
 | `retrospective-feedback` | `QA-RETRO-002` | AI feedback and next-week adjustment are stored as JSON using DB-first context from progress, tasks, completions, incomplete reasons, rules/violations, prior feedback, and conversation summary. |
 | `retrospective-feedback` | `QA-RETRO-003` | Failed AI generation leaves retriable failed status. |
@@ -68,6 +69,7 @@
 - Current week task completion before due date.
 - Current week progress read after progress creation.
 - Overdue incomplete reason modal path.
+- Task completion response rendering for done, incomplete, skipped, idempotent repeated done, pending-member rejection, and cross-group task rejection.
 - AI retrospective feedback with next-week adjustment.
 - Retrospective/chat context builder excludes cross-member private raw notes while preserving allowed group-level summaries.
 - AI conversation message persistence and LLM usage logging.
