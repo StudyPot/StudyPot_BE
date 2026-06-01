@@ -67,6 +67,9 @@ Add an authenticated SSE stream at `GET /api/v1/users/me/notifications/stream` s
 - RED: `./gradlew test --tests 'com.studypot.aistudyleader.notification.controller.NotificationControllerTest' --tests 'com.studypot.aistudyleader.notification.controller.NotificationStreamServiceTest' --tests 'com.studypot.aistudyleader.notification.service.NotificationServiceTest' --no-daemon` failed before implementation because `NotificationStreamConnection` and `NotificationStreamPublisher` did not exist.
 - GREEN focused: same focused notification test command passed after implementation.
 - GREEN full: `./gradlew check build --no-daemon` passed.
+- CodeRabbit: 1 major finding about non-atomic stream connection register/remove was valid; fixed with `ConcurrentHashMap.compute` and `computeIfPresent`.
+- GREEN review-fix focused: `./gradlew test --tests 'com.studypot.aistudyleader.notification.controller.NotificationStreamServiceTest' --no-daemon` passed.
+- GREEN review-fix full: `./gradlew check build --no-daemon` passed.
 
 ## Done Criteria
 - `GET /api/v1/users/me/notifications/stream` is authenticated and returns `text/event-stream`.

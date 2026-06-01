@@ -43,8 +43,13 @@ class NotificationStreamService implements NotificationStreamPublisher {
 		connection.onCompletion(cleanup);
 		connection.onTimeout(cleanup);
 		connection.onError(throwable -> cleanup.run());
-		connectionsByRecipient.computeIfAbsent(recipientUserId, ignored -> ConcurrentHashMap.newKeySet())
-			.add(connection);
+		connectionsByRecipient.compute(recipientUserId, (ignored, connections) -> {
+			Set<NotificationStreamConnection> activeConnections = connections == null
+				? ConcurrentHashMap.newKeySet()
+				: connections;
+			activeConnections.add(connection);
+			return activeConnections;
+		});
 	}
 
 	int activeConnectionCount(UUID recipientUserId) {
@@ -84,14 +89,10 @@ class NotificationStreamService implements NotificationStreamPublisher {
 	}
 
 	private void remove(UUID recipientUserId, NotificationStreamConnection connection) {
-		Set<NotificationStreamConnection> connections = connectionsByRecipient.get(recipientUserId);
-		if (connections == null) {
-			return;
-		}
-		connections.remove(connection);
-		if (connections.isEmpty()) {
-			connectionsByRecipient.remove(recipientUserId, connections);
-		}
+		connectionsByRecipient.computeIfPresent(recipientUserId, (ignored, connections) -> {
+			connections.remove(connection);
+			return connections.isEmpty() ? null : connections;
+		});
 	}
 
 	private static final class SseNotificationStreamConnection implements NotificationStreamConnection {
