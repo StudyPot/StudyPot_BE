@@ -3,6 +3,7 @@
 ## Required Scenarios
 - Create group -> host onboarding -> invite member -> member onboarding -> host start.
 - Group-scoped my profile read/update with current-member access, invalid display name rejection, missing group not-found, and non-member/LEFT forbidden.
+- Group board default initialization, post CRUD, comment CRUD, author/OWNER permission checks, inactive-member rejection, and cross-group resource rejection.
 - Host start with partial onboarding completion.
 - Current week task completion.
 - Overdue incomplete reason capture.

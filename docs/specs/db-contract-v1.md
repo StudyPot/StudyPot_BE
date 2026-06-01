@@ -6,6 +6,7 @@
 - DDL draft: `docs/specs/db-schema-v1.sql`
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- Study group board tables are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
 
 ## Baseline
 - Database: MySQL 8.
@@ -38,6 +39,10 @@
 | 18 | `notification` | `notification` | In-app notification records, read state, and idempotency. |
 | 19 | `llm_usage` | `ai-team-leader` | LLM call usage, cost, status, and redacted metadata. |
 
+## Approved Additive Tables
+- `group_board`, `group_board_post`, and `group_board_comment` are approved by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and implemented by `src/main/resources/db/migration/V3__study_group_board_schema.sql`.
+- The locked `docs/specs/db-schema-v1.sql` and `V1__erd_v0_8_mysql8_schema.sql` remain the ERD v0.8 baseline; additive tables live in later Flyway migrations.
+
 ## Locked Status Values
 | Field | Values |
 | --- | --- |
@@ -45,6 +50,9 @@
 | `group_member.permission` | `OWNER`, `MEMBER` |
 | `group_member.status` | `PENDING_ONBOARDING`, `ACTIVE`, `LEFT` |
 | `group_onboarding_response.status` | `DRAFT`, `SUBMITTED` |
+| `group_board.board_type` | `NOTICE`, `QUESTION`, `RESOURCE`, `RETROSPECTIVE` |
+| `group_board_post.status` | `PUBLISHED`, `DELETED` |
+| `group_board_comment.status` | `PUBLISHED`, `DELETED` |
 | `curriculum.status` | `DRAFT`, `ACTIVE`, `COMPLETED` |
 | `curriculum_week.status` | `PENDING`, `IN_PROGRESS`, `COMPLETED` |
 | `weekly_task.task_type` | `READING`, `PRACTICE`, `ASSIGNMENT`, `PROJECT`, `CUSTOM` |
@@ -82,6 +90,9 @@
 - Fetch retrospective by progress/week/member.
 - Fetch DB-first AI context by week/member/group before retrospective/chat provider calls.
 - Fetch unread notifications by recipient user.
+- Fetch group boards by group and display order.
+- Fetch board posts by group, board, pinned state, created time, and id for cursor pagination.
+- Fetch post comments by group, post, created time, and id for cursor pagination.
 - Aggregate LLM usage by group, user, purpose, and UTC date.
 
 ## Migration Order
@@ -93,6 +104,7 @@
 6. Rule outcomes: `rule_violation`.
 7. AI/retrospective: `llm_usage`, `retrospective`, `ai_conversation`, `ai_conversation_message`.
 8. Notifications: `notification`.
+9. Additive board migration: `group_board`, `group_board_post`, `group_board_comment`.
 
 ## Deferred Tables
 | Table | Reason |
@@ -102,3 +114,4 @@
 | `rule_version` | Rule version history is post-MVP. |
 | `notification_preference` | Member preferences can be added after baseline in-app notification works. |
 | External notification channel tables | Discord, email, push, or Kakao delivery is post-MVP. |
+| Board reaction, mention, attachment, and search index tables | Board MVP starts with posts/comments only; richer collaboration tools require later CR/ADR approval. |

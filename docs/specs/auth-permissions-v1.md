@@ -9,6 +9,7 @@
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 - Group member profile read/update is authorized by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
+- Study group board access is authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
 
 ## Roles and Statuses
 | Concept | Values |
@@ -34,6 +35,12 @@
 | Update group | no | no | no | no | yes |
 | Read own group member profile | no | no | yes | yes | yes |
 | Update own group display name | no | no | yes | yes | yes |
+| Read group boards/posts/comments | no | no | no | yes | yes |
+| Create group board post/comment | no | no | no | yes | yes |
+| Update own board post/comment content | no | no | no | yes | yes |
+| Delete own board post/comment | no | no | no | yes | yes |
+| Pin/unpin board post | no | no | no | no | yes |
+| Delete any board post/comment | no | no | no | no | yes |
 | Submit own onboarding | no | no | yes | yes | yes |
 | List member onboarding status | no | no | limited | yes | yes |
 | Start study | no | no | no | no | yes |
@@ -54,6 +61,8 @@
 ## Data Visibility
 - Members can read their own onboarding response.
 - Current group members can read their own group-scoped member profile and update only their own group display name.
+- Active members can read group boards, posts, and comments for their own group.
+- Board post/comment content is public within the group, but only the content author can rewrite it. OWNER users can moderate by deleting posts/comments and changing post pinned state.
 - Owners can see onboarding completion status and aggregate summaries needed to start the study.
 - Owners should not receive raw private notes beyond what is needed for group operation unless the product explicitly exposes them.
 - Members can read their own retrospective and conversation records.
@@ -67,8 +76,9 @@
 ## State Rules
 - A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.
 - A `PENDING_ONBOARDING` member can read/update their own group-scoped profile display name.
+- A `PENDING_ONBOARDING` member cannot read or write group board content until activated.
 - An `ACTIVE` member can read and participate in current/future weeks.
-- A `LEFT` member cannot create new progress, retrospective, conversation, or completion records.
+- A `LEFT` member cannot create new progress, retrospective, conversation, completion, or board records.
 - `ARCHIVED` groups are read-only except for owner/admin audit access.
 
 ## Security Requirements
@@ -82,5 +92,5 @@
 - Refresh tokens must be stored as hashes and rotated on refresh.
 - A refresh token used after rotation or revocation must be rejected.
 - Cross-group access must be rejected even if the resource ID exists.
-- Service logic must verify that member, week, task, retrospective, and conversation belong to the same group.
+- Service logic must verify that member, board, post, comment, week, task, retrospective, and conversation belong to the same group.
 - Member week progress read permission is authorized by `CR-20260512-week-progress-read-endpoint` and `ADR-20260512-week-progress-read-endpoint`.

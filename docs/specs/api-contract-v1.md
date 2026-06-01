@@ -12,6 +12,7 @@
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
+- Study group board APIs are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
@@ -27,6 +28,7 @@
 | --- | --- | --- |
 | Auth/User | `identity-core` | Current user and application session identity. |
 | Study Group | `study-group-core` | Group creation, invite code, membership, status. |
+| Study Group Board | `study-group-board` | Group-visible default boards, posts, and comments. |
 | Onboarding | `group-onboarding` | Group/member onboarding responses and availability slots. |
 | Curriculum | `curriculum-core` | Host-start generated curriculum, weeks, tasks. |
 | Weekly Todo | `weekly-todo` | Member week progress and task completion/incomplete reasons. |
@@ -62,6 +64,16 @@
 | `GET` | `/api/v1/groups/{groupId}/members` | `study-group-core` | group member | List members and onboarding status. |
 | `GET` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Read my group-scoped member profile and current study summaries. |
 | `PATCH` | `/api/v1/groups/{groupId}/members/me/profile` | `study-group-core` | current group member | Update my group-scoped display name. |
+| `GET` | `/api/v1/groups/{groupId}/boards` | `study-group-board` | active group member | List default group boards and initialize them when missing. |
+| `GET` | `/api/v1/groups/{groupId}/boards/{boardId}/posts` | `study-group-board` | active group member | List board posts with cursor pagination. |
+| `POST` | `/api/v1/groups/{groupId}/boards/{boardId}/posts` | `study-group-board` | active group member | Create a board post. |
+| `GET` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | active group member | Read a board post. |
+| `PATCH` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | post author or owner | Update post title/content or pinned state. |
+| `DELETE` | `/api/v1/groups/{groupId}/posts/{postId}` | `study-group-board` | post author or owner | Soft delete a board post. |
+| `GET` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | List post comments with cursor pagination. |
+| `POST` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | Create a post comment. |
+| `PATCH` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author | Update a comment. |
+| `DELETE` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author or owner | Soft delete a comment. |
 | `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
@@ -214,6 +226,43 @@ Approved by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601
 - Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Existing groups with no current membership, `LEFT` membership, deleted membership, or another user return forbidden. Missing groups return not found.
 - `currentWeek` is omitted/null when the group has no active current week. `taskCompletion` still returns zero counts in that case.
 
+### Study Group Boards
+Approved by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
+
+`GET /api/v1/groups/{groupId}/boards` returns the group's fixed default boards. If no board row exists for the group, the backend initializes `NOTICE`, `QUESTION`, `RESOURCE`, and `RETROSPECTIVE` rows before returning the list.
+
+Create post request:
+```json
+{
+  "title": "이번 주 질문입니다.",
+  "content": "JPA 연관관계 매핑에서 헷갈린 부분을 공유합니다.",
+  "pinned": false
+}
+```
+
+Update post request:
+```json
+{
+  "title": "수정된 질문입니다.",
+  "content": "수정된 본문입니다.",
+  "pinned": true
+}
+```
+
+Create/update comment request:
+```json
+{
+  "content": "저도 같은 부분이 궁금합니다."
+}
+```
+
+- Post lists are cursor-paged by pinned state, creation time, and id in descending order. Comment lists are cursor-paged by creation time and id in ascending order.
+- `title` is required for create and limited to 200 characters. `content` is required and limited to 10,000 characters for posts and 3,000 characters for comments.
+- `PATCH /posts/{postId}` must include at least one of `title`, `content`, or `pinned`.
+- Only `ACTIVE` members can read or write board content. `PENDING_ONBOARDING`, `LEFT`, deleted membership, non-member, and cross-group access are rejected.
+- Authors can edit and delete their own posts/comments. OWNER users can delete posts/comments and update post `pinned`; a non-author OWNER cannot rewrite another member's title/content.
+- Upload, reactions, mentions, search, tags, realtime board events, board notifications, and AI board summaries are deferred.
+
 ### Task Completion
 Request:
 ```json
@@ -248,6 +297,8 @@ Response:
 - `refresh_token`: active -> revoked when used for logout, logout-all, or detected reuse after rotation.
 - `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
 - `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
+- `group_board_post`: `PUBLISHED -> DELETED`.
+- `group_board_comment`: `PUBLISHED -> DELETED`.
 - `task_completion`: `TODO -> DONE`, `TODO -> INCOMPLETE`, `TODO -> SKIPPED`.
 - `retrospective`: `PENDING -> PROCESSING -> COMPLETED` or `FAILED`.
 - `notification`: `PENDING -> DELIVERED -> READ`; failed generation/delivery can become `FAILED` or `SKIPPED`.
