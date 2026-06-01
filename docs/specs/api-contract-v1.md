@@ -11,6 +11,7 @@
 - Member week progress read endpoint is authorized by [CR-20260512-week-progress-read-endpoint](./change-requests/CR-20260512-week-progress-read-endpoint.md) and [ADR-20260512-week-progress-read-endpoint](./adr/ADR-20260512-week-progress-read-endpoint.md).
 - Retrospective/chat DB-first context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
+- AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
@@ -37,6 +38,8 @@
 - `POST /api/v1/weeks/{weekId}/retrospectives/me` requests or returns a stateful retrospective result for the authenticated member's week/progress context.
 - `POST /api/v1/groups/{groupId}/ai-conversations` opens a chat session. When `conversationType = RETROSPECTIVE`, the session may link to an existing or future retrospective through `retrospectiveId`.
 - `POST /api/v1/ai-conversations/{conversationId}/messages` stores user and assistant messages. Assistant messages can contribute to conversation summaries and later retrospective context.
+- `GET /api/v1/ai-conversations/{conversationId}/messages` returns cursor-paged conversation messages for active conversation members and reconnect recovery.
+- `GET /api/v1/ai-conversations/{conversationId}/stream` subscribes an active conversation member to best-effort SSE lifecycle events for the conversation.
 - The MVP context builder for retrospective/chat is internal to the backend. It does not add public API request or response fields in SPT-81.
 - The machine OpenAPI contract remains unchanged by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md); provider, vector store, and FastAPI service choices are not exposed at the REST boundary.
 
@@ -69,7 +72,9 @@
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
+| `GET` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | List AI team leader conversation messages for reconnect recovery. |
 | `POST` | `/api/v1/ai-conversations/{conversationId}/messages` | `ai-team-leader` | conversation member | Send message and get assistant response. |
+| `GET` | `/api/v1/ai-conversations/{conversationId}/stream` | `ai-team-leader` | conversation member | Subscribe to AI team leader conversation SSE lifecycle events. |
 | `GET` | `/api/v1/users/me/notifications` | `notification` | authenticated | List my in-app notifications. |
 | `GET` | `/api/v1/users/me/notifications/stream` | `notification` | authenticated | Subscribe to my in-app notification SSE stream. |
 | `POST` | `/api/v1/notifications/{notificationId}/read` | `notification` | notification recipient | Mark one in-app notification as read. |

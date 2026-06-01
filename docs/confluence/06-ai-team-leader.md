@@ -12,6 +12,9 @@
 - Retrospective uses a DB-first context builder before the LLM provider call.
 - Retrospective context includes onboarding summary, current week, weekly tasks, member progress, task completions, incomplete reasons, relevant group rules/violations, prior feedback/adjustment, and conversation summary.
 - `retrospective` remains the final feedback/adjustment result; `ai_conversation` is the chat/input interface and may link to a retrospective.
+- `GET /api/v1/ai-conversations/{conversationId}/messages` lists messages for active conversation members and reconnect recovery.
+- `GET /api/v1/ai-conversations/{conversationId}/stream` sends 1:1 SSE lifecycle events: `user-message-saved`, `assistant-generation-started`, `assistant-message-created`, and `assistant-generation-failed`.
+- `POST /api/v1/ai-conversations/{conversationId}/messages` remains synchronous; SSE mirrors lifecycle events for subscribed clients.
 - AI team leader proposes next-week adjustments every week for difficulty, task split, support material, and coaching notes.
 - Late joiner onboarding can affect future adjustments, not automatic full curriculum regeneration.
 - All AI calls create `llm_usage`.
@@ -28,3 +31,5 @@
 - `docs/specs/adr/ADR-20260519-ai-llm-rag-architecture.md`
 - `docs/specs/change-requests/CR-20260520-detail-keyword-suggestion-api.md`
 - `docs/specs/adr/ADR-20260520-detail-keyword-suggestion-api.md`
+- `docs/specs/change-requests/CR-20260601-ai-conversation-sse-stream.md`
+- `docs/specs/adr/ADR-20260601-ai-conversation-sse-stream.md`

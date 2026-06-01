@@ -7,6 +7,7 @@
 - Cross-site CSRF bootstrap for cookie-backed browser sessions is authorized by [CR-20260527-cross-site-csrf-bootstrap](./change-requests/CR-20260527-cross-site-csrf-bootstrap.md) and [ADR-20260527-cross-site-csrf-bootstrap](./adr/ADR-20260527-cross-site-csrf-bootstrap.md).
 - Cross-site CSRF trusted-origin header validation is authorized by [CR-20260528-cross-site-csrf-trusted-origin-header](./change-requests/CR-20260528-cross-site-csrf-trusted-origin-header.md) and [ADR-20260528-cross-site-csrf-trusted-origin-header](./adr/ADR-20260528-cross-site-csrf-trusted-origin-header.md).
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 
 ## Roles and Statuses
 | Concept | Values |
@@ -39,6 +40,7 @@
 | Submit own incomplete reason | no | no | no | yes | yes |
 | Request own retrospective | no | no | no | yes | yes |
 | Chat with AI team leader | no | no | no | yes | yes |
+| Read/stream own AI conversation | no | no | no | yes | yes |
 | Read own notifications | no | yes | yes | yes | yes |
 | Mark own notifications read | no | yes | yes | yes | yes |
 | Read group notification logs | no | no | no | no | yes |
@@ -51,6 +53,7 @@
 - Owners can see onboarding completion status and aggregate summaries needed to start the study.
 - Owners should not receive raw private notes beyond what is needed for group operation unless the product explicitly exposes them.
 - Members can read their own retrospective and conversation records.
+- Active conversation members can list and subscribe to their own AI conversation messages; cross-member conversation access is rejected.
 - AI context building for a member's retrospective/chat can use that member's own weekly progress, task completion records, incomplete reasons, and conversation summary. A conversation summary is an internally stored digest of that member's conversation, not the raw `ai_conversation_message` content.
 - AI context building may use anonymized group-level aggregates that the product contract already allows for operation, such as completion rate, incomplete task count, and participation count.
 - AI context building must not expose another member's identifiable private onboarding note, task completion note, incomplete reason, raw conversation message, or unaggregated conversation summary to a member unless a later permission change explicitly allows it.
