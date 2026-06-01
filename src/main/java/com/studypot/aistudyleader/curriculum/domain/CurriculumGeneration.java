@@ -5,7 +5,6 @@ import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,18 +82,22 @@ public record CurriculumGeneration(
 		UUID llmUsageId,
 		Map<String, Object> onboardingSummary,
 		Instant now,
+		List<CurriculumSprintWindow> sprintWindows,
 		List<UUID> weekIds,
 		List<UUID> taskIds
 	) {
+		sprintWindows = List.copyOf(Objects.requireNonNull(sprintWindows, "sprintWindows must not be null"));
+		if (sprintWindows.size() != weeks.size()) {
+			throw new IllegalArgumentException("sprintWindows size must match weeks size");
+		}
 		if (weekIds.size() != weeks.size()) {
 			throw new IllegalArgumentException("weekIds size must match weeks size");
 		}
 		List<CurriculumWeek> builtWeeks = new ArrayList<>();
 		int taskIndex = 0;
-		Instant weekStart = now;
 		for (int i = 0; i < weeks.size(); i++) {
 			CurriculumWeekPlan week = weeks.get(i);
-			Instant weekEnd = weekStart.plus(Duration.ofDays(7));
+			CurriculumSprintWindow sprintWindow = sprintWindows.get(i);
 			List<WeeklyTask> tasks = new ArrayList<>();
 			for (int j = 0; j < week.tasks().size(); j++) {
 				if (taskIndex >= taskIds.size()) {
@@ -109,9 +112,14 @@ public record CurriculumGeneration(
 					task.title(),
 					task.description(),
 					task.required(),
-					weekEnd,
+					sprintWindow.endsAt(),
 					true,
-					Map.of("weekNumber", week.weekNumber(), "displayOrder", j + 1),
+					Map.of(
+						"weekNumber", sprintWindow.weekNumber(),
+						"displayOrder", j + 1,
+						"sprintStartsAt", sprintWindow.startsAt().toString(),
+						"sprintEndsAt", sprintWindow.endsAt().toString()
+					),
 					now,
 					now
 				));
@@ -120,20 +128,19 @@ public record CurriculumGeneration(
 			builtWeeks.add(new CurriculumWeek(
 				weekIds.get(i),
 				curriculumId,
-				week.weekNumber(),
+				sprintWindow.weekNumber(),
 				week.title(),
 				null,
 				week.sprintGoal(),
 				week.learningGoals(),
 				week.resources(),
 				i == 0 ? CurriculumWeekStatus.IN_PROGRESS : CurriculumWeekStatus.PENDING,
-				weekStart,
-				weekEnd,
+				sprintWindow.startsAt(),
+				sprintWindow.endsAt(),
 				tasks,
 				now,
 				now
 			));
-			weekStart = weekEnd;
 		}
 		if (taskIndex != taskIds.size()) {
 			throw new IllegalArgumentException("taskIds size must match generated tasks size");

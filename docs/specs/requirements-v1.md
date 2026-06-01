@@ -6,6 +6,7 @@
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Onboarding simplification and auto-merge harness behavior are authorized by [CR-20260520-onboarding-simplification-auto-merge](./change-requests/CR-20260520-onboarding-simplification-auto-merge.md) and [ADR-20260520-onboarding-simplification-auto-merge](./adr/ADR-20260520-onboarding-simplification-auto-merge.md).
+- Fixed one-week sprint windows are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## Priority Definitions
 | Priority | Meaning |
@@ -26,8 +27,8 @@
 | `group-onboarding` | `REQ-ONB-002` | Onboarding stores recurring availability slots. | Slots include day of week, start time, end time, and timezone. |
 | `group-onboarding` | `REQ-ONB-003` | Onboarding skill level uses a 1 to 5 scale. | Invalid values are rejected. |
 | `curriculum-core` | `REQ-CUR-001` | Host can start study after onboarding begins. | Start does not require all members to submit onboarding. |
-| `curriculum-core` | `REQ-CUR-002` | AI curriculum uses submitted onboarding responses. | `curriculum.onboarding_summary` stores generation context. |
-| `weekly-todo` | `REQ-TODO-001` | Curriculum weeks contain weekly tasks. | Tasks have type, order, title, required flag, and due timestamp. |
+| `curriculum-core` | `REQ-CUR-002` | AI curriculum uses submitted onboarding responses. | `curriculum.onboarding_summary` stores generation context, and generated weeks must match the fixed one-week sprint windows derived from the group period. |
+| `weekly-todo` | `REQ-TODO-001` | Curriculum weeks contain weekly tasks. | Tasks have type, order, title, required flag, and due timestamp equal to the planned sprint window end. |
 | `weekly-todo` | `REQ-TODO-002` | Members can complete todos before deadline. | Completion timestamp and note are stored. |
 | `weekly-todo` | `REQ-TODO-003` | Members must submit incomplete reason after deadline. | Incomplete reason and submission timestamp are stored. |
 | `retrospective-feedback` | `REQ-RETRO-001` | Retrospective is created from weekly progress. | Trigger can be week end, incomplete modal, user chat, or manual request. |
@@ -59,3 +60,4 @@
 | Automatic full curriculum regeneration for late joiners | Late joiner context is applied to future adjustment only. |
 | Discord integration and bot delivery | Out of MVP; in-app notification is the first notification surface. |
 | Vector/graph retrieval infrastructure | Deferred until non-structured study material exists and SPT-82 or a later task approves the service boundary. |
+| Configurable sprint duration | Current MVP sprint unit is fixed to one week; changing the unit requires a later API/product contract. |

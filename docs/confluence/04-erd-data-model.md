@@ -6,7 +6,7 @@
 - Source of truth: `docs/specs/domain-erd.md`
 - DB contract: `docs/specs/db-contract-v1.md`
 - DDL draft: `docs/specs/db-schema-v1.sql`
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260601-study-group-board-api`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260601-study-group-board-api`, `CR-20260601-fixed-weekly-sprint-windows`
 - 변경 규칙: 테이블, 컬럼, FK, enum, JSON shape, notification behavior 변경은 Change Request + ADR 필요
 
 ## 설계 기준
@@ -15,6 +15,7 @@
 - AI/context처럼 유연한 구조는 MySQL `JSON`으로 저장한다.
 - MVP는 최종 선택/직접 입력된 detail keyword만 저장하고, 임시 AI 추천 후보는 저장하지 않는다.
 - 호스트 시작 시점에 제출된 온보딩 응답만 초기 커리큘럼 생성에 사용한다.
+- 호스트 시작 시 `study_group.starts_at`부터 `study_group.ends_at`까지를 1주 단위 sprint window로 나누고, `curriculum_week.starts_at`/`ends_at` 및 `weekly_task.due_at`은 이 window를 따른다.
 - 늦게 합류한 멤버의 온보딩은 전체 초기 커리큘럼 자동 재생성이 아니라 향후 주차 조정에 반영한다.
 - MVP 알림은 서비스 내부 `IN_APP`이며 Discord와 외부 채널은 후속 CR/ADR 이후 확장한다.
 - Redis/RabbitMQ runtime boundary는 `CR-20260519-redis-rabbitmq-realtime-infra`와 `ADR-20260519-redis-rabbitmq-realtime-infra`가 승인한다. Redis는 TTL 기반 rate limit/lock 상태만, RabbitMQ는 async dispatch/DLQ boundary만 소유하며 durable AI/notification state는 MySQL에 남는다.

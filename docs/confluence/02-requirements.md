@@ -23,8 +23,8 @@
 | `group-onboarding` | `REQ-ONB-002` | 온보딩은 반복 가능 시간대를 저장한다. | 슬롯은 요일, 시작 시각, 종료 시각, timezone을 포함한다. |
 | `group-onboarding` | `REQ-ONB-003` | 온보딩 실력 점수는 1-5 범위를 사용한다. | 범위를 벗어난 값은 거절된다. |
 | `curriculum-core` | `REQ-CUR-001` | 호스트는 온보딩이 시작된 뒤 스터디를 시작할 수 있다. | 모든 멤버가 온보딩을 완료하지 않아도 시작 가능하다. |
-| `curriculum-core` | `REQ-CUR-002` | AI 커리큘럼은 제출된 온보딩 응답을 사용한다. | `curriculum.onboarding_summary`에 생성 컨텍스트를 저장한다. |
-| `weekly-todo` | `REQ-TODO-001` | 커리큘럼 주차는 weekly task를 가진다. | task는 type, order, title, required flag, due timestamp를 가진다. |
+| `curriculum-core` | `REQ-CUR-002` | AI 커리큘럼은 제출된 온보딩 응답을 사용한다. | `curriculum.onboarding_summary`에 생성 컨텍스트를 저장하고, 생성 주차 수는 스터디 기간에서 산출한 1주 단위 스프린트 수와 일치해야 한다. |
+| `weekly-todo` | `REQ-TODO-001` | 커리큘럼 주차는 weekly task를 가진다. | task는 type, order, title, required flag, sprint window 기반 due timestamp를 가진다. |
 | `weekly-todo` | `REQ-TODO-002` | 멤버는 마감 전 todo를 완료할 수 있다. | 완료 시각과 노트가 저장된다. |
 | `weekly-todo` | `REQ-TODO-003` | 멤버는 마감 후 미완료 사유를 제출해야 한다. | 미완료 사유와 제출 시각이 저장된다. |
 | `retrospective-feedback` | `REQ-RETRO-001` | 주차 진행 현황에서 회고가 생성된다. | 트리거는 주차 종료, 미완료 모달, 사용자 채팅, 수동 요청이 될 수 있다. |
@@ -56,6 +56,7 @@
 - 호스트 시작은 모든 초대자의 온보딩 완료를 요구하지 않는다.
 - 초기 커리큘럼 생성은 시작 시점까지 제출된 온보딩 응답만 사용한다.
 - weekly todo는 완료, 스킵, 미완료 및 미완료 사유 제출을 감사 가능하게 저장한다.
+- 현재 sprint unit은 1주 고정이며, 사용자 선택형 sprint 기간은 후속 Change Request로 다룬다.
 - AI 팀장은 회고와 다음 주 조정안을 저장하고 LLM usage와 연결한다.
 - MVP 알림 채널은 `IN_APP`이며, Discord/Email/Push/Kakao는 추후 CR/ADR 이후 확장한다.
 

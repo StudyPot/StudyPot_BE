@@ -2,6 +2,7 @@
 
 ## Required Scenarios
 - Create group -> host onboarding -> invite member -> member onboarding -> host start.
+- Host start splits the group period into fixed one-week sprint windows and persists matching curriculum week/task due dates.
 - Group-scoped my profile read/update with current-member access, invalid display name rejection, missing group not-found, and non-member/LEFT forbidden.
 - Group board default initialization, post CRUD, comment CRUD, author/OWNER permission checks, inactive-member rejection, and cross-group resource rejection.
 - Host start with partial onboarding completion.

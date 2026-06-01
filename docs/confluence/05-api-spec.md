@@ -7,7 +7,7 @@
 - Machine contract: `docs/specs/openapi.yaml`
 - OpenAPI version: `3.1.0`
 - Current contract size: 36 paths, 59 schemas
-- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`, `CR-20260601-task-completion-response-contract`, `CR-20260601-group-member-profile-api`, `CR-20260601-study-group-board-api`
+- Approved changes: `CR-20260430-onboarding-mysql8-mvp`, `CR-20260504-no-discord-inapp-notification`, `CR-20260506-auth-api-entrypoints`, `CR-20260508-oauth2-cookie-login`, `CR-20260512-week-progress-read-endpoint`, `CR-20260512-retrospective-rag-boundary`, `CR-20260520-onboarding-simplification-auto-merge`, `CR-20260601-notification-sse-stream`, `CR-20260601-ai-conversation-sse-stream`, `CR-20260601-task-completion-response-contract`, `CR-20260601-group-member-profile-api`, `CR-20260601-study-group-board-api`, `CR-20260601-fixed-weekly-sprint-windows`
 - 변경 규칙: endpoint, path, request/response field, enum, authorization behavior 변경은 Change Request + ADR 필요
 
 ## Global Contract
@@ -65,7 +65,7 @@
 | `POST` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | Create post comment. |
 | `PATCH` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author | Update comment. |
 | `DELETE` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author or owner | Delete comment. |
-| `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
+| `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study, derive fixed one-week sprint windows, and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
@@ -115,6 +115,7 @@
   "endsAt": "2026-06-17"
 }
 ```
+`startsAt`/`endsAt` are later used by host start to derive fixed one-week curriculum sprint windows. Sprint duration is not configurable in the current API.
 
 ### Suggest Detail Keywords
 `POST /api/v1/groups/detail-keyword-suggestions`

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
@@ -122,6 +123,7 @@ class JdbcCurriculumRepositoryTest {
 			LLM_USAGE_ID,
 			Map.of("submittedResponseCount", 1),
 			NOW,
+			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
 			List.of(TASK_ID)
 		);
@@ -169,7 +171,16 @@ class JdbcCurriculumRepositoryTest {
 				GROUP_ID,
 				NOW,
 				generation.toLlmUsage(LLM_USAGE_ID, USER_ID, GROUP_ID, NOW),
-				generation.toCurriculum(CURRICULUM_ID, GROUP_ID, LLM_USAGE_ID, Map.of(), NOW, List.of(WEEK_ID), List.of(TASK_ID))
+				generation.toCurriculum(
+					CURRICULUM_ID,
+					GROUP_ID,
+					LLM_USAGE_ID,
+					Map.of(),
+					NOW,
+					CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
+					List.of(WEEK_ID),
+					List.of(TASK_ID)
+				)
 			))
 			.isInstanceOf(CurriculumPersistenceException.class)
 			.hasMessage("study group could not be transitioned to ACTIVE.");

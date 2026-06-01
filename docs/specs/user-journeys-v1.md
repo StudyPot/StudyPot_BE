@@ -4,6 +4,7 @@
 - Status: `LOCKED_FOR_IMPLEMENTATION`
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
+- Fixed one-week sprint windows are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## Journey 1: Host Creates Group
 1. Authenticated host submits group name, topic, selected/detail keywords, maximum members, and study period.
@@ -44,13 +45,15 @@ Acceptance:
 1. Host clicks start.
 2. Backend verifies host is owner and group is `ONBOARDING`.
 3. Backend summarizes submitted onboarding responses.
-4. Backend creates curriculum, weeks, and weekly tasks.
-5. Backend sets `study_group.status = ACTIVE` and `started_at`.
-6. Backend creates in-app notifications for study start and the first weekly tasks.
+4. Backend derives fixed one-week sprint windows from the group study period.
+5. Backend creates curriculum, weeks, and weekly tasks that match the sprint windows.
+6. Backend sets `study_group.status = ACTIVE` and `started_at`.
+7. Backend creates in-app notifications for study start and the first weekly tasks.
 
 Acceptance:
 - Start does not require every invitee to finish onboarding.
 - Initial curriculum uses only responses submitted at start time.
+- Initial curriculum has exactly one week per fixed one-week sprint window.
 - Late joiner onboarding is reflected in future feedback/adjustments, not automatic full regeneration.
 
 ## Journey 5: Weekly Todo Execution
