@@ -10,6 +10,7 @@
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 - Group member profile read/update is authorized by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md) and [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md).
 - Study group board APIs are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
+- Fixed one-week sprint windows are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## Global QA
 | ID | Acceptance |
@@ -48,6 +49,7 @@
 | `curriculum-core` | `QA-CUR-001` | Host start creates curriculum from submitted onboarding summary. |
 | `curriculum-core` | `QA-CUR-002` | Host can start without waiting for every invitee. |
 | `curriculum-core` | `QA-CUR-003` | Late joiner onboarding does not auto-regenerate initial curriculum. |
+| `curriculum-core` | `QA-CUR-004` | Host start creates one curriculum week per fixed one-week sprint window derived from the group period, and rejects AI output with a mismatched week count. |
 | `weekly-todo` | `QA-TODO-001` | Weekly tasks are listed for active members. |
 | `weekly-todo` | `QA-TODO-002` | Member can complete own task with timestamp and note. |
 | `weekly-todo` | `QA-TODO-003` | Overdue incomplete task requires incomplete reason. |
@@ -77,6 +79,7 @@
 - Group-scoped my profile read/update returns member, onboarding, current-week, task-completion, and retrospective summaries and rejects non-member access.
 - Group board default initialization -> post create/list/read/update/delete -> comment create/list/update/delete with author, owner, inactive member, and cross-group rejection checks.
 - Host start with only partial onboarding completion.
+- Host start splits the group period into fixed one-week sprint windows and persists matching week/task due dates.
 - Current week task completion before due date.
 - Current week progress read after progress creation.
 - Overdue incomplete reason modal path.

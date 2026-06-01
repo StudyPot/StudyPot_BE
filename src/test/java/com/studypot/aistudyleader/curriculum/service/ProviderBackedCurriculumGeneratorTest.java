@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
@@ -58,7 +59,12 @@ class ProviderBackedCurriculumGeneratorTest {
 		assertThat(provider.request.purpose()).isEqualTo(LlmUsagePurpose.CURRICULUM_GENERATE);
 		assertThat(provider.request.instructions()).contains("study curriculum");
 		assertThat(provider.request.input()).containsKey("group");
+		assertThat(provider.request.input()).containsKey("sprintPlan");
 		assertThat(provider.request.input().toString()).contains("Backend Interview Study");
+		assertThat(provider.request.input().toString()).contains("expectedWeekCount=1");
+		assertThat(provider.request.requestPayload())
+			.containsEntry("expectedWeekCount", 1)
+			.containsEntry("sprintUnit", "P1W");
 		assertThat(provider.request.textFormat().toString()).contains("json_schema");
 		assertOpenAiCompatibleSchema(provider.request.textFormat());
 		assertThat(result.provider()).isEqualTo(LlmProvider.OPENAI);
@@ -108,6 +114,39 @@ class ProviderBackedCurriculumGeneratorTest {
 			});
 	}
 
+	@Test
+	void generateRejectsWeekCountThatDoesNotMatchFixedSprintPlan() {
+		CapturingProvider provider = new CapturingProvider(new LlmStructuredResponse(
+			LlmProvider.OPENAI,
+			"gpt-4o-mini",
+			"""
+				{"title":"Spring Boot 6주 완성","totalWeeks":2,"weeks":[{"weekNumber":1,"title":"JPA 기초","sprintGoal":"핵심 개념을 맞춥니다.","learningGoals":["Entity 매핑 이해"],"resources":[],"tasks":[{"taskType":"READING","title":"JPA 읽기","description":"공식 문서를 읽습니다.","required":true}]},{"weekNumber":2,"title":"JPA 심화","sprintGoal":"심화합니다.","learningGoals":["연관관계 이해"],"resources":[],"tasks":[{"taskType":"PRACTICE","title":"JPA 실습","description":"실습합니다.","required":true}]}]}
+				""",
+			111,
+			222,
+			BigDecimal.ZERO,
+			90,
+			LlmUsageStatus.SUCCESS,
+			null,
+			Map.of("purpose", "CURRICULUM_GENERATE"),
+			"raw provider response"
+		));
+		ProviderBackedCurriculumGenerator generator = new ProviderBackedCurriculumGenerator(
+			provider,
+			JsonMapper.builder().findAndAddModules().build()
+		);
+
+		assertThatThrownBy(() -> generator.generate(request()))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("curriculum generation output was invalid.")
+			.satisfies(exception -> {
+				CurriculumGenerationException generationException = (CurriculumGenerationException) exception;
+				assertThat(generationException.failure()).hasValueSatisfying(failure ->
+					assertThat(failure.errorCode()).isEqualTo("CURRICULUM_RESPONSE_INVALID")
+				);
+			});
+	}
+
 	private static CurriculumGenerationRequest request() {
 		return new CurriculumGenerationRequest(
 			new CurriculumStartContext(
@@ -117,7 +156,7 @@ class ProviderBackedCurriculumGeneratorTest {
 				List.of("JPA", "Security"),
 				StudyGroupStatus.ONBOARDING,
 				LocalDate.parse("2026-05-11"),
-				LocalDate.parse("2026-06-21"),
+				LocalDate.parse("2026-05-17"),
 				MEMBER_ID,
 				GroupMemberPermission.OWNER,
 				GroupMemberStatus.PENDING_ONBOARDING
@@ -132,7 +171,8 @@ class ProviderBackedCurriculumGeneratorTest {
 				Instant.parse("2026-05-10T08:00:00Z")
 			)),
 			Map.of("submittedResponseCount", 1),
-			Instant.parse("2026-05-11T03:30:00Z")
+			Instant.parse("2026-05-11T03:30:00Z"),
+			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17"))
 		);
 	}
 

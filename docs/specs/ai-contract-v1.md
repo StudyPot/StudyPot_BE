@@ -8,6 +8,7 @@
 - Redis/RabbitMQ runtime boundaries are authorized by [CR-20260519-redis-rabbitmq-realtime-infra](./change-requests/CR-20260519-redis-rabbitmq-realtime-infra.md) and [ADR-20260519-redis-rabbitmq-realtime-infra](./adr/ADR-20260519-redis-rabbitmq-realtime-infra.md).
 - Detail keyword suggestion API and keyword-only AI output are authorized by [CR-20260520-detail-keyword-suggestion-api](./change-requests/CR-20260520-detail-keyword-suggestion-api.md) and [ADR-20260520-detail-keyword-suggestion-api](./adr/ADR-20260520-detail-keyword-suggestion-api.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
+- Fixed weekly sprint windows for curriculum generation are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## AI Responsibilities
 | Purpose | Trigger | Output | Persistence |
@@ -25,7 +26,8 @@
 
 ## Context Rules
 - Detail keyword suggestions can use group topic and user-entered hints.
-- Curriculum generation uses only onboarding responses submitted before host start.
+- Curriculum generation uses only onboarding responses submitted before host start plus the backend-computed fixed one-week sprint plan.
+- Curriculum generation must return exactly one generated week per planned sprint window. `totalWeeks`, the number of `weeks`, and sequential `weekNumber` values must match the expected sprint plan.
 - Late joiner onboarding can influence future retrospective/adjustment, not automatic full initial curriculum regeneration.
 - Retrospective feedback uses onboarding summary, current week tasks, completion notes, incomplete reasons, and prior conversation summary.
 - Weekly adjustment can use late joiner onboarding only for future weeks.
@@ -55,6 +57,8 @@
 ```
 
 ### Curriculum Generation
+The backend supplies `expectedWeekCount` and fixed one-week sprint windows derived from the study group's date range. The response shape stays the same, but invalid week counts are rejected.
+
 ```json
 {
   "title": "Spring Boot 6주 완성",
@@ -124,3 +128,4 @@
 - Live meeting assistant.
 - Voice transcription.
 - Fully autonomous task reassignment without host/member-visible audit.
+- User-selectable or AI-selected sprint duration; the current sprint unit is fixed to one week.

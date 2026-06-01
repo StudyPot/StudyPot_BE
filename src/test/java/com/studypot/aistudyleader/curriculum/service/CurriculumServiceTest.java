@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
@@ -55,6 +57,10 @@ class CurriculumServiceTest {
 	private static final UUID WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004027");
 	private static final UUID TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004028");
 	private static final UUID SECOND_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004029");
+	private static final UUID SECOND_WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004035");
+	private static final UUID THIRD_WEEK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004036");
+	private static final UUID SECOND_WEEK_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004037");
+	private static final UUID THIRD_WEEK_TASK_ID = UUID.fromString("018f0000-0000-7000-8000-000000004038");
 	private static final UUID PROGRESS_ID = UUID.fromString("018f0000-0000-7000-8000-000000004030");
 	private static final UUID COMPLETION_ID = UUID.fromString("018f0000-0000-7000-8000-000000004031");
 	private static final Instant NOW = Instant.parse("2026-05-11T01:15:00Z");
@@ -85,10 +91,84 @@ class CurriculumServiceTest {
 			.containsEntry("generatedAt", NOW.toString());
 		assertThat(result.weeks()).hasSize(1);
 		assertThat(result.weeks().getFirst().id()).isEqualTo(WEEK_ID);
+		assertThat(result.weeks().getFirst().startsAt()).isEqualTo(Instant.parse("2026-05-11T00:00:00Z"));
+		assertThat(result.weeks().getFirst().endsAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
 		assertThat(result.weeks().getFirst().tasks()).hasSize(1);
 		assertThat(result.weeks().getFirst().tasks().getFirst().id()).isEqualTo(TASK_ID);
+		assertThat(result.weeks().getFirst().tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
 		assertThat(repository.generationRequest.onboardingSummary())
 			.containsEntry("submittedResponseCount", 1);
+		assertThat(repository.generationRequest.sprintWindows())
+			.extracting(CurriculumSprintWindow::weekNumber)
+			.containsExactly(1);
+	}
+
+	@Test
+	void startStudyCreatesFixedWeeklySprintWindowsFromStudyPeriod() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(
+			StudyGroupStatus.ONBOARDING,
+			GroupMemberStatus.ACTIVE,
+			LocalDate.parse("2026-06-01"),
+			LocalDate.parse("2026-06-21")
+		);
+		repository.submittedResponses = List.of(submittedResponse());
+		CurriculumService service = service(
+			repository,
+			generationWithWeeks(3),
+			LLM_USAGE_ID,
+			CURRICULUM_ID,
+			WEEK_ID,
+			SECOND_WEEK_ID,
+			THIRD_WEEK_ID,
+			TASK_ID,
+			SECOND_WEEK_TASK_ID,
+			THIRD_WEEK_TASK_ID
+		);
+
+		Curriculum result = service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID));
+
+		assertThat(result.totalWeeks()).isEqualTo(3);
+		assertThat(result.weeks())
+			.extracting(CurriculumWeek::weekNumber)
+			.containsExactly(1, 2, 3);
+		assertThat(result.weeks())
+			.extracting(CurriculumWeek::status)
+			.containsExactly(CurriculumWeekStatus.IN_PROGRESS, CurriculumWeekStatus.PENDING, CurriculumWeekStatus.PENDING);
+		assertThat(result.weeks())
+			.extracting(CurriculumWeek::startsAt)
+			.containsExactly(
+				Instant.parse("2026-06-01T00:00:00Z"),
+				Instant.parse("2026-06-08T00:00:00Z"),
+				Instant.parse("2026-06-15T00:00:00Z")
+			);
+		assertThat(result.weeks())
+			.extracting(CurriculumWeek::endsAt)
+			.containsExactly(
+				Instant.parse("2026-06-08T00:00:00Z"),
+				Instant.parse("2026-06-15T00:00:00Z"),
+				Instant.parse("2026-06-22T00:00:00Z")
+			);
+		assertThat(result.weeks().get(1).tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
+		assertThat(repository.generationRequest.sprintWindows()).hasSize(3);
+	}
+
+	@Test
+	void startStudyRejectsGeneratedWeekCountMismatchForFixedSprintPlan() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(
+			StudyGroupStatus.ONBOARDING,
+			GroupMemberStatus.ACTIVE,
+			LocalDate.parse("2026-06-01"),
+			LocalDate.parse("2026-06-21")
+		);
+		repository.submittedResponses = List.of(submittedResponse());
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumGenerationException.class)
+			.hasMessage("generated curriculum weeks must match fixed weekly sprint windows.");
+		assertThat(repository.savedCurriculum).isNull();
 	}
 
 	@Test
@@ -265,6 +345,7 @@ class CurriculumServiceTest {
 			LLM_USAGE_ID,
 			Map.of("submittedResponseCount", 1),
 			NOW,
+			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
 			List.of(TASK_ID)
 		);
@@ -933,14 +1014,23 @@ class CurriculumServiceTest {
 	}
 
 	private static CurriculumStartContext ownerStartContext(StudyGroupStatus status, GroupMemberStatus memberStatus) {
+		return ownerStartContext(status, memberStatus, LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17"));
+	}
+
+	private static CurriculumStartContext ownerStartContext(
+		StudyGroupStatus status,
+		GroupMemberStatus memberStatus,
+		LocalDate startsAt,
+		LocalDate endsAt
+	) {
 		return new CurriculumStartContext(
 			GROUP_ID,
 			"Backend Interview Study",
 			"Spring Boot",
 			List.of("JPA", "Security"),
 			status,
-			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-21"),
+			startsAt,
+			endsAt,
 			OWNER_MEMBER_ID,
 			GroupMemberPermission.OWNER,
 			memberStatus
@@ -955,7 +1045,7 @@ class CurriculumServiceTest {
 			List.of("JPA", "Security"),
 			groupStatus,
 			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-21"),
+			LocalDate.parse("2026-05-17"),
 			OWNER_MEMBER_ID,
 			GroupMemberPermission.MEMBER,
 			memberStatus
@@ -1064,21 +1154,29 @@ class CurriculumServiceTest {
 	}
 
 	private static CurriculumGeneration generation() {
-		return new CurriculumGeneration(
-			"Spring Boot 6주 완성",
-			List.of(new CurriculumWeekPlan(
-				1,
-				"JPA 기초와 환경 구성",
-				"공통 환경을 만들고 핵심 개념을 맞춥니다.",
+		return generationWithWeeks(1);
+	}
+
+	private static CurriculumGeneration generationWithWeeks(int weekCount) {
+		List<CurriculumWeekPlan> weekPlans = new ArrayList<>();
+		for (int weekNumber = 1; weekNumber <= weekCount; weekNumber++) {
+			weekPlans.add(new CurriculumWeekPlan(
+				weekNumber,
+				weekNumber == 1 ? "JPA 기초와 환경 구성" : "JPA 심화 " + weekNumber + "주차",
+				weekNumber == 1 ? "공통 환경을 만들고 핵심 개념을 맞춥니다." : "주차별 목표를 완성합니다.",
 				List.of("Entity 매핑 이해"),
 				List.of(Map.of("title", "공식 문서", "url", "https://spring.io/projects/spring-boot")),
 				List.of(new CurriculumTaskPlan(
 					WeeklyTaskType.READING,
-					"JPA 엔티티 매핑 읽기",
+					"JPA 엔티티 매핑 읽기 " + weekNumber,
 					"핵심 매핑 규칙을 정리합니다.",
 					true
 				))
-			)),
+			));
+		}
+		return new CurriculumGeneration(
+			"Spring Boot 6주 완성",
+			weekPlans,
 			"Generate a curriculum as JSON.",
 			LlmProvider.OPENAI,
 			"gpt-4o-mini",
@@ -1089,7 +1187,7 @@ class CurriculumServiceTest {
 			LlmUsageStatus.SUCCESS,
 			null,
 			Map.of("purpose", "CURRICULUM_GENERATE"),
-			"Generated one week with one task."
+			"Generated " + weekCount + " week(s) with one task each."
 		);
 	}
 

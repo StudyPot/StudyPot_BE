@@ -13,6 +13,7 @@
 - Notification SSE stream is authorized by [CR-20260601-notification-sse-stream](./change-requests/CR-20260601-notification-sse-stream.md) and [ADR-20260601-notification-sse-stream](./adr/ADR-20260601-notification-sse-stream.md).
 - AI conversation SSE stream and message-list recovery are authorized by [CR-20260601-ai-conversation-sse-stream](./change-requests/CR-20260601-ai-conversation-sse-stream.md) and [ADR-20260601-ai-conversation-sse-stream](./adr/ADR-20260601-ai-conversation-sse-stream.md).
 - Study group board APIs are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
+- Fixed one-week sprint windows for host start are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## Global Contract
 - Base path: `/api/v1`.
@@ -74,7 +75,7 @@
 | `POST` | `/api/v1/groups/{groupId}/posts/{postId}/comments` | `study-group-board` | active group member | Create a post comment. |
 | `PATCH` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author | Update a comment. |
 | `DELETE` | `/api/v1/groups/{groupId}/comments/{commentId}` | `study-group-board` | comment author or owner | Soft delete a comment. |
-| `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study and generate curriculum. |
+| `POST` | `/api/v1/groups/{groupId}/start` | `curriculum-core` | owner | Start study, derive fixed one-week sprint windows from the group period, and generate curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Read my onboarding response. |
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
@@ -140,6 +141,7 @@ On success, the response body returns only `tokenType`, `expiresIn`, and `user`;
   "endsAt": "2026-06-17"
 }
 ```
+The group period is later used by `POST /api/v1/groups/{groupId}/start` to derive fixed one-week curriculum sprint windows. The sprint unit is not configurable in the current API.
 
 ### Suggest Detail Keywords
 `POST /api/v1/groups/detail-keyword-suggestions`

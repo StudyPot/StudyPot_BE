@@ -7,6 +7,7 @@
 - Changes require Change Request and ADR.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Study group board tables are authorized by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
+- Fixed one-week sprint windows are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
 
 ## Baseline
 - Database: MySQL 8.
@@ -29,8 +30,8 @@
 | 8 | `group_rule` | `study-group-core`, `weekly-todo` | Group-level task/retrospective policies. |
 | 9 | `rule_violation` | `weekly-todo` | Rule violation records for overdue/incomplete states. |
 | 10 | `curriculum` | `curriculum-core`, `ai-team-leader` | AI or manually created curriculum. |
-| 11 | `curriculum_week` | `curriculum-core` | Week units in a curriculum. |
-| 12 | `weekly_task` | `weekly-todo` | Todo items inside a curriculum week. |
+| 11 | `curriculum_week` | `curriculum-core` | Fixed one-week sprint units in a curriculum. |
+| 12 | `weekly_task` | `weekly-todo` | Todo items inside a curriculum week, with `due_at` matching the sprint window end. |
 | 13 | `member_week_progress` | `weekly-todo` | Member-level weekly progress state. |
 | 14 | `task_completion` | `weekly-todo` | Member-level task completion/incomplete reason. |
 | 15 | `retrospective` | `retrospective-feedback` | AI feedback and next-week adjustment. |
@@ -71,7 +72,7 @@
 | `group_onboarding_response.keyword_skill_levels` | Internal object keyed by detail keyword, value 1 to 5. Public onboarding maps one `skillLevel` to this object. |
 | `group_onboarding_response.task_preferences` | Compatibility object. Simplified public onboarding stores `{}` until a later approved task reintroduces task preference input. |
 | `curriculum.onboarding_summary` | Submitted onboarding response summary used at host start. |
-| `curriculum_week.learning_goals` | Ordered learning goals. |
+| `curriculum_week.learning_goals` | Ordered learning goals. `curriculum_week.starts_at` and `ends_at` are derived from the fixed one-week sprint plan at host start. |
 | `curriculum_week.resources` | Recommended resources. |
 | `weekly_task.source_payload` | AI generation context excerpt. |
 | `retrospective.input_summary` | DB-first context summary: week, tasks, progress, completion notes, incomplete reasons, relevant rules/violations, prior retrospective/adjustment, onboarding summary, and conversation summary. |

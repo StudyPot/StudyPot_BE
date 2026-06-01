@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
@@ -161,6 +162,7 @@ class CurriculumControllerTest {
 			LLM_USAGE_ID,
 			Map.of("submittedResponseCount", 1),
 			TestCurriculumBeans.NOW,
+			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
 			List.of(TASK_ID)
 		);
@@ -561,7 +563,7 @@ class CurriculumControllerTest {
 			List.of("JPA", "Security"),
 			groupStatus,
 			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-21"),
+			LocalDate.parse("2026-05-17"),
 			MEMBER_ID,
 			permission,
 			memberStatus

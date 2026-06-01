@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
@@ -22,6 +23,9 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 
 	private static final String INSTRUCTIONS = """
 		You generate a study curriculum from submitted onboarding summaries.
+		Use the supplied fixed one-week sprint plan as the required week structure.
+		Set totalWeeks to expectedWeekCount and return exactly one week per sprint window.
+		Number weeks sequentially from 1 to expectedWeekCount.
 		Return JSON that matches the provided schema. Use only the supplied context.
 		Do not include retrospective feedback, notifications, member progress, or chat behavior.
 		""";
@@ -50,7 +54,7 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 			throw new CurriculumGenerationException("curriculum generation failed.", exception, exception.failure());
 		}
 		try {
-			GeneratedCurriculum generated = readGeneratedCurriculum(response.outputText());
+			GeneratedCurriculum generated = readGeneratedCurriculum(response.outputText(), request.expectedWeekCount());
 			String responseSummary = "Generated curriculum title: " + generated.title() + ", weeks: " + generated.weeks().size();
 			LlmStructuredResponse summarized = response.withResponseSummary(responseSummary);
 			return new CurriculumGeneration(
@@ -92,6 +96,13 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 				"endsAt", request.group().endsAt().toString()
 			),
 			"onboardingSummary", request.onboardingSummary(),
+			"sprintPlan", Map.of(
+				"unit", "P1W",
+				"expectedWeekCount", request.expectedWeekCount(),
+				"windows", request.sprintWindows().stream()
+					.map(this::sprintWindowInput)
+					.toList()
+			),
 			"submittedResponses", request.submittedResponses().stream()
 				.map(response -> Map.of(
 					"id", response.id().toString(),
@@ -106,11 +117,21 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		);
 	}
 
+	private Map<String, Object> sprintWindowInput(CurriculumSprintWindow window) {
+		return Map.of(
+			"weekNumber", window.weekNumber(),
+			"startsAt", window.startsAt().toString(),
+			"endsAt", window.endsAt().toString()
+		);
+	}
+
 	private Map<String, Object> requestPayload(CurriculumGenerationRequest request) {
 		return Map.of(
 			"purpose", "CURRICULUM_GENERATE",
 			"groupId", request.group().groupId().toString(),
-			"submittedResponseCount", request.submittedResponses().size()
+			"submittedResponseCount", request.submittedResponses().size(),
+			"sprintUnit", "P1W",
+			"expectedWeekCount", request.expectedWeekCount()
 		);
 	}
 
@@ -165,7 +186,7 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		);
 	}
 
-	private GeneratedCurriculum readGeneratedCurriculum(String value) throws JsonProcessingException {
+	private GeneratedCurriculum readGeneratedCurriculum(String value, int expectedWeekCount) throws JsonProcessingException {
 		JsonNode node = objectMapper.readTree(value);
 		String title = node.path("title").asText();
 		int totalWeeks = node.path("totalWeeks").asInt(-1);
@@ -176,6 +197,14 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		}
 		if (totalWeeks != weeks.size()) {
 			throw new IllegalArgumentException("generated totalWeeks must match weeks size");
+		}
+		if (totalWeeks != expectedWeekCount) {
+			throw new IllegalArgumentException("generated totalWeeks must match expected week count");
+		}
+		for (int i = 0; i < weeks.size(); i++) {
+			if (weeks.get(i).weekNumber() != i + 1) {
+				throw new IllegalArgumentException("generated weekNumber must be sequential");
+			}
 		}
 		return new GeneratedCurriculum(title, weeks);
 	}

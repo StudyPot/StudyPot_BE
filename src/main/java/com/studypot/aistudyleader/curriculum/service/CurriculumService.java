@@ -3,6 +3,8 @@ package com.studypot.aistudyleader.curriculum.service;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGeneration;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
@@ -91,6 +93,7 @@ public class CurriculumService {
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());
 		Map<String, Object> onboardingSummary = onboardingSummary(submittedResponses, now);
+		List<CurriculumSprintWindow> sprintWindows = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
 		CurriculumGenerator generator = generatorSupplier.get();
 		if (generator == null) {
 			throw new CurriculumGenerationException("curriculum generator is not configured.");
@@ -101,7 +104,8 @@ public class CurriculumService {
 				context,
 				submittedResponses,
 				onboardingSummary,
-				now
+				now,
+				sprintWindows
 			));
 		} catch (CurriculumGenerationException exception) {
 			exception.failure().ifPresent(failure -> {
@@ -113,6 +117,7 @@ public class CurriculumService {
 			});
 			throw exception;
 		}
+		requireGenerationMatchesSprintWindows(generation, sprintWindows);
 
 		UUID llmUsageId = idGenerator.get();
 		UUID curriculumId = idGenerator.get();
@@ -131,6 +136,7 @@ public class CurriculumService {
 			llmUsageId,
 			onboardingSummary,
 			now,
+			sprintWindows,
 			weekIds,
 			taskIds
 		);
@@ -141,6 +147,15 @@ public class CurriculumService {
 		}
 		publishStartedWeekNotification(curriculum);
 		return curriculum;
+	}
+
+	private void requireGenerationMatchesSprintWindows(
+		CurriculumGeneration generation,
+		List<CurriculumSprintWindow> sprintWindows
+	) {
+		if (generation.weeks().size() != sprintWindows.size()) {
+			throw new CurriculumGenerationException("generated curriculum weeks must match fixed weekly sprint windows.");
+		}
 	}
 
 	private void publishStartedWeekNotification(Curriculum curriculum) {

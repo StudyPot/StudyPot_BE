@@ -7,11 +7,21 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md)
+- ADR: [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md)
+- Result: Host start derives fixed one-week sprint windows from the study group date range, passes the expected sprint plan into curriculum generation, rejects AI output that does not match the planned week count, and persists week/task due windows from that plan without changing the public API or DB schema.
+
+## Previous Approved Change
+- Change Request: [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md)
+- ADR: [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md)
+- Result: The MVP API includes durable group-scoped boards, posts, and comments for active group members, with fixed default boards and author/OWNER permission boundaries.
+
+## Earlier Approved Change
 - Change Request: [CR-20260601-group-member-profile-api](./change-requests/CR-20260601-group-member-profile-api.md)
 - ADR: [ADR-20260601-group-member-profile-api](./adr/ADR-20260601-group-member-profile-api.md)
 - Result: The MVP API includes current-member scoped `GET` and `PATCH` endpoints at `/api/v1/groups/{groupId}/members/me/profile`, exposes group member summaries, and limits mutation to the existing `group_member.display_name` field.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260601-task-completion-response-contract](./change-requests/CR-20260601-task-completion-response-contract.md)
 - ADR: [ADR-20260601-task-completion-response-contract](./adr/ADR-20260601-task-completion-response-contract.md)
 - Result: The MVP task completion mutation response includes frontend display fields `taskId`, `reasonSubmittedAt`, `completionNote`, and `evidenceUrl` while keeping the existing endpoint, request shape, DB schema, and permission boundary.
