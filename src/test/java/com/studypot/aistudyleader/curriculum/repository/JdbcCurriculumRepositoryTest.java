@@ -134,6 +134,9 @@ class JdbcCurriculumRepositoryTest {
 		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.UPDATE_STUDY_GROUP_STARTED), groupArgs.capture());
 		assertThat(groupArgs.getValue()[0]).isEqualTo(Timestamp.from(NOW));
 		assertThat((byte[]) groupArgs.getValue()[2]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat(CurriculumJdbcSql.UPDATE_STUDY_GROUP_STARTED)
+			.contains("status = 'ACTIVE'")
+			.contains("status = 'READY_TO_START'");
 
 		ArgumentCaptor<Object[]> usageArgs = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).update(eq(CurriculumJdbcSql.INSERT_LLM_USAGE), usageArgs.capture());

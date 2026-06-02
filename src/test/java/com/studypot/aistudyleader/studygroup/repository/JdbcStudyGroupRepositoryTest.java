@@ -196,6 +196,7 @@ class JdbcStudyGroupRepositoryTest {
 			.contains("join group_member gm on gm.group_id = sg.id")
 			.contains("gm.user_id = ?")
 			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')")
 			.contains("gm.deleted_at is null")
 			.contains("sg.deleted_at is null");
 	}
@@ -207,6 +208,7 @@ class JdbcStudyGroupRepositoryTest {
 			.contains("sg.id = ?")
 			.contains("gm.user_id = ?")
 			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')")
 			.contains("gm.deleted_at is null")
 			.contains("sg.deleted_at is null");
 	}
@@ -235,6 +237,7 @@ class JdbcStudyGroupRepositoryTest {
 			.contains("left join member_week_progress mwp")
 			.contains("from retrospective r")
 			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
+			.contains("sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')")
 			.contains("gm.deleted_at is null")
 			.contains("sg.deleted_at is null");
 	}

@@ -937,7 +937,7 @@ components:
   schemas:
     StudyGroupStatus:
       type: string
-      enum: [DRAFT, ONBOARDING, ACTIVE, COMPLETED, ARCHIVED]
+      enum: [DRAFT, ONBOARDING, READY_TO_START, ACTIVE, COMPLETED, ARCHIVED]
     GroupMemberStatus:
       type: string
       enum: [PENDING_ONBOARDING, ACTIVE, LEFT]

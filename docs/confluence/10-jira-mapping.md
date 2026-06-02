@@ -18,6 +18,7 @@
 - `SPT-123`: Study group board/post/comment API implementation Task; approved by `CR-20260601-study-group-board-api`.
 - `SPT-125`: Study group member profile read/update API Task; approved by `CR-20260601-group-member-profile-api`.
 - `SPT-126`: Task completion frontend contract reinforcement Task; approved by `CR-20260601-task-completion-response-contract`.
+- `SPT-128`: Ready-to-start study group status Task; approved by `CR-20260602-ready-to-start-status`.
 
 ## Harness Start Rule
 - Start implementation only from Jira `SPT` issues of type `작업`/`Task`.

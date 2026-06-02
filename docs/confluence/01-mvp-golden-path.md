@@ -6,12 +6,13 @@
 3. System creates owner member as `PENDING_ONBOARDING`.
 4. Host shares invite link.
 5. Host and members submit onboarding.
-6. Host starts study.
-7. AI creates curriculum from submitted onboarding responses.
-8. Members execute weekly todos.
-9. Incomplete work requires reason capture.
-10. AI team leader provides retrospective feedback and next-week adjustment.
-11. In-app notifications keep members aware of onboarding, due dates, incomplete reasons, and feedback readiness.
+6. Owner onboarding completion moves the group to `READY_TO_START`.
+7. Host starts study.
+8. AI creates curriculum from submitted onboarding responses.
+9. Members execute weekly todos.
+10. Incomplete work requires reason capture.
+11. AI team leader provides retrospective feedback and next-week adjustment.
+12. In-app notifications keep members aware of onboarding, due dates, incomplete reasons, and feedback readiness.
 
 ## Key Policies
 - Host can start before every invitee completes onboarding.

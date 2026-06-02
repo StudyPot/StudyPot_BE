@@ -18,6 +18,7 @@ class FlywayMigrationContractTest {
 	private static final Path DB_CONTRACT = PROJECT_ROOT.resolve("docs/specs/db-contract-v1.md");
 	private static final Path MIGRATION_DIR = PROJECT_ROOT.resolve("src/main/resources/db/migration");
 	private static final Path V1_MIGRATION = MIGRATION_DIR.resolve("V1__erd_v0_8_mysql8_schema.sql");
+	private static final Path V4_READY_TO_START_STATUS = MIGRATION_DIR.resolve("V4__study_group_ready_to_start_status.sql");
 	private static final Pattern MIGRATION_NAME_PATTERN = Pattern.compile("V([1-9][0-9]*)__[a-z0-9_]+\\.sql");
 
 	@Test
@@ -48,6 +49,24 @@ class FlywayMigrationContractTest {
 
 		assertThat(normalizeSql(read(V1_MIGRATION)))
 			.isEqualTo(normalizeSql(read(LOCKED_SCHEMA)));
+	}
+
+	@Test
+	void readyToStartStatusIsAppliedByPostBaselineConstraintMigration() throws IOException {
+		String baseline = read(V1_MIGRATION);
+		String readyMigration = read(V4_READY_TO_START_STATUS);
+		String contract = read(DB_CONTRACT);
+
+		assertThat(baseline)
+			.contains("status in ('DRAFT','ONBOARDING','ACTIVE','COMPLETED','ARCHIVED')")
+			.doesNotContain("READY_TO_START");
+		assertThat(readyMigration)
+			.contains("drop check study_group_status_check")
+			.contains("add constraint study_group_status_check")
+			.contains("READY_TO_START");
+		assertThat(contract)
+			.contains("READY_TO_START")
+			.contains("V4__study_group_ready_to_start_status.sql");
 	}
 
 	@Test

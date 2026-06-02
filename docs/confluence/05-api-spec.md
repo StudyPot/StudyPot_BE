@@ -238,7 +238,7 @@ Response:
 - Only active members of the task's group can update their own completion.
 
 ## State Transition Rules
-- `study_group`: `DRAFT -> ONBOARDING -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
+- `study_group`: `DRAFT -> ONBOARDING -> READY_TO_START -> ACTIVE -> COMPLETED`; `ARCHIVED` can be applied by owner/admin flows.
 - `group_member`: `PENDING_ONBOARDING -> ACTIVE -> LEFT`.
 - `group_board_post`: `PUBLISHED -> DELETED`.
 - `group_board_comment`: `PUBLISHED -> DELETED`.

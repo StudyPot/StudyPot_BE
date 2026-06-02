@@ -221,6 +221,25 @@ class JdbcOnboardingRepositoryTest {
 			.contains("status = 'PENDING_ONBOARDING'");
 	}
 
+	@Test
+	void markStudyGroupReadyToStartUpdatesOnlyOwnerActiveMemberOnboardingGroup() {
+		when(jdbcTemplate.update(eq(OnboardingJdbcSql.MARK_STUDY_GROUP_READY_TO_START), any(Object[].class)))
+			.thenReturn(1);
+
+		assertThat(repository.markStudyGroupReadyToStartIfOwnerOnboardingComplete(GROUP_ID, MEMBER_ID, NOW)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(OnboardingJdbcSql.MARK_STUDY_GROUP_READY_TO_START), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+		assertThat(OnboardingJdbcSql.MARK_STUDY_GROUP_READY_TO_START)
+			.contains("set sg.status = 'READY_TO_START'")
+			.contains("sg.status = 'ONBOARDING'")
+			.contains("gm.permission = 'OWNER'")
+			.contains("gm.status = 'ACTIVE'");
+	}
+
 	private static GroupOnboardingResponse response() {
 		return GroupOnboardingResponse.draft(
 			RESPONSE_ID,

@@ -19,10 +19,10 @@
 | `study-group-core` | `REQ-GRP-001` | 호스트는 스터디 그룹을 만들 수 있다. | 필수 입력은 이름, 주제, 상세 키워드, 최대 인원, 시작/종료일이다. |
 | `study-group-core` | `REQ-GRP-002` | 생성된 그룹은 온보딩 플로우에 들어간다. | `study_group.status = ONBOARDING`, owner member는 `PENDING_ONBOARDING`이다. |
 | `study-group-core` | `REQ-INV-001` | 호스트는 초대 링크/코드를 공유할 수 있다. | 초대 코드는 유니크하고, 참여 시 pending member record를 만든다. |
-| `group-onboarding` | `REQ-ONB-001` | 호스트와 멤버는 그룹별 온보딩을 제출한다. | 공개 응답은 전체 실력, 노트, 가능 시간, 제출 시각을 저장한다. 백엔드는 커리큘럼 컨텍스트용 내부 키워드 점수로 투영할 수 있다. |
+| `group-onboarding` | `REQ-ONB-001` | 호스트와 멤버는 그룹별 온보딩을 제출한다. | 공개 응답은 전체 실력, 노트, 가능 시간, 제출 시각을 저장한다. 호스트 제출은 owner membership이 active가 된 뒤 그룹을 `READY_TO_START`로 전환한다. 백엔드는 커리큘럼 컨텍스트용 내부 키워드 점수로 투영할 수 있다. |
 | `group-onboarding` | `REQ-ONB-002` | 온보딩은 반복 가능 시간대를 저장한다. | 슬롯은 요일, 시작 시각, 종료 시각, timezone을 포함한다. |
 | `group-onboarding` | `REQ-ONB-003` | 온보딩 실력 점수는 1-5 범위를 사용한다. | 범위를 벗어난 값은 거절된다. |
-| `curriculum-core` | `REQ-CUR-001` | 호스트는 온보딩이 시작된 뒤 스터디를 시작할 수 있다. | 모든 멤버가 온보딩을 완료하지 않아도 시작 가능하다. |
+| `curriculum-core` | `REQ-CUR-001` | 호스트는 호스트 온보딩이 완료된 뒤 스터디를 시작할 수 있다. | 시작은 `study_group.status = READY_TO_START`를 요구하며, 모든 멤버가 온보딩을 완료하지 않아도 가능하다. |
 | `curriculum-core` | `REQ-CUR-002` | AI 커리큘럼은 제출된 온보딩 응답을 사용한다. | `curriculum.onboarding_summary`에 생성 컨텍스트를 저장하고, 생성 주차 수는 스터디 기간에서 산출한 1주 단위 스프린트 수와 일치해야 한다. |
 | `weekly-todo` | `REQ-TODO-001` | 커리큘럼 주차는 weekly task를 가진다. | task는 type, order, title, required flag, sprint window 기반 due timestamp를 가진다. |
 | `weekly-todo` | `REQ-TODO-002` | 멤버는 마감 전 todo를 완료할 수 있다. | 완료 시각과 노트가 저장된다. |
@@ -51,7 +51,7 @@
 | Discord integration and bot delivery | MVP 범위 밖이며 첫 알림 표면은 서비스 내부 `IN_APP` 알림이다. |
 
 ## 주요 수용 기준
-- 그룹은 `ONBOARDING` 상태로 생성되고 초대 코드/링크를 통해 멤버가 합류한다.
+- 그룹은 `ONBOARDING` 상태로 생성되고 호스트 온보딩 완료 후 `READY_TO_START` 상태에서 시작을 기다리며, 초대 코드/링크를 통해 멤버가 합류한다.
 - 호스트와 멤버는 그룹별 온보딩을 제출하며, 전체 실력 점수 입력은 1-5 범위로 검증한다.
 - 호스트 시작은 모든 초대자의 온보딩 완료를 요구하지 않는다.
 - 초기 커리큘럼 생성은 시작 시점까지 제출된 온보딩 응답만 사용한다.

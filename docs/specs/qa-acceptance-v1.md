@@ -36,6 +36,7 @@
 | `study-group-core` | `QA-GRP-003` | Invite join respects max member count and duplicate membership rules. |
 | `study-group-core` | `QA-GRP-004` | Owner-only group updates reject non-owner access. |
 | `study-group-core` | `QA-GRP-005` | Current members can read/update their own group member profile, while non-members and LEFT members are rejected. |
+| `study-group-core` | `QA-GRP-006` | Owner onboarding completion exposes `study_group.status = READY_TO_START` before host start. |
 | `study-group-board` | `QA-BOARD-001` | Active members can list group boards and missing default boards are initialized idempotently. |
 | `study-group-board` | `QA-BOARD-002` | Active members can create and read board posts, and invalid title/content/page cursor values return validation problems. |
 | `study-group-board` | `QA-BOARD-003` | Post list pagination orders pinned posts first, then newest posts, and returns a next cursor when more rows exist. |
@@ -46,7 +47,7 @@
 | `group-onboarding` | `QA-ONB-002` | Overall skill level rejects values outside 1 to 5. |
 | `group-onboarding` | `QA-ONB-003` | Availability slots reject invalid day/time windows. |
 | `group-onboarding` | `QA-ONB-004` | One member cannot create duplicate active onboarding responses. |
-| `curriculum-core` | `QA-CUR-001` | Host start creates curriculum from submitted onboarding summary. |
+| `curriculum-core` | `QA-CUR-001` | Host start creates curriculum from submitted onboarding summary only when the group is `READY_TO_START`. |
 | `curriculum-core` | `QA-CUR-002` | Host can start without waiting for every invitee. |
 | `curriculum-core` | `QA-CUR-003` | Late joiner onboarding does not auto-regenerate initial curriculum. |
 | `curriculum-core` | `QA-CUR-004` | Host start creates one curriculum week per fixed one-week sprint window derived from the group period, and rejects AI output with a mismatched week count. |

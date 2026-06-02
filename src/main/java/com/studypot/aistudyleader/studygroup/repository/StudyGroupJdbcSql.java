@@ -45,7 +45,7 @@ final class StudyGroupJdbcSql {
 		  and gm.user_id = ?
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and gm.deleted_at is null
-		  and sg.status in ('ONBOARDING', 'ACTIVE', 'COMPLETED')
+		  and sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')
 		  and sg.deleted_at is null
 		""";
 
@@ -78,7 +78,7 @@ final class StudyGroupJdbcSql {
 		where gm.user_id = ?
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and gm.deleted_at is null
-		  and sg.status in ('ONBOARDING', 'ACTIVE', 'COMPLETED')
+		  and sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')
 		  and sg.deleted_at is null
 		order by gm.joined_at desc, sg.created_at desc, sg.id desc
 		""";
@@ -156,7 +156,7 @@ final class StudyGroupJdbcSql {
 		  and gm.user_id = ?
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and gm.deleted_at is null
-		  and sg.status in ('ONBOARDING', 'ACTIVE', 'COMPLETED')
+		  and sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')
 		  and sg.deleted_at is null
 		order by cw.week_number
 		limit 1

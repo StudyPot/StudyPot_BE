@@ -19,7 +19,7 @@ The product replaces the manual study leader role for small groups. The leader d
 - Fast group creation with topic, detail keywords, max members, and period.
 - Invite link flow for bringing members into the group.
 - Member-specific onboarding for overall skill level, availability, and notes.
-- Host start action that turns submitted onboarding responses into an AI curriculum.
+- Ready-to-start handoff after host onboarding, followed by a host start action that turns submitted onboarding responses into an AI curriculum.
 - Weekly todo completion and incomplete-reason capture.
 - AI team leader retrospective feedback and weekly next-week adjustment.
 - In-app notifications for onboarding, weekly deadlines, incomplete-reason prompts, and feedback readiness.
@@ -30,12 +30,13 @@ The product replaces the manual study leader role for small groups. The leader d
 3. System creates host membership in `PENDING_ONBOARDING`.
 4. Host shares invite link.
 5. Host and members submit onboarding responses.
-6. Host starts the study without requiring every invitee to finish onboarding.
-7. System creates curriculum and weekly tasks from submitted onboarding summaries.
-8. Members complete weekly todos or submit incomplete reasons.
-9. AI team leader produces feedback and next-week adjustment.
-10. Late joiners complete onboarding and join from the current week.
-11. Members receive in-app notifications when onboarding, todo deadlines, incomplete reasons, or AI feedback need attention.
+6. Host onboarding completion moves the group to `READY_TO_START`.
+7. Host starts the study without requiring every invitee to finish onboarding.
+8. System creates curriculum and weekly tasks from submitted onboarding summaries.
+9. Members complete weekly todos or submit incomplete reasons.
+10. AI team leader produces feedback and next-week adjustment.
+11. Late joiners complete onboarding and join from the current week.
+12. Members receive in-app notifications when onboarding, todo deadlines, incomplete reasons, or AI feedback need attention.
 
 ## Explicitly Deferred
 - Heavy live meeting automation.

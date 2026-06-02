@@ -1,7 +1,7 @@
 # 07 권한 / 상태 전이
 
 ## Status Values
-- `study_group.status`: `DRAFT`, `ONBOARDING`, `ACTIVE`, `COMPLETED`, `ARCHIVED`
+- `study_group.status`: `DRAFT`, `ONBOARDING`, `READY_TO_START`, `ACTIVE`, `COMPLETED`, `ARCHIVED`
 - `group_member.status`: `PENDING_ONBOARDING`, `ACTIVE`, `LEFT`
 - `group_board_post.status`: `PUBLISHED`, `DELETED`
 - `group_board_comment.status`: `PUBLISHED`, `DELETED`
@@ -14,6 +14,7 @@
 - Owner creates/updates group and starts study.
 - Pending member can submit onboarding.
 - Pending member can read/update their own group-scoped profile display name.
+- `READY_TO_START` groups still accept invite joins and onboarding submissions, but active-study features remain locked until `ACTIVE`.
 - Active member can view curriculum, complete todos, request retrospective, and chat with AI.
 - Active member can read group boards/posts/comments and create posts/comments in their own group.
 - Board authors can edit/delete their own posts/comments.

@@ -5,6 +5,7 @@
 - Source: Requirements v0.3, ERD v0.8 MySQL8.
 - Retrospective/chat context boundary is authorized by [CR-20260512-retrospective-rag-boundary](./change-requests/CR-20260512-retrospective-rag-boundary.md) and [ADR-20260512-retrospective-rag-boundary](./adr/ADR-20260512-retrospective-rag-boundary.md).
 - Fixed one-week sprint windows are authorized by [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md) and [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md).
+- Ready-to-start group status is authorized by [CR-20260602-ready-to-start-status](./change-requests/CR-20260602-ready-to-start-status.md) and [ADR-20260602-ready-to-start-status](./adr/ADR-20260602-ready-to-start-status.md).
 
 ## Journey 1: Host Creates Group
 1. Authenticated host submits group name, topic, selected/detail keywords, maximum members, and study period.
@@ -35,6 +36,7 @@ Acceptance:
 3. Member enters recurring availability slots.
 4. Backend stores `group_onboarding_response` as `SUBMITTED` and creates `member_availability_slot` rows.
 5. Backend changes `group_member.status` to `ACTIVE` if the group is already active or ready to activate.
+6. If the submitting member is the active owner and the group is still `ONBOARDING`, backend changes `study_group.status` to `READY_TO_START`.
 
 Acceptance:
 - Skill level is 1 to 5.
@@ -43,7 +45,7 @@ Acceptance:
 
 ## Journey 4: Host Starts Study
 1. Host clicks start.
-2. Backend verifies host is owner and group is `ONBOARDING`.
+2. Backend verifies host is owner and group is `READY_TO_START`.
 3. Backend summarizes submitted onboarding responses.
 4. Backend derives fixed one-week sprint windows from the group study period.
 5. Backend creates curriculum, weeks, and weekly tasks that match the sprint windows.

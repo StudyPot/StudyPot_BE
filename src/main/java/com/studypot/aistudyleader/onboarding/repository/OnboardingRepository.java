@@ -19,4 +19,6 @@ public interface OnboardingRepository {
 	GroupOnboardingResponse submit(GroupOnboardingResponse response);
 
 	boolean activatePendingMember(UUID memberId, Instant activatedAt);
+
+	boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt);
 }

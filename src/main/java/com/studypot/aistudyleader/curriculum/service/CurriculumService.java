@@ -83,8 +83,8 @@ public class CurriculumService {
 		if (!context.isOwner()) {
 			throw new CurriculumAccessDeniedException("only the study group owner can start the curriculum.");
 		}
-		if (context.groupStatus() != StudyGroupStatus.ONBOARDING) {
-			throw new CurriculumStartRejectedException("study group must be ONBOARDING to start curriculum generation.");
+		if (context.groupStatus() != StudyGroupStatus.READY_TO_START) {
+			throw new CurriculumStartRejectedException("study group must be READY_TO_START to start curriculum generation.");
 		}
 		if (!context.hasActiveMembership()) {
 			throw new CurriculumStartRejectedException("owner onboarding must be submitted before starting the study.");

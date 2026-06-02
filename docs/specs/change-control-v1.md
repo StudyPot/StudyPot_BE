@@ -7,11 +7,16 @@
 - Lock unit: full v1 planning package.
 
 ## Current Approved Change
+- Change Request: [CR-20260602-ready-to-start-status](./change-requests/CR-20260602-ready-to-start-status.md)
+- ADR: [ADR-20260602-ready-to-start-status](./adr/ADR-20260602-ready-to-start-status.md)
+- Result: `study_group.status` includes `READY_TO_START` for owner-onboarding-complete groups before host start; host start now transitions `READY_TO_START -> ACTIVE` while partial invitee onboarding remains allowed.
+
+## Previous Approved Change
 - Change Request: [CR-20260601-fixed-weekly-sprint-windows](./change-requests/CR-20260601-fixed-weekly-sprint-windows.md)
 - ADR: [ADR-20260601-fixed-weekly-sprint-windows](./adr/ADR-20260601-fixed-weekly-sprint-windows.md)
 - Result: Host start derives fixed one-week sprint windows from the study group date range, passes the expected sprint plan into curriculum generation, rejects AI output that does not match the planned week count, and persists week/task due windows from that plan without changing the public API or DB schema.
 
-## Previous Approved Change
+## Earlier Approved Change
 - Change Request: [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md)
 - ADR: [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md)
 - Result: The MVP API includes durable group-scoped boards, posts, and comments for active group members, with fixed default boards and author/OWNER permission boundaries.

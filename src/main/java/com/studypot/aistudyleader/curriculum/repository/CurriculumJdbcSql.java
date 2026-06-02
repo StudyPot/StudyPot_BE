@@ -102,7 +102,7 @@ final class CurriculumJdbcSql {
 		    started_at = ?,
 		    updated_at = ?
 		where id = ?
-		  and status = 'ONBOARDING'
+		  and status = 'READY_TO_START'
 		  and deleted_at is null
 		""";
 

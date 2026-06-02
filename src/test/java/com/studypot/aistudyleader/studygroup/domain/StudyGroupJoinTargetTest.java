@@ -28,6 +28,13 @@ class StudyGroupJoinTargetTest {
 	}
 
 	@Test
+	void readyToStartGroupStillAcceptsOnboardingJoinFlow() {
+		StudyGroupJoinTarget target = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.READY_TO_START, 3, "INVITE-0001");
+
+		assertThat(target.isAcceptingJoins()).isTrue();
+	}
+
+	@Test
 	void completedGroupDoesNotAcceptLateJoinFlow() {
 		StudyGroupJoinTarget target = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.COMPLETED, 3, "INVITE-0001");
 

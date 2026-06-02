@@ -16,7 +16,7 @@
 | --- | --- |
 | Group permission | `OWNER`, `MEMBER` |
 | Group member status | `PENDING_ONBOARDING`, `ACTIVE`, `LEFT` |
-| Group status | `DRAFT`, `ONBOARDING`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
+| Group status | `DRAFT`, `ONBOARDING`, `READY_TO_START`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
 
 ## Permission Matrix
 | Action | Anonymous | Authenticated Non-Member | Pending Member | Active Member | Owner |
@@ -77,6 +77,7 @@
 - A `PENDING_ONBOARDING` member can submit onboarding but cannot complete weekly tasks.
 - A `PENDING_ONBOARDING` member can read/update their own group-scoped profile display name.
 - A `PENDING_ONBOARDING` member cannot read or write group board content until activated.
+- A `READY_TO_START` group can accept invite joins and onboarding submissions, but active-study features remain locked until `ACTIVE`.
 - An `ACTIVE` member can read and participate in current/future weeks.
 - A `LEFT` member cannot create new progress, retrospective, conversation, completion, or board records.
 - `ARCHIVED` groups are read-only except for owner/admin audit access.
