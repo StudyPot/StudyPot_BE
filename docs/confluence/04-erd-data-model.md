@@ -253,7 +253,7 @@ erDiagram
 ## Locked Status Values
 | Field | Values |
 | --- | --- |
-| `study_group.status` | `DRAFT`, `ONBOARDING`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
+| `study_group.status` | `DRAFT`, `ONBOARDING`, `READY_TO_START`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
 | `group_member.permission` | `OWNER`, `MEMBER` |
 | `group_member.status` | `PENDING_ONBOARDING`, `ACTIVE`, `LEFT` |
 | `group_onboarding_response.status` | `DRAFT`, `SUBMITTED` |

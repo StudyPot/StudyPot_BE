@@ -56,6 +56,20 @@ class OnboardingServiceTest {
 	}
 
 	@Test
+	void submitMyOnboardingMarksOwnerGroupReadyToStartAfterOwnerBecomesActive() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		service.submitMyOnboarding(command());
+
+		assertThat(repository.readyGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.readyMemberId).isEqualTo(MEMBER_ID);
+		assertThat(repository.readyAt).isEqualTo(NOW);
+	}
+
+	@Test
 	void submitMyOnboardingMapsOverallSkillLevelToInternalKeywordScores() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
@@ -229,6 +243,7 @@ class OnboardingServiceTest {
 		assertThatThrownBy(() -> service.submitMyOnboarding(command()))
 			.isInstanceOf(OnboardingMembershipRequiredException.class)
 			.hasMessage("current group membership is required.");
+		assertThat(repository.readyGroupId).isNull();
 	}
 
 	private static OnboardingService service(CapturingRepository repository, UUID... nextIds) {
@@ -309,6 +324,9 @@ class OnboardingServiceTest {
 		private GroupOnboardingResponse submittedResponse;
 		private UUID activatedMemberId;
 		private Instant activatedAt;
+		private UUID readyGroupId;
+		private UUID readyMemberId;
+		private Instant readyAt;
 		private boolean activateResult = true;
 
 		@Override
@@ -353,6 +371,15 @@ class OnboardingServiceTest {
 			this.activatedMemberId = memberId;
 			this.activatedAt = activatedAt;
 			return activateResult;
+		}
+
+		@Override
+		public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+			requireExpectedGroupId(groupId);
+			this.readyGroupId = groupId;
+			this.readyMemberId = memberId;
+			this.readyAt = readyAt;
+			return true;
 		}
 
 		private static void requireExpectedGroupId(UUID groupId) {

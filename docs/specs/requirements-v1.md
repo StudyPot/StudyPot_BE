@@ -23,10 +23,10 @@
 | `study-group-core` | `REQ-GRP-001` | Host can create a study group. | Required inputs are name, topic, detail keywords, max members, starts/ends dates. |
 | `study-group-core` | `REQ-GRP-002` | Created group enters onboarding flow. | `study_group.status = ONBOARDING`, owner member is `PENDING_ONBOARDING`. |
 | `study-group-core` | `REQ-INV-001` | Host can share invite link/code. | Invite code is unique and creates pending member records. |
-| `group-onboarding` | `REQ-ONB-001` | Host and members submit group-specific onboarding. | Public response stores overall skill level, note, availability slots, and submitted timestamp. The backend may project the skill level into internal keyword scores for curriculum context. |
+| `group-onboarding` | `REQ-ONB-001` | Host and members submit group-specific onboarding. | Public response stores overall skill level, note, availability slots, and submitted timestamp. Owner submission transitions the group to `READY_TO_START` when the owner membership is active. The backend may project the skill level into internal keyword scores for curriculum context. |
 | `group-onboarding` | `REQ-ONB-002` | Onboarding stores recurring availability slots. | Slots include day of week, start time, end time, and timezone. |
 | `group-onboarding` | `REQ-ONB-003` | Onboarding skill level uses a 1 to 5 scale. | Invalid values are rejected. |
-| `curriculum-core` | `REQ-CUR-001` | Host can start study after onboarding begins. | Start does not require all members to submit onboarding. |
+| `curriculum-core` | `REQ-CUR-001` | Host can start study after owner onboarding is complete. | Start requires `study_group.status = READY_TO_START` and does not require all members to submit onboarding. |
 | `curriculum-core` | `REQ-CUR-002` | AI curriculum uses submitted onboarding responses. | `curriculum.onboarding_summary` stores generation context, and generated weeks must match the fixed one-week sprint windows derived from the group period. |
 | `weekly-todo` | `REQ-TODO-001` | Curriculum weeks contain weekly tasks. | Tasks have type, order, title, required flag, and due timestamp equal to the planned sprint window end. |
 | `weekly-todo` | `REQ-TODO-002` | Members can complete todos before deadline. | Completion timestamp and note are stored. |

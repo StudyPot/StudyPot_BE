@@ -59,6 +59,7 @@ public class OnboardingService {
 			&& !repository.activatePendingMember(context.memberId(), now)) {
 			throw new OnboardingMembershipRequiredException("current group membership is required.");
 		}
+		repository.markStudyGroupReadyToStartIfOwnerOnboardingComplete(context.groupId(), context.memberId(), now);
 		return submitted;
 	}
 

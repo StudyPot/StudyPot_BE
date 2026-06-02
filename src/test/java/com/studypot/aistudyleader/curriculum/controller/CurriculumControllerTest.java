@@ -144,7 +144,7 @@ class CurriculumControllerTest {
 
 	@Test
 	void startStudyReturnsConflictWhenOwnerOnboardingIsPending() throws Exception {
-		repository.startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.PENDING_ONBOARDING);
+		repository.startContext = context(StudyGroupStatus.READY_TO_START, GroupMemberPermission.OWNER, GroupMemberStatus.PENDING_ONBOARDING);
 
 		mockMvc.perform(post(START_PATH)
 				.with(user(USER_ID.toString()))
@@ -700,7 +700,7 @@ class CurriculumControllerTest {
 		private Queue<UUID> nextIds;
 
 		void reset() {
-			startContext = context(StudyGroupStatus.ONBOARDING, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+			startContext = context(StudyGroupStatus.READY_TO_START, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
 			readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
 			weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
 			taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);

@@ -266,6 +266,11 @@ class OnboardingControllerTest {
 				return true;
 			}
 
+			@Override
+			public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+				return true;
+			}
+
 			private static MemberAvailabilitySlot slot() {
 				return MemberAvailabilitySlot.create(
 					SLOT_ID,

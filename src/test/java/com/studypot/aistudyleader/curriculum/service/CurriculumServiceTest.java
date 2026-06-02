@@ -70,7 +70,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyCreatesCurriculumFromSubmittedOnboardingAndActivatesGroup() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
@@ -107,7 +107,7 @@ class CurriculumServiceTest {
 	void startStudyCreatesFixedWeeklySprintWindowsFromStudyPeriod() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(
-			StudyGroupStatus.ONBOARDING,
+			StudyGroupStatus.READY_TO_START,
 			GroupMemberStatus.ACTIVE,
 			LocalDate.parse("2026-06-01"),
 			LocalDate.parse("2026-06-21")
@@ -157,7 +157,7 @@ class CurriculumServiceTest {
 	void startStudyRejectsGeneratedWeekCountMismatchForFixedSprintPlan() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(
-			StudyGroupStatus.ONBOARDING,
+			StudyGroupStatus.READY_TO_START,
 			GroupMemberStatus.ACTIVE,
 			LocalDate.parse("2026-06-01"),
 			LocalDate.parse("2026-06-21")
@@ -174,7 +174,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyPublishesStartedWeekNotification() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
 		CurriculumService service = service(
@@ -196,7 +196,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyRejectsWhenGeneratorIsNotConfigured() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
 
@@ -210,7 +210,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyRecordsFailedLlmUsageWhenGeneratorFailsAfterProviderCall() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = service(
 			repository,
@@ -263,7 +263,7 @@ class CurriculumServiceTest {
 	@Test
 	void startStudyKeepsOriginalGenerationExceptionWhenFailedUsageAuditCannotBeRecorded() {
 		CapturingRepository repository = new CapturingRepository();
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
 		repository.failFailedLlmUsageSave = true;
 		LlmCallFailure failure = new LlmCallFailure(
@@ -312,12 +312,12 @@ class CurriculumServiceTest {
 	void startStudyRejectsGroupThatIsNotOnboarding() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
-		repository.startContext = ownerStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.ACTIVE);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumStartRejectedException.class)
-			.hasMessage("study group must be ONBOARDING to start curriculum generation.");
+			.hasMessage("study group must be READY_TO_START to start curriculum generation.");
 		assertThat(repository.savedCurriculum).isNull();
 	}
 
@@ -325,7 +325,7 @@ class CurriculumServiceTest {
 	void startStudyRejectsOwnerWhoHasNotSubmittedOnboarding() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
-		repository.startContext = ownerStartContext(StudyGroupStatus.ONBOARDING, GroupMemberStatus.PENDING_ONBOARDING);
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.PENDING_ONBOARDING);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))

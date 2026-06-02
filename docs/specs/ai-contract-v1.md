@@ -110,7 +110,7 @@ The backend supplies `expectedWeekCount` and fixed one-week sprint windows deriv
 - Do not store raw secrets, OAuth tokens, or unredacted provider credentials.
 
 ## Failure Handling
-- If curriculum generation fails, group remains `ONBOARDING` unless a partial curriculum was explicitly accepted.
+- If curriculum generation fails, group remains `READY_TO_START` unless a partial curriculum was explicitly accepted.
 - If retrospective generation fails, `retrospective.status = FAILED` and retry can create or update the same retrospective.
 - If chat response fails, store the user message and failed `llm_usage`; do not invent assistant content.
 - For subscribed 1:1 chat clients, chat response failure also emits best-effort `assistant-generation-failed` after failed `llm_usage` is recorded.

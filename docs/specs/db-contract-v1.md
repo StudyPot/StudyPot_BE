@@ -40,14 +40,15 @@
 | 18 | `notification` | `notification` | In-app notification records, read state, and idempotency. |
 | 19 | `llm_usage` | `ai-team-leader` | LLM call usage, cost, status, and redacted metadata. |
 
-## Approved Additive Tables
+## Approved Post-Baseline Migrations
 - `group_board`, `group_board_post`, and `group_board_comment` are approved by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and implemented by `src/main/resources/db/migration/V3__study_group_board_schema.sql`.
-- The locked `docs/specs/db-schema-v1.sql` and `V1__erd_v0_8_mysql8_schema.sql` remain the ERD v0.8 baseline; additive tables live in later Flyway migrations.
+- `study_group.status` value `READY_TO_START` is approved by [CR-20260602-ready-to-start-status](./change-requests/CR-20260602-ready-to-start-status.md) and implemented by `src/main/resources/db/migration/V4__study_group_ready_to_start_status.sql`.
+- The locked `docs/specs/db-schema-v1.sql` and `V1__erd_v0_8_mysql8_schema.sql` remain the ERD v0.8 baseline; additive tables and post-baseline constraint changes live in later Flyway migrations.
 
 ## Locked Status Values
 | Field | Values |
 | --- | --- |
-| `study_group.status` | `DRAFT`, `ONBOARDING`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
+| `study_group.status` | `DRAFT`, `ONBOARDING`, `READY_TO_START`, `ACTIVE`, `COMPLETED`, `ARCHIVED` |
 | `group_member.permission` | `OWNER`, `MEMBER` |
 | `group_member.status` | `PENDING_ONBOARDING`, `ACTIVE`, `LEFT` |
 | `group_onboarding_response.status` | `DRAFT`, `SUBMITTED` |
@@ -106,6 +107,7 @@
 7. AI/retrospective: `llm_usage`, `retrospective`, `ai_conversation`, `ai_conversation_message`.
 8. Notifications: `notification`.
 9. Additive board migration: `group_board`, `group_board_post`, `group_board_comment`.
+10. Status constraint update: `READY_TO_START` is added to `study_group.status` by `V4__study_group_ready_to_start_status.sql`.
 
 ## Deferred Tables
 | Table | Reason |
