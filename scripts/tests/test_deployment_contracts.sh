@@ -94,7 +94,7 @@ assert_contains "printf 'STUDYPOT_AUTH_COOKIE_SAME_SITE=%s\\n' \"\${STUDYPOT_AUT
 assert_contains "printf 'STUDYPOT_AUTH_COOKIE_SECURE=%s\\n' \"\${STUDYPOT_AUTH_COOKIE_SECURE}\"" "${TEST_ROOT}/.github/workflows/deploy.yml"
 assert_contains "STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:-5s" "${TEST_ROOT}/.github/workflows/deploy.yml"
 assert_contains "STUDYPOT_AI_OPENAI_READ_TIMEOUT:-120s" "${TEST_ROOT}/.github/workflows/deploy.yml"
-assert_contains "STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:-4096" "${TEST_ROOT}/.github/workflows/deploy.yml"
+assert_contains "STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:-16384" "${TEST_ROOT}/.github/workflows/deploy.yml"
 assert_contains "STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:-1536" "${TEST_ROOT}/.github/workflows/deploy.yml"
 assert_contains "docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml pull studypot-api" "${TEST_ROOT}/.github/workflows/deploy.yml"
 assert_contains "docker compose --env-file .env --env-file .image.env --env-file .runtime.env -f docker-compose.yml up -d --force-recreate studypot-api" "${TEST_ROOT}/.github/workflows/deploy.yml"

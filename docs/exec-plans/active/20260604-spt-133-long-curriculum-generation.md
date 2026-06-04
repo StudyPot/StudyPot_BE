@@ -64,6 +64,11 @@ Allow a study period longer than one year to proceed through deterministic sprin
 - GREEN: `./gradlew test --tests com.studypot.aistudyleader.curriculum.infrastructure.openai.OpenAiCurriculumPropertiesTest --tests com.studypot.aistudyleader.curriculum.infrastructure.openai.OpenAiLlmProviderTest --tests com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlannerTest --no-daemon` passed after increasing curriculum output budget and read timeout defaults.
 - GREEN: `./gradlew test --tests com.studypot.aistudyleader.curriculum.service.CurriculumServiceTest --tests com.studypot.aistudyleader.curriculum.service.ProviderBackedCurriculumGeneratorTest --no-daemon` passed for surrounding generation/service contracts.
 - GREEN: `./gradlew check build --no-daemon` passed locally.
+- CI FEEDBACK: PR `#214` `harness-tests` failed because deployment contract tests still expected `STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE` defaults of 4096.
+- GREEN: `bash scripts/tests/test_deployment_contracts.sh` passed after updating deployment workflow contract expectations to 16384.
+- GREEN: `bash scripts/tests/test_rumiclean_migration_contracts.sh` passed after updating RumiClean env/example and compose contract expectations to 16384.
+- GREEN: `bash scripts/tests/run.sh` passed locally for the full harness test suite.
+- GREEN: `./gradlew check build --no-daemon` passed after the harness contract fix.
 
 ## Done Criteria
 - `CurriculumSprintPlanner` has explicit coverage for periods over one year and returns 53+ windows without throwing.
