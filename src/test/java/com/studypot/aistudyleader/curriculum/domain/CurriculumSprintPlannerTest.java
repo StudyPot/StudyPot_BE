@@ -50,6 +50,19 @@ class CurriculumSprintPlannerTest {
 	}
 
 	@Test
+	void fixedWeeklyWindowsSupportsPeriodsLongerThanOneYear() {
+		List<CurriculumSprintWindow> windows = CurriculumSprintPlanner.fixedWeeklyWindows(
+			LocalDate.parse("2026-01-01"),
+			LocalDate.parse("2027-01-01")
+		);
+
+		assertThat(windows).hasSize(53);
+		assertThat(windows.getLast().weekNumber()).isEqualTo(53);
+		assertThat(windows.getLast().startsAt()).isEqualTo(Instant.parse("2026-12-31T00:00:00Z"));
+		assertThat(windows.getLast().endsAt()).isEqualTo(Instant.parse("2027-01-02T00:00:00Z"));
+	}
+
+	@Test
 	void fixedWeeklyWindowsRejectsInvalidStudyPeriod() {
 		assertThatThrownBy(() -> CurriculumSprintPlanner.fixedWeeklyWindows(
 				LocalDate.parse("2026-06-10"),

@@ -88,10 +88,10 @@ studypot:
         detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_MODEL_DETAIL_KEYWORD_SUGGEST:}
       api-mode: ${STUDYPOT_AI_OPENAI_API_MODE:responses}
       connect-timeout: ${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:5s}
-      read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:30s}
+      read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:120s}
       output-token-limits:
         detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_DETAIL_KEYWORD_SUGGEST:256}
-        curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:4096}
+        curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:16384}
         retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:1536}
       reasoning-efforts:
