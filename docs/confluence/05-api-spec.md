@@ -70,10 +70,14 @@
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
+| `GET` | `/api/v1/groups/{groupId}/learning-activity/me` | `weekly-todo` | active group member | Read group-home current learning activity with current week, my progress, tasks, and my task completion states. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
 | `GET` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Read my member week progress. |
 | `PUT` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Update member week progress note/status. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me` | `weekly-todo` | group member | Complete, skip, or mark task incomplete. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/done` | `weekly-todo` | group member | Mark my task completion as done. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/incomplete` | `weekly-todo` | group member | Mark my task completion as incomplete with a required reason. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/skip` | `weekly-todo` | group member | Mark my task completion as skipped. |
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
@@ -198,6 +202,17 @@ Public onboarding responses expose `skillLevel`, not internal keyword score or t
 - PATCH is limited to 1 to 80 non-blank `displayName` characters.
 - Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Missing groups return not found; existing groups without current membership return forbidden.
 
+### Current Learning Activity
+`GET /api/v1/groups/{groupId}/learning-activity/me` returns the current group-home learning activity read model:
+
+- `currentWeek`: current `CurriculumWeekResponse`.
+- `progress`: existing `MemberWeekProgressResponse`, or null when no progress row exists.
+- `progressStatus`: existing progress status, or `NOT_STARTED` when progress is null.
+- `taskCompletion`: total/done/incomplete/skipped counts for the current member.
+- `tasks`: each current-week task plus the current member's completion snapshot. Missing completion rows are returned as `status = TODO`.
+
+This endpoint does not create progress or completion rows. Only `ACTIVE` group members can read it.
+
 ### Study Group Board
 - Approved by `CR-20260601-study-group-board-api`.
 - Default board types are `NOTICE`, `QUESTION`, `RESOURCE`, and `RETROSPECTIVE`; `GET /groups/{groupId}/boards` initializes missing default rows idempotently.
@@ -235,6 +250,7 @@ Response:
 - `DONE`: `completionNote` and `evidenceUrl` are optional; repeated `DONE` requests preserve the first completion values.
 - `INCOMPLETE`: `incompleteReason` is required and `reasonSubmittedAt` is returned.
 - `SKIPPED`: completion, incomplete, and evidence fields are empty.
+- Button-friendly wrappers are available at `/completion/me/done`, `/completion/me/incomplete`, and `/completion/me/skip`; they delegate to the same state machine and return the same response.
 - Only active members of the task's group can update their own completion.
 
 ## State Transition Rules
@@ -265,7 +281,7 @@ Response:
 
 ## Verification
 - OpenAPI YAML must parse before PR review.
-- Current local parse: `openapi=3.1.0`, `paths=28`, `schemas=33`.
+- Current local parse: `openapi=3.1.0`, `paths=40`, `schemas=65`.
 - Standard repo verification: `./gradlew check build --no-daemon`.
 
 ## 추적 링크

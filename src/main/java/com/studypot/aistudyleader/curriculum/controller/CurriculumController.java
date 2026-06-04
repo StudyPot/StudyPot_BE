@@ -5,6 +5,7 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
+import com.studypot.aistudyleader.curriculum.domain.CurrentLearningActivity;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
@@ -16,6 +17,7 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailabl
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
+import com.studypot.aistudyleader.curriculum.service.GetLearningActivityQuery;
 import com.studypot.aistudyleader.curriculum.service.GetWeekProgressQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
@@ -28,6 +30,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
@@ -119,6 +122,29 @@ class CurriculumController {
 	}
 
 	@Operation(
+		summary = "그룹홈 현재 학습활동 조회",
+		description = "그룹홈에서 현재 주차, 내 주차 진행 상태, 과제 목록과 내 과제 완료 상태를 한 번에 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "현재 학습활동 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "활성 그룹 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹 또는 현재 주차를 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/learning-activity/me")
+	CurrentLearningActivityResponse getCurrentLearningActivity(
+		Authentication authentication,
+		@Parameter(description = "학습활동을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		CurrentLearningActivity activity = service().getCurrentLearningActivity(
+			new GetLearningActivityQuery(authenticatedUserId(authentication), groupId)
+		);
+		return CurrentLearningActivityResponse.from(activity);
+	}
+
+	@Operation(
 		summary = "주차 과제 목록 조회",
 		description = "그룹 멤버가 특정 커리큘럼 주차에 배정된 과제 목록을 표시 순서대로 조회합니다."
 	)
@@ -192,6 +218,79 @@ class CurriculumController {
 		@Valid @RequestBody TaskCompletionRequest request
 	) {
 		TaskCompletion completion = service().completeMyTask(request.toCommand(authenticatedUserId(authentication), taskId));
+		return TaskCompletionResponse.from(completion);
+	}
+
+	@Operation(
+		summary = "내 과제 완료 처리",
+		description = "TODO 버튼에서 특정 과제를 완료 상태로 저장하고 최신 완료 상태를 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "완료 상태 저장 후 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "해당 과제가 속한 그룹의 활성 멤버가 아니어서 저장할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "과제를 찾을 수 없음"),
+		@ApiResponse(responseCode = "409", description = "과제 상태 전환 규칙을 만족하지 못함")
+	})
+	@PostMapping(ApiPaths.V1 + "/tasks/{taskId}/completion/me/done")
+	TaskCompletionResponse markTaskDone(
+		Authentication authentication,
+		@Parameter(description = "완료 처리할 주차 과제 UUID입니다.", required = true)
+		@PathVariable UUID taskId,
+		@Valid @RequestBody DoneTaskRequest request
+	) {
+		TaskCompletion completion = service().completeMyTask(request.toCommand(authenticatedUserId(authentication), taskId));
+		return TaskCompletionResponse.from(completion);
+	}
+
+	@Operation(
+		summary = "내 과제 미완료 처리",
+		description = "TODO 버튼에서 특정 과제를 미완료 상태로 저장하고 최신 완료 상태를 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "미완료 상태 저장 후 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "해당 과제가 속한 그룹의 활성 멤버가 아니어서 저장할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "과제를 찾을 수 없음"),
+		@ApiResponse(responseCode = "409", description = "과제 상태 전환 규칙을 만족하지 못함"),
+		@ApiResponse(responseCode = "422", description = "미완료 사유 검증 실패")
+	})
+	@PostMapping(ApiPaths.V1 + "/tasks/{taskId}/completion/me/incomplete")
+	TaskCompletionResponse markTaskIncomplete(
+		Authentication authentication,
+		@Parameter(description = "미완료 처리할 주차 과제 UUID입니다.", required = true)
+		@PathVariable UUID taskId,
+		@Valid @RequestBody IncompleteTaskRequest request
+	) {
+		TaskCompletion completion = service().completeMyTask(request.toCommand(authenticatedUserId(authentication), taskId));
+		return TaskCompletionResponse.from(completion);
+	}
+
+	@Operation(
+		summary = "내 과제 스킵 처리",
+		description = "TODO 버튼에서 특정 과제를 건너뜀 상태로 저장하고 최신 완료 상태를 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "건너뜀 상태 저장 후 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "해당 과제가 속한 그룹의 활성 멤버가 아니어서 저장할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "과제를 찾을 수 없음"),
+		@ApiResponse(responseCode = "409", description = "과제 상태 전환 규칙을 만족하지 못함")
+	})
+	@PostMapping(ApiPaths.V1 + "/tasks/{taskId}/completion/me/skip")
+	TaskCompletionResponse skipTask(
+		Authentication authentication,
+		@Parameter(description = "건너뜀 처리할 주차 과제 UUID입니다.", required = true)
+		@PathVariable UUID taskId
+	) {
+		TaskCompletion completion = service().completeMyTask(new CompleteTaskCommand(
+			authenticatedUserId(authentication),
+			taskId,
+			TaskCompletionStatus.SKIPPED,
+			null,
+			null,
+			null
+		));
 		return TaskCompletionResponse.from(completion);
 	}
 
@@ -320,6 +419,97 @@ class CurriculumController {
 		}
 	}
 
+	@Schema(description = "그룹홈에서 사용하는 현재 학습활동 응답입니다.")
+	private record CurrentLearningActivityResponse(
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "현재 진행 중인 커리큘럼 주차입니다.")
+		CurriculumWeekResponse currentWeek,
+		@Schema(description = "현재 주차에 대한 내 진행 기록입니다. 아직 생성되지 않았다면 null입니다.")
+		MemberWeekProgressResponse progress,
+		@Schema(description = "현재 주차에 표시할 내 진행 상태입니다. 진행 기록이 없으면 NOT_STARTED입니다.", example = "IN_PROGRESS")
+		MemberWeekProgressStatus progressStatus,
+		@Schema(description = "현재 주차 과제 완료 요약입니다.")
+		LearningActivityTaskCompletionSummaryResponse taskCompletion,
+		@Schema(description = "현재 주차 과제와 내 완료 상태 목록입니다.")
+		List<LearningActivityTaskResponse> tasks
+	) {
+
+		private static CurrentLearningActivityResponse from(CurrentLearningActivity activity) {
+			return new CurrentLearningActivityResponse(
+				activity.groupId(),
+				CurriculumWeekResponse.from(activity.currentWeek()),
+				activity.progress().map(MemberWeekProgressResponse::from).orElse(null),
+				activity.progressStatus(),
+				LearningActivityTaskCompletionSummaryResponse.from(activity.taskCompletion()),
+				activity.tasks().stream()
+					.map(LearningActivityTaskResponse::from)
+					.toList()
+			);
+		}
+	}
+
+	@Schema(description = "현재 학습활동의 단일 과제와 내 완료 상태 응답입니다.")
+	private record LearningActivityTaskResponse(
+		WeeklyTaskResponse task,
+		LearningActivityTaskCompletionResponse completion
+	) {
+
+		private static LearningActivityTaskResponse from(CurrentLearningActivity.Task task) {
+			return new LearningActivityTaskResponse(
+				WeeklyTaskResponse.from(task.task()),
+				LearningActivityTaskCompletionResponse.from(task)
+			);
+		}
+	}
+
+	@Schema(description = "현재 학습활동 과제에 대한 내 완료 상태 스냅샷입니다.")
+	private record LearningActivityTaskCompletionResponse(
+		UUID id,
+		UUID taskId,
+		TaskCompletionStatus status,
+		Instant completedAt,
+		Instant reasonSubmittedAt,
+		String completionNote,
+		String incompleteReason,
+		String evidenceUrl
+	) {
+
+		private static LearningActivityTaskCompletionResponse from(CurrentLearningActivity.Task activityTask) {
+			TaskCompletion completion = activityTask.completion().orElse(null);
+			return new LearningActivityTaskCompletionResponse(
+				completion == null ? null : completion.id(),
+				activityTask.task().id(),
+				activityTask.completionStatus(),
+				completion == null ? null : completion.completedAt(),
+				completion == null ? null : completion.reasonSubmittedAt(),
+				completion == null ? null : completion.completionNote(),
+				completion == null ? null : completion.incompleteReason(),
+				completion == null ? null : completion.evidenceUrl()
+			);
+		}
+	}
+
+	@Schema(description = "현재 학습활동 과제 완료 상태 요약입니다.")
+	private record LearningActivityTaskCompletionSummaryResponse(
+		int totalCount,
+		int doneCount,
+		int incompleteCount,
+		int skippedCount
+	) {
+
+		private static LearningActivityTaskCompletionSummaryResponse from(
+			CurrentLearningActivity.TaskCompletionSummary summary
+		) {
+			return new LearningActivityTaskCompletionSummaryResponse(
+				summary.totalCount(),
+				summary.doneCount(),
+				summary.incompleteCount(),
+				summary.skippedCount()
+			);
+		}
+	}
+
 	@Schema(description = "내 주차 진행 상태를 저장하기 위한 요청입니다.")
 	private record UpdateWeekProgressRequest(
 		@Schema(description = "저장할 주차 진행 상태입니다.", example = "IN_PROGRESS")
@@ -355,6 +545,45 @@ class CurriculumController {
 				progress.status(),
 				progress.completedAt(),
 				progress.incompleteReason()
+			);
+		}
+	}
+
+	@Schema(description = "과제를 완료 처리하기 위한 요청입니다.")
+	private record DoneTaskRequest(
+		@Schema(description = "완료 상태일 때 남기는 메모입니다.", example = "실습 코드를 GitHub에 정리했습니다.")
+		String completionNote,
+		@Schema(description = "완료 증빙 URL입니다.", example = "https://github.com/example/study/blob/main/week1.md")
+		String evidenceUrl
+	) {
+
+		CompleteTaskCommand toCommand(UUID authenticatedUserId, UUID taskId) {
+			return new CompleteTaskCommand(
+				authenticatedUserId,
+				taskId,
+				TaskCompletionStatus.DONE,
+				completionNote,
+				null,
+				evidenceUrl
+			);
+		}
+	}
+
+	@Schema(description = "과제를 미완료 처리하기 위한 요청입니다.")
+	private record IncompleteTaskRequest(
+		@Schema(description = "미완료 상태일 때 남기는 사유입니다.", example = "테스트 작성까지 완료하지 못했습니다.")
+		@NotBlank
+		String incompleteReason
+	) {
+
+		CompleteTaskCommand toCommand(UUID authenticatedUserId, UUID taskId) {
+			return new CompleteTaskCommand(
+				authenticatedUserId,
+				taskId,
+				TaskCompletionStatus.INCOMPLETE,
+				null,
+				incompleteReason,
+				null
 			);
 		}
 	}

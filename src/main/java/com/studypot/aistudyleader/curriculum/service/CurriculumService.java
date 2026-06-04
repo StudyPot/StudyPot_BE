@@ -7,6 +7,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
+import com.studypot.aistudyleader.curriculum.domain.CurrentLearningActivity;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -222,6 +224,26 @@ public class CurriculumService {
 			throw new CurriculumAccessDeniedException("active group membership is required to read weekly tasks.");
 		}
 		return repository.findWeeklyTasksByWeekId(query.weekId());
+	}
+
+	@Transactional(readOnly = true)
+	public CurrentLearningActivity getCurrentLearningActivity(GetLearningActivityQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read current learning activity.");
+		}
+		CurriculumWeek currentWeek = repository.findCurrentWeekByGroupId(query.groupId())
+			.orElseThrow(() -> new CurriculumNotFoundException("current curriculum week was not found."));
+		Optional<MemberWeekProgress> progress = repository.findMemberWeekProgress(currentWeek.id(), context.memberId());
+		List<TaskCompletion> completions = repository.findTaskCompletionsByWeekIdAndMemberId(currentWeek.id(), context.memberId());
+		return CurrentLearningActivity.of(query.groupId(), currentWeek, progress, completions);
 	}
 
 	@Transactional(readOnly = true)

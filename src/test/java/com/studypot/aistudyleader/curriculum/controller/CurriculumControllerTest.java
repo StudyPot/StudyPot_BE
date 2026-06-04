@@ -77,9 +77,13 @@ class CurriculumControllerTest {
 	private static final String START_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/start";
 	private static final String CURRICULUM_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/curriculum";
 	private static final String CURRENT_WEEK_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/weeks/current";
+	private static final String LEARNING_ACTIVITY_PATH = ApiPaths.V1 + "/groups/" + GROUP_ID + "/learning-activity/me";
 	private static final String WEEK_TASKS_PATH = ApiPaths.V1 + "/weeks/" + WEEK_ID + "/tasks";
 	private static final String WEEK_PROGRESS_PATH = ApiPaths.V1 + "/weeks/" + WEEK_ID + "/progress/me";
 	private static final String TASK_COMPLETION_PATH = ApiPaths.V1 + "/tasks/" + TASK_ID + "/completion/me";
+	private static final String TASK_DONE_PATH = TASK_COMPLETION_PATH + "/done";
+	private static final String TASK_INCOMPLETE_PATH = TASK_COMPLETION_PATH + "/incomplete";
+	private static final String TASK_SKIP_PATH = TASK_COMPLETION_PATH + "/skip";
 
 	private final MockMvc mockMvc;
 	private final MutableCurriculumRepository repository;
@@ -251,6 +255,95 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void getLearningActivityRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(LEARNING_ACTIVITY_PATH))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getLearningActivityReturnsCurrentWeekTasksAndMyCompletionState() throws Exception {
+		repository.currentWeek = new CurriculumWeek(
+			WEEK_ID,
+			CURRICULUM_ID,
+			1,
+			"JPA 기초와 환경 구성",
+			"핵심 개념을 맞춥니다.",
+			"Entity 매핑 이해",
+			List.of("Entity 매핑 이해"),
+			List.of(),
+			CurriculumWeekStatus.IN_PROGRESS,
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW.plusSeconds(604800),
+			List.of(
+				task(TASK_ID, 1, WeeklyTaskType.READING, true),
+				task(PRACTICE_TASK_ID, 2, WeeklyTaskType.PRACTICE, true)
+			),
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW
+		);
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(60), null, null, null, null);
+		repository.taskCompletions = List.of(completion(
+			COMPLETION_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			TestCurriculumBeans.NOW,
+			"정리 완료",
+			null,
+			null,
+			"https://example.com/evidence"
+		));
+
+		mockMvc.perform(get(LEARNING_ACTIVITY_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.currentWeek.id").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$.currentWeek.weekNumber").value(1))
+			.andExpect(jsonPath("$.progress.id").value(PROGRESS_ID.toString()))
+			.andExpect(jsonPath("$.progressStatus").value("IN_PROGRESS"))
+			.andExpect(jsonPath("$.taskCompletion.totalCount").value(2))
+			.andExpect(jsonPath("$.taskCompletion.doneCount").value(1))
+			.andExpect(jsonPath("$.taskCompletion.incompleteCount").value(0))
+			.andExpect(jsonPath("$.taskCompletion.skippedCount").value(0))
+			.andExpect(jsonPath("$.tasks[0].task.id").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.tasks[0].completion.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.tasks[0].completion.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.tasks[0].completion.status").value("DONE"))
+			.andExpect(jsonPath("$.tasks[0].completion.completionNote").value("정리 완료"))
+			.andExpect(jsonPath("$.tasks[1].task.id").value(PRACTICE_TASK_ID.toString()))
+			.andExpect(jsonPath("$.tasks[1].completion.id").doesNotExist())
+			.andExpect(jsonPath("$.tasks[1].completion.taskId").value(PRACTICE_TASK_ID.toString()))
+			.andExpect(jsonPath("$.tasks[1].completion.status").value("TODO"));
+	}
+
+	@Test
+	void getLearningActivityDefaultsProgressStatusWhenProgressIsMissing() throws Exception {
+		repository.currentWeek = currentWeek();
+
+		mockMvc.perform(get(LEARNING_ACTIVITY_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.progress").doesNotExist())
+			.andExpect(jsonPath("$.progressStatus").value("NOT_STARTED"))
+			.andExpect(jsonPath("$.tasks[0].completion.status").value("TODO"));
+	}
+
+	@Test
+	void getLearningActivityReturnsForbiddenForPendingMember() throws Exception {
+		repository.readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+		repository.currentWeek = currentWeek();
+
+		mockMvc.perform(get(LEARNING_ACTIVITY_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"));
+	}
+
+	@Test
 	void getMyWeekProgressRequiresAuthentication() throws Exception {
 		mockMvc.perform(get(WEEK_PROGRESS_PATH))
 			.andExpect(status().isUnauthorized())
@@ -419,6 +512,30 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void completeTaskDoneActionReturnsDoneCompletion() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, true, TestCurriculumBeans.NOW.plusSeconds(3600));
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(60), null, null, null, null);
+		repository.nextIds = new ArrayDeque<>(List.of(COMPLETION_ID));
+
+		mockMvc.perform(post(TASK_DONE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"completionNote":"정리 완료","evidenceUrl":"https://example.com/evidence"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.status").value("DONE"))
+			.andExpect(jsonPath("$.completionNote").value("정리 완료"))
+			.andExpect(jsonPath("$.evidenceUrl").value("https://example.com/evidence"));
+	}
+
+	@Test
 	void completeTaskReturnsIncompleteCompletion() throws Exception {
 		repository.taskExists = true;
 		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
@@ -446,6 +563,41 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void completeTaskIncompleteActionReturnsIncompleteCompletion() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, true, TestCurriculumBeans.NOW.minusSeconds(60));
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(3600), null, null, null, null);
+		repository.nextIds = new ArrayDeque<>(List.of(COMPLETION_ID));
+
+		mockMvc.perform(post(TASK_INCOMPLETE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"incompleteReason":"실습을 끝내지 못했습니다."}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.status").value("INCOMPLETE"))
+			.andExpect(jsonPath("$.reasonSubmittedAt").value("2026-05-11T02:20:00Z"))
+			.andExpect(jsonPath("$.incompleteReason").value("실습을 끝내지 못했습니다."));
+	}
+
+	@Test
+	void completeTaskIncompleteActionReturnsValidationProblemWhenReasonIsMissing() throws Exception {
+		mockMvc.perform(post(TASK_INCOMPLETE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
 	void completeTaskReturnsSkippedCompletion() throws Exception {
 		repository.taskExists = true;
 		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
@@ -470,6 +622,26 @@ class CurriculumControllerTest {
 			.andExpect(jsonPath("$.completionNote").doesNotExist())
 			.andExpect(jsonPath("$.incompleteReason").doesNotExist())
 			.andExpect(jsonPath("$.evidenceUrl").doesNotExist());
+	}
+
+	@Test
+	void completeTaskSkipActionReturnsSkippedCompletion() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.CUSTOM, false, TestCurriculumBeans.NOW.plusSeconds(3600));
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(60), null, null, null, null);
+		repository.nextIds = new ArrayDeque<>(List.of(COMPLETION_ID));
+
+		mockMvc.perform(post(TASK_SKIP_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("task-xsrf")))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(COMPLETION_ID.toString()))
+			.andExpect(jsonPath("$.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$.status").value("SKIPPED"))
+			.andExpect(jsonPath("$.completedAt").doesNotExist())
+			.andExpect(jsonPath("$.reasonSubmittedAt").doesNotExist());
 	}
 
 	@Test
@@ -659,6 +831,33 @@ class CurriculumControllerTest {
 		);
 	}
 
+	private static TaskCompletion completion(
+		UUID id,
+		UUID taskId,
+		TaskCompletionStatus status,
+		Instant completedAt,
+		String completionNote,
+		String incompleteReason,
+		Instant reasonSubmittedAt,
+		String evidenceUrl
+	) {
+		return new TaskCompletion(
+			id,
+			PROGRESS_ID,
+			taskId,
+			MEMBER_ID,
+			status,
+			TestCurriculumBeans.NOW.plusSeconds(604800),
+			completedAt,
+			completionNote,
+			incompleteReason,
+			reasonSubmittedAt,
+			evidenceUrl,
+			TestCurriculumBeans.NOW,
+			TestCurriculumBeans.NOW
+		);
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestCurriculumBeans {
 
@@ -696,6 +895,7 @@ class CurriculumControllerTest {
 		private WeeklyTask weeklyTask;
 		private MemberWeekProgress progress;
 		private TaskCompletion taskCompletion;
+		private List<TaskCompletion> taskCompletions;
 		private Instant weekDueAt;
 		private Queue<UUID> nextIds;
 
@@ -712,6 +912,7 @@ class CurriculumControllerTest {
 			weeklyTask = null;
 			progress = null;
 			taskCompletion = null;
+			taskCompletions = List.of();
 			weekDueAt = TestCurriculumBeans.NOW.plusSeconds(604800);
 			nextIds = new ArrayDeque<>(List.of(LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID));
 		}
@@ -826,6 +1027,11 @@ class CurriculumControllerTest {
 		@Override
 		public Optional<TaskCompletion> findTaskCompletion(UUID taskId, UUID memberId) {
 			return Optional.ofNullable(taskCompletion);
+		}
+
+		@Override
+		public List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId) {
+			return taskCompletions;
 		}
 
 		@Override

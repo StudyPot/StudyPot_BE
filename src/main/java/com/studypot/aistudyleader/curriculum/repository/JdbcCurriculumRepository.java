@@ -246,6 +246,18 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_TASK_COMPLETIONS_BY_WEEK_AND_MEMBER,
+			this::mapTaskCompletion,
+			uuid(weekId),
+			uuid(memberId)
+		);
+	}
+
+	@Override
 	public boolean insertTaskCompletion(TaskCompletion completion) {
 		Objects.requireNonNull(completion, "completion must not be null");
 		try {

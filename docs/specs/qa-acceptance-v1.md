@@ -78,13 +78,14 @@
 - Login from two sessions -> logout-all -> both refresh tokens rejected.
 - Create group -> submit host onboarding -> invite member -> submit member onboarding -> host start.
 - Group-scoped my profile read/update returns member, onboarding, current-week, task-completion, and retrospective summaries and rejects non-member access.
+- Group-home current learning activity read returns current week, nullable progress, progress status, current tasks, per-task TODO/DONE/INCOMPLETE/SKIPPED completion state, and rejects pending or cross-group access.
 - Group board default initialization -> post create/list/read/update/delete -> comment create/list/update/delete with author, owner, inactive member, and cross-group rejection checks.
 - Host start with only partial onboarding completion.
 - Host start splits the group period into fixed one-week sprint windows and persists matching week/task due dates.
 - Current week task completion before due date.
 - Current week progress read after progress creation.
 - Overdue incomplete reason modal path.
-- Task completion response rendering for done, incomplete, skipped, idempotent repeated done, pending-member rejection, and cross-group task rejection.
+- Task completion response rendering for generic and action-wrapper done, incomplete, skipped, idempotent repeated done, pending-member rejection, and cross-group task rejection.
 - AI retrospective feedback with next-week adjustment.
 - Retrospective/chat context builder excludes cross-member private raw notes while preserving allowed group-level summaries.
 - AI conversation message persistence and LLM usage logging.

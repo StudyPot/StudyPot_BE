@@ -214,6 +214,18 @@ final class CurriculumJdbcSql {
 		  and member_id = ?
 		""";
 
+	static final String SELECT_TASK_COMPLETIONS_BY_WEEK_AND_MEMBER = """
+		select tc.id, tc.progress_id, tc.weekly_task_id, tc.member_id, tc.status, tc.due_at,
+		       tc.completed_at, tc.completion_note, tc.incomplete_reason, tc.reason_submitted_at,
+		       tc.evidence_url, tc.created_at, tc.updated_at
+		from weekly_task wt
+		join task_completion tc on tc.weekly_task_id = wt.id
+		where wt.curriculum_week_id = ?
+		  and tc.member_id = ?
+		  and wt.deleted_at is null
+		order by wt.display_order
+		""";
+
 	static final String SELECT_WEEK_DUE_AT = """
 		select ends_at
 		from curriculum_week
