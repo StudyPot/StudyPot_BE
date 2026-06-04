@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.ai.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -115,6 +116,20 @@ class JdbcAiConversationRepositoryTest {
 	}
 
 	@Test
+	void openTeamLeadConversationSqlFindsLatestOpenOrdinaryTeamLeadConversation() {
+		assertThat(AiConversationJdbcSql.SELECT_OPEN_TEAM_LEAD_CONVERSATION)
+			.contains("from ai_conversation")
+			.contains("group_id = ?")
+			.contains("member_id = ?")
+			.contains("conversation_type = 'TEAM_LEAD_CHAT'")
+			.contains("status = 'OPEN'")
+			.contains("curriculum_week_id is null")
+			.contains("retrospective_id is null")
+			.contains("order by opened_at desc, id desc")
+			.contains("limit 1");
+	}
+
+	@Test
 	void findMembershipQueriesGroupAndUser() {
 		AiConversationMembershipContext context = new AiConversationMembershipContext(
 			GROUP_ID,
@@ -133,6 +148,39 @@ class JdbcAiConversationRepositoryTest {
 		verify(jdbcTemplate).query(eq(AiConversationJdbcSql.SELECT_MEMBERSHIP), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
 		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(USER_ID));
+	}
+
+	@Test
+	void findOpenTeamLeadConversationQueriesGroupAndMember() {
+		AiConversation conversation = teamLeadConversation(null, null);
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_OPEN_TEAM_LEAD_CONVERSATION), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(conversation));
+
+		Optional<AiConversation> result = repository.findOpenTeamLeadConversation(GROUP_ID, MEMBER_ID);
+
+		assertThat(result).contains(conversation);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(AiConversationJdbcSql.SELECT_OPEN_TEAM_LEAD_CONVERSATION), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
+	}
+
+	@Test
+	void findOpenTeamLeadConversationReturnsEmptyWhenNoRowExists() {
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_OPEN_TEAM_LEAD_CONVERSATION), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		assertThat(repository.findOpenTeamLeadConversation(GROUP_ID, MEMBER_ID)).isEmpty();
+	}
+
+	@Test
+	void findOpenTeamLeadConversationRejectsNullArguments() {
+		assertThatThrownBy(() -> repository.findOpenTeamLeadConversation(null, MEMBER_ID))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("groupId must not be null");
+		assertThatThrownBy(() -> repository.findOpenTeamLeadConversation(GROUP_ID, null))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("memberId must not be null");
 	}
 
 	@Test

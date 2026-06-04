@@ -70,6 +70,13 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	}
 
 	@Override
+	public Optional<AiConversation> findOpenTeamLeadConversation(UUID groupId, UUID memberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return queryOne(AiConversationJdbcSql.SELECT_OPEN_TEAM_LEAD_CONVERSATION, this::mapConversation, uuid(groupId), uuid(memberId));
+	}
+
+	@Override
 	public boolean insertConversation(AiConversation conversation) {
 		Objects.requireNonNull(conversation, "conversation must not be null");
 		return jdbcTemplate.update(
@@ -206,6 +213,23 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 			requiredUuid(resultSet, "group_id"),
 			requiredUuid(resultSet, "member_id"),
 			requiredUuid(resultSet, "curriculum_week_id")
+		);
+	}
+
+	private AiConversation mapConversation(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new AiConversation(
+			requiredUuid(resultSet, "id"),
+			requiredUuid(resultSet, "group_id"),
+			requiredUuid(resultSet, "member_id"),
+			uuid(resultSet.getBytes("curriculum_week_id")),
+			uuid(resultSet.getBytes("retrospective_id")),
+			AiConversationType.valueOf(requiredString(resultSet, "conversation_type")),
+			AiConversationStatus.valueOf(requiredString(resultSet, "status")),
+			resultSet.getString("summary"),
+			requiredInstant(resultSet, "opened_at"),
+			instant(resultSet.getTimestamp("closed_at")),
+			requiredInstant(resultSet, "created_at"),
+			requiredInstant(resultSet, "updated_at")
 		);
 	}
 
