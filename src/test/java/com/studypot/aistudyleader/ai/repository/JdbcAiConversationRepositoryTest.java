@@ -254,12 +254,16 @@ class JdbcAiConversationRepositoryTest {
 			.containsEntry("title", "백엔드 커리큘럼");
 		assertThat(result.week())
 			.containsEntry("id", CURRENT_WEEK_ID.toString())
-			.containsEntry("weekStatus", "IN_PROGRESS");
+			.containsEntry("weekStatus", "IN_PROGRESS")
+			.containsEntry("effectiveWeekSource", "CURRENT_WEEK");
 		assertThat(result.tasks()).singleElement()
 			.satisfies(task -> assertThat(task)
 				.containsEntry("title", "트랜잭션 실습")
 				.containsEntry("completionStatus", "INCOMPLETE"));
 		assertThat(result.progress()).containsEntry("progressStatus", "INCOMPLETE");
+		assertThat(AiConversationJdbcSql.SELECT_CURRENT_WEEK_PROMPT_CONTEXT)
+			.contains("cw.curriculum_id = (")
+			.contains("order by c.created_at desc, c.id desc");
 		ArgumentCaptor<Object[]> currentWeekArgs = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate).query(
 			argThat(sql -> sql != null && sql.contains("cw.status = 'IN_PROGRESS'")),
@@ -331,7 +335,8 @@ class JdbcAiConversationRepositoryTest {
 
 		assertThat(result.week())
 			.containsEntry("id", WEEK_ID.toString())
-			.containsEntry("weekStatus", "COMPLETED");
+			.containsEntry("weekStatus", "COMPLETED")
+			.containsEntry("effectiveWeekSource", "CONVERSATION_WEEK");
 		verify(jdbcTemplate, never()).query(
 			argThat(sql -> sql != null && sql.contains("cw.status = 'IN_PROGRESS'")),
 			any(org.springframework.jdbc.core.RowMapper.class),

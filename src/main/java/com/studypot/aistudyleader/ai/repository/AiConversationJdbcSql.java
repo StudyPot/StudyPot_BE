@@ -144,11 +144,16 @@ final class AiConversationJdbcSql {
 		select cw.id, cw.week_number, cw.title, cw.description, cw.sprint_goal,
 		       cw.learning_goals, cw.resources, cw.status, cw.starts_at, cw.ends_at
 		from curriculum_week cw
-		join curriculum c on c.id = cw.curriculum_id
-		where c.group_id = ?
-		  and c.status = 'ACTIVE'
+		where cw.curriculum_id = (
+			select c.id
+			from curriculum c
+			where c.group_id = ?
+			  and c.status = 'ACTIVE'
+			  and c.deleted_at is null
+			order by c.created_at desc, c.id desc
+			limit 1
+		)
 		  and cw.status = 'IN_PROGRESS'
-		  and c.deleted_at is null
 		  and cw.deleted_at is null
 		order by cw.week_number
 		limit 1

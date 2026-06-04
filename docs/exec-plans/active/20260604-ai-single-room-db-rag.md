@@ -23,7 +23,7 @@
 - [x] docs/confluence/06-ai-team-leader.md
 - [x] docs/architecture/backend-map.md
 - [x] docs/testing/codex-harness.md
-- [ ] docs/operations/pr-review-gate.md
+- [x] docs/operations/pr-review-gate.md
 
 ## Related Feature IDs
 - [x] ai-team-leader
