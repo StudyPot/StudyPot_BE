@@ -61,8 +61,8 @@ class AiConversationQaConfiguration {
 				message = "DB에서 React Native 과제 완료 기록은 확인되지 않아요. 지금 확인되는 건 Spring Boot 스터디의 2주차 JPA/트랜잭션 실습 기록이라, 그 기록 기준으로 다음 행동만 잡겠습니다.";
 				summary = "DB에 없는 사용자 주장 확인을 거부하고 DB 기록 기준으로 답했습니다.";
 			} else {
-				message = "지금 Spring Boot 스터디의 백엔드 커리큘럼을 보고 있어요. DB상 현재 2주차 JPA 실습 중이고 트랜잭션 실습이 지연된 상태라, 오늘은 그 실습 하나만 먼저 끝내는 게 좋겠습니다.";
-				summary = "Spring Boot 2주차 JPA 실습 지연과 트랜잭션 실습 우선순위를 논의했습니다.";
+				message = "지금 Spring Boot 스터디의 백엔드 커리큘럼을 보고 있어요. DB상 현재 2주차 JPA 실습 중이고 지난 회고도 트랜잭션 복습이 필요하다고 되어 있어서, 오늘은 그 실습 하나만 먼저 끝내는 게 좋겠습니다.";
+				summary = "Spring Boot 2주차 JPA 실습 지연과 회고 기반 트랜잭션 복습 우선순위를 논의했습니다.";
 			}
 			return new AiConversationAssistantResponse(
 				message,
@@ -71,7 +71,8 @@ class AiConversationQaConfiguration {
 					"qa", true,
 					"studyGroupStatus", context.studyGroup().getOrDefault("status", "UNKNOWN"),
 					"curriculumStatus", context.curriculum().getOrDefault("status", "UNKNOWN"),
-					"effectiveWeekSource", context.week().getOrDefault("effectiveWeekSource", "UNKNOWN")
+					"effectiveWeekSource", context.week().getOrDefault("effectiveWeekSource", "UNKNOWN"),
+					"retrospectiveStatus", context.retrospective().getOrDefault("retrospectiveStatus", "UNKNOWN")
 				),
 				new LlmStructuredResponse(
 					LlmProvider.OPENAI,
@@ -247,7 +248,15 @@ class AiConversationQaConfiguration {
 						"progressStatus", "INCOMPLETE",
 						"incompleteReason", "실습 시간이 부족했습니다."
 					),
-				Map.of("status", "NOT_AVAILABLE")
+				missingContext
+					? Map.of("status", "NOT_AVAILABLE")
+					: Map.of(
+						"status", "AVAILABLE",
+						"id", "018f0000-0000-7000-8000-000000009305",
+						"retrospectiveStatus", "COMPLETED",
+					"aiFeedback", Map.of("summary", "트랜잭션 복습이 필요합니다."),
+					"nextWeekAdjustment", Map.of("focus", "JPA 트랜잭션 보강")
+				)
 			);
 		}
 
