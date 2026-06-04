@@ -286,12 +286,15 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 
 	private ResolvedPromptWeek resolvePromptWeek(AiConversationMessageContext context) {
 		if (context.curriculumWeekId() != null) {
-			Map<String, Object> weekContext = queryOne(
+			Optional<Map<String, Object>> weekContext = queryOne(
 				AiConversationJdbcSql.SELECT_WEEK_PROMPT_CONTEXT,
 				this::mapWeekPromptContext,
 				uuid(context.curriculumWeekId())
-			).orElse(Map.of("status", "NOT_AVAILABLE"));
-			return new ResolvedPromptWeek(context.curriculumWeekId(), withEffectiveWeekSource(weekContext, "CONVERSATION_WEEK"));
+			);
+			if (weekContext.isEmpty()) {
+				return new ResolvedPromptWeek(null, notAvailableWeekContext());
+			}
+			return new ResolvedPromptWeek(context.curriculumWeekId(), withEffectiveWeekSource(weekContext.get(), "CONVERSATION_WEEK"));
 		}
 		Map<String, Object> weekContext = queryOne(
 			AiConversationJdbcSql.SELECT_CURRENT_WEEK_PROMPT_CONTEXT,
@@ -300,6 +303,10 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		).orElse(Map.of("status", "NOT_AVAILABLE"));
 		UUID weekId = uuidFromPromptContext(weekContext);
 		return new ResolvedPromptWeek(weekId, withEffectiveWeekSource(weekContext, weekId == null ? "NOT_AVAILABLE" : "CURRENT_WEEK"));
+	}
+
+	private static Map<String, Object> notAvailableWeekContext() {
+		return withEffectiveWeekSource(Map.of("status", "NOT_AVAILABLE"), "NOT_AVAILABLE");
 	}
 
 	private static Map<String, Object> withEffectiveWeekSource(Map<String, Object> source, String effectiveWeekSource) {

@@ -357,6 +357,103 @@ class JdbcAiConversationRepositoryTest {
 	}
 
 	@Test
+	void explicitWeekPromptContextDoesNotLoadTasksOrProgressWhenWeekRowIsMissing() {
+		AiConversationMessageContext context = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			WEEK_ID,
+			null,
+			AiConversationType.TEAM_LEAD_CHAT,
+			"",
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RECENT_MESSAGES_FOR_PROMPT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from study_group sg") && sql.contains("sg.topic")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "topic", "Spring Boot")));
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from curriculum c") && !sql.contains("curriculum_week")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "title", "백엔드 커리큘럼")));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_WEEK_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		var result = repository.findPromptContext(context, 5);
+
+		assertThat(result.week())
+			.containsEntry("status", "NOT_AVAILABLE")
+			.containsEntry("effectiveWeekSource", "NOT_AVAILABLE");
+		assertThat(result.tasks()).isEmpty();
+		assertThat(result.progress()).containsEntry("status", "NOT_AVAILABLE");
+		verify(jdbcTemplate, never()).query(
+			eq(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
+		verify(jdbcTemplate, never()).query(
+			eq(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
+	}
+
+	@Test
+	void ordinaryTeamLeadChatMarksCurrentContextNotAvailableWhenNoActiveCurriculumWeekExists() {
+		AiConversationMessageContext context = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RECENT_MESSAGES_FOR_PROMPT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from study_group sg") && sql.contains("sg.topic")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "topic", "Spring Boot")));
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from curriculum c") && !sql.contains("curriculum_week")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of());
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("cw.status = 'IN_PROGRESS'")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of());
+
+		var result = repository.findPromptContext(context, 5);
+
+		assertThat(result.studyGroup()).containsEntry("status", "AVAILABLE");
+		assertThat(result.curriculum()).containsEntry("status", "NOT_AVAILABLE");
+		assertThat(result.week())
+			.containsEntry("status", "NOT_AVAILABLE")
+			.containsEntry("effectiveWeekSource", "NOT_AVAILABLE");
+		assertThat(result.tasks()).isEmpty();
+		assertThat(result.progress()).containsEntry("status", "NOT_AVAILABLE");
+		verify(jdbcTemplate, never()).query(
+			eq(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
+		verify(jdbcTemplate, never()).query(
+			eq(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
+	}
+
+	@Test
 	void insertConversationPersistsSessionScopeAndTimestamps() {
 		AiConversation conversation = new AiConversation(
 			CONVERSATION_ID,
