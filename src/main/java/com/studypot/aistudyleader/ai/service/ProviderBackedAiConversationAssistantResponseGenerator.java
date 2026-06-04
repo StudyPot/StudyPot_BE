@@ -23,17 +23,27 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
-	private static final List<String> INTERNAL_DIAGNOSTIC_LABELS = List.of(
-		"observedDbEvidence",
-		"inferenceFromContext",
-		"recommendedNextAction"
+	private static final List<Pattern> INTERNAL_MEMBER_FACING_PATTERNS = List.of(
+		Pattern.compile("\\bobservedDbEvidence\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("\\binferenceFromContext\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("\\brecommendedNextAction\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("내가\\s*DB에서\\s*확인한\\s*바로는\\s*[,，:：]?\\s*"),
+		Pattern.compile("DB에서\\s*확인한\\s*바로는\\s*[,，:：]?\\s*"),
+		Pattern.compile("DB\\s*기준으로(?:는)?\\s*[,，:：]?\\s*"),
+		Pattern.compile("DB-first\\s*컨텍스트(?:상|를\\s*기준으로)?\\s*[,，:：]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("RAG(?:로|에서|상)?\\s*(?:보면|확인한\\s*바로는)?\\s*[,，:：]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("지금\\s*바로\\s*다음\\s*액션\\s*하나만\\s*하자\\s*[:：]?\\s*")
 	);
 	private static final String INSTRUCTIONS = """
 		You are the StudyPot team leader for the authenticated member, not a generic assistant.
 		Return only JSON matching the provided AI conversation response schema.
-		Write the message in natural Korean as a human study team lead who checked the supplied DB-first context.
+		Write the message in natural Korean as a human study team lead; use the supplied DB-first context only as hidden grounding.
+		Never expose the retrieval/audit mechanism in the member-facing message: do not mention DB, database, DB-first, RAG, context, source data, or that you checked records.
+		Do not use phrases like "내가 DB에서 확인한 바로는", "DB 기준으로", "DB에서 확인되지 않은", "컨텍스트상", or "RAG로 보면".
 		Start with a brief empathetic acknowledgement when the member sounds stuck, worried, or overloaded.
-		Ground the answer in observed DB evidence, explain the inference from that evidence, state uncertainty when context is missing, and end with a concrete next action.
+		Ground the answer in supplied study facts, explain the inference naturally, and state uncertainty when context is missing.
+		Recommend a concrete next action only when the member explicitly asks what to do next, asks for a recommendation, or asks how to proceed.
+		If the member only greets, vents, or shares status, do not prescribe tasks or say "지금 바로 다음 액션 하나만 하자"; respond naturally and ask at most one gentle question.
 		If the supplied context is too thin, ask one concrete follow-up question instead of guessing.
 		Use only the supplied DB-first context and the authenticated member's conversation.
 		Do not confirm a study topic, curriculum, week, task, progress state, completion state, or retrospective fact that is absent from the supplied DB context.
@@ -112,17 +122,18 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			"role", "StudyPot team leader",
 			"messageMustInclude", List.of(
 				"acknowledge the member's feeling briefly",
-				"observed DB context in plain language",
-				"inference from context",
-				"recommended next action",
-				"one concrete follow-up or next action"
+				"study facts in plain member-facing language",
+				"inference phrased naturally",
+				"uncertainty when supplied study facts are missing"
 			),
 			"missingContextRule", "state the missing context naturally and ask one concrete follow-up question instead of guessing.",
 			"groundingPolicy", Map.of(
-				"sourceOfTruth", "DB-backed facts only",
-				"userClaimRule", "user claims are unverified unless they match supplied DB context",
-				"absentFactRule", "do not confirm absent facts; say what cannot be confirmed from DB and ask for the missing DB-backed input"
+				"sourceOfTruth", "supplied study facts only",
+				"userClaimRule", "user claims are unverified unless they match supplied study facts",
+				"absentFactRule", "do not confirm absent facts; say naturally that it is not confirmed yet and ask for the missing study input"
 			),
+			"memberFacingLanguagePolicy", "do not mention DB, database, DB-first, RAG, context, retrieved source, or internal evidence in the message",
+			"nextActionPolicy", "recommend a next action only when the member explicitly asks what to do next, asks for a recommendation, or asks how to proceed; otherwise do not prescribe tasks",
 			"style", "human conversational Korean coaching with concise team lead voice",
 			"formatRule", "do not use labels or headings in the member-facing message"
 		);
@@ -173,8 +184,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 
 	private static String removeInternalDiagnosticLabels(String message) {
 		String sanitized = message;
-		for (String label : INTERNAL_DIAGNOSTIC_LABELS) {
-			sanitized = sanitized.replaceAll("\\b" + Pattern.quote(label) + "\\b\\s*[:\\-]?\\s*", "");
+		for (Pattern pattern : INTERNAL_MEMBER_FACING_PATTERNS) {
+			sanitized = pattern.matcher(sanitized).replaceAll("");
 		}
 		return sanitized.replaceAll("[ \\t]{2,}", " ").strip();
 	}

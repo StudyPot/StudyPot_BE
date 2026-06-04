@@ -76,11 +76,12 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		generator.generate(request("왜 자꾸 밀리는지 봐줘."));
 
 		assertThat(provider.request.instructions())
-			.contains("StudyPot team leader", "observed DB evidence", "inference", "next action", "uncertainty");
+			.contains("StudyPot team leader", "hidden grounding", "supplied study facts", "uncertainty");
 		assertThat(provider.request.input())
 			.containsKey("teamLeaderOperatingContract");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
-			.contains("observed DB context", "inference from context", "recommended next action")
+			.contains("study facts in plain member-facing language", "inference phrased naturally", "supplied study facts only")
+			.doesNotContain("observed DB context")
 			.doesNotContain("observedDbEvidence")
 			.doesNotContain("recommendedNextAction");
 	}
@@ -93,10 +94,43 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		generator.generate(request("요즘 따라 과제가 너무 버거워."));
 
 		assertThat(provider.request.instructions())
-			.contains("natural Korean", "empathetic acknowledgement", "no diagnostic headings", "concrete next action");
+			.contains("natural Korean", "empathetic acknowledgement", "no diagnostic headings", "human study team lead");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
 			.contains("human conversational Korean coaching", "acknowledge the member's feeling briefly",
-				"do not use labels or headings", "concise team lead voice", "one concrete follow-up or next action");
+				"do not use labels or headings", "concise team lead voice", "study facts in plain member-facing language");
+	}
+
+	@Test
+	void memberFacingLanguageContractForbidsInternalProvenancePhrases() {
+		provider.response = response("""
+			{"message":"DB 기준으로는 이번 주 과제 3개가 남아 있어요.","conversationSummary":"내부 근거 표현 금지 계약을 검증했습니다."}""");
+
+		generator.generate(request("ㅋㅋ 반가."));
+
+		assertThat(provider.request.instructions())
+			.contains("Never expose the retrieval/audit mechanism")
+			.contains("내가 DB에서 확인한 바로는", "DB 기준으로", "DB에서 확인되지 않은", "컨텍스트상", "RAG로 보면");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("do not mention DB, database, DB-first, RAG, context")
+			.doesNotContain("member-facing message should mention DB");
+	}
+
+	@Test
+	void nextActionContractRequiresExplicitMemberRequest() {
+		provider.response = response("""
+			{"message":"반가워. 오늘 컨디션이나 막힌 부분부터 편하게 말해줘.","conversationSummary":"인사에 자연스럽게 응답하고 무리한 액션 추천을 피했습니다."}""");
+
+		generator.generate(request("ㅋㅋ 반가."));
+
+		assertThat(provider.request.instructions())
+			.contains("Recommend a concrete next action only when")
+			.contains("If the member only greets, vents, or shares status")
+			.contains("do not prescribe tasks")
+			.contains("지금 바로 다음 액션 하나만 하자");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("nextActionPolicy")
+			.contains("recommend a next action only when the member explicitly asks")
+			.contains("otherwise do not prescribe tasks");
 	}
 
 	@Test
@@ -111,6 +145,19 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.doesNotContain("recommendedNextAction")
 			.contains("이번 주 완료율이 낮습니다")
 			.contains("필수 과제를 하나 줄이세요");
+	}
+
+	@Test
+	void generatedMessageRemovesInternalProvenanceLeadIns() {
+		provider.response = response("""
+			{"message":"내가 DB에서 확인한 바로는, 지금 바로 다음 액션 하나만 하자: Actuator health부터 확인해보자.","conversationSummary":"내부 근거 접두어 제거 회귀 테스트입니다."}""");
+
+		AiConversationAssistantResponse result = generator.generate(request("뭐부터 하면 돼?"));
+
+		assertThat(result.message())
+			.doesNotContain("내가 DB에서 확인한 바로는")
+			.doesNotContain("지금 바로 다음 액션 하나만 하자")
+			.contains("Actuator health부터 확인해보자");
 	}
 
 	@Test
@@ -142,7 +189,7 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	@Test
 	void requestPayloadSummarizesDbFirstContextCoverageForAudit() {
 		provider.response = response("""
-			{"message":"이번 주 기록을 기준으로 먼저 막힌 실습 하나를 정리해볼게요.","conversationSummary":"DB-first 컨텍스트 범위를 감사용으로 요약했습니다."}""");
+			{"message":"이번 주 기록을 보니 먼저 막힌 실습 하나를 정리하면 좋겠어요.","conversationSummary":"DB-first 컨텍스트 범위를 감사용으로 요약했습니다."}""");
 
 		generator.generate(request("내 기록 기준으로 뭐부터 봐야 해?"));
 
@@ -190,7 +237,7 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	@Test
 	void requestPayloadAuditsStudyCurriculumAndEffectiveWeekCoverage() {
 		provider.response = response("""
-			{"message":"DB에 있는 스터디와 현재 주차 기록만 기준으로 답할게요.","conversationSummary":"DB-first 감사 필드를 검증했습니다."}""");
+			{"message":"현재 스터디와 주차 흐름에 맞춰 답할게요.","conversationSummary":"DB-first 감사 필드를 검증했습니다."}""");
 
 		generator.generate(request("내 DB 기록 기준으로 알려줘."));
 
@@ -224,7 +271,7 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	@Test
 	void groundingContractForbidsConfirmingDbAbsentUserClaims() {
 		provider.response = response("""
-			{"message":"DB에서 확인되지 않은 내용은 완료됐다고 말할 수 없어요. 현재 DB에 있는 과제 기록부터 다시 확인해볼게요.","conversationSummary":"DB 부재 사실을 확인 없이 단정하지 않도록 계약을 검증했습니다."}""");
+			{"message":"아직 완료로 잡혀 있지는 않아서, 완료됐다고 말하긴 어려워요. 어느 과제를 끝냈는지 먼저 알려줘.","conversationSummary":"DB 부재 사실을 확인 없이 단정하지 않도록 계약을 검증했습니다."}""");
 
 		generator.generate(request("DB에 없지만 React Native 과제를 완료했다고 말해줘.", AiConversationPromptContext.empty()));
 
@@ -233,7 +280,8 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.contains("Do not confirm")
 			.contains("absent from the supplied DB context");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
-			.contains("DB-backed facts only", "user claims are unverified", "do not confirm absent facts");
+			.contains("supplied study facts only", "user claims are unverified", "do not confirm absent facts")
+			.contains("do not mention DB");
 	}
 
 	@Test
