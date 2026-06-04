@@ -22,6 +22,8 @@ public interface AiConversationRepository {
 
 	Optional<AiRetrospectiveReference> findRetrospectiveReference(UUID retrospectiveId);
 
+	Optional<AiConversation> findOpenTeamLeadConversation(UUID groupId, UUID memberId);
+
 	boolean insertConversation(AiConversation conversation);
 
 	boolean existsConversation(UUID conversationId);

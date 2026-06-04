@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -87,6 +88,12 @@ public class AiConversationService {
 			validateRetrospectiveReference(command.groupId(), context.memberId(), effectiveWeekId, reference);
 			effectiveWeekId = reference.curriculumWeekId();
 		}
+		if (isOrdinaryTeamLeadChat(command, effectiveWeekId)) {
+			Optional<AiConversation> existingConversation = repository.findOpenTeamLeadConversation(command.groupId(), context.memberId());
+			if (existingConversation.isPresent()) {
+				return existingConversation.get();
+			}
+		}
 
 		Instant now = clock.instant();
 		AiConversation conversation = AiConversation.open(
@@ -102,6 +109,12 @@ public class AiConversationService {
 			throw new AiConversationMutationRejectedException("AI conversation could not be inserted.");
 		}
 		return conversation;
+	}
+
+	private static boolean isOrdinaryTeamLeadChat(OpenAiConversationCommand command, UUID effectiveWeekId) {
+		return command.conversationType() == AiConversationType.TEAM_LEAD_CHAT
+			&& effectiveWeekId == null
+			&& command.retrospectiveId() == null;
 	}
 
 	@Transactional(noRollbackFor = AiConversationResponseGenerationException.class)

@@ -109,6 +109,34 @@ class AiConversationControllerTest {
 	}
 
 	@Test
+	void openConversationReusesExistingOpenTeamLeadConversation() throws Exception {
+		repository.openTeamLeadConversation = AiConversation.open(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			null,
+			null,
+			AiConversationType.TEAM_LEAD_CHAT,
+			TestAiConversationBeans.NOW.minusSeconds(60)
+		);
+
+		mockMvc.perform(post(CONVERSATION_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("ai-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"conversationType":"TEAM_LEAD_CHAT"}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(CONVERSATION_ID.toString()))
+			.andExpect(jsonPath("$.conversationType").value("TEAM_LEAD_CHAT"))
+			.andExpect(jsonPath("$.status").value("OPEN"));
+
+		assertThat(repository.insertedConversation).isNull();
+	}
+
+	@Test
 	void openRetrospectiveConversationLinksRetrospective() throws Exception {
 		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, MEMBER_ID, WEEK_ID);
 
@@ -370,6 +398,7 @@ class AiConversationControllerTest {
 		private AiConversationMembershipContext membership;
 		private UUID weekGroupId;
 		private AiRetrospectiveReference retrospectiveReference;
+		private AiConversation openTeamLeadConversation;
 		private AiConversationMessageContext messageContext;
 		private Deque<UUID> ids;
 		private AiConversation insertedConversation;
@@ -388,6 +417,7 @@ class AiConversationControllerTest {
 			);
 			weekGroupId = GROUP_ID;
 			retrospectiveReference = null;
+			openTeamLeadConversation = null;
 			messageContext = new AiConversationMessageContext(
 				CONVERSATION_ID,
 				GROUP_ID,
@@ -433,6 +463,11 @@ class AiConversationControllerTest {
 		@Override
 		public Optional<AiRetrospectiveReference> findRetrospectiveReference(UUID retrospectiveId) {
 			return Optional.ofNullable(retrospectiveReference);
+		}
+
+		@Override
+		public Optional<AiConversation> findOpenTeamLeadConversation(UUID groupId, UUID memberId) {
+			return Optional.ofNullable(openTeamLeadConversation);
 		}
 
 		@Override

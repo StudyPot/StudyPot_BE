@@ -80,6 +80,61 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void openTeamLeadChatReusesExistingOpenConversationForMember() {
+		CapturingRepository repository = new CapturingRepository();
+		AiConversation existing = AiConversation.open(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			null,
+			null,
+			AiConversationType.TEAM_LEAD_CHAT,
+			NOW.minusSeconds(60)
+		);
+		repository.openTeamLeadConversation = existing;
+		AiConversationService service = service(repository);
+
+		AiConversation result = service.openConversation(new OpenAiConversationCommand(
+			USER_ID,
+			GROUP_ID,
+			AiConversationType.TEAM_LEAD_CHAT,
+			null,
+			null
+		));
+
+		assertThat(result).isSameAs(existing);
+		assertThat(repository.insertedConversation).isNull();
+	}
+
+	@Test
+	void openTeamLeadChatWithWeekCreatesNewConversationEvenWhenOrdinaryExists() {
+		UUID newConversationId = UUID.fromString("018f0000-0000-7000-8000-000000009113");
+		CapturingRepository repository = new CapturingRepository();
+		repository.openTeamLeadConversation = AiConversation.open(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			null,
+			null,
+			AiConversationType.TEAM_LEAD_CHAT,
+			NOW.minusSeconds(60)
+		);
+		AiConversationService service = service(repository, newConversationId);
+
+		AiConversation result = service.openConversation(new OpenAiConversationCommand(
+			USER_ID,
+			GROUP_ID,
+			AiConversationType.TEAM_LEAD_CHAT,
+			WEEK_ID,
+			null
+		));
+
+		assertThat(result.id()).isEqualTo(newConversationId);
+		assertThat(result.curriculumWeekId()).isEqualTo(WEEK_ID);
+		assertThat(repository.insertedConversation).isSameAs(result);
+	}
+
+	@Test
 	void openRetrospectiveConversationLinksSameMemberRetrospectiveAndInfersWeek() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, MEMBER_ID, WEEK_ID);
@@ -720,6 +775,7 @@ class AiConversationServiceTest {
 		);
 		private UUID weekGroupId = GROUP_ID;
 		private AiRetrospectiveReference retrospectiveReference;
+		private AiConversation openTeamLeadConversation;
 		private AiConversation insertedConversation;
 		private boolean conversationExists = true;
 		private AiConversationMessageContext messageContext = new AiConversationMessageContext(
@@ -755,6 +811,11 @@ class AiConversationServiceTest {
 		@Override
 		public Optional<AiRetrospectiveReference> findRetrospectiveReference(UUID retrospectiveId) {
 			return Optional.ofNullable(retrospectiveReference);
+		}
+
+		@Override
+		public Optional<AiConversation> findOpenTeamLeadConversation(UUID groupId, UUID memberId) {
+			return Optional.ofNullable(openTeamLeadConversation);
 		}
 
 		@Override

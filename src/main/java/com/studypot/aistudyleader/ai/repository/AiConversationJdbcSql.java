@@ -51,6 +51,21 @@ final class AiConversationJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	static final String SELECT_OPEN_TEAM_LEAD_CONVERSATION = """
+		select id, group_id, member_id, curriculum_week_id, retrospective_id,
+		       conversation_type, status, coalesce(summary, '') as summary,
+		       opened_at, closed_at, created_at, updated_at
+		from ai_conversation
+		where group_id = ?
+		  and member_id = ?
+		  and conversation_type = 'TEAM_LEAD_CHAT'
+		  and status = 'OPEN'
+		  and curriculum_week_id is null
+		  and retrospective_id is null
+		order by opened_at desc, id desc
+		limit 1
+		""";
+
 	// v1 ai_conversation has no deleted_at column; deletion boundaries live on study_group/group_member.
 	static final String EXISTS_CONVERSATION = """
 		select exists (
