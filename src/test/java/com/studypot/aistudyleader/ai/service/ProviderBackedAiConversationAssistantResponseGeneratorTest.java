@@ -76,19 +76,27 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		generator.generate(request("왜 자꾸 밀리는지 봐줘."));
 
 		assertThat(provider.request.instructions())
-			.contains("StudyPot team leader")
-			.contains("observed DB evidence")
-			.contains("inference")
-			.contains("next action")
-			.contains("uncertainty");
+			.contains("StudyPot team leader", "observed DB evidence", "inference", "next action", "uncertainty");
 		assertThat(provider.request.input())
 			.containsKey("teamLeaderOperatingContract");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
-			.contains("observed DB context")
-			.contains("inference from context")
-			.contains("recommended next action")
+			.contains("observed DB context", "inference from context", "recommended next action")
 			.doesNotContain("observedDbEvidence")
 			.doesNotContain("recommendedNextAction");
+	}
+
+	@Test
+	void humanConversationContractGuidesProviderToAnswerLikeARealTeamLead() {
+		provider.response = response("""
+			{"message":"지금 부담이 컸던 건 이해했어요. 이번 주엔 필수 실습 하나만 먼저 끝내고 남은 읽기는 뒤로 미뤄볼게요.","conversationSummary":"부담이 컸던 이유를 확인하고 실습 우선순위를 다시 잡았습니다."}""");
+
+		generator.generate(request("요즘 따라 과제가 너무 버거워."));
+
+		assertThat(provider.request.instructions())
+			.contains("natural Korean", "empathetic acknowledgement", "no diagnostic headings", "concrete next action");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("human conversational Korean coaching", "acknowledge the member's feeling briefly",
+				"do not use labels or headings", "concise team lead voice", "one concrete follow-up or next action");
 	}
 
 	@Test
@@ -129,6 +137,47 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.doesNotContain("Bearer raw")
 			.doesNotContain("SESSION=raw");
 		assertThat(provider.request.requestPayload().toString()).doesNotContain("raw-");
+	}
+
+	@Test
+	void requestPayloadSummarizesDbFirstContextCoverageForAudit() {
+		provider.response = response("""
+			{"message":"이번 주 기록을 기준으로 먼저 막힌 실습 하나를 정리해볼게요.","conversationSummary":"DB-first 컨텍스트 범위를 감사용으로 요약했습니다."}""");
+
+		generator.generate(request("내 기록 기준으로 뭐부터 봐야 해?"));
+
+		assertThat(provider.request.requestPayload())
+			.containsEntry("purpose", "TEAM_LEAD_CHAT")
+			.containsKey("dbFirstContext");
+		assertThat(provider.request.requestPayload().get("dbFirstContext")).isInstanceOf(Map.class);
+		@SuppressWarnings("unchecked")
+		Map<String, Object> dbFirstContext = (Map<String, Object>) provider.request.requestPayload().get("dbFirstContext");
+		assertThat(dbFirstContext)
+			.containsEntry("conversationSummaryPresent", true)
+			.containsEntry("recentMessageCount", 1)
+			.containsEntry("weekStatus", "AVAILABLE")
+			.containsEntry("taskCount", 1)
+			.containsEntry("progressStatus", "IN_PROGRESS")
+			.containsEntry("retrospectiveStatus", "NOT_AVAILABLE");
+		assertThat(dbFirstContext.toString())
+			.doesNotContain("내 기록 기준으로 뭐부터 봐야 해?")
+			.doesNotContain("이전 요약")
+			.doesNotContain("필수 과제");
+	}
+
+	@Test
+	void missingContextContractRequiresNaturalClarifyingQuestion() {
+		provider.response = response("""
+			{"message":"지금 바로 단정하지 않고 먼저 확인이 필요한 점을 물어볼게요.","conversationSummary":"맥락 부족 시 자연스러운 추가 질문 계약을 검증했습니다."}""");
+
+		generator.generate(request("왜 이렇게 안 풀리지?", AiConversationPromptContext.empty()));
+
+		assertThat(provider.request.instructions())
+			.contains("ask one concrete follow-up question", "instead of guessing");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("state the missing context naturally", "ask one concrete follow-up question")
+			.doesNotContain("unknown:")
+			.doesNotContain("missingContext:");
 	}
 
 	@Test

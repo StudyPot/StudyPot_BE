@@ -31,10 +31,13 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 	private static final String INSTRUCTIONS = """
 		You are the StudyPot team leader for the authenticated member, not a generic assistant.
 		Return only JSON matching the provided AI conversation response schema.
-		Write the message as an operator who checked the supplied DB-first context.
+		Write the message in natural Korean as a human study team lead who checked the supplied DB-first context.
+		Start with a brief empathetic acknowledgement when the member sounds stuck, worried, or overloaded.
 		Ground the answer in observed DB evidence, explain the inference from that evidence, state uncertainty when context is missing, and end with a concrete next action.
+		If the supplied context is too thin, ask one concrete follow-up question instead of guessing.
 		Use only the supplied DB-first context and the authenticated member's conversation.
 		Do not infer private details about other members.
+		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
 		""";
 
@@ -104,12 +107,15 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		return Map.of(
 			"role", "StudyPot team leader",
 			"messageMustInclude", List.of(
-				"observed DB context",
+				"acknowledge the member's feeling briefly",
+				"observed DB context in plain language",
 				"inference from context",
-				"recommended next action"
+				"recommended next action",
+				"one concrete follow-up or next action"
 			),
-			"missingContextRule", "If progress, tasks, week, or retrospective context is missing, say what is unknown instead of guessing.",
-			"style", "coach the member with concise study-operations language"
+			"missingContextRule", "state the missing context naturally and ask one concrete follow-up question instead of guessing.",
+			"style", "human conversational Korean coaching with concise team lead voice",
+			"formatRule", "do not use labels or headings in the member-facing message"
 		);
 	}
 
@@ -126,7 +132,19 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		payload.put("recentMessageCount", request.promptContext().messages().size());
 		payload.put("taskCount", request.promptContext().tasks().size());
 		payload.put("retrospectiveStatus", statusOf(request.promptContext().retrospective()));
+		payload.put("dbFirstContext", dbFirstContextSummary(request.promptContext()));
 		return LlmPromptSanitizer.sanitizeMap(payload);
+	}
+
+	private Map<String, Object> dbFirstContextSummary(AiConversationPromptContext context) {
+		return Map.of(
+			"conversationSummaryPresent", hasText(context.conversation().get("summary")),
+			"recentMessageCount", context.messages().size(),
+			"weekStatus", statusOf(context.week()),
+			"taskCount", context.tasks().size(),
+			"progressStatus", statusField(context.progress(), "progressStatus"),
+			"retrospectiveStatus", statusField(context.retrospective(), "retrospectiveStatus")
+		);
 	}
 
 	private GeneratedAiConversationResponse readResponse(String outputText) throws JsonProcessingException {
@@ -186,6 +204,18 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		}
 		Object status = source.get("status");
 		return status == null ? "UNKNOWN" : status.toString();
+	}
+
+	private static String statusField(Map<String, Object> source, String fieldName) {
+		if (source == null) {
+			return "UNKNOWN";
+		}
+		Object status = source.get(fieldName);
+		return status == null ? statusOf(source) : status.toString();
+	}
+
+	private static boolean hasText(Object value) {
+		return value != null && !value.toString().isBlank();
 	}
 
 	private static void putUuid(Map<String, Object> target, String key, UUID value) {
