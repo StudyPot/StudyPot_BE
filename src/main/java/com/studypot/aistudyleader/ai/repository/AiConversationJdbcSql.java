@@ -113,12 +113,45 @@ final class AiConversationJdbcSql {
 		limit ?
 		""";
 
+	static final String SELECT_STUDY_GROUP_PROMPT_CONTEXT = """
+		select sg.id, sg.name, sg.description, sg.topic, sg.detail_keywords, sg.level,
+		       sg.status, sg.starts_at, sg.ends_at, sg.started_at
+		from study_group sg
+		where sg.id = ?
+		  and sg.deleted_at is null
+		""";
+
+	static final String SELECT_ACTIVE_CURRICULUM_PROMPT_CONTEXT = """
+		select c.id, c.title, c.total_weeks, c.onboarding_summary,
+		       c.generated_by_ai, c.status, c.created_at, c.updated_at
+		from curriculum c
+		where c.group_id = ?
+		  and c.status = 'ACTIVE'
+		  and c.deleted_at is null
+		order by c.created_at desc, c.id desc
+		limit 1
+		""";
+
 	static final String SELECT_WEEK_PROMPT_CONTEXT = """
 		select cw.id, cw.week_number, cw.title, cw.description, cw.sprint_goal,
 		       cw.learning_goals, cw.resources, cw.status, cw.starts_at, cw.ends_at
 		from curriculum_week cw
 		where cw.id = ?
 		  and cw.deleted_at is null
+		""";
+
+	static final String SELECT_CURRENT_WEEK_PROMPT_CONTEXT = """
+		select cw.id, cw.week_number, cw.title, cw.description, cw.sprint_goal,
+		       cw.learning_goals, cw.resources, cw.status, cw.starts_at, cw.ends_at
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status = 'ACTIVE'
+		  and cw.status = 'IN_PROGRESS'
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		limit 1
 		""";
 
 	static final String SELECT_TASK_PROMPT_CONTEXT = """

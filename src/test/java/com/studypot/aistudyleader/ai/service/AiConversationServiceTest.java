@@ -328,9 +328,11 @@ class AiConversationServiceTest {
 			GroupMemberStatus.ACTIVE
 		);
 		repository.promptContext = new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE", "title", "백엔드 커리큘럼"),
 			Map.of("conversationType", "TEAM_LEAD_CHAT"),
 			List.of(Map.of("senderType", "USER", "content", "이전 메시지")),
-			Map.of("weekId", WEEK_ID.toString(), "title", "2주차"),
+			Map.of("weekId", WEEK_ID.toString(), "title", "2주차", "effectiveWeekSource", "CONVERSATION_WEEK"),
 			List.of(Map.of("title", "필수 과제", "completionStatus", "TODO")),
 			Map.of("status", "IN_PROGRESS"),
 			Map.of("status", "NOT_AVAILABLE")
