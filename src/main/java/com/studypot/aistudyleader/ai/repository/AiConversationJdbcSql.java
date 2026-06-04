@@ -190,7 +190,6 @@ final class AiConversationJdbcSql {
 		from retrospective
 		where curriculum_week_id = ?
 		  and member_id = ?
-		  and deleted_at is null
 		order by requested_at desc, id desc
 		limit 1
 		""";

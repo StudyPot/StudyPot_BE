@@ -120,6 +120,7 @@ class JdbcAiConversationRepositoryTest {
 			.contains("curriculum_week_id = ?")
 			.contains("member_id = ?")
 			.contains("order by requested_at desc, id desc")
+			.doesNotContain("deleted_at")
 			.doesNotContain("input_summary");
 	}
 
