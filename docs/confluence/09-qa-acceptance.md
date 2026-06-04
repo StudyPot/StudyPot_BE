@@ -5,11 +5,12 @@
 - Owner onboarding completion exposes `READY_TO_START` before host start.
 - Host start splits the group period into fixed one-week sprint windows and persists matching curriculum week/task due dates.
 - Group-scoped my profile read/update with current-member access, invalid display name rejection, missing group not-found, and non-member/LEFT forbidden.
+- Group-home current learning activity read with current week, nullable progress, task list, per-task completion state, pending-member rejection, and cross-group rejection.
 - Group board default initialization, post CRUD, comment CRUD, author/OWNER permission checks, inactive-member rejection, and cross-group resource rejection.
 - Host start with partial onboarding completion.
 - Current week task completion.
 - Overdue incomplete reason capture.
-- Task completion frontend response fields for done, incomplete, skipped, repeated done, pending-member rejection, and cross-group rejection.
+- Task completion frontend response fields for generic and action-wrapper done, incomplete, skipped, repeated done, pending-member rejection, and cross-group rejection.
 - AI retrospective and next-week adjustment.
 - AI conversation and LLM usage logging.
 - AI conversation message-list recovery and SSE lifecycle events.

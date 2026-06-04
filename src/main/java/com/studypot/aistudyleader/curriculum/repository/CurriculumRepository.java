@@ -53,6 +53,8 @@ public interface CurriculumRepository {
 
 	Optional<TaskCompletion> findTaskCompletion(UUID taskId, UUID memberId);
 
+	List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId);
+
 	boolean insertTaskCompletion(TaskCompletion completion);
 
 	boolean updateTaskCompletion(TaskCompletion completion);

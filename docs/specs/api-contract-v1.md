@@ -80,10 +80,14 @@
 | `POST` | `/api/v1/groups/{groupId}/onboarding/me` | `group-onboarding` | group member | Submit onboarding with overall skill level, note, and availability. |
 | `GET` | `/api/v1/groups/{groupId}/curriculum` | `curriculum-core` | group member | Read active curriculum. |
 | `GET` | `/api/v1/groups/{groupId}/weeks/current` | `weekly-todo` | group member | Read current week metadata. |
+| `GET` | `/api/v1/groups/{groupId}/learning-activity/me` | `weekly-todo` | active group member | Read group-home current learning activity with current week, my progress, tasks, and my task completion states. |
 | `GET` | `/api/v1/weeks/{weekId}/tasks` | `weekly-todo` | group member | List weekly tasks. |
 | `GET` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Read my member week progress. |
 | `PUT` | `/api/v1/weeks/{weekId}/progress/me` | `weekly-todo` | group member | Update member week progress note/status. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me` | `weekly-todo` | group member | Complete, skip, or mark task incomplete. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/done` | `weekly-todo` | group member | Mark my task completion as done. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/incomplete` | `weekly-todo` | group member | Mark my task completion as incomplete with a required reason. |
+| `POST` | `/api/v1/tasks/{taskId}/completion/me/skip` | `weekly-todo` | group member | Mark my task completion as skipped. |
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
@@ -228,6 +232,67 @@ Approved by [CR-20260601-group-member-profile-api](./change-requests/CR-20260601
 - Only current `PENDING_ONBOARDING` or `ACTIVE` members can read/update their own profile. Existing groups with no current membership, `LEFT` membership, deleted membership, or another user return forbidden. Missing groups return not found.
 - `currentWeek` is omitted/null when the group has no active current week. `taskCompletion` still returns zero counts in that case.
 
+### Current Learning Activity
+
+`GET /api/v1/groups/{groupId}/learning-activity/me` response:
+```json
+{
+  "groupId": "018f6f55-6fb1-7d62-a711-25f7c6d16a28",
+  "currentWeek": {
+    "id": "018f6f55-8bf2-78d9-a332-6e74b1484520",
+    "curriculumId": "018f6f55-8a81-75cf-ae3d-372699f6f5e8",
+    "weekNumber": 2,
+    "title": "JPA 실습",
+    "sprintGoal": "연관관계 매핑을 코드로 설명할 수 있다.",
+    "status": "IN_PROGRESS",
+    "startsAt": "2026-05-17T00:00:00Z",
+    "endsAt": "2026-05-24T00:00:00Z"
+  },
+  "progress": {
+    "id": "018f6f55-8e42-7183-b6f3-becf5670dfcb",
+    "status": "IN_PROGRESS",
+    "completedAt": null,
+    "incompleteReason": null
+  },
+  "progressStatus": "IN_PROGRESS",
+  "taskCompletion": {
+    "totalCount": 2,
+    "doneCount": 1,
+    "incompleteCount": 0,
+    "skippedCount": 0
+  },
+  "tasks": [
+    {
+      "task": {
+        "id": "018f6f55-8d26-73ed-828f-b955fbd6328a",
+        "curriculumWeekId": "018f6f55-8bf2-78d9-a332-6e74b1484520",
+        "displayOrder": 1,
+        "taskType": "READING",
+        "title": "공식 문서 읽기",
+        "description": "JPA 연관관계 매핑 문서를 정리합니다.",
+        "required": true,
+        "dueAt": "2026-05-24T00:00:00Z"
+      },
+      "completion": {
+        "id": "018f6f55-8f6c-7334-a781-84152e57e4f4",
+        "taskId": "018f6f55-8d26-73ed-828f-b955fbd6328a",
+        "status": "DONE",
+        "completedAt": "2026-05-20T10:20:30Z",
+        "reasonSubmittedAt": null,
+        "completionNote": "정리 완료",
+        "incompleteReason": null,
+        "evidenceUrl": "https://github.com/example/study/blob/main/week2.md"
+      }
+    }
+  ]
+}
+```
+
+- This endpoint is a group-home read model over the existing current-week, task, progress, and task-completion data. It does not create missing `member_week_progress` rows.
+- `progress` is null until the member has a progress row; `progressStatus` still returns `NOT_STARTED` for display.
+- Per-task `completion.status` returns `TODO` when no `task_completion` row exists for the current member.
+- Only `ACTIVE` group members can read the current learning activity. Pending, left, deleted, non-member, and missing group cases follow the existing weekly-todo error contract.
+
 ### Study Group Boards
 Approved by [CR-20260601-study-group-board-api](./change-requests/CR-20260601-study-group-board-api.md) and [ADR-20260601-study-group-board-api](./adr/ADR-20260601-study-group-board-api.md).
 
@@ -290,9 +355,26 @@ Response:
 }
 ```
 
+Action wrapper requests:
+```json
+POST /api/v1/tasks/{taskId}/completion/me/done
+{
+  "completionNote": "실습 코드를 정리했습니다.",
+  "evidenceUrl": "https://github.com/example/study/blob/main/week2.md"
+}
+
+POST /api/v1/tasks/{taskId}/completion/me/incomplete
+{
+  "incompleteReason": "이번 주 개인 일정으로 실습을 못 끝냈습니다."
+}
+
+POST /api/v1/tasks/{taskId}/completion/me/skip
+```
+
 - `DONE`: `completionNote` and `evidenceUrl` are optional. `incompleteReason` is not allowed. If the task is already `DONE`, repeated `DONE` requests are idempotent and preserve the first completion timestamp, note, and evidence URL.
 - `INCOMPLETE`: `incompleteReason` is required. `completionNote` and `evidenceUrl` are not allowed. `reasonSubmittedAt` stores the first incomplete-reason submission timestamp.
 - `SKIPPED`: completion, incomplete, and evidence fields are not allowed.
+- The action wrapper endpoints delegate to the same completion state machine as `POST /tasks/{taskId}/completion/me` and return the same `TaskCompletionResponse`.
 - The API is member-scoped. A user can mutate only their own completion for a task in a group where they have active membership; another group's task returns forbidden.
 
 ## State Transition Rules

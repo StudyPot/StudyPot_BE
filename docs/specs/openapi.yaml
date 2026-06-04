@@ -638,6 +638,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CurriculumWeekResponse'
+  /groups/{groupId}/learning-activity/me:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      tags: [WeeklyTodo]
+      operationId: getCurrentLearningActivity
+      responses:
+        '200':
+          description: Current group-home learning activity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentLearningActivityResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Active group membership required
+        '404':
+          description: Group or current week not found
   /weeks/{weekId}/tasks:
     parameters:
       - $ref: '#/components/parameters/WeekId'
@@ -694,6 +713,59 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TaskCompletionRequest'
+      responses:
+        '200':
+          description: Task completion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionResponse'
+  /tasks/{taskId}/completion/me/done:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [WeeklyTodo]
+      operationId: markTaskDone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoneTaskRequest'
+      responses:
+        '200':
+          description: Task completion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionResponse'
+  /tasks/{taskId}/completion/me/incomplete:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [WeeklyTodo]
+      operationId: markTaskIncomplete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncompleteTaskRequest'
+      responses:
+        '200':
+          description: Task completion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCompletionResponse'
+        '422':
+          description: Incomplete reason is required
+  /tasks/{taskId}/completion/me/skip:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [WeeklyTodo]
+      operationId: skipTask
       responses:
         '200':
           description: Task completion
@@ -1312,6 +1384,51 @@ components:
         description: {type: string}
         required: {type: boolean}
         dueAt: {type: string, format: date-time}
+    CurrentLearningActivityResponse:
+      type: object
+      required: [groupId, currentWeek, progressStatus, taskCompletion, tasks]
+      properties:
+        groupId: {type: string, format: uuid}
+        currentWeek:
+          $ref: '#/components/schemas/CurriculumWeekResponse'
+        progress:
+          $ref: '#/components/schemas/MemberWeekProgressResponse'
+        progressStatus: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, INCOMPLETE, FEEDBACK_READY]}
+        taskCompletion:
+          $ref: '#/components/schemas/LearningActivityTaskCompletionSummaryResponse'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningActivityTaskResponse'
+    LearningActivityTaskResponse:
+      type: object
+      required: [task, completion]
+      properties:
+        task:
+          $ref: '#/components/schemas/WeeklyTaskResponse'
+        completion:
+          $ref: '#/components/schemas/LearningActivityTaskCompletionResponse'
+    LearningActivityTaskCompletionResponse:
+      type: object
+      required: [taskId, status]
+      properties:
+        id: {type: string, format: uuid}
+        taskId: {type: string, format: uuid}
+        status:
+          $ref: '#/components/schemas/TaskCompletionStatus'
+        completedAt: {type: string, format: date-time}
+        reasonSubmittedAt: {type: string, format: date-time}
+        completionNote: {type: string}
+        incompleteReason: {type: string}
+        evidenceUrl: {type: string}
+    LearningActivityTaskCompletionSummaryResponse:
+      type: object
+      required: [totalCount, doneCount, incompleteCount, skippedCount]
+      properties:
+        totalCount: {type: integer, minimum: 0}
+        doneCount: {type: integer, minimum: 0}
+        incompleteCount: {type: integer, minimum: 0}
+        skippedCount: {type: integer, minimum: 0}
     UpdateWeekProgressRequest:
       type: object
       properties:
@@ -1335,6 +1452,16 @@ components:
         completionNote: {type: string}
         incompleteReason: {type: string}
         evidenceUrl: {type: string}
+    DoneTaskRequest:
+      type: object
+      properties:
+        completionNote: {type: string}
+        evidenceUrl: {type: string}
+    IncompleteTaskRequest:
+      type: object
+      required: [incompleteReason]
+      properties:
+        incompleteReason: {type: string}
     TaskCompletionResponse:
       type: object
       required: [id, taskId, status]
