@@ -185,6 +185,16 @@ final class AiConversationJdbcSql {
 		  and member_id = ?
 		""";
 
+	static final String SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK = """
+		select id, status, ai_feedback, next_week_adjustment, requested_at, completed_at
+		from retrospective
+		where curriculum_week_id = ?
+		  and member_id = ?
+		  and deleted_at is null
+		order by requested_at desc, id desc
+		limit 1
+		""";
+
 	static final String UPDATE_CONVERSATION_SUMMARY = """
 		update ai_conversation
 		set summary = ?,

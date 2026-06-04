@@ -172,14 +172,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 					uuid(resolvedWeek.weekId()),
 					uuid(context.memberId())
 				).orElse(Map.of("status", "NOT_AVAILABLE")),
-			context.retrospectiveId() == null
-				? Map.of("status", "NOT_AVAILABLE")
-				: queryOne(
-					AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT,
-					this::mapRetrospectivePromptContext,
-					uuid(context.retrospectiveId()),
-					uuid(context.memberId())
-				).orElse(Map.of("status", "NOT_AVAILABLE"))
+			findRetrospectivePromptContext(context, resolvedWeek.weekId())
 		);
 	}
 
@@ -282,6 +275,26 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	private Map<String, Object> findCurriculumPromptContext(UUID groupId) {
 		return queryOne(AiConversationJdbcSql.SELECT_ACTIVE_CURRICULUM_PROMPT_CONTEXT, this::mapCurriculumPromptContext, uuid(groupId))
 			.orElse(Map.of("status", "NOT_AVAILABLE"));
+	}
+
+	private Map<String, Object> findRetrospectivePromptContext(AiConversationMessageContext context, UUID resolvedWeekId) {
+		if (context.retrospectiveId() != null) {
+			return queryOne(
+				AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT,
+				this::mapRetrospectivePromptContext,
+				uuid(context.retrospectiveId()),
+				uuid(context.memberId())
+			).orElse(Map.of("status", "NOT_AVAILABLE"));
+		}
+		if (resolvedWeekId == null) {
+			return Map.of("status", "NOT_AVAILABLE");
+		}
+		return queryOne(
+			AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK,
+			this::mapRetrospectivePromptContext,
+			uuid(resolvedWeekId),
+			uuid(context.memberId())
+		).orElse(Map.of("status", "NOT_AVAILABLE"));
 	}
 
 	private ResolvedPromptWeek resolvePromptWeek(AiConversationMessageContext context) {

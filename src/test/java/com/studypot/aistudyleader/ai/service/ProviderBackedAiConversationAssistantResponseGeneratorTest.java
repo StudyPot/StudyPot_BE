@@ -158,7 +158,7 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.containsEntry("weekStatus", "AVAILABLE")
 			.containsEntry("taskCount", 1)
 			.containsEntry("progressStatus", "IN_PROGRESS")
-			.containsEntry("retrospectiveStatus", "NOT_AVAILABLE");
+			.containsEntry("retrospectiveStatus", "COMPLETED");
 		assertThat(dbFirstContext.toString())
 			.doesNotContain("내 기록 기준으로 뭐부터 봐야 해?")
 			.doesNotContain("이전 요약")
@@ -177,11 +177,14 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.containsKey("curriculum")
 			.containsKey("week")
 			.containsKey("tasks")
-			.containsKey("progress");
+			.containsKey("progress")
+			.containsKey("retrospective");
 		assertThat(provider.request.input().get("studyGroup").toString())
 			.contains("Spring Boot", "JPA", "백엔드");
 		assertThat(provider.request.input().get("curriculum").toString())
 			.contains("백엔드 커리큘럼", "totalWeeks");
+		assertThat(provider.request.input().get("retrospective").toString())
+			.contains("COMPLETED", "트랜잭션 복습", "JPA 트랜잭션 보강");
 	}
 
 	@Test
@@ -274,7 +277,12 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 				),
 				List.of(Map.of("title", "필수 과제", "completionStatus", "TODO")),
 				Map.of("status", "AVAILABLE", "progressStatus", "IN_PROGRESS"),
-				Map.of("status", "NOT_AVAILABLE")
+				Map.of(
+					"status", "AVAILABLE",
+					"retrospectiveStatus", "COMPLETED",
+					"aiFeedback", Map.of("summary", "트랜잭션 복습이 필요합니다."),
+					"nextWeekAdjustment", Map.of("focus", "JPA 트랜잭션 보강")
+				)
 			)
 		);
 	}

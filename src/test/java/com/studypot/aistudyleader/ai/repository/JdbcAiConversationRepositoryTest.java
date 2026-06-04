@@ -116,6 +116,11 @@ class JdbcAiConversationRepositoryTest {
 			.contains("ai_feedback")
 			.contains("next_week_adjustment")
 			.doesNotContain("input_summary");
+		assertThat(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK)
+			.contains("curriculum_week_id = ?")
+			.contains("member_id = ?")
+			.contains("order by requested_at desc, id desc")
+			.doesNotContain("input_summary");
 	}
 
 	@Test
@@ -240,6 +245,14 @@ class JdbcAiConversationRepositoryTest {
 				"status", "AVAILABLE",
 				"progressStatus", "INCOMPLETE"
 			)));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(Map.of(
+				"status", "AVAILABLE",
+				"id", RETROSPECTIVE_ID.toString(),
+				"retrospectiveStatus", "COMPLETED",
+				"aiFeedback", Map.of("summary", "트랜잭션 복습이 필요합니다."),
+				"nextWeekAdjustment", Map.of("focus", "JPA 트랜잭션 보강")
+			)));
 
 		var result = repository.findPromptContext(context, 5);
 
@@ -261,6 +274,12 @@ class JdbcAiConversationRepositoryTest {
 				.containsEntry("title", "트랜잭션 실습")
 				.containsEntry("completionStatus", "INCOMPLETE"));
 		assertThat(result.progress()).containsEntry("progressStatus", "INCOMPLETE");
+		assertThat(result.retrospective())
+			.containsEntry("status", "AVAILABLE")
+			.containsEntry("id", RETROSPECTIVE_ID.toString())
+			.containsEntry("retrospectiveStatus", "COMPLETED")
+			.containsEntry("aiFeedback", Map.of("summary", "트랜잭션 복습이 필요합니다."))
+			.containsEntry("nextWeekAdjustment", Map.of("focus", "JPA 트랜잭션 보강"));
 		assertThat(AiConversationJdbcSql.SELECT_CURRENT_WEEK_PROMPT_CONTEXT)
 			.contains("cw.curriculum_id = (")
 			.contains("order by c.created_at desc, c.id desc");
@@ -290,6 +309,66 @@ class JdbcAiConversationRepositoryTest {
 		assertThat(progressArgs.getValue()).hasSize(2);
 		assertThat(bytesEqual(progressArgs.getValue()[0], CURRENT_WEEK_ID)).isTrue();
 		assertThat(bytesEqual(progressArgs.getValue()[1], MEMBER_ID)).isTrue();
+		ArgumentCaptor<Object[]> retrospectiveArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			retrospectiveArgs.capture()
+		);
+		assertThat(retrospectiveArgs.getValue()).hasSize(2);
+		assertThat(bytesEqual(retrospectiveArgs.getValue()[0], CURRENT_WEEK_ID)).isTrue();
+		assertThat(bytesEqual(retrospectiveArgs.getValue()[1], MEMBER_ID)).isTrue();
+	}
+
+	@Test
+	void ordinaryTeamLeadChatMarksRetrospectiveNotAvailableWhenNoRetrospectiveExistsForCurrentWeek() {
+		AiConversationMessageContext context = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RECENT_MESSAGES_FOR_PROMPT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from study_group sg") && sql.contains("sg.topic")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "topic", "Spring Boot")));
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from curriculum c") && !sql.contains("curriculum_week")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "title", "백엔드 커리큘럼")));
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("cw.status = 'IN_PROGRESS'")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of(
+			"status", "AVAILABLE",
+			"id", CURRENT_WEEK_ID.toString(),
+			"weekNumber", 2,
+			"title", "2주차",
+			"weekStatus", "IN_PROGRESS"
+		)));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+
+		var result = repository.findPromptContext(context, 5);
+
+		assertThat(result.week()).containsEntry("effectiveWeekSource", "CURRENT_WEEK");
+		assertThat(result.retrospective()).containsEntry("status", "NOT_AVAILABLE");
+		verify(jdbcTemplate).query(
+			eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
 	}
 
 	@Test
@@ -330,6 +409,8 @@ class JdbcAiConversationRepositoryTest {
 			.thenReturn(List.of());
 		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of(Map.of("status", "AVAILABLE", "progressStatus", "COMPLETED")));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
 
 		var result = repository.findPromptContext(context, 5);
 
@@ -359,6 +440,77 @@ class JdbcAiConversationRepositoryTest {
 		assertThat(progressArgs.getValue()).hasSize(2);
 		assertThat(bytesEqual(progressArgs.getValue()[0], WEEK_ID)).isTrue();
 		assertThat(bytesEqual(progressArgs.getValue()[1], MEMBER_ID)).isTrue();
+		verify(jdbcTemplate).query(
+			eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
+	}
+
+	@Test
+	void retrospectiveConversationKeepsExplicitRetrospectiveIdLookup() {
+		AiConversationMessageContext context = new AiConversationMessageContext(
+			CONVERSATION_ID,
+			GROUP_ID,
+			MEMBER_ID,
+			WEEK_ID,
+			RETROSPECTIVE_ID,
+			AiConversationType.RETROSPECTIVE,
+			"",
+			AiConversationStatus.OPEN,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberStatus.ACTIVE
+		);
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RECENT_MESSAGES_FOR_PROMPT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from study_group sg") && sql.contains("sg.topic")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "topic", "Spring Boot")));
+		when(jdbcTemplate.query(
+			argThat(sql -> sql != null && sql.contains("from curriculum c") && !sql.contains("curriculum_week")),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		)).thenReturn(List.of(Map.of("status", "AVAILABLE", "title", "백엔드 커리큘럼")));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_WEEK_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(Map.of(
+				"status", "AVAILABLE",
+				"id", WEEK_ID.toString(),
+				"weekNumber", 1,
+				"title", "1주차",
+				"weekStatus", "COMPLETED"
+			)));
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of());
+		when(jdbcTemplate.query(eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+			.thenReturn(List.of(Map.of(
+				"status", "AVAILABLE",
+				"id", RETROSPECTIVE_ID.toString(),
+				"retrospectiveStatus", "COMPLETED"
+			)));
+
+		var result = repository.findPromptContext(context, 5);
+
+		assertThat(result.retrospective())
+			.containsEntry("status", "AVAILABLE")
+			.containsEntry("id", RETROSPECTIVE_ID.toString());
+		ArgumentCaptor<Object[]> retrospectiveArgs = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			retrospectiveArgs.capture()
+		);
+		assertThat(retrospectiveArgs.getValue()).hasSize(2);
+		assertThat(bytesEqual(retrospectiveArgs.getValue()[0], RETROSPECTIVE_ID)).isTrue();
+		assertThat(bytesEqual(retrospectiveArgs.getValue()[1], MEMBER_ID)).isTrue();
+		verify(jdbcTemplate, never()).query(
+			eq(AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK),
+			any(org.springframework.jdbc.core.RowMapper.class),
+			any(Object[].class)
+		);
 	}
 
 	@Test
