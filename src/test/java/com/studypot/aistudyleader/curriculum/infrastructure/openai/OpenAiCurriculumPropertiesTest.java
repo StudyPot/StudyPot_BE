@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -20,12 +21,18 @@ class OpenAiCurriculumPropertiesTest {
 	}
 
 	@Test
+	void defaultsReadTimeoutForLongStructuredGeneration() {
+		contextRunner.run(context -> assertThat(context.getBean(OpenAiCurriculumProperties.class).readTimeout())
+			.isEqualTo(Duration.ofSeconds(120)));
+	}
+
+	@Test
 	void defaultsOutputTokenLimitsByPurpose() {
 		contextRunner.run(context -> {
 			OpenAiOutputTokenLimits limits = context.getBean(OpenAiCurriculumProperties.class).outputTokenLimits();
 
 			assertThat(limits.detailKeywordSuggest()).isEqualTo(256);
-			assertThat(limits.curriculumGenerate()).isEqualTo(4096);
+			assertThat(limits.curriculumGenerate()).isEqualTo(16_384);
 			assertThat(limits.retrospectiveFeedback()).isEqualTo(2048);
 			assertThat(limits.teamLeadChat()).isEqualTo(1536);
 		});

@@ -19,7 +19,7 @@ record OpenAiCurriculumProperties(
 	private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
 	private static final String DEFAULT_MODEL = "gpt-4o-mini";
 	private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
-	private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(30);
+	private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(120);
 
 	OpenAiCurriculumProperties {
 		apiKey = blankToNull(apiKey);

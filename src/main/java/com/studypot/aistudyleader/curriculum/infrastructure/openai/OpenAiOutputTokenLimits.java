@@ -10,7 +10,7 @@ record OpenAiOutputTokenLimits(
 ) {
 
 	private static final int DEFAULT_DETAIL_KEYWORD_SUGGEST = 256;
-	private static final int DEFAULT_CURRICULUM_GENERATE = 4096;
+	private static final int DEFAULT_CURRICULUM_GENERATE = 16_384;
 	private static final int DEFAULT_RETROSPECTIVE_FEEDBACK = 2048;
 	private static final int DEFAULT_TEAM_LEAD_CHAT = 1536;
 

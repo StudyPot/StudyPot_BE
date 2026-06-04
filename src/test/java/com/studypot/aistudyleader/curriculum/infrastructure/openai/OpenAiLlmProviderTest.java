@@ -49,7 +49,7 @@ class OpenAiLlmProviderTest {
 		assertThat(transport.request).containsEntry("model", "gpt-4o-mini");
 		assertThat(transport.path).isEqualTo("/responses");
 		assertThat(transport.request).containsEntry("instructions", "Return JSON only.");
-		assertThat(transport.request).containsEntry("max_output_tokens", 4096);
+		assertThat(transport.request).containsEntry("max_output_tokens", 16_384);
 		assertThat(transport.request.get("input").toString()).contains("Spring Boot");
 		assertThat(transport.request.get("text").toString()).contains("json_schema");
 		assertThat(result.provider()).isEqualTo(LlmProvider.OPENAI);
@@ -61,7 +61,7 @@ class OpenAiLlmProviderTest {
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("authorization", "Bearer secret");
 		assertThat(result.requestPayload()).containsEntry("apiMode", "RESPONSES");
-		assertThat(result.requestPayload()).containsEntry("outputBudget", 4096);
+		assertThat(result.requestPayload()).containsEntry("outputBudget", 16_384);
 	}
 
 	@Test
@@ -267,7 +267,7 @@ class OpenAiLlmProviderTest {
 					assertThat(providerException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
 					assertThat(providerException.failure().errorCode()).isEqualTo("OPENAI_OUTPUT_TEXT_MISSING");
 					assertThat(providerException.failure().requestPayload()).containsEntry("apiMode", "RESPONSES");
-					assertThat(providerException.failure().requestPayload()).containsEntry("outputBudget", 4096);
+					assertThat(providerException.failure().requestPayload()).containsEntry("outputBudget", 16_384);
 				});
 	}
 
