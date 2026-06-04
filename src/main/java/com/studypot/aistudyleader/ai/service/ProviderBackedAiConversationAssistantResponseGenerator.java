@@ -17,11 +17,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 class ProviderBackedAiConversationAssistantResponseGenerator implements AiConversationAssistantResponseGenerator {
 
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
+	private static final List<String> INTERNAL_DIAGNOSTIC_LABELS = List.of(
+		"observedDbEvidence",
+		"inferenceFromContext",
+		"recommendedNextAction"
+	);
 	private static final String INSTRUCTIONS = """
 		You are the StudyPot team leader for the authenticated member, not a generic assistant.
 		Return only JSON matching the provided AI conversation response schema.
@@ -98,9 +104,9 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		return Map.of(
 			"role", "StudyPot team leader",
 			"messageMustInclude", List.of(
-				"observedDbEvidence",
-				"inferenceFromContext",
-				"recommendedNextAction"
+				"observed DB context",
+				"inference from context",
+				"recommended next action"
 			),
 			"missingContextRule", "If progress, tasks, week, or retrospective context is missing, say what is unknown instead of guessing.",
 			"style", "coach the member with concise study-operations language"
@@ -125,7 +131,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 
 	private GeneratedAiConversationResponse readResponse(String outputText) throws JsonProcessingException {
 		JsonNode node = objectMapper.readTree(outputText);
-		String message = requiredText(node.get("message"), "message");
+		String message = removeInternalDiagnosticLabels(requiredText(node.get("message"), "message"));
 		String conversationSummary = requiredText(node.get("conversationSummary"), "conversationSummary");
 		JsonNode adjustmentNode = node.get("nextWeekAdjustmentCandidate");
 		Map<String, Object> metadata = new LinkedHashMap<>();
@@ -133,6 +139,14 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			metadata.put("nextWeekAdjustmentCandidate", objectMapper.convertValue(adjustmentNode, OBJECT_MAP));
 		}
 		return new GeneratedAiConversationResponse(message, conversationSummary, metadata);
+	}
+
+	private static String removeInternalDiagnosticLabels(String message) {
+		String sanitized = message;
+		for (String label : INTERNAL_DIAGNOSTIC_LABELS) {
+			sanitized = sanitized.replaceAll("\\b" + Pattern.quote(label) + "\\b\\s*[:\\-]?\\s*", "");
+		}
+		return sanitized.replaceAll("[ \\t]{2,}", " ").strip();
 	}
 
 	private Map<String, Object> schemaFormat() {
