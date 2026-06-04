@@ -84,9 +84,25 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		assertThat(provider.request.input())
 			.containsKey("teamLeaderOperatingContract");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
-			.contains("observedDbEvidence")
-			.contains("inferenceFromContext")
-			.contains("recommendedNextAction");
+			.contains("observed DB context")
+			.contains("inference from context")
+			.contains("recommended next action")
+			.doesNotContain("observedDbEvidence")
+			.doesNotContain("recommendedNextAction");
+	}
+
+	@Test
+	void generatedMessageDoesNotExposeInternalDiagnosticFieldNames() {
+		provider.response = response("""
+			{"message":"observedDbEvidence: 이번 주 완료율이 낮습니다. recommendedNextAction: 필수 과제를 하나 줄이세요.","conversationSummary":"내부 진단 필드 노출 방지 회귀 테스트입니다."}""");
+
+		AiConversationAssistantResponse result = generator.generate(request("지금 무엇을 줄이면 좋을까?"));
+
+		assertThat(result.message())
+			.doesNotContain("observedDbEvidence")
+			.doesNotContain("recommendedNextAction")
+			.contains("이번 주 완료율이 낮습니다")
+			.contains("필수 과제를 하나 줄이세요");
 	}
 
 	@Test
