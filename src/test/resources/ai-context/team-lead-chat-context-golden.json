@@ -1,4 +1,23 @@
 {
+  "studyGroup": {
+    "status": "AVAILABLE",
+    "id": "018f0000-0000-7000-8000-000000009502",
+    "name": "백엔드 스터디",
+    "topic": "Spring Boot",
+    "detailKeywords": ["JPA", "백엔드"],
+    "level": "INTERMEDIATE",
+    "groupStatus": "ACTIVE"
+  },
+  "curriculum": {
+    "status": "AVAILABLE",
+    "id": "018f0000-0000-7000-8000-000000009510",
+    "title": "백엔드 커리큘럼",
+    "totalWeeks": 4,
+    "onboardingSummary": {
+      "focus": "Spring Boot와 JPA 실습"
+    },
+    "curriculumStatus": "ACTIVE"
+  },
   "conversation": {
     "id": "018f0000-0000-7000-8000-000000009505",
     "groupId": "018f0000-0000-7000-8000-000000009502",
@@ -25,7 +44,8 @@
     "id": "018f0000-0000-7000-8000-000000009504",
     "weekNumber": 2,
     "title": "2주차",
-    "sprintGoal": "JPA 실습 안정화"
+    "sprintGoal": "JPA 실습 안정화",
+    "effectiveWeekSource": "CONVERSATION_WEEK"
   },
   "tasks": [
     {

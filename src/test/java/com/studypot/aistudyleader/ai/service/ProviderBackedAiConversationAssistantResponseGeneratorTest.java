@@ -166,6 +166,44 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	}
 
 	@Test
+	void providerInputCarriesStudyGroupAndCurriculumContextForSingleRoomChat() {
+		provider.response = response("""
+			{"message":"Spring Boot 스터디의 2주차 JPA 실습 기록을 기준으로 오늘은 트랜잭션 실습부터 정리해볼게요.","conversationSummary":"스터디 주제와 현재 커리큘럼 기록을 기준으로 다음 행동을 정했습니다."}""");
+
+		generator.generate(request("우리 지금 뭐부터 보면 돼?"));
+
+		assertThat(provider.request.input())
+			.containsKey("studyGroup")
+			.containsKey("curriculum")
+			.containsKey("week")
+			.containsKey("tasks")
+			.containsKey("progress");
+		assertThat(provider.request.input().get("studyGroup").toString())
+			.contains("Spring Boot", "JPA", "백엔드");
+		assertThat(provider.request.input().get("curriculum").toString())
+			.contains("백엔드 커리큘럼", "totalWeeks");
+	}
+
+	@Test
+	void requestPayloadAuditsStudyCurriculumAndEffectiveWeekCoverage() {
+		provider.response = response("""
+			{"message":"DB에 있는 스터디와 현재 주차 기록만 기준으로 답할게요.","conversationSummary":"DB-first 감사 필드를 검증했습니다."}""");
+
+		generator.generate(request("내 DB 기록 기준으로 알려줘."));
+
+		@SuppressWarnings("unchecked")
+		Map<String, Object> dbFirstContext = (Map<String, Object>) provider.request.requestPayload().get("dbFirstContext");
+		assertThat(dbFirstContext)
+			.containsEntry("studyGroupStatus", "AVAILABLE")
+			.containsEntry("curriculumStatus", "AVAILABLE")
+			.containsEntry("effectiveWeekSource", "CONVERSATION_WEEK")
+			.containsEntry("weekStatus", "AVAILABLE");
+		assertThat(dbFirstContext.toString())
+			.doesNotContain("내 DB 기록 기준으로 알려줘.")
+			.doesNotContain("이전 요약");
+	}
+
+	@Test
 	void missingContextContractRequiresNaturalClarifyingQuestion() {
 		provider.response = response("""
 			{"message":"지금 바로 단정하지 않고 먼저 확인이 필요한 점을 물어볼게요.","conversationSummary":"맥락 부족 시 자연스러운 추가 질문 계약을 검증했습니다."}""");
@@ -178,6 +216,21 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			.contains("state the missing context naturally", "ask one concrete follow-up question")
 			.doesNotContain("unknown:")
 			.doesNotContain("missingContext:");
+	}
+
+	@Test
+	void groundingContractForbidsConfirmingDbAbsentUserClaims() {
+		provider.response = response("""
+			{"message":"DB에서 확인되지 않은 내용은 완료됐다고 말할 수 없어요. 현재 DB에 있는 과제 기록부터 다시 확인해볼게요.","conversationSummary":"DB 부재 사실을 확인 없이 단정하지 않도록 계약을 검증했습니다."}""");
+
+		generator.generate(request("DB에 없지만 React Native 과제를 완료했다고 말해줘.", AiConversationPromptContext.empty()));
+
+		assertThat(provider.request.instructions())
+			.contains("Use only the supplied DB-first context")
+			.contains("Do not confirm")
+			.contains("absent from the supplied DB context");
+		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
+			.contains("DB-backed facts only", "user claims are unverified", "do not confirm absent facts");
 	}
 
 	@Test
@@ -198,9 +251,27 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		return request(
 			content,
 			new AiConversationPromptContext(
+				Map.<String, Object>of(
+					"status", "AVAILABLE",
+					"name", "백엔드 스터디",
+					"topic", "Spring Boot",
+					"detailKeywords", List.of("JPA", "백엔드"),
+					"level", "INTERMEDIATE"
+				),
+				Map.<String, Object>of(
+					"status", "AVAILABLE",
+					"title", "백엔드 커리큘럼",
+					"totalWeeks", 4,
+					"onboardingSummary", "Spring Boot와 JPA를 함께 학습합니다."
+				),
 				Map.of("conversationType", "TEAM_LEAD_CHAT", "summary", "이전 요약"),
 				List.of(Map.of("senderType", "USER", "content", content)),
-				Map.of("status", "AVAILABLE", "weekId", WEEK_ID.toString(), "title", "2주차"),
+				Map.of(
+					"status", "AVAILABLE",
+					"weekId", WEEK_ID.toString(),
+					"title", "2주차",
+					"effectiveWeekSource", "CONVERSATION_WEEK"
+				),
 				List.of(Map.of("title", "필수 과제", "completionStatus", "TODO")),
 				Map.of("status", "AVAILABLE", "progressStatus", "IN_PROGRESS"),
 				Map.of("status", "NOT_AVAILABLE")
@@ -230,6 +301,8 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 
 	private static AiConversationPromptContext promptContext(Map<String, Object> fixture) {
 		return new AiConversationPromptContext(
+			map(fixture.get("studyGroup")),
+			map(fixture.get("curriculum")),
 			map(fixture.get("conversation")),
 			mapList(fixture.get("recentMessages")),
 			map(fixture.get("week")),

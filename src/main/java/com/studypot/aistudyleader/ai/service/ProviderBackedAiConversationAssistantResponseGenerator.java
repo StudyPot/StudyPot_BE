@@ -36,6 +36,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Ground the answer in observed DB evidence, explain the inference from that evidence, state uncertainty when context is missing, and end with a concrete next action.
 		If the supplied context is too thin, ask one concrete follow-up question instead of guessing.
 		Use only the supplied DB-first context and the authenticated member's conversation.
+		Do not confirm a study topic, curriculum, week, task, progress state, completion state, or retrospective fact that is absent from the supplied DB context.
+		Treat user claims as unverified unless the same fact is present in the supplied DB context.
 		Do not infer private details about other members.
 		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
@@ -92,6 +94,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 	private Map<String, Object> input(AiConversationAssistantRequest request) {
 		AiConversationPromptContext context = request.promptContext();
 		return LlmPromptSanitizer.sanitizeMap(Map.of(
+			"studyGroup", context.studyGroup(),
+			"curriculum", context.curriculum(),
 			"conversation", context.conversation(),
 			"recentMessages", context.messages(),
 			"currentUserMessage", request.userMessage().content(),
@@ -114,6 +118,11 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 				"one concrete follow-up or next action"
 			),
 			"missingContextRule", "state the missing context naturally and ask one concrete follow-up question instead of guessing.",
+			"groundingPolicy", Map.of(
+				"sourceOfTruth", "DB-backed facts only",
+				"userClaimRule", "user claims are unverified unless they match supplied DB context",
+				"absentFactRule", "do not confirm absent facts; say what cannot be confirmed from DB and ask for the missing DB-backed input"
+			),
 			"style", "human conversational Korean coaching with concise team lead voice",
 			"formatRule", "do not use labels or headings in the member-facing message"
 		);
@@ -138,8 +147,11 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 
 	private Map<String, Object> dbFirstContextSummary(AiConversationPromptContext context) {
 		return Map.of(
+			"studyGroupStatus", statusOf(context.studyGroup()),
+			"curriculumStatus", statusOf(context.curriculum()),
 			"conversationSummaryPresent", hasText(context.conversation().get("summary")),
 			"recentMessageCount", context.messages().size(),
+			"effectiveWeekSource", stringField(context.week(), "effectiveWeekSource", "UNKNOWN"),
 			"weekStatus", statusOf(context.week()),
 			"taskCount", context.tasks().size(),
 			"progressStatus", statusField(context.progress(), "progressStatus"),
@@ -212,6 +224,14 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		}
 		Object status = source.get(fieldName);
 		return status == null ? statusOf(source) : status.toString();
+	}
+
+	private static String stringField(Map<String, Object> source, String fieldName, String fallback) {
+		if (source == null) {
+			return fallback;
+		}
+		Object value = source.get(fieldName);
+		return value == null ? fallback : value.toString();
 	}
 
 	private static boolean hasText(Object value) {

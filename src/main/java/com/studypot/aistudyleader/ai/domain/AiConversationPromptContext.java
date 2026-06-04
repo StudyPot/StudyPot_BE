@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Objects;
 
 public record AiConversationPromptContext(
+	Map<String, Object> studyGroup,
+	Map<String, Object> curriculum,
 	Map<String, Object> conversation,
 	List<Map<String, Object>> messages,
 	Map<String, Object> week,
@@ -17,6 +19,8 @@ public record AiConversationPromptContext(
 ) {
 
 	public AiConversationPromptContext {
+		studyGroup = copyMap(studyGroup);
+		curriculum = copyMap(curriculum);
 		conversation = copyMap(conversation);
 		messages = copyList(messages);
 		week = copyMap(week);
@@ -27,6 +31,8 @@ public record AiConversationPromptContext(
 
 	public static AiConversationPromptContext empty() {
 		return new AiConversationPromptContext(
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
 			Map.of("status", "NOT_AVAILABLE"),
 			List.of(),
 			Map.of("status", "NOT_AVAILABLE"),

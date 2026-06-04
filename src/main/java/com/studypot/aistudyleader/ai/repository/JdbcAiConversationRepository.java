@@ -149,27 +149,27 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	public AiConversationPromptContext findPromptContext(AiConversationMessageContext context, int recentMessageLimit) {
 		Objects.requireNonNull(context, "context must not be null");
 		int limit = Math.max(1, recentMessageLimit);
+		ResolvedPromptWeek resolvedWeek = resolvePromptWeek(context);
 		return new AiConversationPromptContext(
+			findStudyGroupPromptContext(context.groupId()),
+			findCurriculumPromptContext(context.groupId()),
 			conversationContext(context),
 			findRecentMessagesForPrompt(context.conversationId(), limit),
-			context.curriculumWeekId() == null
-				? Map.of("status", "NOT_AVAILABLE")
-				: queryOne(AiConversationJdbcSql.SELECT_WEEK_PROMPT_CONTEXT, this::mapWeekPromptContext, uuid(context.curriculumWeekId()))
-					.orElse(Map.of("status", "NOT_AVAILABLE")),
-			context.curriculumWeekId() == null
+			resolvedWeek.context(),
+			resolvedWeek.weekId() == null
 				? List.of()
 				: jdbcTemplate.query(
 					AiConversationJdbcSql.SELECT_TASK_PROMPT_CONTEXT,
 					this::mapTaskPromptContext,
 					uuid(context.memberId()),
-					uuid(context.curriculumWeekId())
+					uuid(resolvedWeek.weekId())
 				),
-			context.curriculumWeekId() == null
+			resolvedWeek.weekId() == null
 				? Map.of("status", "NOT_AVAILABLE")
 				: queryOne(
 					AiConversationJdbcSql.SELECT_PROGRESS_PROMPT_CONTEXT,
 					this::mapProgressPromptContext,
-					uuid(context.curriculumWeekId()),
+					uuid(resolvedWeek.weekId()),
 					uuid(context.memberId())
 				).orElse(Map.of("status", "NOT_AVAILABLE")),
 			context.retrospectiveId() == null
@@ -274,6 +274,47 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 			.toList();
 	}
 
+	private Map<String, Object> findStudyGroupPromptContext(UUID groupId) {
+		return queryOne(AiConversationJdbcSql.SELECT_STUDY_GROUP_PROMPT_CONTEXT, this::mapStudyGroupPromptContext, uuid(groupId))
+			.orElse(Map.of("status", "NOT_AVAILABLE"));
+	}
+
+	private Map<String, Object> findCurriculumPromptContext(UUID groupId) {
+		return queryOne(AiConversationJdbcSql.SELECT_ACTIVE_CURRICULUM_PROMPT_CONTEXT, this::mapCurriculumPromptContext, uuid(groupId))
+			.orElse(Map.of("status", "NOT_AVAILABLE"));
+	}
+
+	private ResolvedPromptWeek resolvePromptWeek(AiConversationMessageContext context) {
+		if (context.curriculumWeekId() != null) {
+			Optional<Map<String, Object>> weekContext = queryOne(
+				AiConversationJdbcSql.SELECT_WEEK_PROMPT_CONTEXT,
+				this::mapWeekPromptContext,
+				uuid(context.curriculumWeekId())
+			);
+			if (weekContext.isEmpty()) {
+				return new ResolvedPromptWeek(null, notAvailableWeekContext());
+			}
+			return new ResolvedPromptWeek(context.curriculumWeekId(), withEffectiveWeekSource(weekContext.get(), "CONVERSATION_WEEK"));
+		}
+		Map<String, Object> weekContext = queryOne(
+			AiConversationJdbcSql.SELECT_CURRENT_WEEK_PROMPT_CONTEXT,
+			this::mapWeekPromptContext,
+			uuid(context.groupId())
+		).orElse(Map.of("status", "NOT_AVAILABLE"));
+		UUID weekId = uuidFromPromptContext(weekContext);
+		return new ResolvedPromptWeek(weekId, withEffectiveWeekSource(weekContext, weekId == null ? "NOT_AVAILABLE" : "CURRENT_WEEK"));
+	}
+
+	private static Map<String, Object> notAvailableWeekContext() {
+		return withEffectiveWeekSource(Map.of("status", "NOT_AVAILABLE"), "NOT_AVAILABLE");
+	}
+
+	private static Map<String, Object> withEffectiveWeekSource(Map<String, Object> source, String effectiveWeekSource) {
+		Map<String, Object> result = new LinkedHashMap<>(source);
+		result.put("effectiveWeekSource", effectiveWeekSource);
+		return Collections.unmodifiableMap(result);
+	}
+
 	private Map<String, Object> conversationContext(AiConversationMessageContext context) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", context.conversationId().toString());
@@ -286,6 +327,36 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		if (context.summary() != null && !context.summary().isBlank()) {
 			result.put("summary", context.summary());
 		}
+		return result;
+	}
+
+	private Map<String, Object> mapStudyGroupPromptContext(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "AVAILABLE");
+		result.put("id", requiredUuid(resultSet, "id").toString());
+		result.put("name", requiredString(resultSet, "name"));
+		putText(result, "description", resultSet.getString("description"));
+		result.put("topic", requiredString(resultSet, "topic"));
+		putJson(result, "detailKeywords", resultSet.getString("detail_keywords"), "study group detail keywords");
+		putText(result, "level", resultSet.getString("level"));
+		result.put("groupStatus", requiredString(resultSet, "status"));
+		putText(result, "startsAt", resultSet.getString("starts_at"));
+		putText(result, "endsAt", resultSet.getString("ends_at"));
+		putInstant(result, "startedAt", instant(resultSet.getTimestamp("started_at")));
+		return result;
+	}
+
+	private Map<String, Object> mapCurriculumPromptContext(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "AVAILABLE");
+		result.put("id", requiredUuid(resultSet, "id").toString());
+		result.put("title", requiredString(resultSet, "title"));
+		result.put("totalWeeks", resultSet.getInt("total_weeks"));
+		putJson(result, "onboardingSummary", resultSet.getString("onboarding_summary"), "curriculum onboarding summary");
+		result.put("generatedByAi", resultSet.getBoolean("generated_by_ai"));
+		result.put("curriculumStatus", requiredString(resultSet, "status"));
+		putInstant(result, "createdAt", requiredInstant(resultSet, "created_at"));
+		putInstant(result, "updatedAt", requiredInstant(resultSet, "updated_at"));
 		return result;
 	}
 
@@ -391,6 +462,14 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		return bytes == null ? null : UuidBinary.fromBytes(bytes);
 	}
 
+	private static UUID uuidFromPromptContext(Map<String, Object> context) {
+		Object id = context.get("id");
+		if (id == null) {
+			return null;
+		}
+		return UUID.fromString(id.toString());
+	}
+
 	private static String requiredString(ResultSet resultSet, String columnName) throws SQLException {
 		String value = resultSet.getString(columnName);
 		if (value == null || value.isBlank()) {
@@ -469,5 +548,8 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	private interface ThrowingRowMapper<T> {
 
 		T map(ResultSet resultSet, int rowNumber) throws SQLException;
+	}
+
+	private record ResolvedPromptWeek(UUID weekId, Map<String, Object> context) {
 	}
 }
