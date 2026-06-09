@@ -64,7 +64,16 @@ public class ReviewService {
 		if (!review.writtenBy(requesterId)) {
 			throw new ReviewAuthorMismatchException("review author does not match requester.");
 		}
-		reviewRepository.delete(review);
+		Review reviewWithDeletionTime = new Review(
+			review.id(),
+			review.targetId(),
+			review.authorId(),
+			review.rating(),
+			review.content(),
+			review.createdAt(),
+			clock.instant()
+		);
+		reviewRepository.delete(reviewWithDeletionTime);
 	}
 
 	private Review requireReview(UUID reviewId) {

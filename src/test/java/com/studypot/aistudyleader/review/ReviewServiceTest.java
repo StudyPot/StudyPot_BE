@@ -11,8 +11,11 @@ import org.junit.jupiter.api.Test;
 
 class ReviewServiceTest {
 
+	private static final Instant FIXED_NOW = Instant.parse("2026-06-07T12:00:00Z");
+	private static final Clock FIXED_CLOCK = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
+
 	private final ReviewService reviewService = new ReviewService(
-		Clock.fixed(Instant.parse("2026-06-07T12:00:00Z"), ZoneOffset.UTC)
+		FIXED_CLOCK
 	);
 
 	@Test
@@ -60,5 +63,57 @@ class ReviewServiceTest {
 		assertThatThrownBy(() -> reviewService.deleteReview(review.id(), UUID.randomUUID()))
 			.isInstanceOf(ReviewAuthorMismatchException.class)
 			.hasMessageContaining("review author does not match");
+	}
+
+	@Test
+	void deleteReviewUsesCurrentClockTimestampForSoftDelete() {
+		CapturingReviewRepository repository = new CapturingReviewRepository();
+		ReviewService service = new ReviewService(repository, FIXED_CLOCK);
+		Review review = new Review(
+			UUID.randomUUID(),
+			UUID.randomUUID(),
+			UUID.randomUUID(),
+			4,
+			"삭제 시간 검증 리뷰",
+			Instant.parse("2026-06-01T00:00:00Z"),
+			Instant.parse("2026-06-01T00:00:00Z")
+		);
+		repository.save(review);
+
+		service.deleteReview(review.id(), review.authorId());
+
+		assertThat(repository.deletedReview())
+			.extracting(Review::updatedAt)
+			.isEqualTo(FIXED_NOW);
+	}
+
+	@Test
+	void deleteReviewRefreshesAggregateViewByRemovingDeletedReview() {
+		UUID targetId = UUID.randomUUID();
+		Review firstReview = reviewService.createReview(
+			new CreateReviewCommand(targetId, UUID.randomUUID(), 5, "첫 리뷰")
+		);
+		reviewService.createReview(new CreateReviewCommand(targetId, UUID.randomUUID(), 3, "둘째 리뷰"));
+
+		reviewService.deleteReview(firstReview.id(), firstReview.authorId());
+
+		assertThat(reviewService.getRatingSummary(targetId))
+			.extracting(ReviewRatingSummary::reviewCount, ReviewRatingSummary::averageRating)
+			.containsExactly(1, 3.0);
+	}
+
+	private static final class CapturingReviewRepository extends InMemoryReviewRepository {
+
+		private Review deletedReview;
+
+		@Override
+		public void delete(Review review) {
+			deletedReview = review;
+			super.delete(review);
+		}
+
+		private Review deletedReview() {
+			return deletedReview;
+		}
 	}
 }

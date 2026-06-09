@@ -175,6 +175,73 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void createCommentRequiresExistingPostBeforeInsert() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.post = null;
+		GroupBoardService service = service(repository, COMMENT_ID);
+
+		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
+				USER_ID,
+				GROUP_ID,
+				POST_ID,
+				"참고 자료 확인했습니다."
+			)))
+			.isInstanceOf(GroupBoardNotFoundException.class)
+			.hasMessage("group board post was not found.");
+		assertThat(repository.insertedComment).isNull();
+	}
+
+	@Test
+	void createCommentStoresAuthorAndPostAssociationAfterMembershipCheck() {
+		CapturingRepository repository = new CapturingRepository();
+		GroupBoardService service = service(repository, COMMENT_ID);
+
+		GroupBoardComment comment = service.createComment(new CreateGroupBoardCommentCommand(
+			USER_ID,
+			GROUP_ID,
+			POST_ID,
+			"참고 자료 확인했습니다."
+		));
+
+		assertThat(comment.id()).isEqualTo(COMMENT_ID);
+		assertThat(repository.insertedComment.groupId()).isEqualTo(GROUP_ID);
+		assertThat(repository.insertedComment.postId()).isEqualTo(POST_ID);
+		assertThat(repository.insertedComment.authorMemberId()).isEqualTo(MEMBER_ID);
+	}
+
+	@Test
+	void listCommentsReturnsCursorPageAndRejectsInvalidCursor() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.comments = List.of(
+			comment(COMMENT_ID, MEMBER_ID, NOW.plusSeconds(1)),
+			comment(UUID.fromString("018f0000-0000-7000-8000-000000123009"), OTHER_MEMBER_ID, NOW.plusSeconds(2))
+		);
+		GroupBoardService service = service(repository);
+
+		CursorPageResponse<GroupBoardComment> page = service.listComments(new ListGroupBoardCommentsQuery(
+			USER_ID,
+			GROUP_ID,
+			POST_ID,
+			null,
+			1
+		));
+
+		assertThat(page.items()).hasSize(1);
+		assertThat(page.pageInfo().hasNext()).isTrue();
+		assertThat(page.pageInfo().nextCursor()).isNotBlank();
+		assertThat(repository.lastCommentLimit).isEqualTo(2);
+		assertThatThrownBy(() -> service.listComments(new ListGroupBoardCommentsQuery(
+				USER_ID,
+				GROUP_ID,
+				POST_ID,
+				"not-a-cursor",
+				20
+			)))
+			.isInstanceOf(InvalidGroupBoardRequestException.class)
+			.hasMessage("cursor is invalid.");
+	}
+
+	@Test
 	void updateCommentAllowsOnlyAuthorContentEdit() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.comment = comment(OTHER_MEMBER_ID);
@@ -203,6 +270,40 @@ class GroupBoardServiceTest {
 			)))
 			.isInstanceOf(InvalidGroupBoardRequestException.class)
 			.hasMessage("content must not be blank.");
+	}
+
+	@Test
+	void deleteCommentAllowsAuthorOrOwnerAndRejectsOtherMembers() {
+		CapturingRepository memberRepository = new CapturingRepository();
+		memberRepository.comment = comment(OTHER_MEMBER_ID);
+		GroupBoardService memberService = service(memberRepository);
+
+		assertThatThrownBy(() -> memberService.deleteComment(new DeleteGroupBoardCommentCommand(
+				USER_ID,
+				GROUP_ID,
+				COMMENT_ID
+			)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class)
+			.hasMessage("only the comment author or study group owner can delete board comments.");
+		assertThat(memberRepository.comment).isNotNull();
+
+		CapturingRepository ownerRepository = new CapturingRepository();
+		ownerRepository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		ownerRepository.comment = comment(OTHER_MEMBER_ID);
+		GroupBoardService ownerService = service(ownerRepository);
+
+		ownerService.deleteComment(new DeleteGroupBoardCommentCommand(USER_ID, GROUP_ID, COMMENT_ID));
+
+		assertThat(ownerRepository.comment).isNull();
+		assertThat(ownerRepository.lastSoftDeletedCommentAt).isEqualTo(NOW);
+
+		CapturingRepository authorRepository = new CapturingRepository();
+		GroupBoardService authorService = service(authorRepository);
+
+		authorService.deleteComment(new DeleteGroupBoardCommentCommand(USER_ID, GROUP_ID, COMMENT_ID));
+
+		assertThat(authorRepository.comment).isNull();
+		assertThat(authorRepository.lastSoftDeletedCommentAt).isEqualTo(NOW);
 	}
 
 	private static GroupBoardService service(CapturingRepository repository, UUID... ids) {
@@ -249,6 +350,10 @@ class GroupBoardServiceTest {
 		return GroupBoardComment.create(COMMENT_ID, GROUP_ID, POST_ID, authorMemberId, "댓글", NOW);
 	}
 
+	private static GroupBoardComment comment(UUID id, UUID authorMemberId, Instant createdAt) {
+		return GroupBoardComment.create(id, GROUP_ID, POST_ID, authorMemberId, "댓글", createdAt);
+	}
+
 	private static final class CapturingRepository implements GroupBoardRepository {
 
 		private GroupBoardMembership membership = new GroupBoardMembership(
@@ -265,6 +370,10 @@ class GroupBoardServiceTest {
 		private List<GroupBoardPostSummary> postSummaries = List.of();
 		private int lastPostLimit;
 		private GroupBoardComment comment = comment(MEMBER_ID);
+		private GroupBoardComment insertedComment;
+		private List<GroupBoardComment> comments = List.of(comment(MEMBER_ID));
+		private int lastCommentLimit;
+		private Instant lastSoftDeletedCommentAt;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -334,13 +443,15 @@ class GroupBoardServiceTest {
 
 		@Override
 		public boolean insertComment(GroupBoardComment comment) {
+			insertedComment = comment;
 			this.comment = comment;
 			return true;
 		}
 
 		@Override
 		public List<GroupBoardComment> findComments(UUID groupId, UUID postId, GroupBoardCommentCursor cursor, int limit) {
-			return List.of(comment);
+			lastCommentLimit = limit;
+			return comments;
 		}
 
 		@Override
@@ -361,6 +472,7 @@ class GroupBoardServiceTest {
 
 		@Override
 		public boolean softDeleteComment(UUID groupId, UUID commentId, Instant deletedAt) {
+			lastSoftDeletedCommentAt = deletedAt;
 			comment = null;
 			return true;
 		}

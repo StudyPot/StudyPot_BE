@@ -62,23 +62,40 @@ class JdbcStudyGroupCatalogMapperTest {
 	}
 
 	@Test
-	void searchAppliesCursorAfterTheDatabaseSortOrder() {
-		StudyGroupCatalogEntry next = new StudyGroupCatalogEntry(
-			UUID.fromString("018f0000-0000-7000-8000-00000000c702"),
-			"자료구조 스터디",
-			"CS",
-			"ACTIVE",
-			LocalDate.parse("2026-06-10"),
-			LocalDate.parse("2026-07-10"),
-			2,
-			3.5,
-			false
-		);
+	void searchBindsCursorAndLimitToDatabaseQuery() {
 		when(jdbcTemplate.query(eq(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS), any(RowMapper.class), any(Object[].class)))
-			.thenReturn(java.util.List.of(ENTRY, next));
+			.thenReturn(java.util.List.of(ENTRY));
 
-		assertThat(mapper.searchStudyGroups(null, null, "name", 2, ENTRY.id().toString()))
-			.containsExactly(next);
+		assertThat(mapper.searchStudyGroups(" Spring ", " ACTIVE ", " name ", 3, GROUP_ID.toString()))
+			.containsExactly(ENTRY);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS), any(RowMapper.class), args.capture());
+		assertThat(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS)
+			.contains("id > ?")
+			.contains("limit ?");
+		assertThat(args.getValue()).hasSize(12);
+		assertThat(args.getValue()[0]).isEqualTo("Spring");
+		assertThat(args.getValue()[4]).isEqualTo("ACTIVE");
+		assertThat((byte[]) args.getValue()[7]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[8]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat(args.getValue()[9]).isEqualTo("name");
+		assertThat(args.getValue()[11]).isEqualTo(3);
+	}
+
+	@Test
+	void searchBindsNullDatabaseCursorWhenCursorIsBlank() {
+		when(jdbcTemplate.query(eq(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS), any(RowMapper.class), any(Object[].class)))
+			.thenReturn(java.util.List.of(ENTRY));
+
+		assertThat(mapper.searchStudyGroups(null, null, null, 10, "  "))
+			.containsExactly(ENTRY);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(eq(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS), any(RowMapper.class), args.capture());
+		assertThat(args.getValue()[7]).isNull();
+		assertThat(args.getValue()[8]).isNull();
+		assertThat(args.getValue()[11]).isEqualTo(10);
 	}
 
 	@Test
