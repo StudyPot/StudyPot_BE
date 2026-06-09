@@ -7,9 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.stereotype.Repository;
 
-@Repository
 class InMemoryStudyGroupCatalogMapper implements StudyGroupCatalogMapper {
 
 	private final Map<UUID, StudyGroupCatalogEntry> entries = new ConcurrentHashMap<>();

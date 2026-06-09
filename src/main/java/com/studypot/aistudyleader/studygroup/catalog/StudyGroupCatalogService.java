@@ -33,7 +33,7 @@ public class StudyGroupCatalogService {
 
 	public StudyGroupCatalogPage search(String keyword, String status, String sort, int pageSize, String cursor) {
 		int boundedPageSize = Math.clamp(pageSize, 1, 50);
-		List<StudyGroupCatalogEntry> fetched = mapper.searchStudyGroups(keyword, status, sort, boundedPageSize, cursor);
+		List<StudyGroupCatalogEntry> fetched = mapper.searchStudyGroups(keyword, status, sort, boundedPageSize + 1, cursor);
 		if (fetched.size() <= boundedPageSize) {
 			return new StudyGroupCatalogPage(fetched, null);
 		}

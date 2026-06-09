@@ -7,9 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.stereotype.Repository;
 
-@Repository
 class InMemoryReviewRepository implements ReviewRepository {
 
 	private final Map<UUID, Review> reviewsById = new ConcurrentHashMap<>();
