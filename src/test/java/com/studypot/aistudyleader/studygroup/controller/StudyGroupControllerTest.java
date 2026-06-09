@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.studygroup.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -314,6 +315,51 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void patchGroupReturnsUpdatedStudyGroupResponse() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("group-update-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validUpdateRequestJson()))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.id").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.name").value("Backend Deep Dive"))
+			.andExpect(jsonPath("$.topic").value("Spring Boot"))
+			.andExpect(jsonPath("$.detailKeywords[0]").value("Security"))
+			.andExpect(jsonPath("$.detailKeywords[1]").value("Testing"))
+			.andExpect(jsonPath("$.maxMembers").value(8))
+			.andExpect(jsonPath("$.startsAt").value("2026-05-11"))
+			.andExpect(jsonPath("$.endsAt").value("2026-06-22"));
+	}
+
+	@Test
+	void patchGroupReturnsForbiddenWhenRequesterIsNotOwner() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(OTHER_USER_ID.toString()))
+				.with(xsrf("group-update-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validUpdateRequestJson()))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Forbidden"))
+			.andExpect(jsonPath("$.detail").value("only the study group owner can update this study group."));
+	}
+
+	@Test
+	void deleteGroupReturnsNoContentAndHidesDeletedGroup() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("group-delete-xsrf")))
+			.andExpect(status().isNoContent());
+
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.detail").value("study group was not found."));
+	}
+
+	@Test
 	void getMyGroupMemberProfileRequiresAuthentication() throws Exception {
 		mockMvc.perform(get(PROFILE_PATH))
 			.andExpect(status().isUnauthorized())
@@ -393,6 +439,20 @@ class StudyGroupControllerTest {
 			  "startsAt": "2026-05-10",
 			  "endsAt": "2026-06-21",
 			  "description": "Weekly backend interview prep"
+			}
+			""";
+	}
+
+	private static String validUpdateRequestJson() {
+		return """
+			{
+			  "name": "Backend Deep Dive",
+			  "topic": "Spring Boot",
+			  "detailKeywords": ["Security", "Testing"],
+			  "maxMembers": 8,
+			  "startsAt": "2026-05-11",
+			  "endsAt": "2026-06-22",
+			  "description": "Owner curated backend interview prep"
 			}
 			""";
 	}
@@ -499,6 +559,15 @@ class StudyGroupControllerTest {
 	private static final class NoopStudyGroupRepository implements StudyGroupRepository {
 
 		private String profileDisplayName = "현우";
+		private StudyGroup group = testGroup(
+			"Backend Interview Study",
+			"Spring Boot",
+			List.of("JPA", "Security"),
+			6,
+			java.time.LocalDate.parse("2026-05-10"),
+			java.time.LocalDate.parse("2026-06-21"),
+			"Weekly backend interview prep"
+		);
 
 		@Override
 		public void saveCreatedGroup(StudyGroup group, GroupMember ownerMember) {
@@ -525,7 +594,7 @@ class StudyGroupControllerTest {
 
 		@Override
 		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
-			return List.of(testGroup());
+			return group == null ? List.of() : List.of(group);
 		}
 
 		@Override
@@ -544,28 +613,65 @@ class StudyGroupControllerTest {
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
-			return GROUP_ID.equals(groupId);
+			return GROUP_ID.equals(groupId) && group != null;
 		}
 
 		@Override
 		public java.util.Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
-			if (!GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
+			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
 				return java.util.Optional.empty();
 			}
-			return java.util.Optional.of(testGroup());
+			return java.util.Optional.of(group);
 		}
 
-		private static StudyGroup testGroup() {
+		@Override
+		public boolean updateStudyGroup(
+			UUID groupId,
+			UUID editorUserId,
+			String name,
+			String topic,
+			List<String> detailKeywords,
+			int maxMembers,
+			java.time.LocalDate startsAt,
+			java.time.LocalDate endsAt,
+			String description,
+			Instant updatedAt
+		) {
+			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(editorUserId)) {
+				return false;
+			}
+			group = testGroup(name, topic, detailKeywords, maxMembers, startsAt, endsAt, description);
+			return true;
+		}
+
+		@Override
+		public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
+			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(ownerUserId)) {
+				return false;
+			}
+			group = null;
+			return true;
+		}
+
+		private static StudyGroup testGroup(
+			String name,
+			String topic,
+			List<String> detailKeywords,
+			int maxMembers,
+			java.time.LocalDate startsAt,
+			java.time.LocalDate endsAt,
+			String description
+		) {
 			return StudyGroup.create(
 				GROUP_ID,
 				USER_ID,
-				"Backend Interview Study",
-				"Spring Boot",
-				List.of("JPA", "Security"),
-				6,
-				java.time.LocalDate.parse("2026-05-10"),
-				java.time.LocalDate.parse("2026-06-21"),
-				"Weekly backend interview prep",
+				name,
+				topic,
+				detailKeywords,
+				maxMembers,
+				startsAt,
+				endsAt,
+				description,
 				"INVITE-0001",
 				TestStudyGroupBeans.NOW
 			);

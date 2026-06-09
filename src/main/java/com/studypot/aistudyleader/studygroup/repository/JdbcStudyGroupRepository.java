@@ -188,6 +188,56 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		) == 1;
 	}
 
+	@Override
+	public boolean updateStudyGroup(
+		UUID groupId,
+		UUID editorUserId,
+		String name,
+		String topic,
+		List<String> detailKeywords,
+		int maxMembers,
+		LocalDate startsAt,
+		LocalDate endsAt,
+		String description,
+		Instant updatedAt
+	) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(editorUserId, "editorUserId must not be null");
+		Objects.requireNonNull(name, "name must not be null");
+		Objects.requireNonNull(topic, "topic must not be null");
+		Objects.requireNonNull(detailKeywords, "detailKeywords must not be null");
+		Objects.requireNonNull(startsAt, "startsAt must not be null");
+		Objects.requireNonNull(endsAt, "endsAt must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_STUDY_GROUP,
+			name,
+			description,
+			topic,
+			detailKeywordsJson(detailKeywords),
+			maxMembers,
+			date(startsAt),
+			date(endsAt),
+			timestamp(updatedAt),
+			uuid(groupId),
+			uuid(editorUserId)
+		) == 1;
+	}
+
+	@Override
+	public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(ownerUserId, "ownerUserId must not be null");
+		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.DELETE_STUDY_GROUP,
+			timestamp(deletedAt),
+			timestamp(deletedAt),
+			uuid(groupId),
+			uuid(ownerUserId)
+		) == 1;
+	}
+
 	private static StudyGroupJoinTarget mapJoinTarget(ResultSet resultSet, int rowNumber) throws SQLException {
 		return new StudyGroupJoinTarget(
 			UuidBinary.fromBytes(resultSet.getBytes("id")),
@@ -263,8 +313,12 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	private String detailKeywordsJson(StudyGroup group) {
+		return detailKeywordsJson(group.detailKeywords());
+	}
+
+	private String detailKeywordsJson(List<String> detailKeywords) {
 		try {
-			return objectMapper.writeValueAsString(group.detailKeywords());
+			return objectMapper.writeValueAsString(detailKeywords);
 		} catch (JsonProcessingException exception) {
 			throw new StudyGroupPersistenceException("study group detail keywords could not be serialized.", exception);
 		}
