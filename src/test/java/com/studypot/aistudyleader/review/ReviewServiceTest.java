@@ -63,6 +63,33 @@ class ReviewServiceTest {
 		assertThatThrownBy(() -> reviewService.deleteReview(review.id(), UUID.randomUUID()))
 			.isInstanceOf(ReviewAuthorMismatchException.class)
 			.hasMessageContaining("review author does not match");
+		assertThatThrownBy(() -> reviewService.updateReview(
+			new UpdateReviewCommand(review.id(), UUID.randomUUID(), 2, "다른 작성자의 수정 시도")
+		))
+			.isInstanceOf(ReviewAuthorMismatchException.class)
+			.hasMessageContaining("review author does not match");
+	}
+
+	@Test
+	void updateReviewAllowsAuthorToChangeRatingAndContent() {
+		UUID targetId = UUID.randomUUID();
+		UUID authorId = UUID.randomUUID();
+		Review review = reviewService.createReview(new CreateReviewCommand(targetId, authorId, 5, "처음 남긴 리뷰"));
+
+		Review updated = reviewService.updateReview(
+			new UpdateReviewCommand(review.id(), authorId, 2, "수정된 리뷰입니다.")
+		);
+
+		assertThat(updated.id()).isEqualTo(review.id());
+		assertThat(updated.targetId()).isEqualTo(targetId);
+		assertThat(updated.authorId()).isEqualTo(authorId);
+		assertThat(updated.createdAt()).isEqualTo(review.createdAt());
+		assertThat(updated.updatedAt()).isEqualTo(FIXED_NOW);
+		assertThat(updated.rating()).isEqualTo(2);
+		assertThat(updated.content()).isEqualTo("수정된 리뷰입니다.");
+		assertThat(reviewService.getRatingSummary(targetId))
+			.extracting(ReviewRatingSummary::reviewCount, ReviewRatingSummary::averageRating)
+			.containsExactly(1, 2.0);
 	}
 
 	@Test

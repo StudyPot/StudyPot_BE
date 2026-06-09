@@ -59,6 +59,30 @@ class JdbcReviewRepositoryTest {
 	}
 
 	@Test
+	void updateChangesRatingContentAndRefreshesAggregate() {
+		Review updated = new Review(
+			REVIEW_ID,
+			TARGET_ID,
+			AUTHOR_ID,
+			2,
+			"수정된 리뷰입니다.",
+			CREATED_AT,
+			Instant.parse("2026-06-09T10:00:00Z")
+		);
+		when(jdbcTemplate.update(eq(ReviewJdbcSql.UPDATE_REVIEW), any(Object[].class))).thenReturn(1);
+
+		assertThat(repository.update(updated)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(ReviewJdbcSql.UPDATE_REVIEW), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(2);
+		assertThat(args.getValue()[1]).isEqualTo("수정된 리뷰입니다.");
+		assertThat(args.getValue()[2]).isEqualTo(Timestamp.from(updated.updatedAt()));
+		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(REVIEW_ID));
+		verify(jdbcTemplate).update(eq(ReviewJdbcSql.REFRESH_CATALOG_REVIEW_AGGREGATE), any(Object[].class));
+	}
+
+	@Test
 	void findByTargetAndAuthorMapsStoredReview() {
 		when(jdbcTemplate.query(eq(ReviewJdbcSql.SELECT_BY_TARGET_ID_AND_AUTHOR_ID), any(RowMapper.class), any(Object[].class)))
 			.thenReturn(java.util.List.of(REVIEW));

@@ -49,6 +49,15 @@ final class ReviewJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String UPDATE_REVIEW = """
+		update study_group_review
+		set rating = ?,
+		    content = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String REFRESH_CATALOG_REVIEW_AGGREGATE = """
 		update study_group_catalog c
 		set average_rating = coalesce((

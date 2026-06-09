@@ -30,6 +30,10 @@ public record Review(
 		return authorId.equals(userId);
 	}
 
+	Review update(int rating, String content, Instant updatedAt) {
+		return new Review(id, targetId, authorId, rating, content, createdAt, updatedAt);
+	}
+
 	private static String requireText(String value, String fieldName) {
 		if (value == null || value.isBlank()) {
 			throw new IllegalArgumentException(fieldName + " must not be blank.");

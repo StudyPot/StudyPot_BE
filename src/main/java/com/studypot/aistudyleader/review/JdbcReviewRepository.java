@@ -72,6 +72,23 @@ class JdbcReviewRepository implements ReviewRepository {
 	}
 
 	@Override
+	public boolean update(Review review) {
+		Objects.requireNonNull(review, "review must not be null");
+		int updated = jdbcTemplate.update(
+			ReviewJdbcSql.UPDATE_REVIEW,
+			review.rating(),
+			review.content(),
+			timestamp(review.updatedAt()),
+			uuid(review.id())
+		);
+		if (updated > 0) {
+			refreshCatalogReviewAggregate(review.targetId());
+			return true;
+		}
+		return false;
+	}
+
+	@Override
 	public void delete(Review review) {
 		Objects.requireNonNull(review, "review must not be null");
 		jdbcTemplate.update(

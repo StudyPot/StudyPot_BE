@@ -46,6 +46,18 @@ class InMemoryReviewRepository implements ReviewRepository {
 	}
 
 	@Override
+	public boolean update(Review review) {
+		Review previous = reviewsById.get(review.id());
+		if (previous == null) {
+			return false;
+		}
+		reviewsById.put(review.id(), review);
+		reviewIdsByAuthorKey.remove(new ReviewAuthorKey(previous.targetId(), previous.authorId()));
+		reviewIdsByAuthorKey.put(new ReviewAuthorKey(review.targetId(), review.authorId()), review.id());
+		return true;
+	}
+
+	@Override
 	public void delete(Review review) {
 		reviewsById.remove(review.id());
 		reviewIdsByAuthorKey.remove(new ReviewAuthorKey(review.targetId(), review.authorId()));

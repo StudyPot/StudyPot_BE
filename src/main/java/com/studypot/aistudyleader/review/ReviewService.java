@@ -59,6 +59,18 @@ public class ReviewService {
 			.orElseThrow(() -> new ReviewNotFoundException("review was not found."));
 	}
 
+	public synchronized Review updateReview(UpdateReviewCommand command) {
+		Review review = requireReview(command.reviewId());
+		if (!review.writtenBy(command.requesterId())) {
+			throw new ReviewAuthorMismatchException("review author does not match requester.");
+		}
+		Review updated = review.update(command.rating(), command.content(), clock.instant());
+		if (!reviewRepository.update(updated)) {
+			throw new ReviewNotFoundException("review was not found.");
+		}
+		return updated;
+	}
+
 	public synchronized void deleteReview(UUID reviewId, UUID requesterId) {
 		Review review = requireReview(reviewId);
 		if (!review.writtenBy(requesterId)) {

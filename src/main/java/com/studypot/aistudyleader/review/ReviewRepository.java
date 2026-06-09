@@ -16,5 +16,7 @@ interface ReviewRepository {
 
 	List<Review> findByTargetIdOrderByCreatedAtDesc(UUID targetId);
 
+	boolean update(Review review);
+
 	void delete(Review review);
 }
