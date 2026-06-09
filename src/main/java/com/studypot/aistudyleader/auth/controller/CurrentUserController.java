@@ -35,7 +35,10 @@ class CurrentUserController {
 
 	@Operation(
 		summary = "현재 사용자 조회",
-		description = "bearer token 또는 `studypot_access_token` 쿠키로 인증된 사용자의 식별자, 이메일, 닉네임을 조회합니다."
+		description = """
+			bearer token 또는 `studypot_access_token` 쿠키로 인증된 사용자의 프론트 프로필 계약을 조회합니다.
+			응답 필드는 id, email, nickname, profileImage, bio, preferredTopics, skillLevel 순서의 사용자 프로필 source of truth입니다.
+			"""
 	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "현재 사용자 정보 반환"),
@@ -51,7 +54,10 @@ class CurrentUserController {
 
 	@Operation(
 		summary = "현재 사용자 프로필 수정",
-		description = "인증된 사용자의 닉네임, 프로필 이미지, 자기소개, 관심 주제, 숙련도를 수정합니다."
+		description = """
+			인증된 사용자의 프론트 편집 모델을 수정합니다.
+			요청 필드는 nickname, profileImage, bio, preferredTopics, skillLevel이며 응답은 /users/me 조회와 동일한 프로필 계약을 반환합니다.
+			"""
 	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "프로필 수정 결과 반환"),

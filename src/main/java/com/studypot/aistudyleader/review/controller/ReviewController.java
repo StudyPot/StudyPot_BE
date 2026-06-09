@@ -67,7 +67,10 @@ class ReviewController {
 		return GroupReviewResponse.from(reviewService.getMyReview(groupId, authenticatedUserId(authentication)));
 	}
 
-	@Operation(summary = "그룹 리뷰 통계", description = "프론트 리뷰 화면이 사용하는 평균 평점, 총 개수, 평점 분포를 반환합니다.")
+	@Operation(
+		summary = "그룹 리뷰 통계",
+		description = "프론트 리뷰 화면이 사용하는 평균 평점, 총 개수, ratingDistribution 1~5 전체 평점 분포를 반환합니다."
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "그룹 리뷰 통계 반환"),
 		@ApiResponse(responseCode = "422", description = "그룹 UUID 형식 오류")
@@ -81,7 +84,10 @@ class ReviewController {
 		return GroupReviewStatsResponse.from(summary, reviews);
 	}
 
-	@Operation(summary = "그룹 리뷰 작성", description = "프론트 리뷰 화면에서 인증 사용자가 그룹에 한 번만 리뷰를 작성합니다.")
+	@Operation(
+		summary = "그룹 리뷰 작성",
+		description = "프론트 리뷰 화면에서 인증 사용자가 그룹에 한 번만 리뷰를 작성합니다. targetId+authorId 중복 리뷰는 409 Conflict로 고정합니다."
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "그룹 리뷰 생성"),
 		@ApiResponse(responseCode = "401", description = "인증 사용자 확인 실패"),
@@ -125,7 +131,10 @@ class ReviewController {
 		return ReviewRatingSummaryResponse.from(reviewService.getRatingSummary(targetId));
 	}
 
-	@Operation(summary = "리뷰 작성", description = "인증 사용자가 대상에 한 번만 리뷰를 작성합니다.")
+	@Operation(
+		summary = "리뷰 작성",
+		description = "인증 사용자가 대상에 한 번만 리뷰를 작성합니다. targetId+authorId 중복 리뷰는 409 Conflict로 고정합니다."
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "리뷰 생성"),
 		@ApiResponse(responseCode = "401", description = "인증 사용자 확인 실패"),
@@ -143,7 +152,7 @@ class ReviewController {
 		return ReviewResponse.from(review);
 	}
 
-	@Operation(summary = "리뷰 삭제", description = "작성자 검증을 통과한 리뷰만 삭제합니다.")
+	@Operation(summary = "리뷰 삭제", description = "작성자만 리뷰를 삭제할 수 있으며 작성자가 아니면 403 Forbidden으로 고정합니다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "204", description = "리뷰 삭제"),
 		@ApiResponse(responseCode = "401", description = "인증 사용자 확인 실패"),

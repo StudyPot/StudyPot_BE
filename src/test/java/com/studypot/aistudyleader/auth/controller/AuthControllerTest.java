@@ -29,7 +29,10 @@ import com.studypot.aistudyleader.auth.domain.OAuthAccount;
 import com.studypot.aistudyleader.auth.domain.OAuthProvider;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitDecision;
 import com.studypot.aistudyleader.global.ratelimit.RateLimiter;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.Cookie;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -51,6 +54,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -361,6 +365,31 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.preferredTopics[0]").value("Spring Boot"))
 			.andExpect(jsonPath("$.preferredTopics[1]").value("JPA"))
 			.andExpect(jsonPath("$.skillLevel").value("intermediate"));
+	}
+
+	@Test
+	void currentUserProfileContractDocumentsFrontendSynchronizedFields() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		MvcResult result = mockMvc.perform(get(ME_PATH)
+				.header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+			.andExpect(status().isOk())
+			.andReturn();
+		JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+		List<String> fieldNames = new ArrayList<>();
+		body.fieldNames().forEachRemaining(fieldNames::add);
+
+		assertThat(fieldNames)
+			.containsExactlyInAnyOrder("id", "email", "nickname", "profileImage", "bio", "preferredTopics", "skillLevel");
+
+		Method currentUser = CurrentUserController.class.getDeclaredMethod("currentUser", Jwt.class);
+		Class<?> requestType = Class.forName(CurrentUserController.class.getName() + "$UpdateCurrentUserRequest");
+		Method updateCurrentUser = CurrentUserController.class.getDeclaredMethod("updateCurrentUser", Jwt.class, requestType);
+
+		assertThat(currentUser.getAnnotation(Operation.class).description())
+			.contains("id, email, nickname, profileImage, bio, preferredTopics, skillLevel");
+		assertThat(updateCurrentUser.getAnnotation(Operation.class).description())
+			.contains("nickname, profileImage, bio, preferredTopics, skillLevel");
 	}
 
 	@Test
