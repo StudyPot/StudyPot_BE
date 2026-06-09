@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "그룹 게시판", description = "스터디 그룹별 기본 게시판, 게시글, 댓글을 관리하는 API입니다.")
+@Tag(name = "그룹 게시판", description = "스터디 그룹별 게시판, 게시글, 댓글 CRUD와 목록·상세 조회를 관리하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class GroupBoardController {

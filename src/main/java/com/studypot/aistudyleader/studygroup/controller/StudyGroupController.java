@@ -53,7 +53,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "스터디 그룹", description = "스터디 그룹 생성, 내 그룹 목록 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
+@Tag(name = "스터디 그룹", description = "스터디 그룹 CRUD, 내 그룹 목록 조회, 상세 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class StudyGroupController {

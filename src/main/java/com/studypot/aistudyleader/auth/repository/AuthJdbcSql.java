@@ -3,14 +3,16 @@ package com.studypot.aistudyleader.auth.repository;
 final class AuthJdbcSql {
 
 	static final String FIND_ACTIVE_USER_BY_ID = """
-		select id, email, nickname, profile_image, last_login_at, created_at, updated_at, deleted_at
+		select id, email, password_hash, nickname, profile_image, bio, interests, skill_level,
+		       last_login_at, created_at, updated_at, deleted_at
 		from users
 		where id = ?
 		  and deleted_at is null
 		""";
 
 	static final String FIND_ACTIVE_USER_BY_EMAIL = """
-		select id, email, nickname, profile_image, last_login_at, created_at, updated_at, deleted_at
+		select id, email, password_hash, nickname, profile_image, bio, interests, skill_level,
+		       last_login_at, created_at, updated_at, deleted_at
 		from users
 		where email_live_key = ?
 		  and deleted_at is null
@@ -26,16 +28,21 @@ final class AuthJdbcSql {
 
 	static final String INSERT_USER = """
 		insert into users (
-		  id, email, email_live_key, nickname, profile_image, last_login_at, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?)
+		  id, email, email_live_key, password_hash, nickname, profile_image, bio, interests, skill_level,
+		  last_login_at, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
 	static final String UPDATE_ACTIVE_USER = """
 		update users
 		set email = ?,
 		    email_live_key = ?,
+		    password_hash = ?,
 		    nickname = ?,
 		    profile_image = ?,
+		    bio = ?,
+		    interests = ?,
+		    skill_level = ?,
 		    last_login_at = ?,
 		    updated_at = ?
 		where id = ?

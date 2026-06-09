@@ -1,5 +1,8 @@
 package com.studypot.aistudyleader.auth.repository;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.studypot.aistudyleader.global.domain.AuditMetadata;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.auth.domain.EmailAddress;
@@ -19,9 +22,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class JdbcAuthAccountRepository implements AuthAccountRepository {
 
 	private final JdbcTemplate jdbcTemplate;
+	private final ObjectMapper objectMapper;
 
 	JdbcAuthAccountRepository(JdbcTemplate jdbcTemplate) {
+		this(jdbcTemplate, JsonMapper.builder().findAndAddModules().build());
+	}
+
+	JdbcAuthAccountRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
 		this.jdbcTemplate = jdbcTemplate;
+		this.objectMapper = objectMapper;
 	}
 
 	@Override
@@ -46,8 +55,12 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 				AuthJdbcSql.UPDATE_ACTIVE_USER,
 				user.email().value(),
 				user.email().liveKey(),
+				user.passwordHash().orElse(null),
 				user.nickname(),
 				user.profileImage().orElse(null),
+				user.bio().orElse(null),
+				json(user.preferredTopics(), "user interests"),
+				user.skillLevel().orElse(null),
 				timestamp(user.lastLoginAt().orElse(null)),
 				timestamp(user.auditMetadata().updatedAt()),
 				UuidBinary.toBytes(user.id())
@@ -62,8 +75,12 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 					UuidBinary.toBytes(user.id()),
 					user.email().value(),
 					user.email().liveKey(),
+					user.passwordHash().orElse(null),
 					user.nickname(),
 					user.profileImage().orElse(null),
+					user.bio().orElse(null),
+					json(user.preferredTopics(), "user interests"),
+					user.skillLevel().orElse(null),
 					timestamp(user.lastLoginAt().orElse(null)),
 					timestamp(user.auditMetadata().createdAt()),
 					timestamp(user.auditMetadata().updatedAt())
@@ -147,8 +164,12 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 		return AuthUser.rehydrate(
 			uuid(resultSet, "id"),
 			EmailAddress.from(resultSet.getString("email")),
+			resultSet.getString("password_hash"),
 			resultSet.getString("nickname"),
 			resultSet.getString("profile_image"),
+			resultSet.getString("bio"),
+			stringList(resultSet.getString("interests"), "user interests"),
+			resultSet.getString("skill_level"),
 			instant(resultSet, "last_login_at"),
 			new AuditMetadata(
 				instant(resultSet, "created_at"),
@@ -194,6 +215,28 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 
 	private static Timestamp timestamp(Instant instant) {
 		return instant == null ? null : Timestamp.from(instant);
+	}
+
+	private String json(List<String> values, String fieldName) {
+		if (values == null || values.isEmpty()) {
+			return null;
+		}
+		try {
+			return objectMapper.writeValueAsString(values);
+		} catch (JsonProcessingException exception) {
+			throw new AuthPersistenceException(fieldName + " could not be serialized.", exception);
+		}
+	}
+
+	private List<String> stringList(String json, String fieldName) {
+		if (json == null || json.isBlank()) {
+			return List.of();
+		}
+		try {
+			return objectMapper.readerForListOf(String.class).readValue(json);
+		} catch (JsonProcessingException exception) {
+			throw new AuthPersistenceException(fieldName + " could not be deserialized.", exception);
+		}
 	}
 
 	@FunctionalInterface

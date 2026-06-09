@@ -92,6 +92,21 @@ public class AuthSessionService {
 		return AuthenticatedUser.from(findActiveUser(authenticatedUserId));
 	}
 
+	@Transactional
+	public AuthenticatedUser updateCurrentUserProfile(UUID authenticatedUserId, UpdateCurrentUserProfileCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		AuthUser user = findActiveUser(authenticatedUserId);
+		AuthUser updated = user.updateProfile(
+			command.nickname(),
+			command.profileImage(),
+			command.bio(),
+			command.preferredTopics(),
+			command.skillLevel(),
+			clock.instant()
+		);
+		return AuthenticatedUser.from(authRepository.save(updated));
+	}
+
 	private AuthTokenResult issueTokenPair(AuthUser user, AuthSessionMetadata metadata) {
 		return issueTokenPair(user, metadata, clock.instant());
 	}
