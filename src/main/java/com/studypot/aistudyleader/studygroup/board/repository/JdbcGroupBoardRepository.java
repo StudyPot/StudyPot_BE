@@ -229,10 +229,11 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 		Objects.requireNonNull(commentId, "commentId must not be null");
 		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
 		return jdbcTemplate.update(
-			GroupBoardJdbcSql.SOFT_DELETE_COMMENT,
+			GroupBoardJdbcSql.SOFT_DELETE_COMMENT_THREAD,
 			timestamp(deletedAt),
 			timestamp(deletedAt),
 			uuid(groupId),
+			uuid(commentId),
 			uuid(commentId)
 		) > 0;
 	}

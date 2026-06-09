@@ -237,13 +237,13 @@ final class GroupBoardJdbcSql {
 		  and status = 'PUBLISHED'
 		""";
 
-	static final String SOFT_DELETE_COMMENT = """
+	static final String SOFT_DELETE_COMMENT_THREAD = """
 		update group_board_comment
 		set status = 'DELETED',
 		    deleted_at = ?,
 		    updated_at = ?
 		where group_id = ?
-		  and id = ?
+		  and (id = ? or parent_comment_id = ?)
 		  and deleted_at is null
 		  and status = 'PUBLISHED'
 		""";

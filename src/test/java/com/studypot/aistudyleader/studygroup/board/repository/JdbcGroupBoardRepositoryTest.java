@@ -151,4 +151,19 @@ class JdbcGroupBoardRepositoryTest {
 
 		assertThat(comment).hasValueSatisfying(found -> assertThat(found.parentCommentId()).isEqualTo(PARENT_COMMENT_ID));
 	}
+
+	@Test
+	void softDeleteCommentDeletesTargetCommentAndDirectReplies() {
+		when(jdbcTemplate.update(eq(GroupBoardJdbcSql.SOFT_DELETE_COMMENT_THREAD), any(Object[].class))).thenReturn(2);
+
+		assertThat(repository.softDeleteComment(GROUP_ID, COMMENT_ID, NOW)).isTrue();
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).update(eq(GroupBoardJdbcSql.SOFT_DELETE_COMMENT_THREAD), args.capture());
+		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(NOW));
+		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
+		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(GROUP_ID));
+		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(COMMENT_ID));
+		assertThat((byte[]) args.getValue()[4]).containsExactly(UuidBinary.toBytes(COMMENT_ID));
+	}
 }
