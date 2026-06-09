@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -96,6 +98,28 @@ class JdbcStudyGroupCatalogMapperTest {
 		assertThat(args.getValue()[7]).isNull();
 		assertThat(args.getValue()[8]).isNull();
 		assertThat(args.getValue()[11]).isEqualTo(10);
+	}
+
+	@Test
+	void searchSqlKeepsCatalogPredicatesIndexFriendlyForConfiguredCollation() {
+		assertThat(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS)
+			.contains("deleted_at is null")
+			.contains("name like concat('%', ?, '%')")
+			.contains("topic like concat('%', ?, '%')")
+			.contains("status = ?")
+			.contains("id > ?")
+			.doesNotContain("lower(");
+	}
+
+	@Test
+	void catalogSearchIndexMigrationMatchesSearchAndCursorPlan() throws Exception {
+		String migration = Files.readString(Path.of(
+			"src/main/resources/db/migration/V7__catalog_search_indexes.sql"
+		));
+
+		assertThat(migration)
+			.contains("study_group_catalog_topic_idx (topic)")
+			.contains("study_group_catalog_search_cursor_idx (deleted_at, status, favorite, starts_at, id)");
 	}
 
 	@Test

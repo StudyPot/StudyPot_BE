@@ -66,16 +66,16 @@ class SignupController {
 	@Schema(description = "이메일 회원가입 요청입니다.")
 	private record SignupRequest(
 		@Schema(description = "로그인 이메일입니다.", example = "member@studypot.dev")
-		@NotBlank
-		@Email
+		@NotBlank(message = "email is required.")
+		@Email(message = "email must be valid")
 		String email,
 		@Schema(description = "서비스 표시 닉네임입니다.", example = "현우")
-		@NotBlank
-		@Size(max = 80)
+		@NotBlank(message = "nickname is required.")
+		@Size(max = 80, message = "nickname must be 80 characters or less.")
 		String nickname,
 		@Schema(description = "8자 이상의 비밀번호입니다.", example = "studypot123")
-		@NotBlank
-		@Size(min = 8)
+		@NotBlank(message = "password must be at least 8 characters.")
+		@Size(min = 8, message = "password must be at least 8 characters.")
 		String password
 	) {
 	}

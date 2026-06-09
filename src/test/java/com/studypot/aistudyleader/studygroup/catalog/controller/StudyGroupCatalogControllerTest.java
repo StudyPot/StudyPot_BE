@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.studygroup.catalog.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +15,8 @@ import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.studygroup.catalog.StudyGroupCatalogCommand;
 import com.studypot.aistudyleader.studygroup.catalog.StudyGroupCatalogEntry;
 import com.studypot.aistudyleader.studygroup.catalog.StudyGroupCatalogMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -126,6 +129,28 @@ class StudyGroupCatalogControllerTest {
 			.andExpect(status().isNotFound())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.detail").value("study group catalog detail was not found."));
+	}
+
+	@Test
+	void searchEndpointDocumentsIndexBackedCursorQueryPlan() throws Exception {
+		Method search = StudyGroupCatalogController.class.getDeclaredMethod(
+			"search",
+			String.class,
+			String.class,
+			String.class,
+			int.class,
+			String.class
+		);
+
+		Operation operation = search.getAnnotation(Operation.class);
+
+		assertThat(operation.description())
+			.contains("pageSize+1")
+			.contains("UUID 커서")
+			.contains("study_group_catalog_status_idx")
+			.contains("study_group_catalog_name_idx")
+			.contains("study_group_catalog_topic_idx")
+			.contains("study_group_catalog_search_cursor_idx");
 	}
 
 	private static String validCatalogJson(String name, String topic, boolean favorite) {

@@ -134,7 +134,33 @@ class SignupControllerTest {
 			.andExpect(status().isUnprocessableEntity())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("email"))
-			.andExpect(jsonPath("$.fieldErrors[1].field").value("password"));
+			.andExpect(jsonPath("$.fieldErrors[0].message").value("email must be valid"))
+			.andExpect(jsonPath("$.fieldErrors[1].field").value("password"))
+			.andExpect(jsonPath("$.fieldErrors[1].message").value("password must be at least 8 characters."));
+
+		assertThat(repository.savedUserCount()).isZero();
+	}
+
+	@Test
+	void signupRejectsBlankFieldsWithServiceConsistentProblemMessages() throws Exception {
+		mockMvc.perform(post(SIGNUP_PATH)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "email": "",
+					  "nickname": "",
+					  "password": ""
+					}
+					""")
+				.with(xsrf("signup-xsrf")))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("email"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value("email is required."))
+			.andExpect(jsonPath("$.fieldErrors[1].field").value("nickname"))
+			.andExpect(jsonPath("$.fieldErrors[1].message").value("nickname is required."))
+			.andExpect(jsonPath("$.fieldErrors[2].field").value("password"))
+			.andExpect(jsonPath("$.fieldErrors[2].message").value("password must be at least 8 characters."));
 
 		assertThat(repository.savedUserCount()).isZero();
 	}

@@ -12,7 +12,7 @@ final class StudyGroupCatalogJdbcSql {
 		select id, name, topic, status, starts_at, ends_at, member_count, average_rating, favorite
 		from study_group_catalog
 		where deleted_at is null
-		  and (? is null or ? = '' or lower(name) like lower(concat('%', ?, '%')) or lower(topic) like lower(concat('%', ?, '%')))
+		  and (? is null or ? = '' or name like concat('%', ?, '%') or topic like concat('%', ?, '%'))
 		  and (? is null or ? = '' or status = ?)
 		  and (? is null or id > ?)
 		order by

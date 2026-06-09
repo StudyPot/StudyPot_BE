@@ -52,16 +52,30 @@ class StudyGroupCatalogController {
 		return StudyGroupCatalogResponse.from(service.create(request.toCommand()));
 	}
 
-	@Operation(summary = "스터디 그룹 목록 검색", description = "키워드, 상태, 정렬, 커서 페이지네이션으로 스터디 그룹 목록을 조회합니다.")
+	@Operation(
+		summary = "스터디 그룹 목록 검색",
+		description = """
+			키워드, 상태, 정렬, UUID 커서 페이지네이션으로 스터디 그룹 목록을 조회합니다.
+			조회 SQL은 pageSize+1개를 요청해 nextCursor를 산출하고, MySQL utf8mb4_0900_ai_ci collation에서
+			study_group_catalog_status_idx, study_group_catalog_name_idx, study_group_catalog_topic_idx,
+			study_group_catalog_favorite_start_idx, study_group_catalog_search_cursor_idx 인덱스를 활용하도록
+			deleted_at/status 필터, favorite·starts_at·id 정렬, id 커서 조건을 명시합니다.
+			"""
+	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "검색 조건과 페이지네이션이 적용된 목록 반환")
 	})
 	@GetMapping
 	StudyGroupCatalogPageResponse search(
+		@Parameter(description = "이름 또는 주제에 적용할 부분 검색어입니다. DB collation 기반으로 대소문자를 구분하지 않습니다.")
 		@RequestParam(required = false) String keyword,
+		@Parameter(description = "그룹 상태 필터입니다. 비어 있으면 전체 상태를 조회합니다.")
 		@RequestParam(required = false) String status,
+		@Parameter(description = "정렬 기준입니다. favorite, name, startDate를 지원합니다.")
 		@RequestParam(defaultValue = "favorite") String sort,
+		@Parameter(description = "페이지 크기입니다. 서비스 계층에서 1~50으로 보정하고 SQL은 pageSize+1개를 조회합니다.")
 		@RequestParam(defaultValue = "10") @Min(1) @Max(50) int pageSize,
+		@Parameter(description = "직전 페이지 마지막 항목의 UUID 커서입니다. SQL의 id > cursor 조건으로 다음 페이지를 조회합니다.")
 		@RequestParam(required = false) String cursor
 	) {
 		StudyGroupCatalogPage page = service.search(keyword, status, sort, pageSize, cursor);
