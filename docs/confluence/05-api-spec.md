@@ -39,14 +39,34 @@
 - SPT-81 does not add public API fields or OpenAPI paths. The DB-first context builder runs inside the backend before retrospective/chat LLM provider calls.
 - Vector store, GraphRAG, MCP, FastAPI service split, and broader agent orchestration are deferred to SPT-82 or later approved tasks. SPT-82's Proposed ADR keeps the current API request/response boundary unchanged; streaming or service-split endpoints require a later approved task.
 
+## SSAFY Coach Direct Implementation Evidence
+This section maps rubric-facing API surfaces to concrete backend implementation and verification files. It is evidence metadata for analysis, not a new API behavior contract.
+
+| Rubric | API surface | Controller | Service | Repository / Mapper | Verification |
+| --- | --- | --- | --- | --- | --- |
+| `#01` Core CRUD, `#03` detail lookup | `POST/GET/PATCH/DELETE /api/v1/groups/catalog`, `GET /api/v1/groups/{groupId}` | `src/main/java/com/studypot/aistudyleader/studygroup/catalog/controller/StudyGroupCatalogController.java`, `src/main/java/com/studypot/aistudyleader/studygroup/controller/StudyGroupController.java` | `src/main/java/com/studypot/aistudyleader/studygroup/catalog/StudyGroupCatalogService.java`, `src/main/java/com/studypot/aistudyleader/studygroup/service/StudyGroupService.java` | `src/main/java/com/studypot/aistudyleader/studygroup/catalog/StudyGroupCatalogMapper.java`, `src/main/java/com/studypot/aistudyleader/studygroup/catalog/StudyGroupCatalogSqlProvider.java`, `src/main/java/com/studypot/aistudyleader/studygroup/repository/JdbcStudyGroupRepository.java` | `src/test/java/com/studypot/aistudyleader/studygroup/controller/StudyGroupControllerTest.java` |
+| `#02` list/search/sort | `GET /api/v1/groups/catalog?keyword&status&sort&pageSize&cursor`, `GET /api/v1/groups/{groupId}/boards/{boardId}/posts?sort&order&cursor` | `src/main/java/com/studypot/aistudyleader/studygroup/catalog/controller/StudyGroupCatalogController.java`, `src/main/java/com/studypot/aistudyleader/studygroup/board/controller/GroupBoardController.java` | `src/main/java/com/studypot/aistudyleader/studygroup/catalog/StudyGroupCatalogService.java`, `src/main/java/com/studypot/aistudyleader/studygroup/board/service/GroupBoardService.java` | `src/main/java/com/studypot/aistudyleader/studygroup/repository/StudyGroupMyBatisSqlProvider.java`, `src/main/java/com/studypot/aistudyleader/studygroup/catalog/StudyGroupCatalogSqlProvider.java`, `src/main/java/com/studypot/aistudyleader/studygroup/board/repository/GroupBoardJdbcSql.java` | `src/test/java/com/studypot/aistudyleader/studygroup/repository/StudyGroupMyBatisSqlProviderTest.java`, `src/test/java/com/studypot/aistudyleader/studygroup/board/controller/GroupBoardControllerTest.java` |
+| `#04` reviews | `GET/POST /api/v1/review-targets/{targetId}/reviews`, `GET /api/v1/review-targets/{targetId}/reviews/summary`, `DELETE /api/v1/reviews/{reviewId}` | `src/main/java/com/studypot/aistudyleader/review/controller/ReviewController.java` | `src/main/java/com/studypot/aistudyleader/review/ReviewService.java` | `src/main/java/com/studypot/aistudyleader/review/ReviewRepository.java`, `src/main/java/com/studypot/aistudyleader/review/InMemoryReviewRepository.java` | `src/test/java/com/studypot/aistudyleader/review/ReviewServiceTest.java` |
+| `#06` signup | `POST /api/v1/auth/signup`, `GET /api/v1/auth/signup/email-availability` | `src/main/java/com/studypot/aistudyleader/auth/controller/SignupController.java` | `src/main/java/com/studypot/aistudyleader/auth/service/SignupService.java` | `src/main/java/com/studypot/aistudyleader/auth/repository/JdbcAuthAccountRepository.java`, `src/main/java/com/studypot/aistudyleader/auth/repository/AuthJdbcSql.java`, `src/main/resources/db/migration/V5__users_password_hash.sql` | `src/test/java/com/studypot/aistudyleader/auth/service/SignupServiceTest.java` |
+| `#07` profile | `GET/PATCH /api/v1/users/me`, `GET/PATCH /api/v1/groups/{groupId}/members/me/profile` | `src/main/java/com/studypot/aistudyleader/auth/controller/AuthController.java`, `src/main/java/com/studypot/aistudyleader/studygroup/controller/StudyGroupController.java` | `src/main/java/com/studypot/aistudyleader/auth/service/AuthSessionService.java`, `src/main/java/com/studypot/aistudyleader/studygroup/service/StudyGroupService.java` | `src/main/java/com/studypot/aistudyleader/auth/repository/JdbcAuthAccountRepository.java`, `src/main/java/com/studypot/aistudyleader/studygroup/repository/JdbcStudyGroupRepository.java` | `src/test/java/com/studypot/aistudyleader/auth/controller/AuthControllerTest.java`, `src/test/java/com/studypot/aistudyleader/studygroup/service/StudyGroupServiceTest.java` |
+| `#10` board CRUD, `#11` comment CRUD | `GET/POST/PATCH/DELETE /api/v1/groups/{groupId}/boards...`, `GET/POST/PATCH/DELETE /api/v1/groups/{groupId}/comments...` | `src/main/java/com/studypot/aistudyleader/studygroup/board/controller/GroupBoardController.java` | `src/main/java/com/studypot/aistudyleader/studygroup/board/service/GroupBoardService.java` | `src/main/java/com/studypot/aistudyleader/studygroup/board/repository/JdbcGroupBoardRepository.java`, `src/main/java/com/studypot/aistudyleader/studygroup/board/repository/GroupBoardJdbcSql.java` | `src/test/java/com/studypot/aistudyleader/studygroup/board/controller/GroupBoardControllerTest.java`, `src/test/java/com/studypot/aistudyleader/studygroup/board/service/GroupBoardServiceTest.java` |
+
 ## Endpoint Index
 | Method | Path | Feature ID | Actor | Purpose |
 | --- | --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/signup` | `identity-core` | anonymous/client | Create email/password account with BCrypt password hashing. |
+| `GET` | `/api/v1/auth/signup/email-availability` | `identity-core` | anonymous/client | Check whether an email can be used for signup. |
 | `POST` | `/api/v1/auth/oauth/google` | `identity-core` | anonymous/client | Exchange a Google authorization code for application tokens. |
 | `POST` | `/api/v1/auth/refresh` | `identity-core` | anonymous/client | Rotate refresh token and issue new application tokens. |
 | `POST` | `/api/v1/auth/logout` | `identity-core` | authenticated | Revoke the submitted current refresh token. |
 | `POST` | `/api/v1/auth/logout-all` | `identity-core` | authenticated | Revoke all refresh tokens for the current user. |
 | `GET` | `/api/v1/users/me` | `identity-core` | authenticated | Read current user. |
+| `PATCH` | `/api/v1/users/me` | `identity-core` | authenticated | Update current user's nickname, image, bio, preferred topics, and skill level. |
+| `POST` | `/api/v1/groups/catalog` | `study-group-core` | authenticated | Create a catalog-visible study group. |
+| `GET` | `/api/v1/groups/catalog` | `study-group-core` | authenticated | Search, sort, and cursor-page catalog-visible study groups. |
+| `GET` | `/api/v1/groups/catalog/{groupId}` | `study-group-core` | authenticated | Read catalog-visible study group detail with aggregate fields. |
+| `PATCH` | `/api/v1/groups/catalog/{groupId}` | `study-group-core` | authenticated | Update catalog-visible study group fields. |
+| `DELETE` | `/api/v1/groups/catalog/{groupId}` | `study-group-core` | authenticated | Delete a catalog-visible study group. |
 | `GET` | `/api/v1/groups` | `study-group-core` | authenticated | List my groups. |
 | `POST` | `/api/v1/groups` | `study-group-core` | authenticated | Create group and owner membership. |
 | `GET` | `/api/v1/groups/{groupId}` | `study-group-core` | group member | Read group. |
@@ -78,6 +98,10 @@
 | `POST` | `/api/v1/tasks/{taskId}/completion/me/done` | `weekly-todo` | group member | Mark my task completion as done. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me/incomplete` | `weekly-todo` | group member | Mark my task completion as incomplete with a required reason. |
 | `POST` | `/api/v1/tasks/{taskId}/completion/me/skip` | `weekly-todo` | group member | Mark my task completion as skipped. |
+| `GET` | `/api/v1/review-targets/{targetId}/reviews` | `retrospective-feedback` | authenticated | List reviews for a target. |
+| `POST` | `/api/v1/review-targets/{targetId}/reviews` | `retrospective-feedback` | authenticated | Create one review per author and target. |
+| `GET` | `/api/v1/review-targets/{targetId}/reviews/summary` | `retrospective-feedback` | authenticated | Read review count and average rating. |
+| `DELETE` | `/api/v1/reviews/{reviewId}` | `retrospective-feedback` | review author | Delete own review after author validation. |
 | `POST` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Request retrospective feedback. |
 | `GET` | `/api/v1/weeks/{weekId}/retrospectives/me` | `retrospective-feedback` | group member | Read my retrospective. |
 | `POST` | `/api/v1/groups/{groupId}/ai-conversations` | `ai-team-leader` | group member | Open AI team leader conversation. |
