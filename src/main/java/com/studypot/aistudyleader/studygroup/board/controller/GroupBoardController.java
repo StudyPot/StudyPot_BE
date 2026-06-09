@@ -380,6 +380,7 @@ class GroupBoardController {
 
 	@Schema(description = "그룹 게시글 댓글 생성 요청입니다.")
 	private record CreateCommentRequest(
+		UUID parentCommentId,
 		@Schema(description = "댓글 내용입니다.", example = "저도 같은 부분이 궁금합니다.")
 		@NotBlank
 		@Size(max = 3000)
@@ -387,7 +388,7 @@ class GroupBoardController {
 	) {
 
 		CreateGroupBoardCommentCommand toCommand(UUID authenticatedUserId, UUID groupId, UUID postId) {
-			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, content);
+			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, parentCommentId, content);
 		}
 	}
 
@@ -541,6 +542,7 @@ class GroupBoardController {
 		UUID groupId,
 		@Schema(description = "댓글이 속한 게시글 UUID입니다.")
 		UUID postId,
+		UUID parentCommentId,
 		@Schema(description = "작성자 정보입니다.")
 		GroupBoardAuthorResponse author,
 		@Schema(description = "댓글 내용입니다.")
@@ -556,6 +558,7 @@ class GroupBoardController {
 				comment.id(),
 				comment.groupId(),
 				comment.postId(),
+				comment.parentCommentId(),
 				GroupBoardAuthorResponse.from(comment.authorMemberId(), comment.authorUserId(), comment.authorDisplayName()),
 				comment.content(),
 				comment.createdAt(),

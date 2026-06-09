@@ -37,6 +37,8 @@ class GroupBoardServiceTest {
 	private static final UUID POST_ID = UUID.fromString("018f0000-0000-7000-8000-000000123005");
 	private static final UUID COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123006");
 	private static final UUID OTHER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000123007");
+	private static final UUID PARENT_COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123008");
+	private static final UUID REPLY_COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123009");
 	private static final Instant NOW = Instant.parse("2026-06-01T02:10:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -207,6 +209,70 @@ class GroupBoardServiceTest {
 		assertThat(repository.insertedComment.groupId()).isEqualTo(GROUP_ID);
 		assertThat(repository.insertedComment.postId()).isEqualTo(POST_ID);
 		assertThat(repository.insertedComment.authorMemberId()).isEqualTo(MEMBER_ID);
+	}
+
+	@Test
+	void createReplyCommentStoresParentCommentWhenParentBelongsToSamePost() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.comment = GroupBoardComment.create(PARENT_COMMENT_ID, GROUP_ID, POST_ID, MEMBER_ID, "부모 댓글", NOW);
+		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
+
+		GroupBoardComment reply = service.createComment(new CreateGroupBoardCommentCommand(
+			USER_ID,
+			GROUP_ID,
+			POST_ID,
+			PARENT_COMMENT_ID,
+			"대댓글입니다."
+		));
+
+		assertThat(reply.id()).isEqualTo(REPLY_COMMENT_ID);
+		assertThat(reply.parentCommentId()).isEqualTo(PARENT_COMMENT_ID);
+		assertThat(repository.insertedComment.parentCommentId()).isEqualTo(PARENT_COMMENT_ID);
+	}
+
+	@Test
+	void createReplyCommentRejectsParentFromDifferentPost() {
+		CapturingRepository repository = new CapturingRepository();
+		UUID otherPostId = UUID.fromString("018f0000-0000-7000-8000-000000123010");
+		repository.comment = GroupBoardComment.create(PARENT_COMMENT_ID, GROUP_ID, otherPostId, MEMBER_ID, "다른 게시글 댓글", NOW);
+		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
+
+		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
+				USER_ID,
+				GROUP_ID,
+				POST_ID,
+				PARENT_COMMENT_ID,
+				"대댓글입니다."
+			)))
+			.isInstanceOf(InvalidGroupBoardRequestException.class)
+			.hasMessage("parent comment must belong to the target post.");
+	}
+
+	@Test
+	void createReplyCommentRejectsNestedReplyParent() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.comment = GroupBoardComment.create(
+			PARENT_COMMENT_ID,
+			GROUP_ID,
+			POST_ID,
+			COMMENT_ID,
+			MEMBER_ID,
+			null,
+			null,
+			"이미 대댓글입니다.",
+			NOW
+		);
+		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
+
+		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
+				USER_ID,
+				GROUP_ID,
+				POST_ID,
+				PARENT_COMMENT_ID,
+				"대댓글의 대댓글입니다."
+			)))
+			.isInstanceOf(InvalidGroupBoardRequestException.class)
+			.hasMessage("parent comment must be a top-level comment.");
 	}
 
 	@Test

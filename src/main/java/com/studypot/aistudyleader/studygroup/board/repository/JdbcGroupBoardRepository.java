@@ -171,6 +171,7 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			uuid(comment.id()),
 			uuid(comment.groupId()),
 			uuid(comment.postId()),
+			uuidOrNull(comment.parentCommentId()),
 			uuid(comment.authorMemberId()),
 			comment.content(),
 			timestamp(comment.createdAt()),
@@ -301,6 +302,7 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			requiredUuid(resultSet, "id"),
 			requiredUuid(resultSet, "group_id"),
 			requiredUuid(resultSet, "post_id"),
+			uuid(resultSet.getBytes("parent_comment_id")),
 			requiredUuid(resultSet, "author_member_id"),
 			uuid(resultSet.getBytes("author_user_id")),
 			resultSet.getString("author_display_name"),
@@ -318,6 +320,10 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
+	}
+
+	private static byte[] uuidOrNull(UUID uuid) {
+		return uuid == null ? null : UuidBinary.toBytes(uuid);
 	}
 
 	private static UUID uuid(byte[] bytes) {
