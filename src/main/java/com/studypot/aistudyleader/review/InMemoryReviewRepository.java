@@ -33,6 +33,12 @@ class InMemoryReviewRepository implements ReviewRepository {
 	}
 
 	@Override
+	public Optional<Review> findByTargetIdAndAuthorId(UUID targetId, UUID authorId) {
+		return Optional.ofNullable(reviewIdsByAuthorKey.get(new ReviewAuthorKey(targetId, authorId)))
+			.map(reviewsById::get);
+	}
+
+	@Override
 	public List<Review> findByTargetIdOrderByCreatedAtDesc(UUID targetId) {
 		return reviewsById.values()
 			.stream()

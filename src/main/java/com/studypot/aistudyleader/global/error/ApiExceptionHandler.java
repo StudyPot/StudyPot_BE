@@ -44,6 +44,9 @@ import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDenie
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveNotFoundException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
+import com.studypot.aistudyleader.review.DuplicateReviewException;
+import com.studypot.aistudyleader.review.ReviewAuthorMismatchException;
+import com.studypot.aistudyleader.review.ReviewNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.InvalidStudyGroupMemberProfileRequestException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
@@ -203,6 +206,7 @@ public class ApiExceptionHandler {
 		GroupRuleGroupNotFoundException.class,
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
+		ReviewNotFoundException.class,
 		AiConversationNotFoundException.class,
 		LlmUsageGroupNotFoundException.class,
 		NotificationGroupNotFoundException.class,
@@ -220,6 +224,7 @@ public class ApiExceptionHandler {
 		GroupBoardAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
+		ReviewAuthorMismatchException.class,
 		AiConversationAccessDeniedException.class,
 		LlmUsageAccessDeniedException.class,
 		NotificationAccessDeniedException.class
@@ -238,6 +243,7 @@ public class ApiExceptionHandler {
 		GroupRuleMutationRejectedException.class,
 		OnboardingAlreadySubmittedException.class,
 		RetrospectiveMutationRejectedException.class,
+		DuplicateReviewException.class,
 		AiConversationMutationRejectedException.class,
 		NotificationMutationRejectedException.class
 	})

@@ -52,6 +52,13 @@ public class ReviewService {
 		return new ReviewRatingSummary(targetId, reviews.size(), averageRating);
 	}
 
+	public Review getMyReview(UUID targetId, UUID authorId) {
+		Objects.requireNonNull(targetId, "targetId must not be null");
+		Objects.requireNonNull(authorId, "authorId must not be null");
+		return reviewRepository.findByTargetIdAndAuthorId(targetId, authorId)
+			.orElseThrow(() -> new ReviewNotFoundException("review was not found."));
+	}
+
 	public synchronized void deleteReview(UUID reviewId, UUID requesterId) {
 		Review review = requireReview(reviewId);
 		if (!review.writtenBy(requesterId)) {
@@ -64,26 +71,5 @@ public class ReviewService {
 		Objects.requireNonNull(reviewId, "reviewId must not be null");
 		return reviewRepository.findById(reviewId)
 			.orElseThrow(() -> new ReviewNotFoundException("review was not found."));
-	}
-}
-
-class DuplicateReviewException extends RuntimeException {
-
-	DuplicateReviewException(String message) {
-		super(message);
-	}
-}
-
-class ReviewAuthorMismatchException extends RuntimeException {
-
-	ReviewAuthorMismatchException(String message) {
-		super(message);
-	}
-}
-
-class ReviewNotFoundException extends RuntimeException {
-
-	ReviewNotFoundException(String message) {
-		super(message);
 	}
 }

@@ -43,6 +43,15 @@ class ReviewServiceTest {
 	}
 
 	@Test
+	void findsMyReviewByGroupAndAuthor() {
+		UUID groupId = UUID.randomUUID();
+		UUID authorId = UUID.randomUUID();
+		Review review = reviewService.createReview(new CreateReviewCommand(groupId, authorId, 5, "내 리뷰"));
+
+		assertThat(reviewService.getMyReview(groupId, authorId)).isEqualTo(review);
+	}
+
+	@Test
 	void validatesAuthorBeforeMutation() {
 		Review review = reviewService.createReview(
 			new CreateReviewCommand(UUID.randomUUID(), UUID.randomUUID(), 4, "작성자 검증 대상 리뷰")

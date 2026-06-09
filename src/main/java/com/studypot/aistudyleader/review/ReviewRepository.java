@@ -12,6 +12,8 @@ interface ReviewRepository {
 
 	Optional<Review> findById(UUID reviewId);
 
+	Optional<Review> findByTargetIdAndAuthorId(UUID targetId, UUID authorId);
+
 	List<Review> findByTargetIdOrderByCreatedAtDesc(UUID targetId);
 
 	void delete(Review review);
