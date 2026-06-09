@@ -44,6 +44,7 @@ class JdbcReviewRepository implements ReviewRepository {
 			timestamp(review.createdAt()),
 			timestamp(review.updatedAt())
 		);
+		refreshCatalogReviewAggregate(review.targetId());
 		return review;
 	}
 
@@ -79,6 +80,11 @@ class JdbcReviewRepository implements ReviewRepository {
 			timestamp(review.updatedAt()),
 			uuid(review.id())
 		);
+		refreshCatalogReviewAggregate(review.targetId());
+	}
+
+	private void refreshCatalogReviewAggregate(UUID targetId) {
+		jdbcTemplate.update(ReviewJdbcSql.REFRESH_CATALOG_REVIEW_AGGREGATE, uuid(targetId));
 	}
 
 	private Optional<Review> queryOne(String sql, Object... args) {

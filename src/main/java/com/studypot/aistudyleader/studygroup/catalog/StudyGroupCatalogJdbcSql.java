@@ -14,14 +14,12 @@ final class StudyGroupCatalogJdbcSql {
 		where deleted_at is null
 		  and (? is null or ? = '' or lower(name) like lower(concat('%', ?, '%')) or lower(topic) like lower(concat('%', ?, '%')))
 		  and (? is null or ? = '' or status = ?)
-		  and (? is null or id > ?)
 		order by
 		  case when ? = 'name' then name end asc,
 		  case when ? = 'startDate' then starts_at end desc,
 		  favorite desc,
 		  starts_at desc,
 		  id asc
-		limit ?
 		""";
 
 	static final String SELECT_DETAIL = """

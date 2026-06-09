@@ -62,6 +62,26 @@ class JdbcStudyGroupCatalogMapperTest {
 	}
 
 	@Test
+	void searchAppliesCursorAfterTheDatabaseSortOrder() {
+		StudyGroupCatalogEntry next = new StudyGroupCatalogEntry(
+			UUID.fromString("018f0000-0000-7000-8000-00000000c702"),
+			"자료구조 스터디",
+			"CS",
+			"ACTIVE",
+			LocalDate.parse("2026-06-10"),
+			LocalDate.parse("2026-07-10"),
+			2,
+			3.5,
+			false
+		);
+		when(jdbcTemplate.query(eq(StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS), any(RowMapper.class), any(Object[].class)))
+			.thenReturn(java.util.List.of(ENTRY, next));
+
+		assertThat(mapper.searchStudyGroups(null, null, "name", 2, ENTRY.id().toString()))
+			.containsExactly(next);
+	}
+
+	@Test
 	void deleteStudyGroupSoftDeletesCatalogRow() {
 		when(jdbcTemplate.update(eq(StudyGroupCatalogJdbcSql.SOFT_DELETE_STUDY_GROUP), any(Object[].class))).thenReturn(1);
 

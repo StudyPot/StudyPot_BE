@@ -42,6 +42,7 @@ class JdbcReviewRepositoryTest {
 		assertThat(args.getValue()[3]).isEqualTo(5);
 		assertThat(args.getValue()[4]).isEqualTo("좋은 스터디입니다.");
 		assertThat(args.getValue()[5]).isEqualTo(Timestamp.from(CREATED_AT));
+		verify(jdbcTemplate).update(eq(ReviewJdbcSql.REFRESH_CATALOG_REVIEW_AGGREGATE), any(Object[].class));
 	}
 
 	@Test
@@ -54,6 +55,7 @@ class JdbcReviewRepositoryTest {
 		verify(jdbcTemplate).update(eq(ReviewJdbcSql.SOFT_DELETE_REVIEW), args.capture());
 		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(CREATED_AT));
 		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(REVIEW_ID));
+		verify(jdbcTemplate).update(eq(ReviewJdbcSql.REFRESH_CATALOG_REVIEW_AGGREGATE), any(Object[].class));
 	}
 
 	@Test

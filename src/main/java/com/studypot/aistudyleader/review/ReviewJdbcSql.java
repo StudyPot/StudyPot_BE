@@ -49,6 +49,19 @@ final class ReviewJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String REFRESH_CATALOG_REVIEW_AGGREGATE = """
+		update study_group_catalog c
+		set average_rating = coalesce((
+		      select avg(r.rating)
+		      from study_group_review r
+		      where r.group_id = c.id
+		        and r.deleted_at is null
+		    ), 0),
+		    updated_at = current_timestamp(6)
+		where c.id = ?
+		  and c.deleted_at is null
+		""";
+
 	private ReviewJdbcSql() {
 	}
 }

@@ -40,8 +40,7 @@ class JdbcStudyGroupCatalogMapper implements StudyGroupCatalogMapper {
 	public List<StudyGroupCatalogEntry> searchStudyGroups(String keyword, String status, String sort, int pageSize, String cursor) {
 		String normalizedKeyword = text(keyword);
 		String normalizedStatus = text(status);
-		byte[] cursorId = cursor == null || cursor.isBlank() ? null : uuid(UUID.fromString(cursor));
-		return jdbcTemplate.query(
+		List<StudyGroupCatalogEntry> sortedEntries = jdbcTemplate.query(
 			StudyGroupCatalogJdbcSql.SEARCH_STUDY_GROUPS,
 			this::mapEntry,
 			normalizedKeyword,
@@ -51,12 +50,12 @@ class JdbcStudyGroupCatalogMapper implements StudyGroupCatalogMapper {
 			normalizedStatus,
 			normalizedStatus,
 			normalizedStatus,
-			cursorId,
-			cursorId,
 			text(sort),
-			text(sort),
-			pageSize
+			text(sort)
 		);
+		return entriesAfterCursor(sortedEntries, cursor).stream()
+			.limit(pageSize)
+			.toList();
 	}
 
 	@Override
@@ -109,6 +108,17 @@ class JdbcStudyGroupCatalogMapper implements StudyGroupCatalogMapper {
 
 	private static String text(String value) {
 		return value == null ? "" : value.strip();
+	}
+
+	private static List<StudyGroupCatalogEntry> entriesAfterCursor(List<StudyGroupCatalogEntry> entries, String cursor) {
+		if (cursor == null || cursor.isBlank()) {
+			return entries;
+		}
+		UUID cursorId = UUID.fromString(cursor);
+		return entries.stream()
+			.dropWhile(entry -> !entry.id().equals(cursorId))
+			.skip(1)
+			.toList();
 	}
 
 	private static byte[] uuid(UUID uuid) {
