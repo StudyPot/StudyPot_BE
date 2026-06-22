@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.auth.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -28,7 +29,10 @@ import com.studypot.aistudyleader.auth.domain.OAuthAccount;
 import com.studypot.aistudyleader.auth.domain.OAuthProvider;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitDecision;
 import com.studypot.aistudyleader.global.ratelimit.RateLimiter;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.Cookie;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -50,6 +54,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockCookie;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -333,6 +338,58 @@ class AuthControllerTest {
 			.andExpect(status().isUnauthorized())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.title").value("Unauthorized"));
+	}
+
+	@Test
+	void currentUserProfileCanBeUpdatedWithDomainAttributes() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		mockMvc.perform(patch(ME_PATH)
+				.header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "nickname": "현우2",
+					  "profileImage": "https://cdn.studypot.dev/profiles/hyunwoo.png",
+					  "bio": "백엔드와 Vue를 함께 공부합니다.",
+					  "preferredTopics": ["Spring Boot", "JPA"],
+					  "skillLevel": "intermediate"
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(TestAuthBeans.FIRST_USER_ID.toString()))
+			.andExpect(jsonPath("$.email").value("member@example.com"))
+			.andExpect(jsonPath("$.nickname").value("현우2"))
+			.andExpect(jsonPath("$.profileImage").value("https://cdn.studypot.dev/profiles/hyunwoo.png"))
+			.andExpect(jsonPath("$.bio").value("백엔드와 Vue를 함께 공부합니다."))
+			.andExpect(jsonPath("$.preferredTopics[0]").value("Spring Boot"))
+			.andExpect(jsonPath("$.preferredTopics[1]").value("JPA"))
+			.andExpect(jsonPath("$.skillLevel").value("intermediate"));
+	}
+
+	@Test
+	void currentUserProfileContractDocumentsFrontendSynchronizedFields() throws Exception {
+		AuthTokenResult session = authSessionService.loginWithGoogleProfile(TEST_PROFILE, TEST_METADATA);
+
+		MvcResult result = mockMvc.perform(get(ME_PATH)
+				.header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+			.andExpect(status().isOk())
+			.andReturn();
+		JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+		List<String> fieldNames = new ArrayList<>();
+		body.fieldNames().forEachRemaining(fieldNames::add);
+
+		assertThat(fieldNames)
+			.containsExactlyInAnyOrder("id", "email", "nickname", "profileImage", "bio", "preferredTopics", "skillLevel");
+
+		Method currentUser = CurrentUserController.class.getDeclaredMethod("currentUser", Jwt.class);
+		Class<?> requestType = Class.forName(CurrentUserController.class.getName() + "$UpdateCurrentUserRequest");
+		Method updateCurrentUser = CurrentUserController.class.getDeclaredMethod("updateCurrentUser", Jwt.class, requestType);
+
+		assertThat(currentUser.getAnnotation(Operation.class).description())
+			.contains("id, email, nickname, profileImage, bio, preferredTopics, skillLevel");
+		assertThat(updateCurrentUser.getAnnotation(Operation.class).description())
+			.contains("nickname, profileImage, bio, preferredTopics, skillLevel");
 	}
 
 	@Test

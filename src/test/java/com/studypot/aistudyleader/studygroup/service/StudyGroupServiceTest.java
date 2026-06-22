@@ -319,6 +319,102 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void updateGroupAllowsOwnerAndReturnsRefreshedGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.updateGroupSucceeds = true;
+		repository.readGroup = updatedGroup();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroup result = service.updateGroup(new UpdateStudyGroupCommand(
+			USER_ID,
+			GROUP_ID,
+			"Backend Deep Dive",
+			"Spring Boot",
+			List.of("Security", "Testing"),
+			8,
+			LocalDate.parse("2026-05-11"),
+			LocalDate.parse("2026-06-22"),
+			"Owner curated backend interview prep"
+		));
+
+		assertThat(repository.updatedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.updatedGroupEditorUserId).isEqualTo(USER_ID);
+		assertThat(repository.updatedGroupName).isEqualTo("Backend Deep Dive");
+		assertThat(repository.updatedGroupTopic).isEqualTo("Spring Boot");
+		assertThat(repository.updatedGroupDetailKeywords).containsExactly("Security", "Testing");
+		assertThat(repository.updatedGroupMaxMembers).isEqualTo(8);
+		assertThat(repository.updatedGroupUpdatedAt).isEqualTo(NOW);
+		assertThat(repository.getRequestedUserId).isEqualTo(USER_ID);
+		assertThat(result.name()).isEqualTo("Backend Deep Dive");
+	}
+
+	@Test
+	void updateGroupRejectsExistingGroupWhenRequesterIsNotOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
+				JOINER_ID,
+				GROUP_ID,
+				"Backend Deep Dive",
+				"Spring Boot",
+				List.of("Security", "Testing"),
+				8,
+				LocalDate.parse("2026-05-11"),
+				LocalDate.parse("2026-06-22"),
+				"Owner curated backend interview prep"
+			)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can update this study group.");
+
+		assertThat(repository.updatedGroupEditorUserId).isEqualTo(JOINER_ID);
+		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void deleteGroupAllowsOwnerToSoftDelete() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.deleteGroupSucceeds = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID));
+
+		assertThat(repository.deletedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.deletedGroupOwnerUserId).isEqualTo(USER_ID);
+		assertThat(repository.deletedGroupAt).isEqualTo(NOW);
+	}
+
+	@Test
+	void deleteGroupRejectsMissingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+
+		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void updateCommandRejectsEndDateBeforeStartDate() {
+		assertThatThrownBy(() -> new UpdateStudyGroupCommand(
+				USER_ID,
+				GROUP_ID,
+				"Backend Deep Dive",
+				"Spring Boot",
+				List.of("Security"),
+				8,
+				LocalDate.parse("2026-06-22"),
+				LocalDate.parse("2026-05-11"),
+				null
+			))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("endsAt must be on or after startsAt");
+	}
+
+	@Test
 	void getMyGroupMemberProfileReturnsRepositoryProfile() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupMemberProfile profile = profile("현우");
@@ -541,6 +637,27 @@ class StudyGroupServiceTest {
 		);
 	}
 
+	private static StudyGroup updatedGroup() {
+		return StudyGroup.rehydrate(
+			GROUP_ID,
+			USER_ID,
+			"Backend Deep Dive",
+			"Spring Boot",
+			List.of("Security", "Testing"),
+			StudyGroupStatus.ONBOARDING,
+			8,
+			false,
+			"INVITE-0001",
+			LocalDate.parse("2026-05-11"),
+			LocalDate.parse("2026-06-22"),
+			"Owner curated backend interview prep",
+			NOW,
+			null,
+			NOW.minusSeconds(3600),
+			NOW
+		);
+	}
+
 	private static StudyGroupMemberProfile profile(String displayName) {
 		return new StudyGroupMemberProfile(
 			GROUP_ID,
@@ -582,6 +699,19 @@ class StudyGroupServiceTest {
 		private UUID updatedProfileUserId;
 		private String updatedDisplayName;
 		private Instant updatedAt;
+		private UUID updatedGroupId;
+		private UUID updatedGroupEditorUserId;
+		private String updatedGroupName;
+		private String updatedGroupTopic;
+		private List<String> updatedGroupDetailKeywords = List.of();
+		private int updatedGroupMaxMembers;
+		private LocalDate updatedGroupStartsAt;
+		private LocalDate updatedGroupEndsAt;
+		private String updatedGroupDescription;
+		private Instant updatedGroupUpdatedAt;
+		private UUID deletedGroupId;
+		private UUID deletedGroupOwnerUserId;
+		private Instant deletedGroupAt;
 		private StudyGroup readGroup;
 		private StudyGroupMemberProfile profile;
 		private UUID membersRequestedGroupId;
@@ -591,6 +721,8 @@ class StudyGroupServiceTest {
 		private GroupMember savedOwnerMember;
 		private GroupMember savedJoinedMember;
 		private boolean updateProfileSucceeds;
+		private boolean updateGroupSucceeds;
+		private boolean deleteGroupSucceeds;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -671,6 +803,40 @@ class StudyGroupServiceTest {
 			this.updatedDisplayName = displayName;
 			this.updatedAt = updatedAt;
 			return updateProfileSucceeds;
+		}
+
+		@Override
+		public boolean updateStudyGroup(
+			UUID groupId,
+			UUID editorUserId,
+			String name,
+			String topic,
+			List<String> detailKeywords,
+			int maxMembers,
+			LocalDate startsAt,
+			LocalDate endsAt,
+			String description,
+			Instant updatedAt
+		) {
+			this.updatedGroupId = groupId;
+			this.updatedGroupEditorUserId = editorUserId;
+			this.updatedGroupName = name;
+			this.updatedGroupTopic = topic;
+			this.updatedGroupDetailKeywords = List.copyOf(detailKeywords);
+			this.updatedGroupMaxMembers = maxMembers;
+			this.updatedGroupStartsAt = startsAt;
+			this.updatedGroupEndsAt = endsAt;
+			this.updatedGroupDescription = description;
+			this.updatedGroupUpdatedAt = updatedAt;
+			return updateGroupSucceeds;
+		}
+
+		@Override
+		public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
+			this.deletedGroupId = groupId;
+			this.deletedGroupOwnerUserId = ownerUserId;
+			this.deletedGroupAt = deletedAt;
+			return deleteGroupSucceeds;
 		}
 
 		int attempts() {

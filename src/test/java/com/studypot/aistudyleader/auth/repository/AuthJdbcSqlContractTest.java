@@ -30,6 +30,10 @@ class AuthJdbcSqlContractTest {
 		assertThat(normalize(AuthJdbcSql.INSERT_USER))
 			.contains("insert into users")
 			.contains("email_live_key")
+			.contains("password_hash")
+			.contains("bio")
+			.contains("interests")
+			.contains("skill_level")
 			.contains("last_login_at")
 			.contains("created_at")
 			.contains("updated_at")
@@ -47,6 +51,10 @@ class AuthJdbcSqlContractTest {
 
 		assertThat(normalize(AuthJdbcSql.UPDATE_ACTIVE_USER))
 			.contains("update users")
+			.contains("password_hash")
+			.contains("bio")
+			.contains("interests")
+			.contains("skill_level")
 			.contains("where id = ?")
 			.contains("deleted_at is null");
 

@@ -132,6 +132,36 @@ public class StudyGroupService {
 			});
 	}
 
+	@Transactional
+	public StudyGroup updateGroup(UpdateStudyGroupCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		boolean updated = repository.updateStudyGroup(
+			command.groupId(),
+			command.authenticatedUserId(),
+			command.name(),
+			command.topic(),
+			command.detailKeywords(),
+			command.maxMembers(),
+			command.startsAt(),
+			command.endsAt(),
+			command.description(),
+			clock.instant()
+		);
+		if (!updated) {
+			groupOwnerMutationFailure(command.groupId(), "only the study group owner can update this study group.");
+		}
+		return getGroup(new GetStudyGroupQuery(command.authenticatedUserId(), command.groupId()));
+	}
+
+	@Transactional
+	public void deleteGroup(DeleteStudyGroupCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		boolean deleted = repository.deleteStudyGroup(command.groupId(), command.authenticatedUserId(), clock.instant());
+		if (!deleted) {
+			groupOwnerMutationFailure(command.groupId(), "only the study group owner can delete this study group.");
+		}
+	}
+
 	@Transactional(readOnly = true)
 	public StudyGroupMemberProfile getMyGroupMemberProfile(GetMyGroupMemberProfileQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
@@ -164,6 +194,13 @@ public class StudyGroupService {
 			profileAccessFailure(command.groupId());
 		}
 		return getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(command.authenticatedUserId(), command.groupId()));
+	}
+
+	private void groupOwnerMutationFailure(UUID groupId, String accessDeniedMessage) {
+		if (!repository.existsStudyGroup(groupId)) {
+			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+		throw new StudyGroupAccessDeniedException(accessDeniedMessage);
 	}
 
 	private StudyGroupMemberProfile profileAccessFailure(UUID groupId) {
