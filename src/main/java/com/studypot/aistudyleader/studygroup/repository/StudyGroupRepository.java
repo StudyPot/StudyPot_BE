@@ -24,6 +24,8 @@ public interface StudyGroupRepository {
 
 	Optional<UUID> findOwnerUserId(UUID groupId);
 
+	boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt);
+
 	boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId);
 
 	int countActiveOrOnboardingMembers(UUID groupId);

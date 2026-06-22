@@ -25,6 +25,15 @@ final class StudyGroupJdbcSql {
 		for update
 		""";
 
+	static final String REVERT_READY_TO_ONBOARDING = """
+		update study_group
+		set status = 'ONBOARDING',
+		    updated_at = ?
+		where id = ?
+		  and status = 'READY_TO_START'
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_OWNER_USER_ID = """
 		select gm.user_id
 		from group_member gm

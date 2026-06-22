@@ -118,6 +118,30 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void joinGroupRevertsReadyToStartGroupToOnboarding() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.READY_TO_START, 6, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(repository.revertedToOnboardingGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void joinGroupDoesNotRevertOnboardingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 6, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(repository.revertedToOnboardingGroupId).isNull();
+	}
+
+	@Test
 	void joinGroupPersistsPendingMemberWhenInviteCodeMatchesAndCapacityAvailable() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 3, "INVITE-0001");
@@ -716,6 +740,7 @@ class StudyGroupServiceTest {
 		private int currentMemberCount;
 		private boolean existingActiveOrOnboardingMember;
 		private UUID ownerUserId;
+		private UUID revertedToOnboardingGroupId;
 		private boolean throwDuplicateMembershipOnJoin;
 		private boolean groupExists;
 		private UUID getRequestedGroupId;
@@ -786,6 +811,12 @@ class StudyGroupServiceTest {
 		@Override
 		public java.util.Optional<UUID> findOwnerUserId(UUID groupId) {
 			return java.util.Optional.ofNullable(ownerUserId);
+		}
+
+		@Override
+		public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+			this.revertedToOnboardingGroupId = groupId;
+			return true;
 		}
 
 		@Override

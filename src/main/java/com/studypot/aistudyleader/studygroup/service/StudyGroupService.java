@@ -122,6 +122,10 @@ public class StudyGroupService {
 		} catch (GroupMemberDuplicateMembershipException exception) {
 			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
 		}
+		if (target.status() == StudyGroupStatus.READY_TO_START) {
+			// 시작 대기 상태에서 새 멤버가 들어오면, 그 멤버 온보딩 전까지 시작을 막도록 온보딩 상태로 되돌린다.
+			repository.revertReadyToStartToOnboarding(target.id(), clock.instant());
+		}
 		publishNotification(() -> notificationEvents.publishOnboardingRequested(member.groupId(), member.userId()));
 		publishNotification(() -> repository.findOwnerUserId(member.groupId())
 			.filter(ownerUserId -> !ownerUserId.equals(member.userId()))

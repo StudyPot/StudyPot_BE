@@ -631,6 +631,11 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+			return true;
+		}
+
+		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 			return GROUP_ID.equals(groupId) && OTHER_USER_ID.equals(userId);
 		}

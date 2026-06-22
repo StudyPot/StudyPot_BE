@@ -125,6 +125,13 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(StudyGroupJdbcSql.REVERT_READY_TO_ONBOARDING, timestamp(updatedAt), uuid(groupId)) == 1;
+	}
+
+	@Override
 	public Optional<UUID> findOwnerUserId(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return queryOne(StudyGroupJdbcSql.SELECT_OWNER_USER_ID,
