@@ -661,8 +661,7 @@ class CurriculumController {
 
 	@Schema(description = "과제를 미완료 처리하기 위한 요청입니다.")
 	private record IncompleteTaskRequest(
-		@Schema(description = "미완료 상태일 때 남기는 사유입니다.", example = "테스트 작성까지 완료하지 못했습니다.")
-		@NotBlank
+		@Schema(description = "미완료 상태일 때 남기는 선택 사유입니다. 비워둘 수 있습니다.", example = "테스트 작성까지 완료하지 못했습니다.")
 		String incompleteReason
 	) {
 

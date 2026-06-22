@@ -97,9 +97,7 @@ public record TaskCompletion(
 		if (requestedIncompleteReason != null) {
 			throw new IllegalArgumentException("incomplete reason is not allowed when status is DONE.");
 		}
-		if (completedAt == null && dueAt != null && now.isAfter(dueAt)) {
-			throw new IllegalArgumentException("task is overdue; submit incomplete reason.");
-		}
+		// 마감 경과 여부와 무관하게 완료를 허용한다(완료/미완료 자유 토글). 이미 완료된 경우 첫 완료 정보를 유지한다.
 		Instant nextCompletedAt = completedAt == null ? now : completedAt;
 		String nextCompletionNote = completedAt == null ? requestedCompletionNote : completionNote;
 		String nextEvidenceUrl = completedAt == null ? requestedEvidenceUrl : evidenceUrl;
@@ -113,18 +111,17 @@ public record TaskCompletion(
 		if (requestedEvidenceUrl != null) {
 			throw new IllegalArgumentException("evidence url is not allowed when status is INCOMPLETE.");
 		}
-		if (requestedIncompleteReason == null && incompleteReason == null) {
-			throw new IllegalArgumentException("incomplete reason is required when status is INCOMPLETE.");
-		}
-		// NOTE(temporary): 마감 전에도 미완료 처리를 허용한다. 추후 마감 경과 시 자동 미완료 전환
-		// 스케줄러를 도입하면 아래 overdue 가드를 다시 살려 사용자의 마감 전 미완료를 차단한다.
-		String nextIncompleteReason = reasonSubmittedAt == null ? requestedIncompleteReason : incompleteReason;
+		// 미완료 사유는 선택값이다. 마감 전/후, 완료 상태에서도 미완료로 자유롭게 전환할 수 있다.
+		String nextIncompleteReason = requestedIncompleteReason != null ? requestedIncompleteReason : incompleteReason;
+		Instant nextReasonSubmittedAt = nextIncompleteReason == null
+			? null
+			: (reasonSubmittedAt == null ? now : reasonSubmittedAt);
 		return copy(
 			TaskCompletionStatus.INCOMPLETE,
 			null,
 			null,
 			nextIncompleteReason,
-			reasonSubmittedAt == null ? now : reasonSubmittedAt,
+			nextReasonSubmittedAt,
 			null,
 			now
 		);
@@ -138,10 +135,8 @@ public record TaskCompletion(
 	}
 
 	private boolean canTransitionTo(TaskCompletionStatus nextStatus) {
-		if (status == nextStatus) {
-			return true;
-		}
-		return status == TaskCompletionStatus.TODO && nextStatus != TaskCompletionStatus.TODO;
+		// 완료/미완료/스킵 사이를 자유롭게 전환할 수 있다. TODO 로 되돌리는 것만 막는다(update 에서 이미 차단).
+		return nextStatus != TaskCompletionStatus.TODO;
 	}
 
 	private void requireNotBeforeExistingTimestamps(Instant now) {

@@ -950,7 +950,7 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void completeMyTaskRejectsChangingTerminalStatus() {
+	void completeMyTaskAllowsTogglingDoneToIncomplete() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -959,16 +959,19 @@ class CurriculumServiceTest {
 		repository.existingTaskCompletion = completion(TaskCompletionStatus.DONE, NOW.minusSeconds(120), "완료", null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.INCOMPLETE,
-				null,
-				"늦었습니다.",
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("task completion cannot transition from DONE to INCOMPLETE.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			"늦었습니다.",
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+		assertThat(result.incompleteReason()).isEqualTo("늦었습니다.");
+		assertThat(result.completedAt()).isNull();
+		assertThat(repository.updatedTaskCompletion).isSameAs(result);
 	}
 
 	@Test
@@ -1007,7 +1010,7 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void completeMyTaskRejectsDoneAfterDueAt() {
+	void completeMyTaskAllowsDoneAfterDueAt() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -1015,20 +1018,21 @@ class CurriculumServiceTest {
 		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.DONE,
-				"늦은 완료",
-				null,
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("task is overdue; submit incomplete reason.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"늦은 완료",
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(result.completedAt()).isEqualTo(NOW);
 	}
 
 	@Test
-	void completeMyTaskRejectsIncompleteWithoutReason() {
+	void completeMyTaskAllowsIncompleteWithoutReason() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -1036,16 +1040,17 @@ class CurriculumServiceTest {
 		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.INCOMPLETE,
-				null,
-				null,
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("incomplete reason is required when status is INCOMPLETE.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+		assertThat(result.incompleteReason()).isNull();
 	}
 
 	@Test
