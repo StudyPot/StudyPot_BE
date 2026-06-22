@@ -281,6 +281,36 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void listMyGroupsFiltersByStatus() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup onboarding = groupWithStatus("온보딩 그룹", StudyGroupStatus.ONBOARDING);
+		StudyGroup active = groupWithStatus("진행중 그룹", StudyGroupStatus.ACTIVE);
+		repository.listedGroups = List.of(onboarding, active);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(
+			new ListStudyGroupsQuery(USER_ID, StudyGroupStatus.ACTIVE, null, null, null)
+		);
+
+		assertThat(result).containsExactly(active);
+	}
+
+	@Test
+	void listMyGroupsSortsByNameDescending() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup alpha = groupWithStatus("AAA", StudyGroupStatus.ACTIVE);
+		StudyGroup zeta = groupWithStatus("ZZZ", StudyGroupStatus.ACTIVE);
+		repository.listedGroups = List.of(alpha, zeta);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(
+			new ListStudyGroupsQuery(USER_ID, null, null, "name", "desc")
+		);
+
+		assertThat(result).containsExactly(zeta, alpha);
+	}
+
+	@Test
 	void getGroupReturnsCurrentMemberGroupFromRepository() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroup group = group();
@@ -616,6 +646,27 @@ class StudyGroupServiceTest {
 			LocalDate.parse("2026-05-10"),
 			LocalDate.parse("2026-06-21"),
 			"Weekly backend interview prep"
+		);
+	}
+
+	private static StudyGroup groupWithStatus(String name, StudyGroupStatus status) {
+		return StudyGroup.rehydrate(
+			UUID.randomUUID(),
+			USER_ID,
+			name,
+			"Spring Boot",
+			List.of("JPA"),
+			status,
+			6,
+			false,
+			"INVITE-" + name,
+			LocalDate.parse("2026-05-10"),
+			LocalDate.parse("2026-06-21"),
+			null,
+			NOW,
+			status == StudyGroupStatus.ACTIVE ? NOW : null,
+			NOW,
+			NOW
 		);
 	}
 

@@ -55,6 +55,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -78,8 +79,25 @@ class StudyGroupController {
 		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
 	})
 	@GetMapping(ApiPaths.V1 + "/groups")
-	List<StudyGroupResponse> listGroups(Authentication authentication) {
-		return service().listMyGroups(new ListStudyGroupsQuery(authenticatedUserId(authentication)))
+	List<StudyGroupResponse> listGroups(
+		Authentication authentication,
+		@Parameter(description = "그룹 이름/주제 검색어입니다.")
+		@RequestParam(name = "q", required = false) String query,
+		@Parameter(description = "그룹 상태 필터입니다. (ONBOARDING, READY_TO_START, ACTIVE, COMPLETED)")
+		@RequestParam(name = "status", required = false) String status,
+		@Parameter(description = "정렬 기준 필드입니다. (startsAt, endsAt, name)")
+		@RequestParam(name = "sort", required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc)")
+		@RequestParam(name = "order", required = false) String order
+	) {
+		ListStudyGroupsQuery listQuery = new ListStudyGroupsQuery(
+			authenticatedUserId(authentication),
+			ListStudyGroupsQuery.parseStatus(status),
+			query,
+			sort,
+			order
+		);
+		return service().listMyGroups(listQuery)
 			.stream()
 			.map(StudyGroupResponse::from)
 			.toList();

@@ -4,6 +4,7 @@ import com.studypot.aistudyleader.notification.service.NotificationEventPublishe
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
+import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.repository.GroupMemberDuplicateMembershipException;
@@ -117,7 +118,38 @@ public class StudyGroupService {
 	@Transactional(readOnly = true)
 	public List<StudyGroup> listMyGroups(ListStudyGroupsQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
-		return repository.findGroupsByMemberUserId(query.authenticatedUserId());
+		List<StudyGroup> groups = repository.findGroupsByMemberUserId(query.authenticatedUserId());
+		java.util.stream.Stream<StudyGroup> stream = groups.stream();
+		if (query.statusFilter().isPresent()) {
+			StudyGroupStatus status = query.statusFilter().get();
+			stream = stream.filter(group -> group.status() == status);
+		}
+		if (query.queryFilter().isPresent()) {
+			String keyword = query.queryFilter().get().toLowerCase(java.util.Locale.ROOT);
+			stream = stream.filter(group ->
+				group.name().toLowerCase(java.util.Locale.ROOT).contains(keyword)
+					|| group.topic().toLowerCase(java.util.Locale.ROOT).contains(keyword));
+		}
+		java.util.Comparator<StudyGroup> comparator = comparatorFor(query.sortField());
+		if (comparator != null) {
+			if (query.descending()) {
+				comparator = comparator.reversed();
+			}
+			stream = stream.sorted(comparator);
+		}
+		return stream.toList();
+	}
+
+	private static java.util.Comparator<StudyGroup> comparatorFor(String sortField) {
+		if (sortField == null) {
+			return null;
+		}
+		return switch (sortField) {
+			case "startsAt" -> java.util.Comparator.comparing(StudyGroup::startsAt);
+			case "endsAt" -> java.util.Comparator.comparing(StudyGroup::endsAt);
+			case "name" -> java.util.Comparator.comparing(group -> group.name().toLowerCase(java.util.Locale.ROOT));
+			default -> null;
+		};
 	}
 
 	@Transactional(readOnly = true)
