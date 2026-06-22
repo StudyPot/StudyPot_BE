@@ -116,9 +116,8 @@ public record TaskCompletion(
 		if (requestedIncompleteReason == null && incompleteReason == null) {
 			throw new IllegalArgumentException("incomplete reason is required when status is INCOMPLETE.");
 		}
-		if (reasonSubmittedAt == null && dueAt != null && now.isBefore(dueAt)) {
-			throw new IllegalArgumentException("task is not overdue yet.");
-		}
+		// NOTE(temporary): 마감 전에도 미완료 처리를 허용한다. 추후 마감 경과 시 자동 미완료 전환
+		// 스케줄러를 도입하면 아래 overdue 가드를 다시 살려 사용자의 마감 전 미완료를 차단한다.
 		String nextIncompleteReason = reasonSubmittedAt == null ? requestedIncompleteReason : incompleteReason;
 		return copy(
 			TaskCompletionStatus.INCOMPLETE,
