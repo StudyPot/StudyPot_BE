@@ -2,10 +2,12 @@ package com.studypot.aistudyleader.onboarding.controller;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
 import com.studypot.aistudyleader.onboarding.service.AvailabilitySlotCommand;
+import com.studypot.aistudyleader.onboarding.service.GetGroupOnboardingsQuery;
 import com.studypot.aistudyleader.onboarding.service.GetMyOnboardingQuery;
 import com.studypot.aistudyleader.onboarding.service.OnboardingService;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
@@ -63,6 +65,29 @@ class OnboardingController {
 	) {
 		GroupOnboardingResponse response = service().getMyResponse(new GetMyOnboardingQuery(authenticatedUserId(authentication), groupId));
 		return OnboardingResponse.from(response);
+	}
+
+	@Operation(
+		summary = "그룹 팀원 온보딩 목록 조회",
+		description = "인증된 그룹 멤버가 같은 그룹 팀원들의 온보딩 응답 목록(닉네임 포함)을 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "팀원 온보딩 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 그룹의 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "온보딩 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/onboarding")
+	List<MemberOnboardingResponse> getGroupOnboardings(
+		Authentication authentication,
+		@Parameter(description = "팀원 온보딩 목록을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return service().listGroupOnboardings(new GetGroupOnboardingsQuery(authenticatedUserId(authentication), groupId))
+			.stream()
+			.map(MemberOnboardingResponse::from)
+			.toList();
 	}
 
 	@Operation(
@@ -195,6 +220,46 @@ class OnboardingController {
 				response.id(),
 				response.groupId(),
 				response.memberId(),
+				response.skillLevel(),
+				response.additionalNote().orElse(null),
+				response.availabilitySlots().stream()
+					.map(AvailabilitySlotResponse::from)
+					.toList(),
+				response.status(),
+				response.submittedAt().orElse(null)
+			);
+		}
+	}
+
+	@Schema(description = "팀원 온보딩 목록의 단일 멤버 응답입니다. 온보딩 응답에 멤버 닉네임을 더한 형태입니다.")
+	private record MemberOnboardingResponse(
+		@Schema(description = "온보딩 응답 UUID입니다.", example = "018f6f55-79ae-7cdb-85a7-34184b15fd12")
+		UUID id,
+		@Schema(description = "온보딩이 속한 스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "온보딩을 작성한 그룹 멤버 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID memberId,
+		@Schema(description = "멤버 닉네임입니다.", example = "현우")
+		String memberNickname,
+		@Schema(description = "전체 자기평가 실력입니다.", example = "3")
+		int skillLevel,
+		@Schema(description = "추가 메모입니다.", example = "실습 위주로 진행하고 싶습니다.")
+		String additionalNote,
+		@Schema(description = "참여 가능 시간 목록입니다.")
+		List<AvailabilitySlotResponse> availabilitySlots,
+		@Schema(description = "온보딩 응답 상태입니다.", example = "SUBMITTED")
+		GroupOnboardingStatus status,
+		@Schema(description = "제출 완료 시각입니다. 미제출이면 null입니다.", example = "2026-05-18T11:30:00Z")
+		Instant submittedAt
+	) {
+
+		private static MemberOnboardingResponse from(GroupMemberOnboarding memberOnboarding) {
+			GroupOnboardingResponse response = memberOnboarding.response();
+			return new MemberOnboardingResponse(
+				response.id(),
+				response.groupId(),
+				response.memberId(),
+				memberOnboarding.memberNickname(),
 				response.skillLevel(),
 				response.additionalNote().orElse(null),
 				response.availabilitySlots().stream()

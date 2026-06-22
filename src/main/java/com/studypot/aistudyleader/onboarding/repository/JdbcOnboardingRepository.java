@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
@@ -130,6 +131,35 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			uuid(groupId),
 			uuid(memberId)
 		) > 0;
+	}
+
+	@Override
+	public List<GroupMemberOnboarding> findGroupOnboardings(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		List<GroupMemberOnboarding> rows = jdbcTemplate.query(
+			OnboardingJdbcSql.SELECT_RESPONSES_BY_GROUP,
+			(resultSet, rowNumber) -> new GroupMemberOnboarding(
+				resultSet.getString("member_nickname"),
+				mapResponse(resultSet, rowNumber)
+			),
+			uuid(groupId)
+		);
+		return rows.stream()
+			.map(row -> new GroupMemberOnboarding(
+				row.memberNickname(),
+				row.response().withAvailabilitySlots(findAvailabilitySlots(row.response().id()))
+			))
+			.toList();
+	}
+
+	@Override
+	public Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(
+			OnboardingJdbcSql.SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			uuid(groupId)
+		);
 	}
 
 	private OnboardingMemberContext mapMemberContext(ResultSet resultSet, int rowNumber) throws SQLException {

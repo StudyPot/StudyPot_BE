@@ -121,6 +121,11 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 	}
 
 	@Override
+	public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingCompleted(groupId, ownerUserId));
+	}
+
+	@Override
 	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
 			groupId,

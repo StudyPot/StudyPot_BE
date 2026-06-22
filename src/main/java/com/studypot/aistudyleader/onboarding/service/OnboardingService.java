@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.onboarding.service;
 
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
@@ -19,14 +20,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class OnboardingService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OnboardingService.class);
+
 	private final OnboardingRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final com.studypot.aistudyleader.notification.service.NotificationEventPublisher notificationEvents;
 
 	public OnboardingService(OnboardingRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator,
+			com.studypot.aistudyleader.notification.service.NotificationEventPublisher.noop());
+	}
+
+	public OnboardingService(
+		OnboardingRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		com.studypot.aistudyleader.notification.service.NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -60,7 +75,25 @@ public class OnboardingService {
 			throw new OnboardingMembershipRequiredException("current group membership is required.");
 		}
 		repository.markStudyGroupReadyToStartIfOwnerOnboardingComplete(context.groupId(), context.memberId(), now);
+		notifyOwnerIfAllOnboarded(context.groupId());
 		return submitted;
+	}
+
+	@Transactional(readOnly = true)
+	public List<GroupMemberOnboarding> listGroupOnboardings(GetGroupOnboardingsQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		requireMemberContext(query.authenticatedUserId(), query.groupId());
+		return repository.findGroupOnboardings(query.groupId());
+	}
+
+	private void notifyOwnerIfAllOnboarded(UUID groupId) {
+		try {
+			repository.findOwnerUserIdWhenAllOnboarded(groupId)
+				.ifPresent(ownerUserId -> notificationEvents.publishOnboardingCompleted(groupId, ownerUserId));
+		} catch (RuntimeException exception) {
+			// 알림 발행 실패가 온보딩 제출 트랜잭션을 롤백하지 않도록 한다.
+			log.warn("onboarding completed notification publish failed groupId={}", groupId, exception);
+		}
 	}
 
 	@Transactional(readOnly = true)

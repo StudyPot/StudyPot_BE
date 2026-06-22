@@ -102,6 +102,41 @@ final class OnboardingJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	static final String SELECT_RESPONSES_BY_GROUP = """
+		select gor.id, gor.group_id, gor.member_id, gor.keyword_skill_levels, gor.task_preferences,
+		       gor.additional_note, gor.status, gor.submitted_at, gor.created_at, gor.updated_at,
+		       u.nickname as member_nickname
+		from group_onboarding_response gor
+		join group_member gm on gm.id = gor.member_id
+		join users u on u.id = gm.user_id
+		where gor.group_id = ?
+		  and gor.deleted_at is null
+		  and gm.deleted_at is null
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		order by gm.joined_at asc, gor.member_id asc
+		""";
+
+	static final String SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED = """
+		select owner.user_id
+		from group_member owner
+		join study_group sg on sg.id = owner.group_id
+		where owner.group_id = ?
+		  and owner.permission = 'OWNER'
+		  and owner.status = 'ACTIVE'
+		  and owner.deleted_at is null
+		  and sg.deleted_at is null
+		  and not exists (
+		    select 1
+		    from group_member gm
+		    left join group_onboarding_response gor
+		      on gor.member_id = gm.id and gor.deleted_at is null
+		    where gm.group_id = owner.group_id
+		      and gm.status = 'ACTIVE'
+		      and gm.deleted_at is null
+		      and (gor.id is null or gor.status <> 'SUBMITTED')
+		  )
+		""";
+
 	private OnboardingJdbcSql() {
 	}
 }

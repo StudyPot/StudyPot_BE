@@ -1,8 +1,10 @@
 package com.studypot.aistudyleader.onboarding.repository;
 
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.OnboardingMemberContext;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,4 +23,8 @@ public interface OnboardingRepository {
 	boolean activatePendingMember(UUID memberId, Instant activatedAt);
 
 	boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt);
+
+	List<GroupMemberOnboarding> findGroupOnboardings(UUID groupId);
+
+	Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId);
 }

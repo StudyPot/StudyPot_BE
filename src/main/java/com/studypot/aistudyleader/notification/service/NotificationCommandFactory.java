@@ -28,6 +28,20 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand onboardingCompleted(UUID groupId, UUID recipientUserId) {
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			null,
+			NotificationType.ONBOARDING_COMPLETED,
+			"idempotency:notification:onboarding-completed:group:%s:recipient:%s".formatted(groupId, recipientUserId),
+			"모든 팀원이 온보딩을 완료했어요",
+			"이제 스터디를 시작할 수 있어요.",
+			payload("/groups/%s".formatted(groupId), Map.of("groupId", groupId.toString())),
+			null
+		);
+	}
+
 	static CreateNotificationCommand weekStarted(
 		UUID groupId,
 		UUID recipientUserId,

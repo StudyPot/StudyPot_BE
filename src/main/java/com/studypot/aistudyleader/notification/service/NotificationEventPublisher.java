@@ -22,6 +22,9 @@ public interface NotificationEventPublisher {
 	default void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 	}
 
+	default void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+	}
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}

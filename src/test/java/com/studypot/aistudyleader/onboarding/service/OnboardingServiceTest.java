@@ -70,6 +70,76 @@ class OnboardingServiceTest {
 	}
 
 	@Test
+	void submitMyOnboardingNotifiesOwnerWhenAllMembersOnboarded() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.allOnboardedOwnerUserId = USER_ID;
+		CapturingPublisher publisher = new CapturingPublisher();
+		OnboardingService service = new OnboardingService(repository, CLOCK, new DeterministicIds(RESPONSE_ID), publisher);
+
+		service.submitMyOnboarding(command());
+
+		assertThat(publisher.completedGroupId).isEqualTo(GROUP_ID);
+		assertThat(publisher.completedOwnerUserId).isEqualTo(USER_ID);
+	}
+
+	@Test
+	void submitMyOnboardingDoesNotNotifyWhenNotAllOnboarded() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.allOnboardedOwnerUserId = null;
+		CapturingPublisher publisher = new CapturingPublisher();
+		OnboardingService service = new OnboardingService(repository, CLOCK, new DeterministicIds(RESPONSE_ID), publisher);
+
+		service.submitMyOnboarding(command());
+
+		assertThat(publisher.completedOwnerUserId).isNull();
+	}
+
+	private static final class CapturingPublisher
+		implements com.studypot.aistudyleader.notification.service.NotificationEventPublisher {
+
+		private UUID completedGroupId;
+		private UUID completedOwnerUserId;
+
+		@Override
+		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
+		}
+
+		@Override
+		public void publishWeekStarted(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+		}
+
+		@Override
+		public void publishTaskDueReminder(UUID groupId, UUID recipientUserId, UUID weekId, UUID taskCompletionId, String taskTitle, Instant dueAt) {
+		}
+
+		@Override
+		public void publishTaskOverdueCheck(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishIncompleteReasonRequested(UUID groupId, UUID recipientUserId, UUID taskCompletionId, String taskTitle) {
+		}
+
+		@Override
+		public void publishRetrospectiveReady(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+			this.completedGroupId = groupId;
+			this.completedOwnerUserId = ownerUserId;
+		}
+	}
+
+	@Test
 	void submitMyOnboardingMapsOverallSkillLevelToInternalKeywordScores() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
@@ -327,6 +397,8 @@ class OnboardingServiceTest {
 		private UUID readyGroupId;
 		private UUID readyMemberId;
 		private Instant readyAt;
+		private java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> groupOnboardings = java.util.List.of();
+		private UUID allOnboardedOwnerUserId;
 		private boolean activateResult = true;
 
 		@Override
@@ -380,6 +452,16 @@ class OnboardingServiceTest {
 			this.readyMemberId = memberId;
 			this.readyAt = readyAt;
 			return true;
+		}
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> findGroupOnboardings(UUID groupId) {
+			return groupOnboardings;
+		}
+
+		@Override
+		public java.util.Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
+			return java.util.Optional.ofNullable(allOnboardedOwnerUserId);
 		}
 
 		private static void requireExpectedGroupId(UUID groupId) {

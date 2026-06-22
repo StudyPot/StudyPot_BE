@@ -179,6 +179,17 @@ class OnboardingControllerTest {
 			.andExpect(jsonPath("$.status").value("DRAFT"));
 	}
 
+	@Test
+	void getGroupOnboardingsReturnsMemberList() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/onboarding")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].memberNickname").value("현우"))
+			.andExpect(jsonPath("$[0].skillLevel").value(2))
+			.andExpect(jsonPath("$[0].status").value("DRAFT"));
+	}
+
 	private static String validRequestJson() {
 		return """
 			{
@@ -269,6 +280,18 @@ class OnboardingControllerTest {
 			@Override
 			public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
 				return true;
+			}
+
+			@Override
+			public java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> findGroupOnboardings(UUID groupId) {
+				return java.util.List.of(
+					new com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding("현우", response)
+				);
+			}
+
+			@Override
+			public java.util.Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
+				return java.util.Optional.empty();
 			}
 
 			private static MemberAvailabilitySlot slot() {
