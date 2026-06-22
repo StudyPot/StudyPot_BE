@@ -75,16 +75,11 @@ final class OnboardingJdbcSql {
 
 	static final String MARK_STUDY_GROUP_READY_TO_START = """
 		update study_group sg
-		join group_member gm on gm.group_id = sg.id
 		set sg.status = 'READY_TO_START',
 		    sg.updated_at = ?
 		where sg.id = ?
-		  and gm.id = ?
 		  and sg.status = 'ONBOARDING'
-		  and gm.permission = 'OWNER'
-		  and gm.status = 'ACTIVE'
 		  and sg.deleted_at is null
-		  and gm.deleted_at is null
 		""";
 
 	static final String SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """

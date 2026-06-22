@@ -121,15 +121,13 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 	}
 
 	@Override
-	public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+	public boolean markStudyGroupReadyToStart(UUID groupId, Instant readyAt) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
-		Objects.requireNonNull(memberId, "memberId must not be null");
 		Objects.requireNonNull(readyAt, "readyAt must not be null");
 		return jdbcTemplate.update(
 			OnboardingJdbcSql.MARK_STUDY_GROUP_READY_TO_START,
 			timestamp(readyAt),
-			uuid(groupId),
-			uuid(memberId)
+			uuid(groupId)
 		) > 0;
 	}
 

@@ -22,7 +22,7 @@ public interface OnboardingRepository {
 
 	boolean activatePendingMember(UUID memberId, Instant activatedAt);
 
-	boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt);
+	boolean markStudyGroupReadyToStart(UUID groupId, Instant readyAt);
 
 	List<GroupMemberOnboarding> findGroupOnboardings(UUID groupId);
 

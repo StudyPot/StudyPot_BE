@@ -74,8 +74,7 @@ public class OnboardingService {
 			&& !repository.activatePendingMember(context.memberId(), now)) {
 			throw new OnboardingMembershipRequiredException("current group membership is required.");
 		}
-		repository.markStudyGroupReadyToStartIfOwnerOnboardingComplete(context.groupId(), context.memberId(), now);
-		notifyOwnerIfAllOnboarded(context.groupId());
+		markReadyAndNotifyIfAllOnboarded(context.groupId(), now);
 		return submitted;
 	}
 
@@ -86,14 +85,18 @@ public class OnboardingService {
 		return repository.findGroupOnboardings(query.groupId());
 	}
 
-	private void notifyOwnerIfAllOnboarded(UUID groupId) {
-		try {
-			repository.findOwnerUserIdWhenAllOnboarded(groupId)
-				.ifPresent(ownerUserId -> notificationEvents.publishOnboardingCompleted(groupId, ownerUserId));
-		} catch (RuntimeException exception) {
-			// 알림 발행 실패가 온보딩 제출 트랜잭션을 롤백하지 않도록 한다.
-			log.warn("onboarding completed notification publish failed groupId={}", groupId, exception);
-		}
+	private void markReadyAndNotifyIfAllOnboarded(UUID groupId, Instant now) {
+		// 모든 활성 멤버가 온보딩을 마쳤을 때에만 그룹을 READY_TO_START 로 전환하고
+		// 소유자에게 시작 안내 알림을 보낸다. (소유자 한 명만 온보딩해도 시작 가능하던 문제 수정)
+		repository.findOwnerUserIdWhenAllOnboarded(groupId).ifPresent(ownerUserId -> {
+			repository.markStudyGroupReadyToStart(groupId, now);
+			try {
+				notificationEvents.publishOnboardingCompleted(groupId, ownerUserId);
+			} catch (RuntimeException exception) {
+				// 알림 발행 실패가 온보딩 제출 트랜잭션을 롤백하지 않도록 한다.
+				log.warn("onboarding completed notification publish failed groupId={}", groupId, exception);
+			}
+		});
 	}
 
 	@Transactional(readOnly = true)

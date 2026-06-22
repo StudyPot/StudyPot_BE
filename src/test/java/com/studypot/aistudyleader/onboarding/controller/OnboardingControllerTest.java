@@ -278,7 +278,7 @@ class OnboardingControllerTest {
 			}
 
 			@Override
-			public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+			public boolean markStudyGroupReadyToStart(UUID groupId, Instant readyAt) {
 				return true;
 			}
 

@@ -56,17 +56,30 @@ class OnboardingServiceTest {
 	}
 
 	@Test
-	void submitMyOnboardingMarksOwnerGroupReadyToStartAfterOwnerBecomesActive() {
+	void submitMyOnboardingMarksGroupReadyToStartWhenAllMembersOnboarded() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.groupExists = true;
 		repository.memberContext = CONTEXT;
+		repository.allOnboardedOwnerUserId = USER_ID;
 		OnboardingService service = service(repository, RESPONSE_ID);
 
 		service.submitMyOnboarding(command());
 
 		assertThat(repository.readyGroupId).isEqualTo(GROUP_ID);
-		assertThat(repository.readyMemberId).isEqualTo(MEMBER_ID);
 		assertThat(repository.readyAt).isEqualTo(NOW);
+	}
+
+	@Test
+	void submitMyOnboardingDoesNotMarkReadyWhenNotAllOnboarded() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.memberContext = CONTEXT;
+		repository.allOnboardedOwnerUserId = null;
+		OnboardingService service = service(repository, RESPONSE_ID);
+
+		service.submitMyOnboarding(command());
+
+		assertThat(repository.readyGroupId).isNull();
 	}
 
 	@Test
@@ -446,10 +459,9 @@ class OnboardingServiceTest {
 		}
 
 		@Override
-		public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+		public boolean markStudyGroupReadyToStart(UUID groupId, Instant readyAt) {
 			requireExpectedGroupId(groupId);
 			this.readyGroupId = groupId;
-			this.readyMemberId = memberId;
 			this.readyAt = readyAt;
 			return true;
 		}
