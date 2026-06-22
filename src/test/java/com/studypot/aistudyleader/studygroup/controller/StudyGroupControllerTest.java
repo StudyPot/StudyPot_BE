@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.studygroup.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -351,6 +352,32 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void deleteGroupReturnsNoContentForOwner() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf"))
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void deleteGroupRequiresAuthentication() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void deleteGroupReturnsForbiddenForNonMember() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf"))
+				.with(user(OTHER_USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("authenticated user is not a member of this study group."));
+	}
+
+	@Test
 	void getMyGroupMemberProfileRequiresAuthentication() throws Exception {
 		mockMvc.perform(get(PROFILE_PATH))
 			.andExpect(status().isUnauthorized())
@@ -596,6 +623,11 @@ class StudyGroupControllerTest {
 		public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
 			this.profileDisplayName = displayName;
 			return GROUP_ID.equals(groupId) && USER_ID.equals(userId);
+		}
+
+		@Override
+		public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+			return GROUP_ID.equals(groupId);
 		}
 
 		@Override

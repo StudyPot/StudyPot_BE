@@ -11,6 +11,7 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.DeleteStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
@@ -47,6 +48,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -97,6 +99,27 @@ class StudyGroupController {
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
 		return StudyGroupResponse.from(result.group());
+	}
+
+	@Operation(
+		summary = "스터디 그룹 삭제",
+		description = "그룹 소유자(OWNER)가 스터디 그룹을 삭제합니다. 삭제된 그룹은 목록·조회에서 더 이상 노출되지 않습니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "204", description = "스터디 그룹이 삭제됨"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아니거나 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@DeleteMapping(ApiPaths.V1 + "/groups/{groupId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void deleteGroup(
+		Authentication authentication,
+		@Parameter(description = "삭제할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		service().deleteGroup(new DeleteStudyGroupCommand(authenticatedUserId(authentication), groupId));
 	}
 
 	@Operation(

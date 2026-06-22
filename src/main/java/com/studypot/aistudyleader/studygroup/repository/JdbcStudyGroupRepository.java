@@ -177,6 +177,14 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
+		Timestamp now = timestamp(deletedAt);
+		return jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_GROUP, now, now, uuid(groupId)) == 1;
+	}
+
+	@Override
 	public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return jdbcTemplate.query(StudyGroupJdbcSql.SELECT_GROUP_MEMBERS, JdbcStudyGroupRepository::mapGroupMemberSummary, uuid(groupId));

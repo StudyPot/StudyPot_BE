@@ -319,6 +319,52 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void deleteGroupSoftDeletesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID));
+
+		assertThat(repository.softDeletedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.softDeletedAt).isEqualTo(NOW);
+	}
+
+	@Test
+	void deleteGroupRejectsNonOwnerMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can delete the study group.");
+		assertThat(repository.softDeletedGroupId).isNull();
+	}
+
+	@Test
+	void deleteGroupRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+		assertThat(repository.softDeletedGroupId).isNull();
+	}
+
+	@Test
+	void deleteGroupReturnsNotFoundWhenGroupMissing() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+	}
+
+	@Test
 	void getMyGroupMemberProfileReturnsRepositoryProfile() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupMemberProfile profile = profile("현우");
@@ -591,6 +637,9 @@ class StudyGroupServiceTest {
 		private GroupMember savedOwnerMember;
 		private GroupMember savedJoinedMember;
 		private boolean updateProfileSucceeds;
+		private boolean softDeleteSucceeds = true;
+		private UUID softDeletedGroupId;
+		private Instant softDeletedAt;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -671,6 +720,13 @@ class StudyGroupServiceTest {
 			this.updatedDisplayName = displayName;
 			this.updatedAt = updatedAt;
 			return updateProfileSucceeds;
+		}
+
+		@Override
+		public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+			this.softDeletedGroupId = groupId;
+			this.softDeletedAt = deletedAt;
+			return softDeleteSucceeds;
 		}
 
 		int attempts() {

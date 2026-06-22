@@ -166,6 +166,24 @@ public class StudyGroupService {
 		return getMyGroupMemberProfile(new GetMyGroupMemberProfileQuery(command.authenticatedUserId(), command.groupId()));
 	}
 
+	@Transactional
+	public void deleteGroup(DeleteStudyGroupCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		StudyGroup group = repository.findGroupByIdForMemberUserId(command.groupId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(command.groupId())) {
+					throw new StudyGroupNotFoundException("study group was not found.");
+				}
+				throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!group.createdBy().equals(command.authenticatedUserId())) {
+			throw new StudyGroupAccessDeniedException("only the study group owner can delete the study group.");
+		}
+		if (!repository.softDeleteGroup(command.groupId(), clock.instant())) {
+			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+	}
+
 	private StudyGroupMemberProfile profileAccessFailure(UUID groupId) {
 		if (!repository.existsStudyGroup(groupId)) {
 			throw new StudyGroupNotFoundException("study group was not found.");

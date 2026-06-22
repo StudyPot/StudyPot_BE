@@ -33,4 +33,6 @@ public interface StudyGroupRepository {
 	List<GroupMemberSummary> findGroupMembers(UUID groupId);
 
 	boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt);
+
+	boolean softDeleteGroup(UUID groupId, Instant deletedAt);
 }
