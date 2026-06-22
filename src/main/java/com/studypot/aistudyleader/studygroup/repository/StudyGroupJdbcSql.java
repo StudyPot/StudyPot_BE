@@ -174,36 +174,6 @@ final class StudyGroupJdbcSql {
 		  and sg.deleted_at is null
 		""";
 
-	static final String UPDATE_STUDY_GROUP = """
-		update study_group sg
-		join group_member gm on gm.group_id = sg.id
-		set sg.name = ?,
-		    sg.description = ?,
-		    sg.topic = ?,
-		    sg.detail_keywords = ?,
-		    sg.max_members = ?,
-		    sg.starts_at = ?,
-		    sg.ends_at = ?,
-		    sg.updated_at = ?
-		where sg.id = ?
-		  and gm.user_id = ?
-		  and gm.permission = 'OWNER'
-		  and gm.deleted_at is null
-		  and sg.deleted_at is null
-		""";
-
-	static final String DELETE_STUDY_GROUP = """
-		update study_group sg
-		join group_member gm on gm.group_id = sg.id
-		set sg.deleted_at = ?,
-		    sg.updated_at = ?
-		where sg.id = ?
-		  and gm.user_id = ?
-		  and gm.permission = 'OWNER'
-		  and gm.deleted_at is null
-		  and sg.deleted_at is null
-		""";
-
 	static final String SELECT_GROUP_MEMBERS = """
 		select
 		  gm.id as member_id, gm.group_id, gm.user_id, gm.display_name,

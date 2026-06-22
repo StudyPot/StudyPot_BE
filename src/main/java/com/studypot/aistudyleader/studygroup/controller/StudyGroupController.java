@@ -11,7 +11,6 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
-import com.studypot.aistudyleader.studygroup.service.DeleteStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
@@ -25,7 +24,6 @@ import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.service.UpdateMyGroupMemberProfileCommand;
-import com.studypot.aistudyleader.studygroup.service.UpdateStudyGroupCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,7 +47,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -58,7 +55,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "스터디 그룹", description = "스터디 그룹 CRUD, 내 그룹 목록 조회, 상세 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
+@Tag(name = "스터디 그룹", description = "스터디 그룹 생성, 내 그룹 목록 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class StudyGroupController {
@@ -121,50 +118,6 @@ class StudyGroupController {
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
 		return StudyGroupResponse.from(group);
-	}
-
-	@Operation(
-		summary = "스터디 그룹 수정",
-		description = "그룹 소유자가 이름, 주제, 세부 키워드, 모집 인원, 기간, 소개를 수정하고 갱신된 그룹을 조회합니다."
-	)
-	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "그룹 수정 후 반환"),
-		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
-		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아님"),
-		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
-		@ApiResponse(responseCode = "422", description = "필수 값이 비어 있거나 기간/인원 검증에 실패함"),
-		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
-	})
-	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}")
-	StudyGroupResponse updateGroup(
-		Authentication authentication,
-		@Parameter(description = "수정하려는 스터디 그룹 UUID입니다.", required = true)
-		@PathVariable UUID groupId,
-		@Valid @RequestBody UpdateGroupRequest request
-	) {
-		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
-	}
-
-	@Operation(
-		summary = "스터디 그룹 삭제",
-		description = "그룹 소유자가 스터디 그룹을 soft delete 처리합니다. 삭제 후 상세 조회는 404로 응답합니다."
-	)
-	@ApiResponses({
-		@ApiResponse(responseCode = "204", description = "그룹 삭제 성공"),
-		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
-		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아님"),
-		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
-		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
-	})
-	@DeleteMapping(ApiPaths.V1 + "/groups/{groupId}")
-	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void deleteGroup(
-		Authentication authentication,
-		@Parameter(description = "삭제하려는 스터디 그룹 UUID입니다.", required = true)
-		@PathVariable UUID groupId
-	) {
-		service().deleteGroup(new DeleteStudyGroupCommand(authenticatedUserId(authentication), groupId));
 	}
 
 	@Operation(
@@ -351,53 +304,6 @@ class StudyGroupController {
 		CreateStudyGroupCommand toCommand(UUID authenticatedUserId) {
 			return new CreateStudyGroupCommand(
 				authenticatedUserId,
-				name,
-				topic,
-				detailKeywords,
-				maxMembers,
-				startsAt,
-				endsAt,
-				description
-			);
-		}
-	}
-
-	@Schema(description = "스터디 그룹 수정을 위한 요청입니다.")
-	private record UpdateGroupRequest(
-		@Schema(description = "스터디 그룹 이름입니다. 화면과 목록에서 대표 이름으로 표시됩니다.", example = "백엔드 인터뷰 심화 스터디")
-		@NotBlank
-		@Size(max = 120)
-		String name,
-		@Schema(description = "스터디의 큰 주제입니다.", example = "Spring Boot")
-		@NotBlank
-		@Size(max = 120)
-		String topic,
-		@Schema(description = "스터디에서 집중할 세부 키워드 목록입니다.", example = "[\"Security\", \"Testing\"]")
-		@NotEmpty
-		List<@NotBlank String> detailKeywords,
-		@Schema(description = "그룹에 참여할 수 있는 최대 인원입니다.", example = "8")
-		@NotNull
-		@Min(1)
-		Integer maxMembers,
-		@Schema(description = "스터디 시작일입니다.", example = "2026-05-11")
-		@NotNull
-		LocalDate startsAt,
-		@Schema(description = "스터디 종료일입니다. 시작일과 같거나 이후여야 합니다.", example = "2026-06-22")
-		@NotNull
-		LocalDate endsAt,
-		@Schema(description = "그룹 소개 또는 운영 메모입니다.", example = "소유자가 운영 방향과 세부 키워드를 갱신합니다.")
-		String description
-	) {
-
-		@AssertTrue(message = "endsAt must be on or after startsAt")
-		boolean isPeriodValid() {
-			return startsAt == null || endsAt == null || !endsAt.isBefore(startsAt);
-		}
-
-		UpdateStudyGroupCommand toCommand(UUID authenticatedUserId, UUID groupId) {
-			return new UpdateStudyGroupCommand(
-				authenticatedUserId,
-				groupId,
 				name,
 				topic,
 				detailKeywords,

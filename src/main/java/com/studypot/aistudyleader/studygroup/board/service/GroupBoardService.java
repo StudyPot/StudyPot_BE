@@ -158,7 +158,6 @@ public class GroupBoardService {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
 		requirePost(command.groupId(), command.postId());
-		validateParentComment(command.groupId(), command.postId(), command.parentCommentId());
 		Instant now = clock.instant();
 		GroupBoardComment comment;
 		try {
@@ -166,7 +165,6 @@ public class GroupBoardService {
 				idGenerator.get(),
 				command.groupId(),
 				command.postId(),
-				command.parentCommentId(),
 				membership.memberId(),
 				membership.userId(),
 				membership.displayName(),
@@ -212,19 +210,6 @@ public class GroupBoardService {
 		}
 		if (!repository.softDeleteComment(command.groupId(), command.commentId(), clock.instant())) {
 			throw new GroupBoardMutationRejectedException("group board comment could not be deleted.");
-		}
-	}
-
-	private void validateParentComment(UUID groupId, UUID postId, UUID parentCommentId) {
-		if (parentCommentId == null) {
-			return;
-		}
-		GroupBoardComment parent = requireComment(groupId, parentCommentId);
-		if (!parent.postId().equals(postId)) {
-			throw new InvalidGroupBoardRequestException("parentCommentId", "parent comment must belong to the target post.");
-		}
-		if (parent.parentCommentId() != null) {
-			throw new InvalidGroupBoardRequestException("parentCommentId", "parent comment must be a top-level comment.");
 		}
 	}
 

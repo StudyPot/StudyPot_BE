@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "그룹 게시판", description = "스터디 그룹별 게시판, 게시글, 댓글 CRUD와 목록·상세 조회를 관리하는 API입니다.")
+@Tag(name = "그룹 게시판", description = "스터디 그룹별 기본 게시판, 게시글, 댓글을 관리하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class GroupBoardController {
@@ -380,7 +380,6 @@ class GroupBoardController {
 
 	@Schema(description = "그룹 게시글 댓글 생성 요청입니다.")
 	private record CreateCommentRequest(
-		UUID parentCommentId,
 		@Schema(description = "댓글 내용입니다.", example = "저도 같은 부분이 궁금합니다.")
 		@NotBlank
 		@Size(max = 3000)
@@ -388,7 +387,7 @@ class GroupBoardController {
 	) {
 
 		CreateGroupBoardCommentCommand toCommand(UUID authenticatedUserId, UUID groupId, UUID postId) {
-			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, parentCommentId, content);
+			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, content);
 		}
 	}
 
@@ -542,7 +541,6 @@ class GroupBoardController {
 		UUID groupId,
 		@Schema(description = "댓글이 속한 게시글 UUID입니다.")
 		UUID postId,
-		UUID parentCommentId,
 		@Schema(description = "작성자 정보입니다.")
 		GroupBoardAuthorResponse author,
 		@Schema(description = "댓글 내용입니다.")
@@ -558,7 +556,6 @@ class GroupBoardController {
 				comment.id(),
 				comment.groupId(),
 				comment.postId(),
-				comment.parentCommentId(),
 				GroupBoardAuthorResponse.from(comment.authorMemberId(), comment.authorUserId(), comment.authorDisplayName()),
 				comment.content(),
 				comment.createdAt(),

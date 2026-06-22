@@ -6,7 +6,6 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,19 +33,4 @@ public interface StudyGroupRepository {
 	List<GroupMemberSummary> findGroupMembers(UUID groupId);
 
 	boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt);
-
-	boolean updateStudyGroup(
-		UUID groupId,
-		UUID editorUserId,
-		String name,
-		String topic,
-		List<String> detailKeywords,
-		int maxMembers,
-		LocalDate startsAt,
-		LocalDate endsAt,
-		String description,
-		Instant updatedAt
-	);
-
-	boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt);
 }

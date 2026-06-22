@@ -164,15 +164,14 @@ final class GroupBoardJdbcSql {
 
 	static final String INSERT_COMMENT = """
 		insert into group_board_comment (
-		  id, group_id, post_id, parent_comment_id, author_member_id, content, status, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
+		  id, group_id, post_id, author_member_id, content, status, created_at, updated_at
+		) values (?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
 		""";
 
 	static final String SELECT_COMMENTS = """
 		select c.id,
 		       c.group_id,
 		       c.post_id,
-		       c.parent_comment_id,
 		       c.author_member_id,
 		       gm.user_id as author_user_id,
 		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
@@ -200,7 +199,6 @@ final class GroupBoardJdbcSql {
 		select c.id,
 		       c.group_id,
 		       c.post_id,
-		       c.parent_comment_id,
 		       c.author_member_id,
 		       gm.user_id as author_user_id,
 		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
@@ -237,13 +235,13 @@ final class GroupBoardJdbcSql {
 		  and status = 'PUBLISHED'
 		""";
 
-	static final String SOFT_DELETE_COMMENT_THREAD = """
+	static final String SOFT_DELETE_COMMENT = """
 		update group_board_comment
 		set status = 'DELETED',
 		    deleted_at = ?,
 		    updated_at = ?
 		where group_id = ?
-		  and (id = ? or parent_comment_id = ?)
+		  and id = ?
 		  and deleted_at is null
 		  and status = 'PUBLISHED'
 		""";
