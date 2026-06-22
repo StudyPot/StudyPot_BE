@@ -20,6 +20,7 @@ import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
 import com.studypot.aistudyleader.curriculum.service.GetLearningActivityQuery;
 import com.studypot.aistudyleader.curriculum.service.GetWeekProgressQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
+import com.studypot.aistudyleader.curriculum.service.WeeklyTaskWithCompletion;
 import com.studypot.aistudyleader.curriculum.service.StartCurriculumCommand;
 import com.studypot.aistudyleader.curriculum.service.UpdateWeekProgressCommand;
 import com.studypot.aistudyleader.global.api.ApiPaths;
@@ -165,6 +166,7 @@ class CurriculumController {
 			.map(WeeklyTaskResponse::from)
 			.toList();
 	}
+
 
 
 	@Operation(
@@ -402,10 +404,20 @@ class CurriculumController {
 		@Schema(description = "필수 수행 과제 여부입니다.", example = "true")
 		boolean required,
 		@Schema(description = "과제 마감 시각입니다.", example = "2026-05-24T23:59:59Z")
-		Instant dueAt
+		Instant dueAt,
+		@Schema(description = "인증 멤버의 과제 완료 상태입니다. 아직 어떤 액션도 하지 않았으면 null입니다.")
+		TaskCompletionResponse completion
 	) {
 
 		private static WeeklyTaskResponse from(WeeklyTask task) {
+			return from(task, null);
+		}
+
+		private static WeeklyTaskResponse from(WeeklyTaskWithCompletion taskWithCompletion) {
+			return from(taskWithCompletion.task(), taskWithCompletion.completion());
+		}
+
+		private static WeeklyTaskResponse from(WeeklyTask task, TaskCompletion completion) {
 			return new WeeklyTaskResponse(
 				task.id(),
 				task.curriculumWeekId(),
@@ -414,7 +426,8 @@ class CurriculumController {
 				task.title(),
 				task.description(),
 				task.required(),
-				task.dueAt()
+				task.dueAt(),
+				completion == null ? null : TaskCompletionResponse.from(completion)
 			);
 		}
 	}

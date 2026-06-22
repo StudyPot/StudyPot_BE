@@ -255,6 +255,35 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void listWeeklyTasksIncludesMyCompletionStatus() throws Exception {
+		repository.weekExists = true;
+		repository.weekReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTasks = List.of(
+			task(TASK_ID, 1, WeeklyTaskType.READING, true),
+			task(PRACTICE_TASK_ID, 2, WeeklyTaskType.PRACTICE, true)
+		);
+		repository.taskCompletions = List.of(completion(
+			COMPLETION_ID,
+			TASK_ID,
+			TaskCompletionStatus.SKIPPED,
+			null,
+			null,
+			null,
+			null,
+			null
+		));
+
+		mockMvc.perform(get(WEEK_TASKS_PATH)
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$[0].completion.taskId").value(TASK_ID.toString()))
+			.andExpect(jsonPath("$[0].completion.status").value("SKIPPED"))
+			.andExpect(jsonPath("$[1].id").value(PRACTICE_TASK_ID.toString()))
+			.andExpect(jsonPath("$[1].completion").doesNotExist());
+	}
+
+	@Test
 	void getLearningActivityRequiresAuthentication() throws Exception {
 		mockMvc.perform(get(LEARNING_ACTIVITY_PATH))
 			.andExpect(status().isUnauthorized())
