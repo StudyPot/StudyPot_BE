@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurrentLearningActivity;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityHeatmap;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
@@ -17,6 +18,7 @@ import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailabl
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
+import com.studypot.aistudyleader.curriculum.service.GetGroupActivityHeatmapQuery;
 import com.studypot.aistudyleader.curriculum.service.GetLearningActivityQuery;
 import com.studypot.aistudyleader.curriculum.service.GetWeekProgressQuery;
 import com.studypot.aistudyleader.curriculum.service.ListWeeklyTasksQuery;
@@ -34,6 +36,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +50,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -143,6 +147,32 @@ class CurriculumController {
 			new GetLearningActivityQuery(authenticatedUserId(authentication), groupId)
 		);
 		return CurrentLearningActivityResponse.from(activity);
+	}
+
+	@Operation(
+		summary = "그룹홈 활동 잔디(히트맵) 조회",
+		description = "그룹홈 활동 대시보드용으로, 그룹 멤버별 최근 N일(기본 28일) 동안 완료(DONE)한 과제 수를 일자별로 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "활동 히트맵 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "활성 그룹 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/activity-heatmap")
+	GroupActivityHeatmapResponse getGroupActivityHeatmap(
+		Authentication authentication,
+		@Parameter(description = "활동 히트맵을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Parameter(description = "조회할 기간(일수)입니다. 기본 28, 1~84 범위로 보정됩니다.")
+		@RequestParam(name = "days", defaultValue = "28") int days
+	) {
+		int boundedDays = Math.min(Math.max(days, 1), GetGroupActivityHeatmapQuery.MAX_DAYS);
+		GroupActivityHeatmap heatmap = service().getGroupActivityHeatmap(
+			new GetGroupActivityHeatmapQuery(authenticatedUserId(authentication), groupId, boundedDays)
+		);
+		return GroupActivityHeatmapResponse.from(heatmap);
 	}
 
 	@Operation(
@@ -383,6 +413,53 @@ class CurriculumController {
 				week.status(),
 				week.startsAt(),
 				week.endsAt()
+			);
+		}
+	}
+
+	@Schema(description = "그룹홈 활동 잔디(히트맵) 응답입니다.")
+	private record GroupActivityHeatmapResponse(
+		@Schema(description = "집계 시작일(포함)입니다.", example = "2026-05-26")
+		LocalDate startDate,
+		@Schema(description = "집계 종료일(포함)입니다.", example = "2026-06-22")
+		LocalDate endDate,
+		@Schema(description = "시작일부터 종료일까지 연속된 날짜 목록입니다. 각 멤버의 counts 와 같은 순서입니다.")
+		List<LocalDate> days,
+		@Schema(description = "멤버별 일자 활동량입니다.")
+		List<MemberActivityResponse> members
+	) {
+
+		private static GroupActivityHeatmapResponse from(GroupActivityHeatmap heatmap) {
+			return new GroupActivityHeatmapResponse(
+				heatmap.startDate(),
+				heatmap.endDate(),
+				heatmap.days(),
+				heatmap.members().stream().map(MemberActivityResponse::from).toList()
+			);
+		}
+	}
+
+	@Schema(description = "그룹홈 활동 잔디의 멤버별 행입니다.")
+	private record MemberActivityResponse(
+		@Schema(description = "그룹 멤버십 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID memberId,
+		@Schema(description = "멤버의 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID userId,
+		@Schema(description = "그룹 안에서 표시할 이름입니다.", example = "현우")
+		String displayName,
+		@Schema(description = "사용자 닉네임입니다.", example = "hyunwoo")
+		String nickname,
+		@Schema(description = "days 순서에 맞춘 일자별 완료(DONE) 과제 수입니다.", example = "[0,1,0,2]")
+		List<Integer> counts
+	) {
+
+		private static MemberActivityResponse from(GroupActivityHeatmap.MemberActivity member) {
+			return new MemberActivityResponse(
+				member.memberId(),
+				member.userId(),
+				member.displayName(),
+				member.nickname(),
+				member.counts()
 			);
 		}
 	}

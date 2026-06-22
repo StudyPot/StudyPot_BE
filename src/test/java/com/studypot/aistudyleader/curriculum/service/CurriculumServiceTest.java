@@ -20,6 +20,8 @@ import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityHeatmap;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -567,6 +569,52 @@ class CurriculumServiceTest {
 		assertThatThrownBy(() -> service.getCurrentLearningActivity(new GetLearningActivityQuery(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumAccessDeniedException.class)
 			.hasMessage("active group membership is required to read current learning activity.");
+	}
+
+	@Test
+	void getGroupActivityHeatmapBuildsDailyCountsPerMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		UUID idleMemberId = UUID.fromString("018f0000-0000-7000-8000-0000000040aa");
+		UUID idleUserId = UUID.fromString("018f0000-0000-7000-8000-0000000040bb");
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1),
+			new GroupActivityCount(idleMemberId, idleUserId, null, "minsu", null, 0)
+		);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		GroupActivityHeatmap result = service.getGroupActivityHeatmap(new GetGroupActivityHeatmapQuery(USER_ID, GROUP_ID, 28));
+
+		assertThat(result.startDate()).isEqualTo(LocalDate.parse("2026-04-14"));
+		assertThat(result.endDate()).isEqualTo(LocalDate.parse("2026-05-11"));
+		assertThat(result.days()).hasSize(28);
+		assertThat(result.members()).hasSize(2);
+		GroupActivityHeatmap.MemberActivity owner = result.members().get(0);
+		assertThat(owner.userId()).isEqualTo(USER_ID);
+		assertThat(owner.counts()).hasSize(28);
+		assertThat(owner.counts().get(27)).isEqualTo(3);
+		assertThat(owner.counts().get(26)).isEqualTo(1);
+		assertThat(owner.counts().stream().mapToInt(Integer::intValue).sum()).isEqualTo(4);
+		GroupActivityHeatmap.MemberActivity idle = result.members().get(1);
+		assertThat(idle.userId()).isEqualTo(idleUserId);
+		assertThat(idle.counts().stream().mapToInt(Integer::intValue).sum()).isZero();
+		assertThat(repository.activityRequestedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.activityFrom).isEqualTo(LocalDate.parse("2026-04-14").atStartOfDay(ZoneOffset.UTC).toInstant());
+		assertThat(repository.activityTo).isEqualTo(LocalDate.parse("2026-05-12").atStartOfDay(ZoneOffset.UTC).toInstant());
+	}
+
+	@Test
+	void getGroupActivityHeatmapRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getGroupActivityHeatmap(new GetGroupActivityHeatmapQuery(USER_ID, GROUP_ID, 28)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read group activity.");
 	}
 
 	@Test
@@ -1341,6 +1389,10 @@ class CurriculumServiceTest {
 		private TaskCompletion existingTaskCompletion;
 		private TaskCompletion raceTaskCompletion;
 		private List<TaskCompletion> taskCompletions = List.of();
+		private List<GroupActivityCount> groupActivityCounts = List.of();
+		private UUID activityRequestedGroupId;
+		private java.time.Instant activityFrom;
+		private java.time.Instant activityTo;
 		private Instant weekDueAt = WEEK_DUE_AT;
 		private boolean insertSucceeds = true;
 		private boolean insertTaskCompletionSucceeds = true;
@@ -1470,6 +1522,14 @@ class CurriculumServiceTest {
 		@Override
 		public List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId) {
 			return taskCompletions;
+		}
+
+		@Override
+		public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			this.activityRequestedGroupId = groupId;
+			this.activityFrom = fromInclusive;
+			this.activityTo = toExclusive;
+			return groupActivityCounts;
 		}
 
 		@Override

@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.curriculum.repository;
 import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
@@ -54,6 +55,8 @@ public interface CurriculumRepository {
 	Optional<TaskCompletion> findTaskCompletion(UUID taskId, UUID memberId);
 
 	List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId);
+
+	List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive);
 
 	boolean insertTaskCompletion(TaskCompletion completion);
 

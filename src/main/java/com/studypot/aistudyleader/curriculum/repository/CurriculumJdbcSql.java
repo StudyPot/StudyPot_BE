@@ -272,6 +272,27 @@ final class CurriculumJdbcSql {
 		where id = ?
 		""";
 
+	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """
+		select
+		  gm.id as member_id,
+		  gm.user_id,
+		  coalesce(nullif(gm.display_name, ''), u.nickname) as display_name,
+		  u.nickname,
+		  date(tc.completed_at) as activity_date,
+		  count(tc.id) as activity_count
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join task_completion tc on tc.member_id = gm.id
+		  and tc.status = 'DONE'
+		  and tc.completed_at >= ?
+		  and tc.completed_at < ?
+		where gm.group_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		group by gm.id, gm.user_id, display_name, u.nickname, date(tc.completed_at)
+		order by gm.joined_at asc, gm.id asc
+		""";
+
 	private CurriculumJdbcSql() {
 	}
 }

@@ -8,6 +8,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
@@ -254,6 +255,32 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			this::mapTaskCompletion,
 			uuid(weekId),
 			uuid(memberId)
+		);
+	}
+
+	@Override
+	public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
+		Objects.requireNonNull(toExclusive, "toExclusive must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_GROUP_DONE_ACTIVITY_COUNTS,
+			JdbcCurriculumRepository::mapGroupActivityCount,
+			timestamp(fromInclusive),
+			timestamp(toExclusive),
+			uuid(groupId)
+		);
+	}
+
+	private static GroupActivityCount mapGroupActivityCount(ResultSet resultSet, int rowNumber) throws SQLException {
+		Date activityDate = resultSet.getDate("activity_date");
+		return new GroupActivityCount(
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			resultSet.getString("display_name"),
+			resultSet.getString("nickname"),
+			activityDate == null ? null : activityDate.toLocalDate(),
+			resultSet.getInt("activity_count")
 		);
 	}
 

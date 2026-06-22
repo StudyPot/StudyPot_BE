@@ -23,6 +23,7 @@ import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
@@ -288,6 +289,35 @@ class CurriculumControllerTest {
 		mockMvc.perform(get(LEARNING_ACTIVITY_PATH))
 			.andExpect(status().isUnauthorized())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getActivityHeatmapRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/activity-heatmap"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getActivityHeatmapReturnsMemberDailyCounts() throws Exception {
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1)
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/activity-heatmap")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.startDate").value("2026-04-14"))
+			.andExpect(jsonPath("$.endDate").value("2026-05-11"))
+			.andExpect(jsonPath("$.days.length()").value(28))
+			.andExpect(jsonPath("$.members[0].userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$.members[0].displayName").value("현우"))
+			.andExpect(jsonPath("$.members[0].nickname").value("hyunwoo"))
+			.andExpect(jsonPath("$.members[0].counts.length()").value(28))
+			.andExpect(jsonPath("$.members[0].counts[27]").value(3))
+			.andExpect(jsonPath("$.members[0].counts[26]").value(1));
 	}
 
 	@Test
@@ -925,6 +955,7 @@ class CurriculumControllerTest {
 		private MemberWeekProgress progress;
 		private TaskCompletion taskCompletion;
 		private List<TaskCompletion> taskCompletions;
+		private List<GroupActivityCount> groupActivityCounts;
 		private Instant weekDueAt;
 		private Queue<UUID> nextIds;
 
@@ -942,6 +973,7 @@ class CurriculumControllerTest {
 			progress = null;
 			taskCompletion = null;
 			taskCompletions = List.of();
+			groupActivityCounts = List.of();
 			weekDueAt = TestCurriculumBeans.NOW.plusSeconds(604800);
 			nextIds = new ArrayDeque<>(List.of(LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID));
 		}
@@ -1061,6 +1093,11 @@ class CurriculumControllerTest {
 		@Override
 		public List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId) {
 			return taskCompletions;
+		}
+
+		@Override
+		public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			return groupActivityCounts;
 		}
 
 		@Override
