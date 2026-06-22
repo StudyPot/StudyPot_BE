@@ -247,6 +247,30 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void joinGroupByInviteCodeReturnsJoinedMember() throws Exception {
+		mockMvc.perform(post(GROUPS_PATH + "/join")
+				.with(user(USER_ID.toString()))
+				.with(xsrf("join-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(joinRequestJson("INVITE-0001")))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$.status").value("PENDING_ONBOARDING"));
+	}
+
+	@Test
+	void joinGroupByInviteCodeRejectsUnknownCode() throws Exception {
+		mockMvc.perform(post(GROUPS_PATH + "/join")
+				.with(user(USER_ID.toString()))
+				.with(xsrf("join-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(joinRequestJson("WRONG-CODE")))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
 	void joinGroupReturnsConflictProblemForMismatchedInviteCode() throws Exception {
 		mockMvc.perform(post(JOIN_PATH)
 				.with(user(USER_ID.toString()))
@@ -591,6 +615,14 @@ class StudyGroupControllerTest {
 		@Override
 		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByIdForUpdate(UUID groupId) {
 			return java.util.Optional.of(new StudyGroupJoinTarget(groupId, StudyGroupStatus.ACTIVE, 6, "INVITE-0001"));
+		}
+
+		@Override
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+			if (!"INVITE-0001".equals(inviteCode)) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 6, "INVITE-0001"));
 		}
 
 		@Override

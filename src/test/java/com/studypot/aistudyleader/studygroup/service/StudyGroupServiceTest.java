@@ -778,6 +778,11 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+			return java.util.Optional.ofNullable(joinTarget);
+		}
+
+		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 			return existingActiveOrOnboardingMember;
 		}

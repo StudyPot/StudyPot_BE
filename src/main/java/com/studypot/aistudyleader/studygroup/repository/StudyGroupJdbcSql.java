@@ -25,6 +25,14 @@ final class StudyGroupJdbcSql {
 		for update
 		""";
 
+	static final String SELECT_STUDY_GROUP_JOIN_TARGET_BY_INVITE_CODE = """
+		select id, status, max_members, invite_code
+		from study_group
+		where invite_code = ?
+		  and deleted_at is null
+		for update
+		""";
+
 	static final String EXISTS_STUDY_GROUP = """
 		select exists (
 		  select 1

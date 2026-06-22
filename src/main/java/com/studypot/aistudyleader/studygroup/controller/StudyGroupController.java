@@ -16,6 +16,7 @@ import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
 import com.studypot.aistudyleader.studygroup.service.GetMyGroupMemberProfileQuery;
+import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupByInviteCodeCommand;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.ListGroupMembersQuery;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
@@ -297,6 +298,28 @@ class StudyGroupController {
 		@Valid @RequestBody JoinGroupRequest request
 	) {
 		StudyGroupJoinResult result = service().joinGroup(request.toCommand(authenticatedUserId(authentication), groupId));
+		return GroupMemberResponse.from(result.member());
+	}
+
+	@Operation(
+		summary = "초대 코드만으로 그룹 참여",
+		description = "초대 코드만으로 해당 스터디 그룹을 찾아 인증된 사용자를 온보딩 대기 멤버로 추가합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "그룹 멤버십 생성 또는 기존 멤버십 반환"),
+		@ApiResponse(responseCode = "400", description = "초대 코드가 비어 있음"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "409", description = "초대 코드 불일치, 정원 초과 또는 중복 참여"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/groups/join")
+	GroupMemberResponse joinGroupByInviteCode(
+		Authentication authentication,
+		@Valid @RequestBody JoinByInviteCodeRequest request
+	) {
+		StudyGroupJoinResult result = service().joinGroupByInviteCode(
+			new JoinStudyGroupByInviteCodeCommand(authenticatedUserId(authentication), request.inviteCode())
+		);
 		return GroupMemberResponse.from(result.member());
 	}
 
@@ -683,6 +706,14 @@ class StudyGroupController {
 		JoinStudyGroupCommand toCommand(UUID authenticatedUserId, UUID groupId) {
 			return new JoinStudyGroupCommand(authenticatedUserId, groupId, inviteCode);
 		}
+	}
+
+	@Schema(description = "초대 코드만으로 스터디 그룹에 참여하기 위한 요청입니다.")
+	private record JoinByInviteCodeRequest(
+		@Schema(description = "그룹장이 공유한 초대 코드입니다.", example = "SPRING-AB12")
+		@NotBlank
+		String inviteCode
+	) {
 	}
 
 	@Schema(description = "스터디 그룹 멤버십 생성/조회 응답입니다.")

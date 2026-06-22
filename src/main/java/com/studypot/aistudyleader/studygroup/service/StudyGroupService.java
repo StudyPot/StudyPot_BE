@@ -91,21 +91,32 @@ public class StudyGroupService {
 		Objects.requireNonNull(command, "command must not be null");
 		StudyGroupJoinTarget target = repository.findJoinTargetByIdForUpdate(command.groupId())
 			.orElseThrow(() -> new StudyGroupNotFoundException("study group was not found."));
-
 		if (!target.matchesInviteCode(command.inviteCode())) {
 			throw new StudyGroupJoinRejectedException("invite code does not match the study group.");
 		}
+		return joinResolvedTarget(target, command.authenticatedUserId());
+	}
+
+	@Transactional
+	public StudyGroupJoinResult joinGroupByInviteCode(JoinStudyGroupByInviteCodeCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		StudyGroupJoinTarget target = repository.findJoinTargetByInviteCode(command.inviteCode())
+			.orElseThrow(() -> new StudyGroupJoinRejectedException("invite code does not match any study group."));
+		return joinResolvedTarget(target, command.authenticatedUserId());
+	}
+
+	private StudyGroupJoinResult joinResolvedTarget(StudyGroupJoinTarget target, UUID authenticatedUserId) {
 		if (!target.isAcceptingJoins()) {
 			throw new StudyGroupJoinRejectedException("study group is not accepting new members.");
 		}
-		if (repository.existsActiveOrOnboardingMember(target.id(), command.authenticatedUserId())) {
+		if (repository.existsActiveOrOnboardingMember(target.id(), authenticatedUserId)) {
 			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
 		}
 		if (!target.hasCapacity(repository.countActiveOrOnboardingMembers(target.id()))) {
 			throw new StudyGroupJoinRejectedException("study group member capacity has been reached.");
 		}
 
-		GroupMember member = GroupMember.member(idGenerator.get(), target.id(), command.authenticatedUserId(), null, clock.instant());
+		GroupMember member = GroupMember.member(idGenerator.get(), target.id(), authenticatedUserId, null, clock.instant());
 		try {
 			repository.saveJoinedMember(member);
 		} catch (GroupMemberDuplicateMembershipException exception) {

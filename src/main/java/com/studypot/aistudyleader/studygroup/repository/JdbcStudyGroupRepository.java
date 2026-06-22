@@ -119,6 +119,12 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+		Objects.requireNonNull(inviteCode, "inviteCode must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET_BY_INVITE_CODE, JdbcStudyGroupRepository::mapJoinTarget, inviteCode);
+	}
+
+	@Override
 	public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
 			StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER,
