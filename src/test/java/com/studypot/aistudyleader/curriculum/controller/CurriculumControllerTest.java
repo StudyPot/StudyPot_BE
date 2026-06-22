@@ -333,6 +333,25 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void getGroupMembersActivityReturnsDailyActivityRows() throws Exception {
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1)
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/learning-activity")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].memberId").value(MEMBER_ID.toString()))
+			.andExpect(jsonPath("$[0].memberNickname").value("hyunwoo"))
+			.andExpect(jsonPath("$[0].dailyActivity.length()").value(28))
+			.andExpect(jsonPath("$[0].dailyActivity[27].date").value("2026-05-11"))
+			.andExpect(jsonPath("$[0].dailyActivity[27].count").value(3))
+			.andExpect(jsonPath("$[0].dailyActivity[26].count").value(1));
+	}
+
+	@Test
 	void getLearningActivityReturnsCurrentWeekTasksAndMyCompletionState() throws Exception {
 		repository.currentWeek = new CurriculumWeek(
 			WEEK_ID,

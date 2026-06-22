@@ -199,6 +199,29 @@ class CurriculumController {
 	}
 
 	@Operation(
+		summary = "그룹홈 멤버별 활동(잔디) 목록 조회",
+		description = "그룹홈 잔디용으로, 그룹 멤버별 최근 28일 동안 완료(DONE)한 과제 수를 일자 배열로 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "멤버별 활동 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "활성 그룹 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/learning-activity")
+	List<MemberActivityRowResponse> getGroupMembersActivity(
+		Authentication authentication,
+		@Parameter(description = "활동 목록을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		GroupActivityHeatmap heatmap = service().getGroupActivityHeatmap(
+			new GetGroupActivityHeatmapQuery(authenticatedUserId(authentication), groupId, GetGroupActivityHeatmapQuery.DEFAULT_DAYS)
+		);
+		return MemberActivityRowResponse.from(heatmap);
+	}
+
+	@Operation(
 		summary = "주차 과제 목록 조회",
 		description = "그룹 멤버가 특정 커리큘럼 주차에 배정된 과제 목록을 표시 순서대로 조회합니다."
 	)
@@ -485,6 +508,41 @@ class CurriculumController {
 				member.counts()
 			);
 		}
+	}
+
+	@Schema(description = "그룹홈 잔디용 멤버별 일자 활동 행입니다.")
+	private record MemberActivityRowResponse(
+		@Schema(description = "그룹 멤버십 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID memberId,
+		@Schema(description = "멤버 표시 닉네임입니다.", example = "현우")
+		String memberNickname,
+		@Schema(description = "일자별 완료(DONE) 과제 수 목록입니다.")
+		List<DailyActivityResponse> dailyActivity
+	) {
+
+		private static List<MemberActivityRowResponse> from(GroupActivityHeatmap heatmap) {
+			List<LocalDate> days = heatmap.days();
+			return heatmap.members().stream()
+				.map(member -> {
+					List<Integer> counts = member.counts();
+					List<DailyActivityResponse> daily = new java.util.ArrayList<>(days.size());
+					for (int i = 0; i < days.size(); i++) {
+						daily.add(new DailyActivityResponse(days.get(i), i < counts.size() ? counts.get(i) : 0));
+					}
+					String nickname = member.nickname() != null ? member.nickname() : member.displayName();
+					return new MemberActivityRowResponse(member.memberId(), nickname, daily);
+				})
+				.toList();
+		}
+	}
+
+	@Schema(description = "잔디의 단일 일자 활동입니다.")
+	private record DailyActivityResponse(
+		@Schema(description = "활동 일자입니다.", example = "2026-06-22")
+		LocalDate date,
+		@Schema(description = "그 날 완료(DONE)한 과제 수입니다.", example = "2")
+		int count
+	) {
 	}
 
 	@Schema(description = "주차에 배정된 단일 학습 과제 응답입니다.")
