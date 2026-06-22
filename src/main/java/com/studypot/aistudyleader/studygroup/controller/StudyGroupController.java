@@ -468,6 +468,8 @@ class StudyGroupController {
 	private record StudyGroupResponse(
 		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
 		UUID id,
+		@Schema(description = "그룹을 생성한(소유자) 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID createdBy,
 		@Schema(description = "스터디 그룹 이름입니다.", example = "백엔드 인터뷰 스터디")
 		String name,
 		@Schema(description = "스터디의 큰 주제입니다.", example = "Spring Boot")
@@ -489,6 +491,7 @@ class StudyGroupController {
 		private static StudyGroupResponse from(StudyGroup group) {
 			return new StudyGroupResponse(
 				group.id(),
+				group.createdBy(),
 				group.name(),
 				group.topic(),
 				group.detailKeywords(),
