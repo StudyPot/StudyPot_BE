@@ -58,6 +58,8 @@ public interface CurriculumRepository {
 
 	List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive);
 
+	int countActiveOrOnboardingMembers(UUID groupId);
+
 	boolean insertTaskCompletion(TaskCompletion completion);
 
 	boolean updateTaskCompletion(TaskCompletion completion);

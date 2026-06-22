@@ -259,6 +259,17 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public int countActiveOrOnboardingMembers(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Integer count = jdbcTemplate.queryForObject(
+			CurriculumJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS,
+			Integer.class,
+			uuid(groupId)
+		);
+		return count == null ? 0 : count;
+	}
+
+	@Override
 	public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");

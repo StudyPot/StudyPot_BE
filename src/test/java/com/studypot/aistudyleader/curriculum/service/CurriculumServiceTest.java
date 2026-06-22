@@ -107,6 +107,20 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void startStudyRejectsWhenFewerThanTwoMembers() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		repository.activeOrOnboardingMemberCount = 1;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumStartRejectedException.class)
+			.hasMessage("study group needs at least 2 members to start.");
+		assertThat(repository.savedCurriculum).isNull();
+	}
+
+	@Test
 	void startStudyCreatesFixedWeeklySprintWindowsFromStudyPeriod() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(
@@ -1395,6 +1409,7 @@ class CurriculumServiceTest {
 		private TaskCompletion raceTaskCompletion;
 		private List<TaskCompletion> taskCompletions = List.of();
 		private List<GroupActivityCount> groupActivityCounts = List.of();
+		private int activeOrOnboardingMemberCount = 2;
 		private UUID activityRequestedGroupId;
 		private java.time.Instant activityFrom;
 		private java.time.Instant activityTo;
@@ -1535,6 +1550,11 @@ class CurriculumServiceTest {
 			this.activityFrom = fromInclusive;
 			this.activityTo = toExclusive;
 			return groupActivityCounts;
+		}
+
+		@Override
+		public int countActiveOrOnboardingMembers(UUID groupId) {
+			return activeOrOnboardingMemberCount;
 		}
 
 		@Override

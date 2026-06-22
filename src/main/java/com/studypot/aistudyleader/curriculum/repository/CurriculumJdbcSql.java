@@ -272,6 +272,14 @@ final class CurriculumJdbcSql {
 		where id = ?
 		""";
 
+	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS = """
+		select count(*)
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		""";
+
 	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """
 		select
 		  gm.id as member_id,

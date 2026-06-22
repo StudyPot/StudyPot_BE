@@ -44,6 +44,8 @@ public class CurriculumService {
 
 	private static final Logger log = LoggerFactory.getLogger(CurriculumService.class);
 
+	private static final int MIN_MEMBERS_TO_START = 2;
+
 	private final CurriculumRepository repository;
 	private final Supplier<CurriculumGenerator> generatorSupplier;
 	private final Clock clock;
@@ -94,6 +96,9 @@ public class CurriculumService {
 		}
 		if (!context.hasActiveMembership()) {
 			throw new CurriculumStartRejectedException("owner onboarding must be submitted before starting the study.");
+		}
+		if (repository.countActiveOrOnboardingMembers(context.groupId()) < MIN_MEMBERS_TO_START) {
+			throw new CurriculumStartRejectedException("study group needs at least " + MIN_MEMBERS_TO_START + " members to start.");
 		}
 
 		Instant now = clock.instant();

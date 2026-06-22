@@ -1105,6 +1105,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public int countActiveOrOnboardingMembers(UUID groupId) {
+			return 2;
+		}
+
+		@Override
 		public boolean insertTaskCompletion(TaskCompletion completion) {
 			this.taskCompletion = completion;
 			return true;
