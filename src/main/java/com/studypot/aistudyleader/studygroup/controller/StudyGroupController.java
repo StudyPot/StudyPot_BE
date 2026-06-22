@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.global.api.ApiPaths;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -16,6 +17,7 @@ import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionServ
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
 import com.studypot.aistudyleader.studygroup.service.GetMyGroupMemberProfileQuery;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.ListGroupMembersQuery;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
 import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
@@ -186,6 +188,29 @@ class StudyGroupController {
 			new GetMyGroupMemberProfileQuery(authenticatedUserId(authentication), groupId)
 		);
 		return StudyGroupMemberProfileResponse.from(profile);
+	}
+
+	@Operation(
+		summary = "스터디 그룹 팀원 목록 조회",
+		description = "인증된 그룹 멤버가 같은 그룹에 속한 팀원 목록과 각자의 권한, 상태, 온보딩 상태를 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "팀원 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "현재 그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/members")
+	List<GroupMemberListItemResponse> listGroupMembers(
+		Authentication authentication,
+		@Parameter(description = "팀원 목록을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return service().listGroupMembers(new ListGroupMembersQuery(authenticatedUserId(authentication), groupId))
+			.stream()
+			.map(GroupMemberListItemResponse::from)
+			.toList();
 	}
 
 	@Operation(
@@ -506,6 +531,43 @@ class StudyGroupController {
 				CurrentWeekSummaryResponse.from(profile.currentWeek()),
 				TaskCompletionSummaryResponse.from(profile.taskCompletion()),
 				RetrospectiveSummaryResponse.from(profile.retrospective())
+			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 팀원 목록의 단일 멤버 응답입니다.")
+	private record GroupMemberListItemResponse(
+		@Schema(description = "그룹 멤버십 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID id,
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "멤버의 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID userId,
+		@Schema(description = "그룹 내 권한입니다.", example = "OWNER")
+		GroupMemberPermission permission,
+		@Schema(description = "그룹 참여/온보딩 상태입니다.", example = "ACTIVE")
+		GroupMemberStatus status,
+		@Schema(description = "그룹 안에서 표시할 이름입니다. 설정하지 않았으면 null입니다.", example = "현우")
+		String displayName,
+		@Schema(description = "사용자 닉네임입니다.", example = "hyunwoo")
+		String nickname,
+		@Schema(description = "사용자 이메일입니다.", example = "hyunwoo@example.com")
+		String email,
+		@Schema(description = "온보딩 상태입니다. 온보딩 응답이 없으면 null입니다.", example = "SUBMITTED")
+		String onboardingStatus
+	) {
+
+		private static GroupMemberListItemResponse from(GroupMemberSummary summary) {
+			return new GroupMemberListItemResponse(
+				summary.id(),
+				summary.groupId(),
+				summary.userId(),
+				summary.permission(),
+				summary.status(),
+				summary.displayName(),
+				summary.nickname(),
+				summary.email(),
+				summary.onboardingStatus()
 			);
 		}
 	}

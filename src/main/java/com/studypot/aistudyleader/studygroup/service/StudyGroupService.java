@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.studygroup.service;
 
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
@@ -166,6 +167,18 @@ public class StudyGroupService {
 		Objects.requireNonNull(query, "query must not be null");
 		return repository.findMyGroupMemberProfile(query.groupId(), query.authenticatedUserId())
 			.orElseGet(() -> profileAccessFailure(query.groupId()));
+	}
+
+	@Transactional(readOnly = true)
+	public List<GroupMemberSummary> listGroupMembers(ListGroupMembersQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		if (!repository.existsActiveOrOnboardingMember(query.groupId(), query.authenticatedUserId())) {
+			if (!repository.existsStudyGroup(query.groupId())) {
+				throw new StudyGroupNotFoundException("study group was not found.");
+			}
+			throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+		}
+		return repository.findGroupMembers(query.groupId());
 	}
 
 	@Transactional

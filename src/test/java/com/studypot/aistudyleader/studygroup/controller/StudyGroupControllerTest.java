@@ -23,6 +23,7 @@ import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
@@ -360,6 +361,42 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void listGroupMembersRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void listGroupMembersReturnsMembersWithProfileFields() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members")
+				.with(user(OTHER_USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$[0].permission").value("OWNER"))
+			.andExpect(jsonPath("$[0].status").value("ACTIVE"))
+			.andExpect(jsonPath("$[0].displayName").value("현우"))
+			.andExpect(jsonPath("$[0].nickname").value("hyunwoo"))
+			.andExpect(jsonPath("$[0].email").value("hyunwoo@example.com"))
+			.andExpect(jsonPath("$[0].onboardingStatus").value("SUBMITTED"))
+			.andExpect(jsonPath("$[1].userId").value(OTHER_USER_ID.toString()))
+			.andExpect(jsonPath("$[1].permission").value("MEMBER"))
+			.andExpect(jsonPath("$[1].displayName").doesNotExist())
+			.andExpect(jsonPath("$[1].onboardingStatus").doesNotExist());
+	}
+
+	@Test
+	void listGroupMembersReturnsForbiddenForNonMember() throws Exception {
+		UUID strangerUserId = UUID.fromString("018f0000-0000-7000-8000-0000000028ff");
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members")
+				.with(user(strangerUserId.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("authenticated user is not a member of this study group."));
+	}
+
+	@Test
 	void getMyGroupMemberProfileRequiresAuthentication() throws Exception {
 		mockMvc.perform(get(PROFILE_PATH))
 			.andExpect(status().isUnauthorized())
@@ -580,7 +617,26 @@ class StudyGroupControllerTest {
 
 		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
-			return false;
+			return GROUP_ID.equals(groupId) && OTHER_USER_ID.equals(userId);
+		}
+
+		@Override
+		public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
+			if (!GROUP_ID.equals(groupId)) {
+				return List.of();
+			}
+			return List.of(
+				new GroupMemberSummary(
+					TestStudyGroupBeans.OWNER_MEMBER_ID, GROUP_ID, USER_ID,
+					GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
+					"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
+				),
+				new GroupMemberSummary(
+					TestStudyGroupBeans.JOINED_MEMBER_ID, GROUP_ID, OTHER_USER_ID,
+					GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING,
+					null, "minsu", "minsu@example.com", null
+				)
+			);
 		}
 
 		@Override

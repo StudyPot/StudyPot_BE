@@ -204,6 +204,22 @@ final class StudyGroupJdbcSql {
 		  and sg.deleted_at is null
 		""";
 
+	static final String SELECT_GROUP_MEMBERS = """
+		select
+		  gm.id as member_id, gm.group_id, gm.user_id, gm.display_name,
+		  gm.permission, gm.status as member_status,
+		  u.nickname, u.email,
+		  gor.status as onboarding_status
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join group_onboarding_response gor
+		  on gor.member_id = gm.id
+		  and gor.deleted_at is null
+		where gm.group_id = ?
+		  and gm.deleted_at is null
+		order by gm.joined_at asc, gm.id asc
+		""";
+
 	private StudyGroupJdbcSql() {
 	}
 }
