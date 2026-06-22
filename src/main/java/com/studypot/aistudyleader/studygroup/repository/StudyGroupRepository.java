@@ -22,6 +22,8 @@ public interface StudyGroupRepository {
 
 	Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode);
 
+	Optional<UUID> findOwnerUserId(UUID groupId);
+
 	boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId);
 
 	int countActiveOrOnboardingMembers(UUID groupId);

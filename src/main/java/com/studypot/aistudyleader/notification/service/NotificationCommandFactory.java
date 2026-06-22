@@ -28,6 +28,21 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand memberJoined(UUID groupId, UUID recipientUserId, UUID joinedUserId) {
+		Objects.requireNonNull(joinedUserId, "joinedUserId must not be null");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			null,
+			NotificationType.MEMBER_JOINED,
+			"idempotency:notification:member-joined:group:%s:member:%s:recipient:%s".formatted(groupId, joinedUserId, recipientUserId),
+			"새로운 멤버가 참여했어요",
+			"새 멤버가 그룹에 참여했어요. 팀원 목록에서 확인해 주세요.",
+			payload("/groups/%s".formatted(groupId), Map.of("groupId", groupId.toString(), "joinedUserId", joinedUserId.toString())),
+			null
+		);
+	}
+
 	static CreateNotificationCommand onboardingCompleted(UUID groupId, UUID recipientUserId) {
 		return new CreateNotificationCommand(
 			groupId,

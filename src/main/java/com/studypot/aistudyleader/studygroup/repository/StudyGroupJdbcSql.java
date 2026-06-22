@@ -25,6 +25,18 @@ final class StudyGroupJdbcSql {
 		for update
 		""";
 
+	static final String SELECT_OWNER_USER_ID = """
+		select gm.user_id
+		from group_member gm
+		join study_group sg on sg.id = gm.group_id
+		where gm.group_id = ?
+		  and gm.permission = 'OWNER'
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		  and sg.deleted_at is null
+		limit 1
+		""";
+
 	static final String SELECT_STUDY_GROUP_JOIN_TARGET_BY_INVITE_CODE = """
 		select id, status, max_members, invite_code
 		from study_group

@@ -285,7 +285,12 @@ class OnboardingControllerTest {
 			@Override
 			public java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> findGroupOnboardings(UUID groupId) {
 				return java.util.List.of(
-					new com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding("현우", response)
+					new com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding(
+						MEMBER_ID,
+						"현우",
+						com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus.ACTIVE,
+						response
+					)
 				);
 			}
 

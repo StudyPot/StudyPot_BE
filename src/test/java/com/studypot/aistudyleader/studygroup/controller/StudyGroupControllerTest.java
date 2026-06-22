@@ -626,6 +626,11 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Optional<UUID> findOwnerUserId(UUID groupId) {
+			return java.util.Optional.of(USER_ID);
+		}
+
+		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 			return GROUP_ID.equals(groupId) && OTHER_USER_ID.equals(userId);
 		}

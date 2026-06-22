@@ -255,6 +255,20 @@ class OnboardingController {
 
 		private static MemberOnboardingResponse from(GroupMemberOnboarding memberOnboarding) {
 			GroupOnboardingResponse response = memberOnboarding.response();
+			if (response == null) {
+				// 가입했지만 아직 온보딩을 작성하지 않은 멤버 (미제출로 노출)
+				return new MemberOnboardingResponse(
+					null,
+					null,
+					memberOnboarding.memberId(),
+					memberOnboarding.memberNickname(),
+					0,
+					null,
+					List.of(),
+					GroupOnboardingStatus.DRAFT,
+					null
+				);
+			}
 			return new MemberOnboardingResponse(
 				response.id(),
 				response.groupId(),

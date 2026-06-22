@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.notification.domain;
 
 public enum NotificationType {
 	GROUP_INVITE_CREATED,
+	MEMBER_JOINED,
 	ONBOARDING_REQUESTED,
 	ONBOARDING_SUBMITTED,
 	ONBOARDING_COMPLETED,

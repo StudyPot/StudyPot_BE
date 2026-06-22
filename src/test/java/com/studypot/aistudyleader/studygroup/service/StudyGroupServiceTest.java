@@ -715,6 +715,7 @@ class StudyGroupServiceTest {
 		private StudyGroupJoinTarget joinTarget;
 		private int currentMemberCount;
 		private boolean existingActiveOrOnboardingMember;
+		private UUID ownerUserId;
 		private boolean throwDuplicateMembershipOnJoin;
 		private boolean groupExists;
 		private UUID getRequestedGroupId;
@@ -780,6 +781,11 @@ class StudyGroupServiceTest {
 		@Override
 		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
 			return java.util.Optional.ofNullable(joinTarget);
+		}
+
+		@Override
+		public java.util.Optional<UUID> findOwnerUserId(UUID groupId) {
+			return java.util.Optional.ofNullable(ownerUserId);
 		}
 
 		@Override

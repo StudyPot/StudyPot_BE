@@ -126,6 +126,11 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 	}
 
 	@Override
+	public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		publishAfterCommit(NotificationCommandFactory.memberJoined(groupId, ownerUserId, joinedUserId));
+	}
+
+	@Override
 	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
 			groupId,

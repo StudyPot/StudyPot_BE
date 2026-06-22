@@ -98,17 +98,17 @@ final class OnboardingJdbcSql {
 		""";
 
 	static final String SELECT_RESPONSES_BY_GROUP = """
-		select gor.id, gor.group_id, gor.member_id, gor.keyword_skill_levels, gor.task_preferences,
+		select gor.id, gm.group_id, gm.id as member_id, gor.keyword_skill_levels, gor.task_preferences,
 		       gor.additional_note, gor.status, gor.submitted_at, gor.created_at, gor.updated_at,
-		       u.nickname as member_nickname
-		from group_onboarding_response gor
-		join group_member gm on gm.id = gor.member_id
+		       u.nickname as member_nickname, gm.status as member_status
+		from group_member gm
 		join users u on u.id = gm.user_id
-		where gor.group_id = ?
-		  and gor.deleted_at is null
+		left join group_onboarding_response gor
+		  on gor.member_id = gm.id and gor.deleted_at is null
+		where gm.group_id = ?
 		  and gm.deleted_at is null
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
-		order by gm.joined_at asc, gor.member_id asc
+		order by gm.joined_at asc, gm.id asc
 		""";
 
 	static final String SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED = """
@@ -126,7 +126,7 @@ final class OnboardingJdbcSql {
 		    left join group_onboarding_response gor
 		      on gor.member_id = gm.id and gor.deleted_at is null
 		    where gm.group_id = owner.group_id
-		      and gm.status = 'ACTIVE'
+		      and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		      and gm.deleted_at is null
 		      and (gor.id is null or gor.status <> 'SUBMITTED')
 		  )

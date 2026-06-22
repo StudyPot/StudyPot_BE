@@ -123,6 +123,9 @@ public class StudyGroupService {
 			throw new StudyGroupJoinRejectedException("user is already a member of this study group.");
 		}
 		publishNotification(() -> notificationEvents.publishOnboardingRequested(member.groupId(), member.userId()));
+		publishNotification(() -> repository.findOwnerUserId(member.groupId())
+			.filter(ownerUserId -> !ownerUserId.equals(member.userId()))
+			.ifPresent(ownerUserId -> notificationEvents.publishMemberJoined(member.groupId(), ownerUserId, member.userId())));
 		return new StudyGroupJoinResult(member);
 	}
 

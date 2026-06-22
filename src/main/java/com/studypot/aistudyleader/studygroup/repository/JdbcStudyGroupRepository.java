@@ -125,6 +125,13 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public Optional<UUID> findOwnerUserId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_OWNER_USER_ID,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")), uuid(groupId));
+	}
+
+	@Override
 	public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
 			StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER,

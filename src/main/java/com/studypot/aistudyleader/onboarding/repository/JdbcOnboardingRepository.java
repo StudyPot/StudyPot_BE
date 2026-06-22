@@ -136,17 +136,26 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		List<GroupMemberOnboarding> rows = jdbcTemplate.query(
 			OnboardingJdbcSql.SELECT_RESPONSES_BY_GROUP,
-			(resultSet, rowNumber) -> new GroupMemberOnboarding(
-				resultSet.getString("member_nickname"),
-				mapResponse(resultSet, rowNumber)
-			),
+			(resultSet, rowNumber) -> {
+				GroupOnboardingResponse response = resultSet.getBytes("id") == null ? null : mapResponse(resultSet, rowNumber);
+				return new GroupMemberOnboarding(
+					UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+					resultSet.getString("member_nickname"),
+					GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+					response
+				);
+			},
 			uuid(groupId)
 		);
 		return rows.stream()
-			.map(row -> new GroupMemberOnboarding(
-				row.memberNickname(),
-				row.response().withAvailabilitySlots(findAvailabilitySlots(row.response().id()))
-			))
+			.map(row -> row.response() == null
+				? row
+				: new GroupMemberOnboarding(
+					row.memberId(),
+					row.memberNickname(),
+					row.memberStatus(),
+					row.response().withAvailabilitySlots(findAvailabilitySlots(row.response().id()))
+				))
 			.toList();
 	}
 
