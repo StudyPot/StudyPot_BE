@@ -365,6 +365,54 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void updateGroupUpdatesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroup result = service.updateGroup(new UpdateStudyGroupCommand(
+			USER_ID, GROUP_ID, "새 스터디 이름", "Spring", List.of("JPA", "Security"),
+			6, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), "수정된 소개"
+		));
+
+		assertThat(result.name()).isEqualTo("새 스터디 이름");
+		assertThat(result.detailKeywords()).containsExactly("JPA", "Security");
+		assertThat(repository.updatedGroup).isNotNull();
+		assertThat(repository.updatedGroup.name()).isEqualTo("새 스터디 이름");
+	}
+
+	@Test
+	void updateGroupRejectsNonOwnerMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
+			JOINER_ID, GROUP_ID, "이름", "Spring", List.of("JPA"),
+			6, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), null
+		)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can update the study group.");
+		assertThat(repository.updatedGroup).isNull();
+	}
+
+	@Test
+	void updateGroupRejectsMaxMembersBelowCurrentCount() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.currentMemberCount = 5;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
+			USER_ID, GROUP_ID, "이름", "Spring", List.of("JPA"),
+			2, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), null
+		)))
+			.isInstanceOf(InvalidStudyGroupMemberProfileRequestException.class);
+		assertThat(repository.updatedGroup).isNull();
+	}
+
+	@Test
 	void getMyGroupMemberProfileReturnsRepositoryProfile() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupMemberProfile profile = profile("현우");
@@ -640,6 +688,8 @@ class StudyGroupServiceTest {
 		private boolean softDeleteSucceeds = true;
 		private UUID softDeletedGroupId;
 		private Instant softDeletedAt;
+		private boolean updateGroupSucceeds = true;
+		private StudyGroup updatedGroup;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -727,6 +777,12 @@ class StudyGroupServiceTest {
 			this.softDeletedGroupId = groupId;
 			this.softDeletedAt = deletedAt;
 			return softDeleteSucceeds;
+		}
+
+		@Override
+		public boolean updateGroup(StudyGroup group) {
+			this.updatedGroup = group;
+			return updateGroupSucceeds;
 		}
 
 		int attempts() {

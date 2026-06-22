@@ -177,6 +177,23 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public boolean updateGroup(StudyGroup group) {
+		Objects.requireNonNull(group, "group must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_STUDY_GROUP,
+			group.name(),
+			group.topic(),
+			detailKeywordsJson(group),
+			group.maxMembers(),
+			date(group.startsAt()),
+			date(group.endsAt()),
+			group.description().orElse(null),
+			timestamp(group.auditMetadata().updatedAt()),
+			uuid(group.id())
+		) == 1;
+	}
+
+	@Override
 	public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(deletedAt, "deletedAt must not be null");

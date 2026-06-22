@@ -352,6 +352,26 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void updateGroupReturnsUpdatedGroupForOwner() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("update-xsrf"))
+				.with(user(USER_ID.toString()))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"새 스터디 이름\",\"topic\":\"Spring Boot\",\"detailKeywords\":[\"JPA\",\"Security\"],\"maxMembers\":6,\"startsAt\":\"2026-05-18\",\"endsAt\":\"2026-06-29\",\"description\":\"수정됨\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.name").value("새 스터디 이름"));
+	}
+
+	@Test
+	void updateGroupRequiresAuthentication() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("update-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"이름\",\"topic\":\"Spring\",\"detailKeywords\":[\"JPA\"],\"maxMembers\":6,\"startsAt\":\"2026-05-18\",\"endsAt\":\"2026-06-29\"}"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void deleteGroupReturnsNoContentForOwner() throws Exception {
 		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
 				.with(xsrf("delete-xsrf"))
@@ -628,6 +648,11 @@ class StudyGroupControllerTest {
 		@Override
 		public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
 			return GROUP_ID.equals(groupId);
+		}
+
+		@Override
+		public boolean updateGroup(StudyGroup group) {
+			return GROUP_ID.equals(group.id());
 		}
 
 		@Override

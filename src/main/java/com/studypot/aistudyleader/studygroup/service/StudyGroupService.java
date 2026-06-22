@@ -167,6 +167,47 @@ public class StudyGroupService {
 	}
 
 	@Transactional
+	public StudyGroup updateGroup(UpdateStudyGroupCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		StudyGroup group = repository.findGroupByIdForMemberUserId(command.groupId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(command.groupId())) {
+					throw new StudyGroupNotFoundException("study group was not found.");
+				}
+				throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!group.createdBy().equals(command.authenticatedUserId())) {
+			throw new StudyGroupAccessDeniedException("only the study group owner can update the study group.");
+		}
+		int currentMembers = repository.countActiveOrOnboardingMembers(command.groupId());
+		if (command.maxMembers() < currentMembers) {
+			throw new InvalidStudyGroupMemberProfileRequestException(
+				"maxMembers",
+				"maxMembers must not be smaller than the current member count (" + currentMembers + ")."
+			);
+		}
+		StudyGroup updated;
+		try {
+			updated = group.update(
+				command.name(),
+				command.topic(),
+				command.detailKeywords(),
+				command.maxMembers(),
+				command.startsAt(),
+				command.endsAt(),
+				command.description(),
+				clock.instant()
+			);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidStudyGroupMemberProfileRequestException("name", exception.getMessage());
+		}
+		if (!repository.updateGroup(updated)) {
+			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+		return updated;
+	}
+
+	@Transactional
 	public void deleteGroup(DeleteStudyGroupCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		StudyGroup group = repository.findGroupByIdForMemberUserId(command.groupId(), command.authenticatedUserId())

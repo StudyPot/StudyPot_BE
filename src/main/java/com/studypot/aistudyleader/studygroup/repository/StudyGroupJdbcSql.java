@@ -174,6 +174,20 @@ final class StudyGroupJdbcSql {
 		  and sg.deleted_at is null
 		""";
 
+	static final String UPDATE_STUDY_GROUP = """
+		update study_group
+		set name = ?,
+		    topic = ?,
+		    detail_keywords = ?,
+		    max_members = ?,
+		    starts_at = ?,
+		    ends_at = ?,
+		    description = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SOFT_DELETE_GROUP = """
 		update study_group
 		set deleted_at = ?,
