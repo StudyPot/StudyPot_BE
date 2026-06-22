@@ -125,6 +125,33 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand retrospectiveReminder(
+		UUID groupId,
+		UUID recipientUserId,
+		UUID weekId,
+		String title,
+		String body
+	) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			new NotificationRelatedResources(null, weekId, null, null),
+			NotificationType.RETROSPECTIVE_REMINDER,
+			"idempotency:notification:retrospective_reminder:week:%s:recipient:%s".formatted(
+				weekId,
+				recipientUserId
+			),
+			title,
+			body,
+			payload("/weeks/%s/retrospectives/me".formatted(weekId), Map.of(
+				"groupId", groupId.toString(),
+				"weekId", weekId.toString()
+			)),
+			null
+		);
+	}
+
 	private static Map<String, Object> payload(String deepLink, Map<String, Object> values) {
 		Map<String, Object> payload = new LinkedHashMap<>(values);
 		payload.put("deepLink", deepLink);

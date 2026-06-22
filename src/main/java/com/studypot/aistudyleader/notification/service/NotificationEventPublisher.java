@@ -19,6 +19,9 @@ public interface NotificationEventPublisher {
 
 	void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId);
 
+	default void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+	}
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
