@@ -60,6 +60,8 @@ public interface CurriculumRepository {
 
 	int countActiveOrOnboardingMembers(UUID groupId);
 
+	List<CurriculumWeek> findWeeksByGroupId(UUID groupId);
+
 	boolean insertTaskCompletion(TaskCompletion completion);
 
 	boolean updateTaskCompletion(TaskCompletion completion);

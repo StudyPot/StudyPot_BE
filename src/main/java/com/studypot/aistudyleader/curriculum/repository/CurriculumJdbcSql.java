@@ -180,6 +180,19 @@ final class CurriculumJdbcSql {
 		limit 1
 		""";
 
+	static final String SELECT_WEEKS_BY_GROUP = """
+		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
+		       cw.sprint_goal, cw.learning_goals, cw.resources, cw.status,
+		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status = 'ACTIVE'
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		""";
+
 	static final String SELECT_WEEKLY_TASKS_BY_WEEK = """
 		select wt.id, wt.curriculum_week_id, wt.display_order, wt.task_type, wt.title,
 		       wt.description, wt.required, wt.due_at, wt.generated_by_ai, wt.source_payload,

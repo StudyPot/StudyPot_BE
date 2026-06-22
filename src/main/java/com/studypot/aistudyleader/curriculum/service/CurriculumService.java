@@ -203,6 +203,22 @@ public class CurriculumService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<CurriculumWeek> listCurriculumWeeks(GetCurrentWeekQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.canReadCurriculum()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read curriculum weeks.");
+		}
+		return repository.findWeeksByGroupId(query.groupId());
+	}
+
+	@Transactional(readOnly = true)
 	public CurriculumWeek getCurrentWeek(GetCurrentWeekQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())

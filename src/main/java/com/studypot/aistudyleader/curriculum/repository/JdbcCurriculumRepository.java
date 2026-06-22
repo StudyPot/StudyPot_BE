@@ -152,6 +152,16 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEKS_BY_GROUP,
+			(resultSet, rowNumber) -> mapWeekRow(resultSet, rowNumber).toWeek(List.of()),
+			uuid(groupId)
+		);
+	}
+
+	@Override
 	public boolean existsCurriculumWeek(UUID weekId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(CurriculumJdbcSql.EXISTS_CURRICULUM_WEEK, Boolean.class, uuid(weekId)));

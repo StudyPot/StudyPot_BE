@@ -106,6 +106,29 @@ class CurriculumController {
 	}
 
 	@Operation(
+		summary = "커리큘럼 전체 주차 목록 조회",
+		description = "그룹 멤버가 현재 활성 커리큘럼의 모든 주차(다음 주차 포함)를 주차 번호 순서로 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "주차 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 그룹의 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/weeks")
+	List<CurriculumWeekResponse> listCurriculumWeeks(
+		Authentication authentication,
+		@Parameter(description = "주차 목록을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return service().listCurriculumWeeks(new GetCurrentWeekQuery(authenticatedUserId(authentication), groupId))
+			.stream()
+			.map(CurriculumWeekResponse::from)
+			.toList();
+	}
+
+	@Operation(
 		summary = "현재 주차 조회",
 		description = "그룹 멤버가 오늘 기준으로 진행해야 하는 현재 커리큘럼 주차의 목표와 기간을 조회합니다."
 	)

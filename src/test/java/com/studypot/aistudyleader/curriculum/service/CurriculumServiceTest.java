@@ -632,6 +632,30 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void listCurriculumWeeksReturnsAllWeeksForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeksByGroup = List.of(currentWeek());
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		List<CurriculumWeek> result = service.listCurriculumWeeks(new GetCurrentWeekQuery(USER_ID, GROUP_ID));
+
+		assertThat(result).hasSize(1);
+		assertThat(result.getFirst().id()).isEqualTo(WEEK_ID);
+	}
+
+	@Test
+	void listCurriculumWeeksRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.listCurriculumWeeks(new GetCurrentWeekQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class);
+	}
+
+	@Test
 	void getMyWeekProgressReturnsExistingProgressForActiveMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;
@@ -1410,6 +1434,7 @@ class CurriculumServiceTest {
 		private List<TaskCompletion> taskCompletions = List.of();
 		private List<GroupActivityCount> groupActivityCounts = List.of();
 		private int activeOrOnboardingMemberCount = 2;
+		private List<CurriculumWeek> weeksByGroup = List.of();
 		private UUID activityRequestedGroupId;
 		private java.time.Instant activityFrom;
 		private java.time.Instant activityTo;
@@ -1555,6 +1580,11 @@ class CurriculumServiceTest {
 		@Override
 		public int countActiveOrOnboardingMembers(UUID groupId) {
 			return activeOrOnboardingMemberCount;
+		}
+
+		@Override
+		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+			return weeksByGroup;
 		}
 
 		@Override

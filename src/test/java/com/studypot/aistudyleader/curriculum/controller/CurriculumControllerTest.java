@@ -208,6 +208,18 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void listCurriculumWeeksReturnsWeeks() throws Exception {
+		repository.currentWeek = currentWeek();
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/weeks")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].weekNumber").value(1));
+	}
+
+	@Test
 	void getCurrentWeekReturnsForbiddenForPendingMember() throws Exception {
 		repository.readContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
 
@@ -1107,6 +1119,11 @@ class CurriculumControllerTest {
 		@Override
 		public int countActiveOrOnboardingMembers(UUID groupId) {
 			return 2;
+		}
+
+		@Override
+		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+			return currentWeek == null ? List.of() : List.of(currentWeek);
 		}
 
 		@Override
