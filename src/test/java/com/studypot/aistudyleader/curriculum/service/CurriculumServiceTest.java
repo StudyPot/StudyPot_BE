@@ -425,9 +425,29 @@ class CurriculumServiceTest {
 		repository.weeklyTasks = List.of(task(TASK_ID, 1, WeeklyTaskType.READING), task(SECOND_TASK_ID, 2, WeeklyTaskType.PROJECT));
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
-		List<WeeklyTask> result = service.listWeeklyTasks(new ListWeeklyTasksQuery(USER_ID, WEEK_ID));
+		List<WeeklyTaskWithCompletion> result = service.listWeeklyTasks(new ListWeeklyTasksQuery(USER_ID, WEEK_ID));
 
-		assertThat(result).containsExactlyElementsOf(repository.weeklyTasks);
+		assertThat(result).extracting(WeeklyTaskWithCompletion::task).containsExactlyElementsOf(repository.weeklyTasks);
+		assertThat(result).extracting(WeeklyTaskWithCompletion::completion).containsOnlyNulls();
+	}
+
+	@Test
+	void listWeeklyTasksAttachesMemberCompletionStatus() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTasks = List.of(task(TASK_ID, 1, WeeklyTaskType.READING), task(SECOND_TASK_ID, 2, WeeklyTaskType.PROJECT));
+		TaskCompletion doneCompletion = completion(TASK_ID, TaskCompletionStatus.DONE, NOW, "정리 완료", null, null, null);
+		repository.taskCompletions = List.of(doneCompletion);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		List<WeeklyTaskWithCompletion> result = service.listWeeklyTasks(new ListWeeklyTasksQuery(USER_ID, WEEK_ID));
+
+		assertThat(result).hasSize(2);
+		assertThat(result.get(0).task().id()).isEqualTo(TASK_ID);
+		assertThat(result.get(0).completion()).isEqualTo(doneCompletion);
+		assertThat(result.get(1).task().id()).isEqualTo(SECOND_TASK_ID);
+		assertThat(result.get(1).completion()).isNull();
 	}
 
 	@Test

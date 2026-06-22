@@ -211,7 +211,7 @@ public class CurriculumService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<WeeklyTask> listWeeklyTasks(ListWeeklyTasksQuery query) {
+	public List<WeeklyTaskWithCompletion> listWeeklyTasks(ListWeeklyTasksQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		CurriculumStartContext context = repository.findReadContextByWeekId(query.weekId(), query.authenticatedUserId())
 			.orElseGet(() -> {
@@ -223,7 +223,16 @@ public class CurriculumService {
 		if (!context.canReadCurriculum()) {
 			throw new CurriculumAccessDeniedException("active group membership is required to read weekly tasks.");
 		}
-		return repository.findWeeklyTasksByWeekId(query.weekId());
+		List<WeeklyTask> tasks = repository.findWeeklyTasksByWeekId(query.weekId());
+		Map<UUID, TaskCompletion> completionsByTaskId = new LinkedHashMap<>();
+		for (TaskCompletion completion : repository.findTaskCompletionsByWeekIdAndMemberId(query.weekId(), context.memberId())) {
+			completionsByTaskId.put(completion.weeklyTaskId(), completion);
+		}
+		List<WeeklyTaskWithCompletion> result = new ArrayList<>(tasks.size());
+		for (WeeklyTask task : tasks) {
+			result.add(new WeeklyTaskWithCompletion(task, completionsByTaskId.get(task.id())));
+		}
+		return result;
 	}
 
 	@Transactional(readOnly = true)
