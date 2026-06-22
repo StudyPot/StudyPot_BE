@@ -771,6 +771,22 @@ class RetrospectiveServiceTest {
 		private final List<RetrospectiveNotice> nextWeekAdjusted = new ArrayList<>();
 
 		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 		}
 

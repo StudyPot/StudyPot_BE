@@ -901,6 +901,24 @@ class StudyGroupServiceTest {
 	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
 
 		private final List<OnboardingRequest> onboardingRequests = new ArrayList<>();
+		private final List<UUID> memberJoinedRecipients = new ArrayList<>();
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+			memberJoinedRecipients.add(ownerUserId);
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
 
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
@@ -944,6 +962,23 @@ class StudyGroupServiceTest {
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
 		@Override

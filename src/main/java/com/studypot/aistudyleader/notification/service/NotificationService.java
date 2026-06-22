@@ -220,6 +220,32 @@ public class NotificationService implements NotificationEventPublisher {
 		));
 	}
 
+	@Override
+	public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingCompleted(groupId, ownerUserId));
+	}
+
+	@Override
+	public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		publishAfterCommit(NotificationCommandFactory.memberJoined(groupId, ownerUserId, joinedUserId));
+	}
+
+	@Override
+	public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingSubmitted(groupId, recipientUserId, submitterMemberId));
+	}
+
+	@Override
+	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"이번 주 회고를 작성해 주세요",
+			"이번 주차 마감이 한 시간 남았어요. AI 팀장과 함께 회고를 시작해 보세요."
+		));
+	}
+
 	private NotificationAccessContext requireAccessContext(UUID groupId, UUID userId) {
 		return repository.findAccessContext(groupId, userId)
 			.orElseGet(() -> {

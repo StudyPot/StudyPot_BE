@@ -78,6 +78,17 @@ class ApplicationFeatureWiringTest {
 			.containsExactly("llmUsageService");
 	}
 
+	@Test
+	void notificationEventPublisherResolvesToInProcessServiceWhenRabbitDisabled() {
+		// RabbitMQ 비활성(프로덕션 현 상태) 시, 도메인 서비스가 주입받는 NotificationEventPublisher가
+		// noop이 아니라 실제 발행자(NotificationService, in-process)로 해석되는지 검증한다.
+		com.studypot.aistudyleader.notification.service.NotificationEventPublisher resolved =
+			context.getBeanProvider(com.studypot.aistudyleader.notification.service.NotificationEventPublisher.class)
+				.getIfAvailable();
+		assertThat(resolved)
+			.isInstanceOf(com.studypot.aistudyleader.notification.service.NotificationService.class);
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestDataSourceConfiguration {
 

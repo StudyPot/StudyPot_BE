@@ -19,17 +19,15 @@ public interface NotificationEventPublisher {
 
 	void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId);
 
-	default void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
-	}
+	// 아래 메서드들은 abstract 로 둔다. default(noop) 로 두면 in-process 발행자(NotificationService)가
+	// 오버라이드를 누락해도 컴파일은 통과하면서 프로덕션에서 조용히 noop 이 되는 버그가 생긴다. (실제 발생함)
+	void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId);
 
-	default void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
-	}
+	void publishOnboardingCompleted(UUID groupId, UUID ownerUserId);
 
-	default void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
-	}
+	void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId);
 
-	default void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
-	}
+	void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId);
 
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
@@ -64,6 +62,22 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishNextWeekAdjusted(UUID groupId, UUID recipientUserId, UUID retrospectiveId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
 		}
 	}
 }

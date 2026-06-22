@@ -118,6 +118,14 @@ class OnboardingServiceTest {
 		private UUID completedOwnerUserId;
 
 		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 		}
 
