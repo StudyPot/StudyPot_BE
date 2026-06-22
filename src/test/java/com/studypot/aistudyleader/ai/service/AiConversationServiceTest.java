@@ -138,7 +138,8 @@ class AiConversationServiceTest {
 	void openRetrospectiveConversationLinksSameMemberRetrospectiveAndInfersWeek() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, MEMBER_ID, WEEK_ID);
-		AiConversationService service = service(repository, CONVERSATION_ID);
+		UUID seedMessageId = UUID.fromString("018f0000-0000-7000-8000-000000009201");
+		AiConversationService service = service(repository, CONVERSATION_ID, seedMessageId);
 
 		AiConversation result = service.openConversation(new OpenAiConversationCommand(
 			USER_ID,
@@ -152,6 +153,10 @@ class AiConversationServiceTest {
 		assertThat(result.curriculumWeekId()).isEqualTo(WEEK_ID);
 		assertThat(result.retrospectiveId()).isEqualTo(RETROSPECTIVE_ID);
 		assertThat(repository.insertedConversation).isSameAs(result);
+		assertThat(repository.insertedMessage).isNotNull();
+		assertThat(repository.insertedMessage.senderType())
+			.isEqualTo(com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType.ASSISTANT);
+		assertThat(repository.insertedMessage.content()).contains("회고");
 	}
 
 	@Test

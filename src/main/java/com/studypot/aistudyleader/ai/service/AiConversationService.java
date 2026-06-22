@@ -34,6 +34,13 @@ public class AiConversationService {
 	private static final Base64.Decoder CURSOR_DECODER = Base64.getUrlDecoder();
 	private static final Logger log = LoggerFactory.getLogger(AiConversationService.class);
 
+	private static final String RETROSPECTIVE_GREETING = """
+		안녕하세요, AI 팀장이에요. 이번 주 회고를 함께 정리해볼게요. 편하게 답해 주세요.
+		1) 이번 주는 전반적으로 어떠셨나요?
+		2) TODO에서 진행한 것들 중 가장 어려웠던 건 무엇이었나요?
+		3) 다음 주에는 무엇을, 어떻게 해보고 싶으세요?
+		답변을 주시면 그걸 바탕으로 다음 주 학습 내용을 함께 조정해드릴게요.""";
+
 	private final AiConversationRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
@@ -108,7 +115,23 @@ public class AiConversationService {
 		if (!repository.insertConversation(conversation)) {
 			throw new AiConversationMutationRejectedException("AI conversation could not be inserted.");
 		}
+		if (conversation.conversationType() == AiConversationType.RETROSPECTIVE) {
+			seedRetrospectiveGreeting(conversation, now);
+		}
 		return conversation;
+	}
+
+	private void seedRetrospectiveGreeting(AiConversation conversation, Instant now) {
+		AiConversationMessage greeting = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			conversation.id(),
+			RETROSPECTIVE_GREETING,
+			Map.of("seed", true, "kind", "retrospective_intro"),
+			now
+		);
+		if (repository.insertMessage(greeting)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(greeting), "retrospective-seed");
+		}
 	}
 
 	private static boolean isOrdinaryTeamLeadChat(OpenAiConversationCommand command, UUID effectiveWeekId) {

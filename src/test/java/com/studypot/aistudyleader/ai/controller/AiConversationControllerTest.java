@@ -139,6 +139,7 @@ class AiConversationControllerTest {
 	@Test
 	void openRetrospectiveConversationLinksRetrospective() throws Exception {
 		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, MEMBER_ID, WEEK_ID);
+		repository.nextIds(CONVERSATION_ID, MESSAGE_ID);
 
 		mockMvc.perform(post(CONVERSATION_PATH)
 				.with(user(USER_ID.toString()))
