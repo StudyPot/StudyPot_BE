@@ -1,7 +1,6 @@
 package com.studypot.aistudyleader.studygroup.repository;
 
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
-import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
@@ -30,8 +29,6 @@ public interface StudyGroupRepository {
 	List<StudyGroup> findGroupsByMemberUserId(UUID userId);
 
 	Optional<StudyGroupMemberProfile> findMyGroupMemberProfile(UUID groupId, UUID userId);
-
-	List<GroupMemberSummary> findGroupMembers(UUID groupId);
 
 	boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt);
 

@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
-import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
@@ -472,45 +471,6 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
-	void listGroupMembersReturnsMembersForActiveMember() {
-		CapturingRepository repository = new CapturingRepository(Set.of());
-		repository.existingActiveOrOnboardingMember = true;
-		GroupMemberSummary owner = new GroupMemberSummary(
-			OWNER_MEMBER_ID, GROUP_ID, USER_ID,
-			GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
-			"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
-		);
-		repository.groupMembers = List.of(owner);
-		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
-
-		List<GroupMemberSummary> result = service.listGroupMembers(new ListGroupMembersQuery(USER_ID, GROUP_ID));
-
-		assertThat(repository.membersRequestedGroupId).isEqualTo(GROUP_ID);
-		assertThat(result).containsExactly(owner);
-	}
-
-	@Test
-	void listGroupMembersRejectsNonMemberOfExistingGroup() {
-		CapturingRepository repository = new CapturingRepository(Set.of());
-		repository.groupExists = true;
-		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
-
-		assertThatThrownBy(() -> service.listGroupMembers(new ListGroupMembersQuery(JOINER_ID, GROUP_ID)))
-			.isInstanceOf(StudyGroupAccessDeniedException.class)
-			.hasMessage("authenticated user is not a member of this study group.");
-	}
-
-	@Test
-	void listGroupMembersReturnsNotFoundWhenGroupMissing() {
-		CapturingRepository repository = new CapturingRepository(Set.of());
-		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
-
-		assertThatThrownBy(() -> service.listGroupMembers(new ListGroupMembersQuery(USER_ID, GROUP_ID)))
-			.isInstanceOf(StudyGroupNotFoundException.class)
-			.hasMessage("study group was not found.");
-	}
-
-	@Test
 	void updateMyGroupMemberProfileRejectsBlankDisplayName() {
 		assertThatThrownBy(() -> new UpdateMyGroupMemberProfileCommand(USER_ID, GROUP_ID, " "))
 			.isInstanceOf(InvalidStudyGroupMemberProfileRequestException.class)
@@ -714,8 +674,6 @@ class StudyGroupServiceTest {
 		private Instant deletedGroupAt;
 		private StudyGroup readGroup;
 		private StudyGroupMemberProfile profile;
-		private UUID membersRequestedGroupId;
-		private List<GroupMemberSummary> groupMembers = List.of();
 		private List<StudyGroup> listedGroups = List.of();
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
@@ -788,12 +746,6 @@ class StudyGroupServiceTest {
 			this.profileRequestedGroupId = groupId;
 			this.profileRequestedUserId = userId;
 			return java.util.Optional.ofNullable(profile);
-		}
-
-		@Override
-		public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
-			this.membersRequestedGroupId = groupId;
-			return groupMembers;
 		}
 
 		@Override
