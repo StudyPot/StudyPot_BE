@@ -39,6 +39,12 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequire
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitExceededException;
+import com.studypot.aistudyleader.review.repository.ReviewPersistenceException;
+import com.studypot.aistudyleader.review.service.InvalidReviewRequestException;
+import com.studypot.aistudyleader.review.service.ReviewAccessDeniedException;
+import com.studypot.aistudyleader.review.service.ReviewMutationRejectedException;
+import com.studypot.aistudyleader.review.service.ReviewNotFoundException;
+import com.studypot.aistudyleader.review.service.ReviewServiceUnavailableException;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectivePersistenceException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDeniedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
@@ -186,7 +192,9 @@ public class ApiExceptionHandler {
 		LlmUsageServiceUnavailableException.class,
 		LlmUsagePersistenceException.class,
 		NotificationServiceUnavailableException.class,
-		NotificationPersistenceException.class
+		NotificationPersistenceException.class,
+		ReviewServiceUnavailableException.class,
+		ReviewPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -206,7 +214,8 @@ public class ApiExceptionHandler {
 		AiConversationNotFoundException.class,
 		LlmUsageGroupNotFoundException.class,
 		NotificationGroupNotFoundException.class,
-		NotificationNotFoundException.class
+		NotificationNotFoundException.class,
+		ReviewNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -222,7 +231,8 @@ public class ApiExceptionHandler {
 		RetrospectiveAccessDeniedException.class,
 		AiConversationAccessDeniedException.class,
 		LlmUsageAccessDeniedException.class,
-		NotificationAccessDeniedException.class
+		NotificationAccessDeniedException.class,
+		ReviewAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -239,7 +249,8 @@ public class ApiExceptionHandler {
 		OnboardingAlreadySubmittedException.class,
 		RetrospectiveMutationRejectedException.class,
 		AiConversationMutationRejectedException.class,
-		NotificationMutationRejectedException.class
+		NotificationMutationRejectedException.class,
+		ReviewMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -300,6 +311,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidAiConversationRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidAiConversationRequest(InvalidAiConversationRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidReviewRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidReviewRequest(InvalidReviewRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

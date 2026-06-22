@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
@@ -174,6 +177,12 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(StudyGroupJdbcSql.SELECT_GROUP_MEMBERS, JdbcStudyGroupRepository::mapGroupMemberSummary, uuid(groupId));
+	}
+
+	@Override
 	public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");
@@ -254,6 +263,20 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 				resultSet.getInt("task_skipped_count")
 			),
 			new StudyGroupMemberProfile.RetrospectiveSummary(resultSet.getBoolean("retrospective_feedback_ready"))
+		);
+	}
+
+	private static GroupMemberSummary mapGroupMemberSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new GroupMemberSummary(
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			GroupMemberPermission.valueOf(resultSet.getString("permission")),
+			GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+			resultSet.getString("display_name"),
+			resultSet.getString("nickname"),
+			resultSet.getString("email"),
+			resultSet.getString("onboarding_status")
 		);
 	}
 
