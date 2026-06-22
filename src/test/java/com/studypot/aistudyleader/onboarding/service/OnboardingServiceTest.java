@@ -150,6 +150,13 @@ class OnboardingServiceTest {
 			this.completedGroupId = groupId;
 			this.completedOwnerUserId = ownerUserId;
 		}
+
+		private final java.util.List<UUID> submittedRecipients = new java.util.ArrayList<>();
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+			submittedRecipients.add(recipientUserId);
+		}
 	}
 
 	@Test
@@ -412,6 +419,7 @@ class OnboardingServiceTest {
 		private Instant readyAt;
 		private java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> groupOnboardings = java.util.List.of();
 		private UUID allOnboardedOwnerUserId;
+		private java.util.List<UUID> otherMemberUserIds = java.util.List.of();
 		private boolean activateResult = true;
 
 		@Override
@@ -474,6 +482,11 @@ class OnboardingServiceTest {
 		@Override
 		public java.util.Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
 			return java.util.Optional.ofNullable(allOnboardedOwnerUserId);
+		}
+
+		@Override
+		public java.util.List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId) {
+			return otherMemberUserIds;
 		}
 
 		private static void requireExpectedGroupId(UUID groupId) {

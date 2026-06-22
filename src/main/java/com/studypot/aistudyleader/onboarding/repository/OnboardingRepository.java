@@ -27,4 +27,6 @@ public interface OnboardingRepository {
 	List<GroupMemberOnboarding> findGroupOnboardings(UUID groupId);
 
 	Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId);
+
+	List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId);
 }

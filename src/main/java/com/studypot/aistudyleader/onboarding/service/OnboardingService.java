@@ -74,8 +74,19 @@ public class OnboardingService {
 			&& !repository.activatePendingMember(context.memberId(), now)) {
 			throw new OnboardingMembershipRequiredException("current group membership is required.");
 		}
+		notifyOtherMembersOfSubmission(context.groupId(), context.memberId());
 		markReadyAndNotifyIfAllOnboarded(context.groupId(), now);
 		return submitted;
+	}
+
+	private void notifyOtherMembersOfSubmission(UUID groupId, UUID submitterMemberId) {
+		try {
+			for (UUID recipientUserId : repository.findOtherMemberUserIds(groupId, submitterMemberId)) {
+				notificationEvents.publishOnboardingSubmitted(groupId, recipientUserId, submitterMemberId);
+			}
+		} catch (RuntimeException exception) {
+			log.warn("onboarding submitted notification publish failed groupId={}", groupId, exception);
+		}
 	}
 
 	@Transactional(readOnly = true)

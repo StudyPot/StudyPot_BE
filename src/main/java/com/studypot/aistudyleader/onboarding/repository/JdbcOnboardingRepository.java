@@ -160,6 +160,18 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 	}
 
 	@Override
+	public List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(excludeMemberId, "excludeMemberId must not be null");
+		return jdbcTemplate.query(
+			OnboardingJdbcSql.SELECT_OTHER_MEMBER_USER_IDS,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			uuid(groupId),
+			uuid(excludeMemberId)
+		);
+	}
+
+	@Override
 	public Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return queryOne(

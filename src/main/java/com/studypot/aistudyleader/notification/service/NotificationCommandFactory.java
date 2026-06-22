@@ -28,6 +28,21 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand onboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		Objects.requireNonNull(submitterMemberId, "submitterMemberId must not be null");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			null,
+			NotificationType.ONBOARDING_SUBMITTED,
+			"idempotency:notification:onboarding-submitted:group:%s:member:%s:recipient:%s".formatted(groupId, submitterMemberId, recipientUserId),
+			"팀원이 온보딩을 완료했어요",
+			"한 팀원이 온보딩을 마쳤어요. 팀원 현황을 확인해 주세요.",
+			payload("/groups/%s".formatted(groupId), Map.of("groupId", groupId.toString())),
+			null
+		);
+	}
+
 	static CreateNotificationCommand memberJoined(UUID groupId, UUID recipientUserId, UUID joinedUserId) {
 		Objects.requireNonNull(joinedUserId, "joinedUserId must not be null");
 		return new CreateNotificationCommand(

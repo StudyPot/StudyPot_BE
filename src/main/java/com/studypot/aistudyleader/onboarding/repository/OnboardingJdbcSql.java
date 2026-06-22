@@ -111,6 +111,15 @@ final class OnboardingJdbcSql {
 		order by gm.joined_at asc, gm.id asc
 		""";
 
+	static final String SELECT_OTHER_MEMBER_USER_IDS = """
+		select gm.user_id
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.id <> ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		""";
+
 	static final String SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED = """
 		select owner.user_id
 		from group_member owner

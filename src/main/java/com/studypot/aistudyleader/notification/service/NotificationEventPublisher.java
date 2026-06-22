@@ -28,6 +28,9 @@ public interface NotificationEventPublisher {
 	default void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
 	}
 
+	default void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+	}
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
