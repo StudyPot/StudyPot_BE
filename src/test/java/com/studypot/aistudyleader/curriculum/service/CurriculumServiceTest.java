@@ -917,6 +917,47 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void completeMyTaskRejectsDoneBeforeWeekStarts() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.weekStartsAt = NOW.plusSeconds(86_400);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"미리 완료",
+			null,
+			null
+		))).isInstanceOf(TaskCompletionUpdateRejectedException.class);
+	}
+
+	@Test
+	void completeMyTaskAllowsIncompleteBeforeWeekStarts() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.weekStartsAt = NOW.plusSeconds(86_400);
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			"아직 시작 전",
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+	}
+
+	@Test
 	void completeMyTaskStoresIncompleteReasonAfterDueAt() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
@@ -1530,6 +1571,13 @@ class CurriculumServiceTest {
 		@Override
 		public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
 			return Optional.ofNullable(weeklyTask);
+		}
+
+		private Instant weekStartsAt;
+
+		@Override
+		public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+			return Optional.ofNullable(weekStartsAt);
 		}
 
 		@Override

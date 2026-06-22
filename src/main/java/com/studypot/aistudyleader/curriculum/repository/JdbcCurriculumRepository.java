@@ -200,6 +200,16 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_CURRICULUM_WEEK_STARTS_AT,
+			(resultSet, rowNumber) -> instant(resultSet.getTimestamp("starts_at")),
+			uuid(weekId)
+		);
+	}
+
+	@Override
 	public Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		Objects.requireNonNull(memberId, "memberId must not be null");

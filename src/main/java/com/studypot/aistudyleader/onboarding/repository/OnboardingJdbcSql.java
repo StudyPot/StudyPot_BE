@@ -100,7 +100,8 @@ final class OnboardingJdbcSql {
 	static final String SELECT_RESPONSES_BY_GROUP = """
 		select gor.id, gm.group_id, gm.id as member_id, gor.keyword_skill_levels, gor.task_preferences,
 		       gor.additional_note, gor.status, gor.submitted_at, gor.created_at, gor.updated_at,
-		       u.nickname as member_nickname, gm.status as member_status
+		       u.nickname as member_nickname, gm.status as member_status,
+		       gm.permission as member_permission, gm.joined_at as member_joined_at
 		from group_member gm
 		join users u on u.id = gm.user_id
 		left join group_onboarding_response gor

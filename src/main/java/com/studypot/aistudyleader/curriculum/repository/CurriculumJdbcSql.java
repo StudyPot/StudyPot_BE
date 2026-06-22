@@ -211,6 +211,13 @@ final class CurriculumJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String SELECT_CURRICULUM_WEEK_STARTS_AT = """
+		select starts_at
+		from curriculum_week
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_MEMBER_WEEK_PROGRESS_BY_WEEK_AND_MEMBER = """
 		select id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
 		       completion_note, incomplete_reason, reason_submitted_at, created_at, updated_at

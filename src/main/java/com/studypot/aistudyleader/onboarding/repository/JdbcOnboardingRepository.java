@@ -138,10 +138,13 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 			OnboardingJdbcSql.SELECT_RESPONSES_BY_GROUP,
 			(resultSet, rowNumber) -> {
 				GroupOnboardingResponse response = resultSet.getBytes("id") == null ? null : mapResponse(resultSet, rowNumber);
+				java.sql.Timestamp joinedAt = resultSet.getTimestamp("member_joined_at");
 				return new GroupMemberOnboarding(
 					UuidBinary.fromBytes(resultSet.getBytes("member_id")),
 					resultSet.getString("member_nickname"),
 					GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+					com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission.valueOf(resultSet.getString("member_permission")),
+					joinedAt == null ? null : joinedAt.toInstant(),
 					response
 				);
 			},
@@ -154,6 +157,8 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 					row.memberId(),
 					row.memberNickname(),
 					row.memberStatus(),
+					row.permission(),
+					row.joinedAt(),
 					row.response().withAvailabilitySlots(findAvailabilitySlots(row.response().id()))
 				))
 			.toList();

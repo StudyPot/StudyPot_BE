@@ -44,6 +44,8 @@ public interface CurriculumRepository {
 
 	Optional<WeeklyTask> findWeeklyTaskById(UUID taskId);
 
+	Optional<Instant> findCurriculumWeekStartsAt(UUID weekId);
+
 	Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId);
 
 	Optional<Instant> findWeekDueAt(UUID weekId);

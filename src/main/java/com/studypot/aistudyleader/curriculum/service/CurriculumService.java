@@ -15,6 +15,7 @@ import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -355,6 +356,14 @@ public class CurriculumService {
 		WeeklyTask task = repository.findWeeklyTaskById(command.taskId())
 			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
 		Instant now = clock.instant();
+		// 해당 주차가 시작되기 전에는 '완료(DONE)'로 표시할 수 없다. (미완료/스킵 등 다른 전환은 허용)
+		if (command.status() == TaskCompletionStatus.DONE) {
+			repository.findCurriculumWeekStartsAt(task.curriculumWeekId())
+				.filter(now::isBefore)
+				.ifPresent(weekStartsAt -> {
+					throw new TaskCompletionUpdateRejectedException("아직 시작되지 않은 주차의 과제는 완료할 수 없어요.");
+				});
+		}
 		MemberWeekProgress progress = findOrCreateProgressForTaskCompletion(task.curriculumWeekId(), context.memberId(), now);
 		return repository.findTaskCompletion(command.taskId(), context.memberId())
 			.map(completion -> updateTaskCompletion(completion, command, now))

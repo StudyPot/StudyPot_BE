@@ -1099,6 +1099,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+			return Optional.empty();
+		}
+
+		@Override
 		public Optional<MemberWeekProgress> findMemberWeekProgress(UUID weekId, UUID memberId) {
 			return Optional.ofNullable(progress);
 		}

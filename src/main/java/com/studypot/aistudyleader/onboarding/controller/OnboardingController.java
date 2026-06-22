@@ -241,6 +241,10 @@ class OnboardingController {
 		UUID memberId,
 		@Schema(description = "멤버 닉네임입니다.", example = "현우")
 		String memberNickname,
+		@Schema(description = "그룹 내 역할입니다.", example = "OWNER")
+		com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission permission,
+		@Schema(description = "그룹 가입 시각입니다.", example = "2026-05-18T11:30:00Z")
+		Instant joinedAt,
 		@Schema(description = "전체 자기평가 실력입니다.", example = "3")
 		int skillLevel,
 		@Schema(description = "추가 메모입니다.", example = "실습 위주로 진행하고 싶습니다.")
@@ -262,6 +266,8 @@ class OnboardingController {
 					null,
 					memberOnboarding.memberId(),
 					memberOnboarding.memberNickname(),
+					memberOnboarding.permission(),
+					memberOnboarding.joinedAt(),
 					0,
 					null,
 					List.of(),
@@ -274,6 +280,8 @@ class OnboardingController {
 				response.groupId(),
 				response.memberId(),
 				memberOnboarding.memberNickname(),
+				memberOnboarding.permission(),
+				memberOnboarding.joinedAt(),
 				response.skillLevel(),
 				response.additionalNote().orElse(null),
 				response.availabilitySlots().stream()

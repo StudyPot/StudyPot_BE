@@ -289,6 +289,8 @@ class OnboardingControllerTest {
 						MEMBER_ID,
 						"현우",
 						com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus.ACTIVE,
+						com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission.OWNER,
+						java.time.Instant.parse("2026-05-18T11:30:00Z"),
 						response
 					)
 				);
