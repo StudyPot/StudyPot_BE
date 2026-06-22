@@ -293,8 +293,10 @@ public class CurriculumService {
 		if (!context.hasActiveMembership()) {
 			throw new CurriculumAccessDeniedException("active group membership is required to read group activity.");
 		}
-		LocalDate endDate = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
-		LocalDate startDate = endDate.minusDays(query.days() - 1L);
+		// 활동 히트맵은 스터디 커리큘럼 기간(시작일~종료일) 전체를 보여준다.
+		// (이전엔 '오늘 기준 최근 N일'이라 커리큘럼 기간과 어긋났음)
+		LocalDate startDate = context.startsAt();
+		LocalDate endDate = context.endsAt();
 		Instant fromInclusive = startDate.atStartOfDay(ZoneOffset.UTC).toInstant();
 		Instant toExclusive = endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
 		List<GroupActivityCount> rows = repository.findGroupDoneActivityCounts(query.groupId(), fromInclusive, toExclusive);

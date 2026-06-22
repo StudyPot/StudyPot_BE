@@ -594,29 +594,30 @@ class CurriculumServiceTest {
 		UUID idleUserId = UUID.fromString("018f0000-0000-7000-8000-0000000040bb");
 		repository.groupActivityCounts = List.of(
 			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
-			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1),
+			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1),
 			new GroupActivityCount(idleMemberId, idleUserId, null, "minsu", null, 0)
 		);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
 		GroupActivityHeatmap result = service.getGroupActivityHeatmap(new GetGroupActivityHeatmapQuery(USER_ID, GROUP_ID, 28));
 
-		assertThat(result.startDate()).isEqualTo(LocalDate.parse("2026-04-14"));
-		assertThat(result.endDate()).isEqualTo(LocalDate.parse("2026-05-11"));
-		assertThat(result.days()).hasSize(28);
+		// 히트맵 범위는 커리큘럼 기간(context.startsAt~endsAt = 2026-05-11~2026-05-17, 7일)이다.
+		assertThat(result.startDate()).isEqualTo(LocalDate.parse("2026-05-11"));
+		assertThat(result.endDate()).isEqualTo(LocalDate.parse("2026-05-17"));
+		assertThat(result.days()).hasSize(7);
 		assertThat(result.members()).hasSize(2);
 		GroupActivityHeatmap.MemberActivity owner = result.members().get(0);
 		assertThat(owner.userId()).isEqualTo(USER_ID);
-		assertThat(owner.counts()).hasSize(28);
-		assertThat(owner.counts().get(27)).isEqualTo(3);
-		assertThat(owner.counts().get(26)).isEqualTo(1);
+		assertThat(owner.counts()).hasSize(7);
+		assertThat(owner.counts().get(0)).isEqualTo(3);
+		assertThat(owner.counts().get(1)).isEqualTo(1);
 		assertThat(owner.counts().stream().mapToInt(Integer::intValue).sum()).isEqualTo(4);
 		GroupActivityHeatmap.MemberActivity idle = result.members().get(1);
 		assertThat(idle.userId()).isEqualTo(idleUserId);
 		assertThat(idle.counts().stream().mapToInt(Integer::intValue).sum()).isZero();
 		assertThat(repository.activityRequestedGroupId).isEqualTo(GROUP_ID);
-		assertThat(repository.activityFrom).isEqualTo(LocalDate.parse("2026-04-14").atStartOfDay(ZoneOffset.UTC).toInstant());
-		assertThat(repository.activityTo).isEqualTo(LocalDate.parse("2026-05-12").atStartOfDay(ZoneOffset.UTC).toInstant());
+		assertThat(repository.activityFrom).isEqualTo(LocalDate.parse("2026-05-11").atStartOfDay(ZoneOffset.UTC).toInstant());
+		assertThat(repository.activityTo).isEqualTo(LocalDate.parse("2026-05-18").atStartOfDay(ZoneOffset.UTC).toInstant());
 	}
 
 	@Test

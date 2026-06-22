@@ -314,29 +314,29 @@ class CurriculumControllerTest {
 	void getActivityHeatmapReturnsMemberDailyCounts() throws Exception {
 		repository.groupActivityCounts = List.of(
 			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
-			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1)
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1)
 		);
 
 		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/activity-heatmap")
 				.with(user(USER_ID.toString())))
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$.startDate").value("2026-04-14"))
-			.andExpect(jsonPath("$.endDate").value("2026-05-11"))
-			.andExpect(jsonPath("$.days.length()").value(28))
+			.andExpect(jsonPath("$.startDate").value("2026-05-11"))
+			.andExpect(jsonPath("$.endDate").value("2026-05-17"))
+			.andExpect(jsonPath("$.days.length()").value(7))
 			.andExpect(jsonPath("$.members[0].userId").value(USER_ID.toString()))
 			.andExpect(jsonPath("$.members[0].displayName").value("현우"))
 			.andExpect(jsonPath("$.members[0].nickname").value("hyunwoo"))
-			.andExpect(jsonPath("$.members[0].counts.length()").value(28))
-			.andExpect(jsonPath("$.members[0].counts[27]").value(3))
-			.andExpect(jsonPath("$.members[0].counts[26]").value(1));
+			.andExpect(jsonPath("$.members[0].counts.length()").value(7))
+			.andExpect(jsonPath("$.members[0].counts[0]").value(3))
+			.andExpect(jsonPath("$.members[0].counts[1]").value(1));
 	}
 
 	@Test
 	void getGroupMembersActivityReturnsDailyActivityRows() throws Exception {
 		repository.groupActivityCounts = List.of(
 			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
-			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-10"), 1)
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1)
 		);
 
 		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/learning-activity")
@@ -345,10 +345,10 @@ class CurriculumControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$[0].memberId").value(MEMBER_ID.toString()))
 			.andExpect(jsonPath("$[0].memberNickname").value("hyunwoo"))
-			.andExpect(jsonPath("$[0].dailyActivity.length()").value(28))
-			.andExpect(jsonPath("$[0].dailyActivity[27].date").value("2026-05-11"))
-			.andExpect(jsonPath("$[0].dailyActivity[27].count").value(3))
-			.andExpect(jsonPath("$[0].dailyActivity[26].count").value(1));
+			.andExpect(jsonPath("$[0].dailyActivity.length()").value(7))
+			.andExpect(jsonPath("$[0].dailyActivity[0].date").value("2026-05-11"))
+			.andExpect(jsonPath("$[0].dailyActivity[0].count").value(3))
+			.andExpect(jsonPath("$[0].dailyActivity[1].count").value(1));
 	}
 
 	@Test

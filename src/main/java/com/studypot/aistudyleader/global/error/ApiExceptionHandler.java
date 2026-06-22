@@ -2,6 +2,9 @@ package com.studypot.aistudyleader.global.error;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.bookmark.repository.BookmarkPersistenceException;
+import com.studypot.aistudyleader.bookmark.service.BookmarkGroupNotFoundException;
+import com.studypot.aistudyleader.bookmark.service.BookmarkServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
 import com.studypot.aistudyleader.auth.service.RefreshTokenRejectedException;
@@ -194,7 +197,9 @@ public class ApiExceptionHandler {
 		NotificationServiceUnavailableException.class,
 		NotificationPersistenceException.class,
 		ReviewServiceUnavailableException.class,
-		ReviewPersistenceException.class
+		ReviewPersistenceException.class,
+		BookmarkServiceUnavailableException.class,
+		BookmarkPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -215,7 +220,8 @@ public class ApiExceptionHandler {
 		LlmUsageGroupNotFoundException.class,
 		NotificationGroupNotFoundException.class,
 		NotificationNotFoundException.class,
-		ReviewNotFoundException.class
+		ReviewNotFoundException.class,
+		BookmarkGroupNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
