@@ -135,6 +135,12 @@ public class StudyGroupService {
 	}
 
 	@Transactional(readOnly = true)
+	public int countMyGroups(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		return repository.findGroupsByMemberUserId(userId).size();
+	}
+
+	@Transactional(readOnly = true)
 	public List<StudyGroup> listMyGroups(ListStudyGroupsQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		List<StudyGroup> groups = repository.findGroupsByMemberUserId(query.authenticatedUserId());

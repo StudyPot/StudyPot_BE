@@ -187,6 +187,13 @@ public class CurriculumService {
 	}
 
 	@Transactional(readOnly = true)
+	public int countMyWeeklyDoneActivity(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		Instant now = clock.instant();
+		return repository.countMemberDoneActivity(userId, now.minus(java.time.Duration.ofDays(7)), now);
+	}
+
+	@Transactional(readOnly = true)
 	public Curriculum getCurriculum(GetCurriculumQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())

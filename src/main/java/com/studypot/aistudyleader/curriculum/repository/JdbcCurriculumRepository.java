@@ -374,6 +374,21 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public int countMemberDoneActivity(UUID userId, Instant fromInclusive, Instant toExclusive) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
+		Objects.requireNonNull(toExclusive, "toExclusive must not be null");
+		Integer count = jdbcTemplate.queryForObject(
+			CurriculumJdbcSql.COUNT_MEMBER_DONE_ACTIVITY,
+			Integer.class,
+			uuid(userId),
+			timestamp(fromInclusive),
+			timestamp(toExclusive)
+		);
+		return count == null ? 0 : count;
+	}
+
+	@Override
 	public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
