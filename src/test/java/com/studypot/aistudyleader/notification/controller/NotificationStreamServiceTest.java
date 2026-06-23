@@ -80,6 +80,35 @@ class NotificationStreamServiceTest {
 	}
 
 	@Test
+	void heartbeatPingsAllActiveConnectionsAndRemovesDeadOnes() {
+		NotificationStreamService service = new NotificationStreamService();
+		RecordingConnection healthyConnection = new RecordingConnection();
+		FailingConnection deadConnection = new FailingConnection();
+		service.register(USER_ID, healthyConnection);
+		service.register(OTHER_USER_ID, deadConnection);
+		healthyConnection.clear();
+
+		service.sendHeartbeats();
+
+		assertThat(healthyConnection.heartbeats).isEqualTo(1);
+		assertThat(deadConnection.completedWithError).isTrue();
+		assertThat(service.activeConnectionCount(USER_ID)).isEqualTo(1);
+		assertThat(service.activeConnectionCount(OTHER_USER_ID)).isZero();
+	}
+
+	@Test
+	void timeoutCompletesEmitterBeforeRemovingConnection() {
+		NotificationStreamService service = new NotificationStreamService();
+		RecordingConnection timedOut = new RecordingConnection();
+		service.register(USER_ID, timedOut);
+
+		timedOut.timeout.run();
+
+		assertThat(timedOut.completed).isTrue();
+		assertThat(service.activeConnectionCount(USER_ID)).isZero();
+	}
+
+	@Test
 	void completionTimeoutAndErrorCallbacksRemoveConnection() {
 		NotificationStreamService service = new NotificationStreamService();
 		RecordingConnection completed = new RecordingConnection();
@@ -124,6 +153,8 @@ class NotificationStreamServiceTest {
 	private static class RecordingConnection implements NotificationStreamConnection {
 
 		private final List<RecordedEvent> events = new ArrayList<>();
+		private int heartbeats;
+		private boolean completed;
 		private Runnable completion = () -> {
 		};
 		private Runnable timeout = () -> {
@@ -134,6 +165,11 @@ class NotificationStreamServiceTest {
 		@Override
 		public void send(String eventName, Object data) throws IOException {
 			events.add(new RecordedEvent(eventName, data));
+		}
+
+		@Override
+		public void sendHeartbeat() throws IOException {
+			heartbeats++;
 		}
 
 		@Override
@@ -152,6 +188,11 @@ class NotificationStreamServiceTest {
 		}
 
 		@Override
+		public void complete() {
+			completed = true;
+		}
+
+		@Override
 		public void completeWithError(Throwable throwable) {
 		}
 
@@ -166,6 +207,11 @@ class NotificationStreamServiceTest {
 
 		@Override
 		public void send(String eventName, Object data) throws IOException {
+			throw new IOException("client disconnected");
+		}
+
+		@Override
+		public void sendHeartbeat() throws IOException {
 			throw new IOException("client disconnected");
 		}
 
