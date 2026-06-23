@@ -164,6 +164,31 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	void inProcessPublishStreamsEventEvenWhenRunningInsideOuterAfterCommit() {
+		// 회귀 테스트: in-process 발행은 업무 트랜잭션의 afterCommit 단계에서 실행된다.
+		// 그 안에서 SSE 푸시를 다시 afterCommit 으로 등록하면, Spring 이 "그 시점에 캡처된 목록"으로
+		// 콜백을 순회하기 때문에 나중에 등록된 푸시는 호출되지 않고 유실된다(=실시간 알림 누락).
+		FakeRepository repository = new FakeRepository();
+		CapturingStreamPublisher streamPublisher = new CapturingStreamPublisher();
+		NotificationService service = new NotificationService(repository, CLOCK, () -> NOTIFICATION_ID, streamPublisher);
+
+		org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+		try {
+			service.publishMemberJoined(GROUP_ID, USER_ID, OTHER_USER_ID);
+			List<org.springframework.transaction.support.TransactionSynchronization> captured =
+				List.copyOf(org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations());
+			for (org.springframework.transaction.support.TransactionSynchronization synchronization : captured) {
+				synchronization.afterCommit();
+			}
+		} finally {
+			org.springframework.transaction.support.TransactionSynchronizationManager.clear();
+		}
+
+		assertThat(repository.savedNotifications).hasSize(1);
+		assertThat(streamPublisher.publishedNotifications).containsExactly(repository.savedNotification);
+	}
+
+	@Test
 	void realtimeStreamPublishFailureDoesNotFailNotificationCreation() {
 		FakeRepository repository = new FakeRepository();
 		NotificationStreamPublisher streamPublisher = notification -> {
