@@ -834,6 +834,10 @@ class RetrospectiveServiceTest {
 		}
 
 		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 

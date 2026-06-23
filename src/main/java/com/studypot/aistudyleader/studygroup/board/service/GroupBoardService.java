@@ -10,6 +10,7 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostCursor;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSummary;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardRepository;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -29,11 +30,22 @@ public class GroupBoardService {
 	private final GroupBoardRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final NotificationEventPublisher notificationEvents;
 
 	public GroupBoardService(GroupBoardRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator, NotificationEventPublisher.noop());
+	}
+
+	public GroupBoardService(
+		GroupBoardRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -81,7 +93,7 @@ public class GroupBoardService {
 	public GroupBoardPost createPost(CreateGroupBoardPostCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
-		requireBoard(command.groupId(), command.boardId());
+		GroupBoard board = requireBoard(command.groupId(), command.boardId());
 		if (command.pinned() && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the study group owner can pin board posts.");
 		}
@@ -105,6 +117,9 @@ public class GroupBoardService {
 		}
 		if (!repository.insertPost(post)) {
 			throw new GroupBoardMutationRejectedException("group board post could not be inserted.");
+		}
+		if (board.boardType() == GroupBoardType.NOTICE) {
+			notificationEvents.publishNoticePosted(command.groupId(), membership.userId(), post.id(), post.title());
 		}
 		return post;
 	}

@@ -31,6 +31,8 @@ public interface NotificationEventPublisher {
 
 	void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName);
 
+	void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title);
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
@@ -84,6 +86,10 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
 		}
 	}
 }

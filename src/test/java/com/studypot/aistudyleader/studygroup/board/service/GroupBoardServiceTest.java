@@ -2,7 +2,12 @@ package com.studypot.aistudyleader.studygroup.board.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoard;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardComment;
@@ -96,6 +101,32 @@ class GroupBoardServiceTest {
 		assertThat(post.id()).isEqualTo(POST_ID);
 		assertThat(post.pinned()).isTrue();
 		assertThat(repository.insertedPost.authorMemberId()).isEqualTo(MEMBER_ID);
+	}
+
+	@Test
+	void createPostOnNoticeBoardPublishesNoticeNotification() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.NOTICE, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "긴급 공지", "내일 모임 취소", false));
+
+		verify(publisher).publishNoticePosted(GROUP_ID, USER_ID, POST_ID, "긴급 공지");
+	}
+
+	@Test
+	void createPostOnNonNoticeBoardDoesNotPublishNotice() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.QUESTION, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "질문 있어요", "JPA 관련 질문", false));
+
+		verify(publisher, never()).publishNoticePosted(any(), any(), any(), any());
 	}
 
 	@Test
@@ -239,6 +270,10 @@ class GroupBoardServiceTest {
 	}
 
 	private static GroupBoardService service(CapturingRepository repository, UUID... ids) {
+		return service(repository, NotificationEventPublisher.noop(), ids);
+	}
+
+	private static GroupBoardService service(CapturingRepository repository, NotificationEventPublisher publisher, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new GroupBoardService(
 			repository,
@@ -249,7 +284,8 @@ class GroupBoardServiceTest {
 					throw new AssertionError("no deterministic id left");
 				}
 				return id;
-			}
+			},
+			publisher
 		);
 	}
 

@@ -126,6 +126,10 @@ class OnboardingServiceTest {
 		}
 
 		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
