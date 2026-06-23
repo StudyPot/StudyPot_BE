@@ -15,6 +15,10 @@ public interface RetrospectiveRepository {
 
 	Optional<RetrospectiveMembershipContext> findMembershipByWeekId(UUID weekId, UUID userId);
 
+	Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId);
+
+	List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId);
+
 	Optional<RetrospectiveProgress> findProgress(UUID weekId, UUID memberId);
 
 	Optional<Retrospective> findRetrospective(UUID progressId, UUID weekId, UUID memberId);

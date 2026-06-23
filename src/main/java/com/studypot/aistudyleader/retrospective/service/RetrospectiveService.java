@@ -101,6 +101,17 @@ public class RetrospectiveService {
 			.orElseThrow(() -> new RetrospectiveNotFoundException("retrospective was not found."));
 	}
 
+	@Transactional(readOnly = true)
+	public List<Retrospective> listMyRetrospectives(ListMyRetrospectivesQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		RetrospectiveMembershipContext context = repository.findMembershipByGroupId(query.groupId(), query.authenticatedUserId())
+			.orElseThrow(() -> new RetrospectiveAccessDeniedException("authenticated user is not a member of this study group."));
+		if (!context.hasActiveMembership()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to read retrospectives.");
+		}
+		return repository.findMyRetrospectivesByGroup(query.groupId(), context.memberId());
+	}
+
 	@Transactional
 	Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {
 		Objects.requireNonNull(command, "command must not be null");

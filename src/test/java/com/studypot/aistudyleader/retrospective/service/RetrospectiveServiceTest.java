@@ -285,6 +285,53 @@ class RetrospectiveServiceTest {
 	}
 
 	@Test
+	void listMyRetrospectivesReturnsMyRetrospectivesForActiveMember() {
+		Retrospective existing = existingRetrospective(RetrospectiveStatus.COMPLETED);
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = activeMember();
+		repository.myRetrospectives = List.of(existing);
+		RetrospectiveService service = service(repository);
+
+		List<Retrospective> result = service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID));
+
+		assertThat(result).containsExactly(existing);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = null;
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsLeftMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.LEFT
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
 	void requestRejectsPendingMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;
@@ -675,6 +722,18 @@ class RetrospectiveServiceTest {
 		@Override
 		public Optional<RetrospectiveMembershipContext> findMembershipByWeekId(UUID weekId, UUID userId) {
 			return Optional.ofNullable(membership);
+		}
+
+		private List<Retrospective> myRetrospectives = List.of();
+
+		@Override
+		public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+			return myRetrospectives;
 		}
 
 		@Override

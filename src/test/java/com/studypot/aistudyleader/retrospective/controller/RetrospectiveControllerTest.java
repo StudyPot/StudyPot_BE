@@ -170,6 +170,34 @@ class RetrospectiveControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
+	@Test
+	void listMyRetrospectivesReturnsMyGroupRetrospectives() throws Exception {
+		repository.myGroupRetrospectives = List.of(completedRetrospective());
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/me")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(RETROSPECTIVE_ID.toString()))
+			.andExpect(jsonPath("$[0].status").value("COMPLETED"));
+	}
+
+	@Test
+	void listMyRetrospectivesReturnsForbiddenForLeftMember() throws Exception {
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/me")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	private static RequestPostProcessor xsrf(String value) {
 		return request -> {
 			jakarta.servlet.http.Cookie[] existingCookies = request.getCookies();
@@ -259,10 +287,12 @@ class RetrospectiveControllerTest {
 		private RetrospectiveProgress progress;
 		private Retrospective existingRetrospective;
 		private List<RetrospectiveTaskSummary> taskSummaries;
+		private List<Retrospective> myGroupRetrospectives;
 		private Deque<UUID> ids;
 
 		void reset() {
 			weekExists = true;
+			myGroupRetrospectives = List.of();
 			membership = new RetrospectiveMembershipContext(
 				GROUP_ID,
 				MEMBER_ID,
@@ -292,6 +322,16 @@ class RetrospectiveControllerTest {
 		@Override
 		public Optional<RetrospectiveMembershipContext> findMembershipByWeekId(UUID weekId, UUID userId) {
 			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public java.util.List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+			return myGroupRetrospectives;
 		}
 
 		@Override
