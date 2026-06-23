@@ -22,6 +22,8 @@ public record GroupWeekProgress(
 			return null;
 		}
 		double ratio = (completedWeeks + inProgressWeeks * 0.5) / totalWeeks;
-		return (int) Math.round(ratio * 100);
+		int percent = (int) Math.round(ratio * 100);
+		// 상위 데이터가 불일치해도 0~100 범위를 벗어나지 않도록 방어적으로 clamp.
+		return Math.max(0, Math.min(100, percent));
 	}
 }
