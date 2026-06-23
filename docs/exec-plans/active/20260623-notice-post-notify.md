@@ -13,6 +13,9 @@
 - [x] ARCHITECTURE.md
 - [x] docs/index.md
 
+## Related Docs
+- [x] docs/specs/notification-contract (NotificationType/이벤트 발행 패턴)
+
 ## Related Feature IDs
 - [x] notification
 - [x] studygroup (board)
