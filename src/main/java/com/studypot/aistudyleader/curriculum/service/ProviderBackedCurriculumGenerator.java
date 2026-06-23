@@ -27,6 +27,9 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		Set totalWeeks to expectedWeekCount and return exactly one week per sprint window.
 		Number weeks sequentially from 1 to expectedWeekCount.
 		Return JSON that matches the provided schema. Use only the supplied context.
+		For each week, also produce retrospectivePrompt: 한국어로 그 주차의 task/목표를 돌아볼 수 있는
+		회고 유도 질문 2~4개를 한 문자열로 작성한다(줄바꿈으로 구분). 이는 회고를 작성할 때 보여줄
+		'질문 프롬프트'이며 AI 피드백이 아니다.
 		Do not include retrospective feedback, notifications, member progress, or chat behavior.
 		""";
 
@@ -158,12 +161,13 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		);
 		Map<String, Object> weekSchema = Map.of(
 			"type", "object",
-			"required", List.of("weekNumber", "title", "sprintGoal", "learningGoals", "resources", "tasks"),
+			"required", List.of("weekNumber", "title", "sprintGoal", "retrospectivePrompt", "learningGoals", "resources", "tasks"),
 			"additionalProperties", false,
 			"properties", Map.of(
 				"weekNumber", Map.of("type", "integer"),
 				"title", Map.of("type", "string"),
 				"sprintGoal", Map.of("type", "string"),
+				"retrospectivePrompt", Map.of("type", "string"),
 				"learningGoals", Map.of("type", "array", "items", Map.of("type", "string")),
 				"resources", Map.of("type", "array", "items", resourceSchema),
 				"tasks", Map.of("type", "array", "items", taskSchema)
@@ -229,6 +233,7 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		int weekNumber,
 		String title,
 		String sprintGoal,
+		String retrospectivePrompt,
 		List<String> learningGoals,
 		List<Map<String, String>> resources,
 		List<GeneratedTask> tasks
@@ -240,6 +245,7 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 				weekNumber,
 				title,
 				sprintGoal,
+				retrospectivePrompt,
 				learningGoals == null ? List.of() : learningGoals,
 				resources == null ? List.of() : resources,
 				generatedTasks.stream().map(GeneratedTask::toTaskPlan).toList()

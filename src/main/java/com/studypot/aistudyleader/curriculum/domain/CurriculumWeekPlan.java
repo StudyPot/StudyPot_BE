@@ -8,6 +8,7 @@ public record CurriculumWeekPlan(
 	int weekNumber,
 	String title,
 	String sprintGoal,
+	String retrospectivePrompt,
 	List<String> learningGoals,
 	List<Map<String, String>> resources,
 	List<CurriculumTaskPlan> tasks
@@ -19,6 +20,7 @@ public record CurriculumWeekPlan(
 		}
 		title = requireText(title, "title");
 		sprintGoal = sprintGoal == null || sprintGoal.isBlank() ? null : sprintGoal.strip();
+		retrospectivePrompt = retrospectivePrompt == null || retrospectivePrompt.isBlank() ? null : retrospectivePrompt.strip();
 		learningGoals = List.copyOf(Objects.requireNonNull(learningGoals, "learningGoals must not be null"));
 		resources = List.copyOf(Objects.requireNonNull(resources, "resources must not be null"));
 		tasks = List.copyOf(Objects.requireNonNull(tasks, "tasks must not be null"));

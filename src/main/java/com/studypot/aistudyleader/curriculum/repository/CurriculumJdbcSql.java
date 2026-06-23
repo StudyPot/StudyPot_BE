@@ -123,9 +123,9 @@ final class CurriculumJdbcSql {
 
 	static final String INSERT_CURRICULUM_WEEK = """
 		insert into curriculum_week (
-		  id, curriculum_id, week_number, title, description, sprint_goal, learning_goals,
-		  resources, status, starts_at, ends_at, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		  id, curriculum_id, week_number, title, description, sprint_goal, retrospective_prompt,
+		  learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
 	static final String INSERT_WEEKLY_TASK = """
@@ -145,8 +145,8 @@ final class CurriculumJdbcSql {
 		""";
 
 	static final String SELECT_CURRICULUM_WEEKS = """
-		select id, curriculum_id, week_number, title, description, sprint_goal, learning_goals,
-		       resources, status, starts_at, ends_at, created_at, updated_at
+		select id, curriculum_id, week_number, title, description, sprint_goal, retrospective_prompt,
+		       learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
 		from curriculum_week
 		where curriculum_id = ?
 		  and deleted_at is null
@@ -167,7 +167,7 @@ final class CurriculumJdbcSql {
 
 	static final String SELECT_CURRENT_WEEK_BY_GROUP = """
 		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
-		       cw.sprint_goal, cw.learning_goals, cw.resources, cw.status,
+		       cw.sprint_goal, cw.retrospective_prompt, cw.learning_goals, cw.resources, cw.status,
 		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
@@ -182,7 +182,7 @@ final class CurriculumJdbcSql {
 
 	static final String SELECT_WEEKS_BY_GROUP = """
 		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
-		       cw.sprint_goal, cw.learning_goals, cw.resources, cw.status,
+		       cw.sprint_goal, cw.retrospective_prompt, cw.learning_goals, cw.resources, cw.status,
 		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id

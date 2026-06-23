@@ -132,6 +132,7 @@ public record CurriculumGeneration(
 				week.title(),
 				null,
 				week.sprintGoal(),
+				week.retrospectivePrompt(),
 				week.learningGoals(),
 				week.resources(),
 				i == 0 ? CurriculumWeekStatus.IN_PROGRESS : CurriculumWeekStatus.PENDING,
