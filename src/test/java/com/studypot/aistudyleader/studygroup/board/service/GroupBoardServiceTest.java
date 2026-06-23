@@ -129,6 +129,17 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void listAllPostsRejectsNonActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+		GroupBoardService service = service(repository);
+
+		assertThatThrownBy(() -> service.listAllPosts(new ListAllGroupBoardPostsQuery(USER_ID, GROUP_ID, null, 20)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class)
+			.hasMessage("active group membership is required for group board access.");
+	}
+
+	@Test
 	void listAllPostsReturnsCursorPageAcrossBoards() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.postSummaries = List.of(

@@ -72,6 +72,15 @@ class GroupBoardControllerTest {
 	}
 
 	@Test
+	void listAllPostsReturnsCursorPage() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/posts").with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.items").isArray())
+			.andExpect(jsonPath("$.pageInfo.hasNext").value(false));
+	}
+
+	@Test
 	void createPostReturnsCreatedPost() throws Exception {
 		mockMvc.perform(post(POSTS_PATH)
 				.with(user(USER_ID.toString()))
