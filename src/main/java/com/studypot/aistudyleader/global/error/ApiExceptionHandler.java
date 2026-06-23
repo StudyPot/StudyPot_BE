@@ -136,6 +136,15 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
 
+	@ExceptionHandler(com.studypot.aistudyleader.retrospective.service.InvalidRetrospectiveAnswerException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidRetrospectiveAnswer(
+		com.studypot.aistudyleader.retrospective.service.InvalidRetrospectiveAnswerException exception
+	) {
+		var fieldErrors = List.of(new FieldErrorResponse("answers", messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
 	@ExceptionHandler(RefreshTokenRejectedException.class)
 	public ResponseEntity<ProblemDetail> handleRefreshTokenRejected(RefreshTokenRejectedException exception) {
 		ProblemDetail problemDetail = problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage()));

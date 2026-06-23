@@ -20,6 +20,7 @@ public record RetrospectiveWeekOverview(
 
 	public RetrospectiveWeekOverview {
 		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(status, "status must not be null");
 		questions = List.copyOf(Objects.requireNonNull(questions, "questions must not be null"));
 	}
 }

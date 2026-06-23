@@ -14,5 +14,11 @@ public record SubmitRetrospectiveCommand(UUID authenticatedUserId, UUID weekId, 
 		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		answers = List.copyOf(Objects.requireNonNull(answers, "answers must not be null"));
+		for (Map<String, Object> answer : answers) {
+			Object questionId = answer.get("questionId");
+			if (questionId == null || questionId.toString().isBlank()) {
+				throw new InvalidRetrospectiveAnswerException("each answer must include a questionId.");
+			}
+		}
 	}
 }
