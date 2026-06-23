@@ -139,6 +139,8 @@ class RetrospectiveController {
 	private record RetrospectiveResponse(
 		@Schema(description = "회고 UUID입니다.", example = "018f6f55-900d-7b14-bd27-48ec1d752b8a")
 		UUID id,
+		@Schema(description = "이 회고가 속한 커리큘럼 주차 UUID입니다. (전 주차 회고 목록에서 주차 매핑용)", example = "018f6f55-900d-7b14-bd27-48ec1d752b8b")
+		UUID weekId,
 		@Schema(description = "회고 처리 상태입니다.", example = "PENDING")
 		RetrospectiveStatus status,
 		@Schema(description = "AI 팀장 피드백 JSON입니다. SPT-38 생성 직후에는 빈 객체입니다.", example = "{\"summary\":\"이번 주 학습 흐름이 좋습니다.\"}")
@@ -150,6 +152,7 @@ class RetrospectiveController {
 		private static RetrospectiveResponse from(Retrospective retrospective) {
 			return new RetrospectiveResponse(
 				retrospective.id(),
+				retrospective.curriculumWeekId(),
 				retrospective.status(),
 				retrospective.aiFeedback(),
 				retrospective.nextWeekAdjustment()
