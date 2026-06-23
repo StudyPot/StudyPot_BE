@@ -30,7 +30,8 @@ class LlmUsageTest {
 				"TEAM_LEAD_CHAT",
 				"RETROSPECTIVE_ANALYZE",
 				"RETROSPECTIVE_FEEDBACK",
-				"NEXT_WEEK_ADJUST"
+				"NEXT_WEEK_ADJUST",
+				"WEEKLY_REPORT"
 			);
 	}
 

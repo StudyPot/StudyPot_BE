@@ -41,7 +41,7 @@ record OpenAiOutputTokenLimits(
 		return switch (purpose) {
 			case DETAIL_KEYWORD_SUGGEST -> detailKeywordSuggest;
 			case CURRICULUM_GENERATE, CURRICULUM_REGENERATE_WEEK -> curriculumGenerate;
-			case RETROSPECTIVE_ANALYZE, RETROSPECTIVE_FEEDBACK, NEXT_WEEK_ADJUST -> retrospectiveFeedback;
+			case RETROSPECTIVE_ANALYZE, RETROSPECTIVE_FEEDBACK, NEXT_WEEK_ADJUST, WEEKLY_REPORT -> retrospectiveFeedback;
 			case TEAM_LEAD_CHAT -> teamLeadChat;
 		};
 	}
