@@ -214,6 +214,18 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void ownerLookupFindsOwnerRegardlessOfOnboardingStatus() {
+		// 그룹장은 온보딩 단계에서 PENDING_ONBOARDING 상태다. 새 멤버 가입 시 그룹장에게
+		// 알림을 보내려면 ACTIVE 가 아니어도 owner 를 찾아야 한다(LEFT 만 제외).
+		assertThat(StudyGroupJdbcSql.SELECT_OWNER_USER_ID)
+			.contains("gm.permission = 'OWNER'")
+			.contains("gm.status <> 'LEFT'")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null")
+			.doesNotContain("gm.status = 'ACTIVE'");
+	}
+
+	@Test
 	void findMyGroupMemberProfileQueriesCurrentMemberProfile() {
 		StudyGroupMemberProfile profile = profile();
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
