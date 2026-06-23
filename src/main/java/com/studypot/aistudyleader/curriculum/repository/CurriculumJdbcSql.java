@@ -361,6 +361,18 @@ final class CurriculumJdbcSql {
 		  and gm.deleted_at is null
 		""";
 
+	// 내가 기간 내 완료(DONE)한 todo 개수(모든 내 그룹 합산). 파라미터: (userId, from, to)
+	static final String COUNT_MEMBER_DONE_ACTIVITY = """
+		select count(*)
+		from task_completion tc
+		join group_member gm on gm.id = tc.member_id
+		where gm.user_id = ?
+		  and gm.deleted_at is null
+		  and tc.status = 'DONE'
+		  and tc.completed_at >= ?
+		  and tc.completed_at < ?
+		""";
+
 	// 활동 잔디 집계: 완료(DONE)한 todo + 작성한 게시글을 일자별로 합산해 멤버별 활동 개수를 낸다.
 	// 활동이 없는 멤버도 LEFT JOIN 으로 포함(date null, count 0). 파라미터: (from,to,from,to,groupId)
 	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """

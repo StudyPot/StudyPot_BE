@@ -294,6 +294,16 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void countMyGroupsReturnsNumberOfCurrentUserGroups() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.listedGroups = List.of(group(), group());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThat(service.countMyGroups(USER_ID)).isEqualTo(2);
+		assertThat(repository.listRequestedUserId).isEqualTo(USER_ID);
+	}
+
+	@Test
 	void listMyGroupsReturnsEmptyListWhenUserHasNoCurrentMemberships() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);

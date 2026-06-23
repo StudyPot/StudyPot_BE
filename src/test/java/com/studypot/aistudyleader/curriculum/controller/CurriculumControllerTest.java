@@ -1174,6 +1174,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public int countMemberDoneActivity(UUID userId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			return 0;
+		}
+
+		@Override
 		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
 			return currentWeek == null ? List.of() : List.of(currentWeek);
 		}

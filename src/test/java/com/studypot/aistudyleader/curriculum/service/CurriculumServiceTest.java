@@ -211,6 +211,20 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void countMyWeeklyDoneActivityUsesLast7DayWindowAndDelegates() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.memberDoneActivityCount = 12;
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		int result = service.countMyWeeklyDoneActivity(USER_ID);
+
+		assertThat(result).isEqualTo(12);
+		assertThat(repository.memberDoneActivityUserId).isEqualTo(USER_ID);
+		assertThat(repository.memberDoneActivityTo).isEqualTo(NOW);
+		assertThat(repository.memberDoneActivityFrom).isEqualTo(NOW.minus(java.time.Duration.ofDays(7)));
+	}
+
+	@Test
 	void startStudyRejectsWhenGeneratorIsNotConfigured() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
@@ -1711,6 +1725,19 @@ class CurriculumServiceTest {
 		@Override
 		public int countActiveOrOnboardingMembers(UUID groupId) {
 			return activeOrOnboardingMemberCount;
+		}
+
+		private int memberDoneActivityCount;
+		private UUID memberDoneActivityUserId;
+		private java.time.Instant memberDoneActivityFrom;
+		private java.time.Instant memberDoneActivityTo;
+
+		@Override
+		public int countMemberDoneActivity(UUID userId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			this.memberDoneActivityUserId = userId;
+			this.memberDoneActivityFrom = fromInclusive;
+			this.memberDoneActivityTo = toExclusive;
+			return memberDoneActivityCount;
 		}
 
 		@Override

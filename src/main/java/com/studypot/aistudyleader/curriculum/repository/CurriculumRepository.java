@@ -77,6 +77,8 @@ public interface CurriculumRepository {
 
 	int countActiveOrOnboardingMembers(UUID groupId);
 
+	int countMemberDoneActivity(UUID userId, Instant fromInclusive, Instant toExclusive);
+
 	List<CurriculumWeek> findWeeksByGroupId(UUID groupId);
 
 	boolean insertTaskCompletion(TaskCompletion completion);
