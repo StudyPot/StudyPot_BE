@@ -115,6 +115,31 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand noticePosted(
+		UUID groupId,
+		UUID recipientUserId,
+		UUID postId,
+		String title
+	) {
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			new NotificationRelatedResources(null, null, null, null),
+			NotificationType.NOTICE_POSTED,
+			"idempotency:notification:notice-posted:post:%s:recipient:%s".formatted(postId, recipientUserId),
+			"새 공지가 등록됐어요",
+			safeTitle,
+			payload("/groups/%s/posts/%s".formatted(groupId, postId), Map.of(
+				"groupId", groupId.toString(),
+				"postId", postId.toString(),
+				"title", safeTitle
+			)),
+			null
+		);
+	}
+
 	static CreateNotificationCommand taskNotification(
 		NotificationType type,
 		UUID groupId,

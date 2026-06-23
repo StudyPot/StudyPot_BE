@@ -934,6 +934,10 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 
@@ -996,6 +1000,10 @@ class StudyGroupServiceTest {
 
 		@Override
 		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
 		}
 
 		@Override

@@ -153,6 +153,22 @@ public class NotificationService implements NotificationEventPublisher {
 	}
 
 	@Override
+	public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				if (recipientUserId.equals(actorUserId)) {
+					continue;
+				}
+				createNotificationSafely(NotificationCommandFactory.noticePosted(groupId, recipientUserId, postId, safeTitle));
+			}
+		});
+	}
+
+	@Override
 	public void publishTaskDueReminder(
 		UUID groupId,
 		UUID recipientUserId,
