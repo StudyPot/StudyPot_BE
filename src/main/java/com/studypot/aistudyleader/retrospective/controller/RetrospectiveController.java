@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.retrospective.domain.Retrospective;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveStatus;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTriggerType;
 import com.studypot.aistudyleader.retrospective.service.GetMyRetrospectiveQuery;
+import com.studypot.aistudyleader.retrospective.service.ListMyRetrospectivesQuery;
 import com.studypot.aistudyleader.retrospective.service.RequestRetrospectiveCommand;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveService;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
@@ -81,6 +82,28 @@ class RetrospectiveController {
 	) {
 		Retrospective retrospective = service().getMyRetrospective(new GetMyRetrospectiveQuery(authenticatedUserId(authentication), weekId));
 		return RetrospectiveResponse.from(retrospective);
+	}
+
+	@Operation(
+		summary = "내 그룹 회고 전체 조회",
+		description = "인증된 활성 멤버가 그룹 내 자신의 모든 주차 회고를 최신 주차 순으로 조회합니다. (리뷰 화면에서 이번 주/지난 주 회고 확인)"
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "내 회고 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 그룹의 활성 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "회고 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/retrospectives/me")
+	java.util.List<RetrospectiveResponse> listMyRetrospectives(
+		Authentication authentication,
+		@Parameter(description = "회고를 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return service().listMyRetrospectives(new ListMyRetrospectivesQuery(authenticatedUserId(authentication), groupId))
+			.stream()
+			.map(RetrospectiveResponse::from)
+			.toList();
 	}
 
 	private RetrospectiveService service() {

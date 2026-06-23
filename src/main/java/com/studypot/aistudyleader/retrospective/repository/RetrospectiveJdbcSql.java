@@ -26,6 +26,32 @@ final class RetrospectiveJdbcSql {
 		  and gm.deleted_at is null
 		""";
 
+	static final String SELECT_GROUP_MEMBERSHIP = """
+		select sg.id as group_id, gm.id as member_id, sg.status as group_status,
+		       gm.permission, gm.status as member_status
+		from study_group sg
+		join group_member gm on gm.group_id = sg.id
+		where sg.id = ?
+		  and gm.user_id = ?
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	// 내(멤버)가 작성한 그룹 내 모든 주차의 회고를 최신 주차 순으로 조회한다. (리뷰=회고 조회)
+	static final String SELECT_MY_RETROSPECTIVES_BY_GROUP = """
+		select r.id, r.progress_id, r.curriculum_week_id, r.member_id, r.llm_usage_id, r.trigger_type,
+		       r.input_summary, r.ai_feedback, r.next_week_adjustment, r.status, r.requested_at,
+		       r.completed_at, r.created_at, r.updated_at
+		from retrospective r
+		join curriculum_week cw on cw.id = r.curriculum_week_id
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and r.member_id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
+		order by cw.week_number desc, r.requested_at desc, r.id desc
+		""";
+
 	static final String SELECT_PROGRESS = """
 		select id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
 		       completion_note, incomplete_reason, reason_submitted_at

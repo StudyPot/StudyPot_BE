@@ -57,6 +57,20 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 	}
 
 	@Override
+	public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(RetrospectiveJdbcSql.SELECT_GROUP_MEMBERSHIP, this::mapMembership, uuid(groupId), uuid(userId));
+	}
+
+	@Override
+	public List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return jdbcTemplate.query(RetrospectiveJdbcSql.SELECT_MY_RETROSPECTIVES_BY_GROUP, this::mapRetrospective, uuid(groupId), uuid(memberId));
+	}
+
+	@Override
 	public Optional<RetrospectiveProgress> findProgress(UUID weekId, UUID memberId) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		Objects.requireNonNull(memberId, "memberId must not be null");

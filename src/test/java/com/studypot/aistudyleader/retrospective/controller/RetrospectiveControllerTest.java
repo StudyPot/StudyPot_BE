@@ -295,6 +295,16 @@ class RetrospectiveControllerTest {
 		}
 
 		@Override
+		public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public java.util.List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+			return java.util.List.of();
+		}
+
+		@Override
 		public Optional<RetrospectiveProgress> findProgress(UUID weekId, UUID memberId) {
 			return Optional.ofNullable(progress);
 		}
