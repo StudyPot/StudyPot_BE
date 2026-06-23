@@ -100,7 +100,7 @@ class StudyGroupController {
 		);
 		return service().listMyGroups(listQuery)
 			.stream()
-			.map(StudyGroupResponse::from)
+			.map(group -> StudyGroupResponse.from(group, service().countActiveMembers(group.id())))
 			.toList();
 	}
 
@@ -118,7 +118,7 @@ class StudyGroupController {
 	@ResponseStatus(HttpStatus.CREATED)
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
-		return StudyGroupResponse.from(result.group());
+		return StudyGroupResponse.from(result.group(), service().countActiveMembers(result.group().id()));
 	}
 
 	@Operation(
@@ -142,7 +142,7 @@ class StudyGroupController {
 		@Valid @RequestBody UpdateGroupRequest request
 	) {
 		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
+		return StudyGroupResponse.from(group, service().countActiveMembers(group.id()));
 	}
 
 	@Operation(
@@ -184,7 +184,7 @@ class StudyGroupController {
 		@PathVariable UUID groupId
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
+		return StudyGroupResponse.from(group, service().countActiveMembers(group.id()));
 	}
 
 	@Operation(
@@ -508,10 +508,12 @@ class StudyGroupController {
 		@Schema(description = "스터디 시작일입니다.", example = "2026-05-18")
 		LocalDate startsAt,
 		@Schema(description = "스터디 종료일입니다.", example = "2026-06-29")
-		LocalDate endsAt
+		LocalDate endsAt,
+		@Schema(description = "현재 참여(활성/온보딩) 멤버 수입니다.", example = "5")
+		int memberCount
 	) {
 
-		private static StudyGroupResponse from(StudyGroup group) {
+		private static StudyGroupResponse from(StudyGroup group, int memberCount) {
 			return new StudyGroupResponse(
 				group.id(),
 				group.createdBy(),
@@ -522,7 +524,8 @@ class StudyGroupController {
 				group.maxMembers(),
 				group.inviteCode(),
 				group.startsAt(),
-				group.endsAt()
+				group.endsAt(),
+				memberCount
 			);
 		}
 	}
