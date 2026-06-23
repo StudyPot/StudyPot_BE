@@ -33,6 +33,9 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
+	private static final TypeReference<List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion>> QUESTION_LIST =
+		new TypeReference<>() {
+		};
 	private static final int PRIOR_RETROSPECTIVES_LIMIT = 3;
 
 	private final JdbcTemplate jdbcTemplate;
@@ -162,6 +165,58 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 			timestamp(retrospective.updatedAt()),
 			uuid(retrospective.id())
 		) == 1;
+	}
+
+	@Override
+	public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+		Objects.requireNonNull(retrospective, "retrospective must not be null");
+		return jdbcTemplate.update(
+			RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_ANSWERS,
+			json(retrospective.inputSummary(), "retrospective input summary"),
+			retrospective.status().name(),
+			timestamp(retrospective.completedAt()),
+			timestamp(retrospective.updatedAt()),
+			uuid(retrospective.id())
+		) == 1;
+	}
+
+	@Override
+	public List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return jdbcTemplate.query(
+			RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_OVERVIEW,
+			this::mapWeekOverview,
+			uuid(memberId),
+			uuid(memberId),
+			uuid(groupId)
+		);
+	}
+
+	private com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview mapWeekOverview(ResultSet resultSet, int rowNumber)
+		throws SQLException {
+		long requiredTotal = resultSet.getLong("required_total");
+		long requiredDone = resultSet.getLong("required_done");
+		boolean unlocked = requiredTotal == 0 || requiredDone >= requiredTotal;
+		return new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
+			UuidBinary.fromBytes(resultSet.getBytes("week_id")),
+			resultSet.getInt("week_number"),
+			resultSet.getString("status"),
+			unlocked,
+			resultSet.getLong("answered_count") > 0,
+			readQuestions(resultSet.getString("retrospective_questions"))
+		);
+	}
+
+	private List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> readQuestions(String value) {
+		if (value == null || value.isBlank()) {
+			return List.of();
+		}
+		try {
+			return objectMapper.readValue(value, QUESTION_LIST);
+		} catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+			throw new RetrospectivePersistenceException("failed to read retrospective questions.", exception);
+		}
 	}
 
 	private RetrospectiveMembershipContext mapMembership(ResultSet resultSet, int rowNumber) throws SQLException {

@@ -67,6 +67,59 @@ public record Retrospective(
 		);
 	}
 
+	/**
+	 * 멤버가 회고 설문에 답한 결과를 즉시 COMPLETED 로 저장한다(AI 피드백 없음).
+	 * 답변은 inputSummary 의 "answers" 로 보관한다.
+	 */
+	public static Retrospective answered(
+		UUID id,
+		UUID progressId,
+		UUID curriculumWeekId,
+		UUID memberId,
+		RetrospectiveTriggerType triggerType,
+		Map<String, Object> inputSummary,
+		Instant now
+	) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new Retrospective(
+			id,
+			progressId,
+			curriculumWeekId,
+			memberId,
+			null,
+			triggerType,
+			requiredInputSummary(inputSummary),
+			Map.of(),
+			Map.of(),
+			RetrospectiveStatus.COMPLETED,
+			now,
+			now,
+			now,
+			now
+		);
+	}
+
+	/** 기존 회고 레코드에 새 답변(inputSummary)을 반영하여 COMPLETED 로 갱신한다. */
+	public Retrospective withAnswers(Map<String, Object> updatedInputSummary, Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new Retrospective(
+			id,
+			progressId,
+			curriculumWeekId,
+			memberId,
+			null,
+			triggerType,
+			requiredInputSummary(updatedInputSummary),
+			Map.of(),
+			Map.of(),
+			RetrospectiveStatus.COMPLETED,
+			requestedAt,
+			now,
+			createdAt,
+			now
+		);
+	}
+
 	public Retrospective completeWithFeedback(UUID llmUsageId, RetrospectiveFeedbackResult feedbackResult, Instant now) {
 		Objects.requireNonNull(llmUsageId, "llmUsageId must not be null");
 		Objects.requireNonNull(feedbackResult, "feedbackResult must not be null");

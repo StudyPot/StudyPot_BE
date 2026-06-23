@@ -10,6 +10,8 @@ import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTaskSummary;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTriggerType;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -110,6 +112,71 @@ public class RetrospectiveService {
 			throw new RetrospectiveAccessDeniedException("active group membership is required to read retrospectives.");
 		}
 		return repository.findMyRetrospectivesByGroup(query.groupId(), context.memberId());
+	}
+
+	@Transactional(readOnly = true)
+	public List<RetrospectiveWeekOverview> getRetrospectiveOverview(GetRetrospectiveOverviewQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		RetrospectiveMembershipContext context = repository.findMembershipByGroupId(query.groupId(), query.authenticatedUserId())
+			.orElseThrow(() -> new RetrospectiveAccessDeniedException("authenticated user is not a member of this study group."));
+		if (!context.hasActiveMembership()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to read retrospectives.");
+		}
+		return repository.findRetrospectiveOverview(query.groupId(), context.memberId());
+	}
+
+	/**
+	 * 멤버가 회고 설문에 답한 결과를 저장한다(AI 피드백 없음). 그 주차 필수 TODO 를 모두 완료해야만 가능(잠금).
+	 */
+	@Transactional
+	public Retrospective submitMyRetrospective(SubmitRetrospectiveCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		RetrospectiveMembershipContext context = requireMembership(command.weekId(), command.authenticatedUserId());
+		if (!context.canRequestRetrospective()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to submit retrospective.");
+		}
+		RetrospectiveProgress progress = requireProgress(command.weekId(), context.memberId());
+		if (!allRequiredTasksDone(progress.id(), command.weekId(), context.memberId())) {
+			throw new RetrospectiveMutationRejectedException("retrospective is locked until all required tasks are completed.");
+		}
+		Instant now = clock.instant();
+		Map<String, Object> inputSummary = Map.of(
+			"answers", command.answers(),
+			"submittedAt", now.toString()
+		);
+		return repository.findRetrospective(progress.id(), command.weekId(), context.memberId())
+			.map(existing -> {
+				Retrospective updated = existing.withAnswers(inputSummary, now);
+				if (!repository.updateRetrospectiveAnswers(updated)) {
+					throw new RetrospectiveMutationRejectedException("retrospective answers could not be updated.");
+				}
+				return updated;
+			})
+			.orElseGet(() -> {
+				Retrospective created = Retrospective.answered(
+					idGenerator.get(),
+					progress.id(),
+					command.weekId(),
+					context.memberId(),
+					RetrospectiveTriggerType.MANUAL,
+					inputSummary,
+					now
+				);
+				if (!repository.insertRetrospective(created)) {
+					throw new RetrospectiveMutationRejectedException("retrospective answers could not be saved.");
+				}
+				return created;
+			});
+	}
+
+	private boolean allRequiredTasksDone(UUID progressId, UUID weekId, UUID memberId) {
+		List<RetrospectiveTaskSummary> summaries = repository.findTaskSummaries(progressId, weekId, memberId);
+		for (RetrospectiveTaskSummary summary : summaries) {
+			if (summary.required() && summary.status() != TaskCompletionStatus.DONE) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Transactional

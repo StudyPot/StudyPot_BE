@@ -166,6 +166,35 @@ final class RetrospectiveJdbcSql {
 		where id = ?
 		""";
 
+	static final String UPDATE_RETROSPECTIVE_ANSWERS = """
+		update retrospective
+		set input_summary = ?,
+		    status = ?,
+		    completed_at = ?,
+		    updated_at = ?
+		where id = ?
+		""";
+
+	// 그룹의 활성 커리큘럼 주차별: 회고 질문 + 내 필수 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	static final String SELECT_RETROSPECTIVE_OVERVIEW = """
+		select cw.id as week_id, cw.week_number, cw.status, cw.retrospective_questions,
+		       (select count(*) from weekly_task wt
+		          where wt.curriculum_week_id = cw.id and wt.required = true and wt.deleted_at is null) as required_total,
+		       (select count(*) from task_completion tc
+		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
+		          where wt2.curriculum_week_id = cw.id and wt2.required = true and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status = 'DONE') as required_done,
+		       (select count(*) from retrospective r
+		          where r.curriculum_week_id = cw.id and r.member_id = ? and r.status = 'COMPLETED') as answered_count
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status = 'ACTIVE'
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		""";
+
 	private RetrospectiveJdbcSql() {
 	}
 }
