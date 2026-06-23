@@ -1072,6 +1072,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<CurriculumWeek> findWeekById(UUID weekId) {
+			return Optional.ofNullable(currentWeek);
+		}
+
+		@Override
 		public boolean existsCurriculumWeek(UUID weekId) {
 			return weekExists;
 		}
