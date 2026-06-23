@@ -674,6 +674,16 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Optional<com.studypot.aistudyleader.studygroup.domain.AiManagerView> findAiManager(UUID groupId) {
+			return java.util.Optional.of(new com.studypot.aistudyleader.studygroup.domain.AiManagerView(groupId, "", null, null));
+		}
+
+		@Override
+		public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, java.time.Instant updatedAt) {
+			return true;
+		}
+
+		@Override
 		public void saveJoinedMember(GroupMember member) {
 		}
 

@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.studygroup.service;
 
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
@@ -217,6 +218,38 @@ public class StudyGroupService {
 			throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
 		}
 		return repository.findGroupMembers(query.groupId());
+	}
+
+	@Transactional(readOnly = true)
+	public AiManagerView getAiManager(GetAiManagerQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		if (!repository.existsActiveOrOnboardingMember(query.groupId(), query.authenticatedUserId())) {
+			if (!repository.existsStudyGroup(query.groupId())) {
+				throw new StudyGroupNotFoundException("study group was not found.");
+			}
+			throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+		}
+		return repository.findAiManager(query.groupId())
+			.orElseThrow(() -> new StudyGroupNotFoundException("study group was not found."));
+	}
+
+	@Transactional
+	public AiManagerView updateAiManager(UpdateAiManagerCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		StudyGroup group = repository.findGroupByIdForMemberUserId(command.groupId(), command.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(command.groupId())) {
+					throw new StudyGroupNotFoundException("study group was not found.");
+				}
+				throw new StudyGroupAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!group.createdBy().equals(command.authenticatedUserId())) {
+			throw new StudyGroupAccessDeniedException("only the study group owner can update the AI manager persona.");
+		}
+		if (!repository.updateAiManager(command.groupId(), command.persona(), command.authenticatedUserId(), clock.instant())) {
+			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+		return getAiManager(new GetAiManagerQuery(command.authenticatedUserId(), command.groupId()));
 	}
 
 	@Transactional
