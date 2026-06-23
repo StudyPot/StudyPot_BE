@@ -441,6 +441,8 @@ class CurriculumController {
 		String title,
 		@Schema(description = "이번 주 학습 목표입니다.", example = "엔티티 생명주기와 연관관계 매핑을 코드로 설명할 수 있다.")
 		String sprintGoal,
+		@Schema(description = "이번 주차 회고를 작성할 때 보여줄 AI 생성 회고 질문 프롬프트입니다. 없으면 null.", example = "이번 주 JPA 실습에서 가장 어려웠던 점은 무엇인가요?")
+		String retrospectivePrompt,
 		@Schema(description = "주차 진행 상태입니다.", example = "ACTIVE")
 		CurriculumWeekStatus status,
 		@Schema(description = "주차 시작 시각입니다.", example = "2026-05-18T00:00:00Z")
@@ -456,6 +458,7 @@ class CurriculumController {
 				week.weekNumber(),
 				week.title(),
 				week.sprintGoal(),
+				week.retrospectivePrompt(),
 				week.status(),
 				week.startsAt(),
 				week.endsAt()

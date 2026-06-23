@@ -188,7 +188,7 @@ class ProviderBackedCurriculumGeneratorTest {
 		Map<String, Object> weekSchema = objectMap(weeks.get("items"));
 		assertThat(weekSchema).containsEntry("additionalProperties", false);
 		assertThat(required(weekSchema))
-			.containsExactly("weekNumber", "title", "sprintGoal", "learningGoals", "resources", "tasks");
+			.containsExactly("weekNumber", "title", "sprintGoal", "retrospectivePrompt", "learningGoals", "resources", "tasks");
 
 		Map<String, Object> weekProperties = objectMap(weekSchema.get("properties"));
 		Map<String, Object> resources = objectMap(weekProperties.get("resources"));
