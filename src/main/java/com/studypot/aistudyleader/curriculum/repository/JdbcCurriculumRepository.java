@@ -294,11 +294,15 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
 		Objects.requireNonNull(toExclusive, "toExclusive must not be null");
+		Timestamp from = timestamp(fromInclusive);
+		Timestamp to = timestamp(toExclusive);
 		return jdbcTemplate.query(
 			CurriculumJdbcSql.SELECT_GROUP_DONE_ACTIVITY_COUNTS,
 			JdbcCurriculumRepository::mapGroupActivityCount,
-			timestamp(fromInclusive),
-			timestamp(toExclusive),
+			from,
+			to,
+			from,
+			to,
 			uuid(groupId)
 		);
 	}

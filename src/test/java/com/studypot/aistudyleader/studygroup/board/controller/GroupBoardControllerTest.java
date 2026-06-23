@@ -187,6 +187,11 @@ class GroupBoardControllerTest {
 		}
 
 		@Override
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
+			return List.of();
+		}
+
+		@Override
 		public Optional<GroupBoardPost> findPost(UUID groupId, UUID postId) {
 			return Optional.ofNullable(lastInsertedPost)
 				.or(() -> Optional.of(GroupBoardPost.create(POST_ID, GROUP_ID, BOARD_ID, MEMBER_ID, "질문입니다", "본문", false, NOW)));

@@ -64,6 +64,19 @@ public class GroupBoardService {
 		return CursorPageResponse.firstPage(items, encodePostCursor(items.getLast()));
 	}
 
+	@Transactional(readOnly = true)
+	public CursorPageResponse<GroupBoardPostSummary> listAllPosts(ListAllGroupBoardPostsQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		requireActiveMembership(query.groupId(), query.authenticatedUserId());
+		GroupBoardPostCursor cursor = decodePostCursor(query.cursor());
+		List<GroupBoardPostSummary> fetched = repository.findAllPosts(query.groupId(), cursor, query.pageSize() + 1);
+		if (fetched.size() <= query.pageSize()) {
+			return CursorPageResponse.firstPage(fetched, null);
+		}
+		List<GroupBoardPostSummary> items = List.copyOf(fetched.subList(0, query.pageSize()));
+		return CursorPageResponse.firstPage(items, encodePostCursor(items.getLast()));
+	}
+
 	@Transactional
 	public GroupBoardPost createPost(CreateGroupBoardPostCommand command) {
 		Objects.requireNonNull(command, "command must not be null");

@@ -129,6 +129,28 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void listAllPostsReturnsCursorPageAcrossBoards() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.postSummaries = List.of(
+			postSummary(POST_ID, NOW.plusSeconds(2)),
+			postSummary(UUID.fromString("018f0000-0000-7000-8000-000000123009"), NOW.plusSeconds(1))
+		);
+		GroupBoardService service = service(repository);
+
+		CursorPageResponse<GroupBoardPostSummary> page = service.listAllPosts(new ListAllGroupBoardPostsQuery(
+			USER_ID,
+			GROUP_ID,
+			null,
+			1
+		));
+
+		assertThat(page.items()).hasSize(1);
+		assertThat(page.pageInfo().hasNext()).isTrue();
+		assertThat(page.pageInfo().nextCursor()).isNotBlank();
+		assertThat(repository.lastPostLimit).isEqualTo(2);
+	}
+
+	@Test
 	void listPostsReturnsCursorPageAndRejectsInvalidCursor() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.boards = List.of(board());
@@ -306,6 +328,12 @@ class GroupBoardServiceTest {
 
 		@Override
 		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+			lastPostLimit = limit;
+			return postSummaries;
+		}
+
+		@Override
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
 			lastPostLimit = limit;
 			return postSummaries;
 		}

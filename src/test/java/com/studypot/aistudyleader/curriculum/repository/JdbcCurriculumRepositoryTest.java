@@ -199,6 +199,18 @@ class JdbcCurriculumRepositoryTest {
 	}
 
 	@Test
+	void groupActivityCountsSqlIncludesDoneTasksAndBoardPosts() {
+		// 활동 잔디 개수는 완료(DONE) todo 와 작성한 게시글을 함께 집계해야 한다.
+		assertThat(CurriculumJdbcSql.SELECT_GROUP_DONE_ACTIVITY_COUNTS)
+			.contains("from task_completion tc")
+			.contains("tc.status = 'DONE'")
+			.contains("union all")
+			.contains("from group_board_post p")
+			.contains("p.status = 'PUBLISHED'")
+			.contains("count(act.activity_id) as activity_count");
+	}
+
+	@Test
 	void weeklyTasksByWeekSqlOrdersByDisplayOrder() {
 		assertThat(CurriculumJdbcSql.SELECT_WEEKLY_TASKS_BY_WEEK)
 			.contains("where wt.curriculum_week_id = ?")

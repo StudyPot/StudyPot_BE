@@ -123,6 +123,27 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 	}
 
 	@Override
+	public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Boolean cursorPinned = cursor == null ? null : cursor.pinned();
+		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
+		byte[] cursorId = cursor == null ? null : uuid(cursor.id());
+		return jdbcTemplate.query(
+			GroupBoardJdbcSql.SELECT_ALL_POSTS,
+			this::mapPostSummary,
+			uuid(groupId),
+			cursorPinned,
+			cursorPinned,
+			cursorPinned,
+			cursorCreatedAt,
+			cursorPinned,
+			cursorCreatedAt,
+			cursorId,
+			limit
+		);
+	}
+
+	@Override
 	public Optional<GroupBoardPost> findPost(UUID groupId, UUID postId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(postId, "postId must not be null");
