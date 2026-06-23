@@ -665,6 +665,15 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(java.util.Collection<UUID> groupIds) {
+			java.util.Map<UUID, Integer> counts = new java.util.HashMap<>();
+			for (UUID id : groupIds) {
+				counts.put(id, 1);
+			}
+			return counts;
+		}
+
+		@Override
 		public void saveJoinedMember(GroupMember member) {
 		}
 

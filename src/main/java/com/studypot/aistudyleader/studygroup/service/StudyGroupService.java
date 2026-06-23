@@ -196,6 +196,12 @@ public class StudyGroupService {
 	}
 
 	@Transactional(readOnly = true)
+	public java.util.Map<UUID, Integer> countActiveMembers(java.util.Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		return repository.countActiveOrOnboardingMembersByGroupIds(groupIds);
+	}
+
+	@Transactional(readOnly = true)
 	public List<GroupMemberSummary> listGroupMembers(ListGroupMembersQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		if (!repository.existsActiveOrOnboardingMember(query.groupId(), query.authenticatedUserId())) {

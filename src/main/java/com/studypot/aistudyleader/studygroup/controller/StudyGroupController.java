@@ -98,9 +98,11 @@ class StudyGroupController {
 			sort,
 			order
 		);
-		return service().listMyGroups(listQuery)
-			.stream()
-			.map(group -> StudyGroupResponse.from(group, service().countActiveMembers(group.id())))
+		List<StudyGroup> groups = service().listMyGroups(listQuery);
+		java.util.Map<UUID, Integer> memberCounts = service()
+			.countActiveMembers(groups.stream().map(StudyGroup::id).toList());
+		return groups.stream()
+			.map(group -> StudyGroupResponse.from(group, memberCounts.getOrDefault(group.id(), 0)))
 			.toList();
 	}
 

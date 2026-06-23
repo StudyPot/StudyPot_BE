@@ -19,8 +19,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -156,6 +160,23 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 			uuid(groupId)
 		);
 		return count == null ? 0 : count;
+	}
+
+	@Override
+	public Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		if (groupIds.isEmpty()) {
+			return Map.of();
+		}
+		List<UUID> ids = List.copyOf(groupIds);
+		String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+		String sql = String.format(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS, placeholders);
+		Object[] args = ids.stream().map(JdbcStudyGroupRepository::uuid).toArray();
+		Map<UUID, Integer> counts = new HashMap<>();
+		jdbcTemplate.query(sql, resultSet -> {
+			counts.put(UuidBinary.fromBytes(resultSet.getBytes("group_id")), resultSet.getInt("member_count"));
+		}, args);
+		return counts;
 	}
 
 	@Override
