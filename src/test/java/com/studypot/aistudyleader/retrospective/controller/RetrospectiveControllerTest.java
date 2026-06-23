@@ -82,17 +82,33 @@ class RetrospectiveControllerTest {
 	}
 
 	@Test
-	void requestRetrospectiveReturnsAcceptedPendingRetrospective() throws Exception {
+	void submitRetrospectiveStoresAnswersAndReturnsCompleted() throws Exception {
 		mockMvc.perform(post(RETROSPECTIVE_PATH)
 				.with(user(USER_ID.toString()))
-				.with(xsrf("retro-xsrf")))
-			.andExpect(status().isAccepted())
+				.with(xsrf("retro-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"answers\":[{\"questionId\":\"q1\",\"score\":5}]}"))
+			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(RETROSPECTIVE_ID.toString()))
 			.andExpect(jsonPath("$.weekId").value(WEEK_ID.toString()))
-			.andExpect(jsonPath("$.status").value("PENDING"))
-			.andExpect(jsonPath("$.aiFeedback").isMap())
-			.andExpect(jsonPath("$.nextWeekAdjustment").isMap());
+			.andExpect(jsonPath("$.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.answers[0].questionId").value("q1"));
+	}
+
+	@Test
+	void submitRetrospectiveReturnsConflictWhenRequiredTasksIncomplete() throws Exception {
+		repository.taskSummaries = List.of(new RetrospectiveTaskSummary(
+			TASK_ID, 1, WeeklyTaskType.READING, "JPA 읽기", true,
+			TestRetrospectiveBeans.WEEK_DUE_AT, TaskCompletionStatus.TODO, null, null, null, null
+		));
+
+		mockMvc.perform(post(RETROSPECTIVE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("retro-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"answers\":[{\"questionId\":\"q1\",\"score\":5}]}"))
+			.andExpect(status().isConflict());
 	}
 
 	@Test
@@ -169,6 +185,23 @@ class RetrospectiveControllerTest {
 				.with(user(USER_ID.toString())))
 			.andExpect(status().isNotFound())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getRetrospectiveOverviewReturnsPerWeekLockAndQuestions() throws Exception {
+		repository.overview = List.of(new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
+			WEEK_ID, 2, "IN_PROGRESS", true, false,
+			List.of(new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+				"q1", "이번 주 목표를 달성했다", com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5))
+		));
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/overview")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].weekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].unlocked").value(true))
+			.andExpect(jsonPath("$[0].answered").value(false))
+			.andExpect(jsonPath("$[0].questions[0].type").value("LIKERT_5"));
 	}
 
 	@Test
@@ -377,6 +410,19 @@ class RetrospectiveControllerTest {
 		public boolean updateRetrospectiveResult(Retrospective retrospective) {
 			existingRetrospective = retrospective;
 			return true;
+		}
+
+		@Override
+		public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+			existingRetrospective = retrospective;
+			return true;
+		}
+
+		java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> overview = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+			return overview;
 		}
 	}
 }

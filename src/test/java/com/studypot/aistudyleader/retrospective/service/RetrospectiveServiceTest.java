@@ -774,6 +774,20 @@ class RetrospectiveServiceTest {
 			return true;
 		}
 
+		@Override
+		public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+			updatedRetrospective = retrospective;
+			updatedRetrospectives.add(retrospective);
+			return true;
+		}
+
+		java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> overview = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+			return overview;
+		}
+
 		private List<RetrospectiveStatus> updatedStatuses() {
 			return updatedRetrospectives.stream()
 				.map(Retrospective::status)

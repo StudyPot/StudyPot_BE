@@ -32,4 +32,8 @@ public interface RetrospectiveRepository {
 	Optional<Retrospective> findRetrospectiveById(UUID retrospectiveId);
 
 	boolean updateRetrospectiveResult(Retrospective retrospective);
+
+	boolean updateRetrospectiveAnswers(Retrospective retrospective);
+
+	List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId);
 }
