@@ -10,11 +10,9 @@ import com.studypot.aistudyleader.report.service.MemberTaskProgress;
 import com.studypot.aistudyleader.report.service.WeeklyReportData;
 import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
-import com.studypot.aistudyleader.studygroup.board.domain.GroupBoard;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.service.CreateGroupBoardPostCommand;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardService;
-import com.studypot.aistudyleader.studygroup.board.service.ListGroupBoardsQuery;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -70,7 +68,7 @@ class WeeklyReportScheduler {
 
 	private static final String SELECT_MEMBER_RETROSPECTIVES = """
 		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
-		       json_unquote(json_extract(r.ai_feedback, '$.summary')) as feedback_summary
+		       json_extract(r.input_summary, '$.answers') as feedback_summary
 		from retrospective r
 		join group_member gm on gm.id = r.member_id
 		join users u on u.id = gm.user_id
@@ -187,10 +185,7 @@ class WeeklyReportScheduler {
 		if (ownerUserId.isEmpty()) {
 			return;
 		}
-		UUID retrospectiveBoardId = findRetrospectiveBoardId(ownerUserId.get(), week.groupId());
-		if (retrospectiveBoardId == null) {
-			return;
-		}
+		UUID leaderReportBoardId = boardService.findOrCreateBoardId(ownerUserId.get(), week.groupId(), GroupBoardType.LEADER_REPORT);
 		WeeklyReportGeneration generation = generator.generate(
 			new WeeklyReportData(week.groupId(), week.weekId(), week.weekNumber(), week.weekTitle(), retros, taskProgress)
 		);
@@ -207,7 +202,7 @@ class WeeklyReportScheduler {
 		boardService.createPost(new CreateGroupBoardPostCommand(
 			ownerUserId.get(),
 			week.groupId(),
-			retrospectiveBoardId,
+			leaderReportBoardId,
 			title,
 			body,
 			false
@@ -252,15 +247,6 @@ class WeeklyReportScheduler {
 			UuidBinary.toBytes(groupId)
 		);
 		return owners.isEmpty() ? Optional.empty() : Optional.of(owners.get(0));
-	}
-
-	private UUID findRetrospectiveBoardId(UUID ownerUserId, UUID groupId) {
-		List<GroupBoard> boards = boardService.listBoards(new ListGroupBoardsQuery(ownerUserId, groupId));
-		return boards.stream()
-			.filter(board -> board.boardType() == GroupBoardType.RETROSPECTIVE)
-			.map(GroupBoard::id)
-			.findFirst()
-			.orElse(null);
 	}
 
 	private record DueWeek(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {

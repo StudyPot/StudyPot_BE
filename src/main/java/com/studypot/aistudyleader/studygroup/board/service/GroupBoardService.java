@@ -97,6 +97,9 @@ public class GroupBoardService {
 		if (command.pinned() && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the study group owner can pin board posts.");
 		}
+		if (board.boardType() == GroupBoardType.LEADER_REPORT && !membership.owner()) {
+			throw new GroupBoardAccessDeniedException("only the study group owner can post to the leader report board.");
+		}
 		Instant now = clock.instant();
 		GroupBoardPost post;
 		try {
@@ -120,8 +123,29 @@ public class GroupBoardService {
 		}
 		if (board.boardType() == GroupBoardType.NOTICE) {
 			notificationEvents.publishNoticePosted(command.groupId(), membership.userId(), post.id(), post.title());
+		} else if (board.boardType() == GroupBoardType.LEADER_REPORT) {
+			notificationEvents.publishLeaderReportPosted(command.groupId(), post.id(), post.title());
 		}
 		return post;
+	}
+
+	/**
+	 * 지정한 보드 타입의 보드 id 를 찾고, 없으면(기존 그룹) 새로 만들어 반환한다.
+	 * 스케줄러가 팀장 리포트 보드(LEADER_REPORT)에 게시할 때 사용한다.
+	 */
+	@Transactional
+	public UUID findOrCreateBoardId(UUID authenticatedUserId, UUID groupId, GroupBoardType boardType) {
+		Objects.requireNonNull(boardType, "boardType must not be null");
+		List<GroupBoard> boards = listBoards(new ListGroupBoardsQuery(authenticatedUserId, groupId));
+		return boards.stream()
+			.filter(board -> board.boardType() == boardType)
+			.map(GroupBoard::id)
+			.findFirst()
+			.orElseGet(() -> {
+				GroupBoard board = GroupBoard.createDefault(idGenerator.get(), groupId, boardType, boards.size() + 1, clock.instant());
+				repository.insertDefaultBoards(List.of(board));
+				return board.id();
+			});
 	}
 
 	@Transactional(readOnly = true)
