@@ -7,7 +7,7 @@ public record MemberTaskProgress(String memberName, int doneCount, int totalCoun
 
 	public MemberTaskProgress {
 		memberName = (memberName == null || memberName.isBlank()) ? "멤버" : memberName.strip();
-		doneCount = Math.max(doneCount, 0);
 		totalCount = Math.max(totalCount, 0);
+		doneCount = Math.min(Math.max(doneCount, 0), totalCount);
 	}
 }
