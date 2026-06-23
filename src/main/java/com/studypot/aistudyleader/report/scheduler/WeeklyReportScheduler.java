@@ -175,12 +175,15 @@ class WeeklyReportScheduler {
 			LlmUsagePurpose.WEEKLY_REPORT,
 			clock.instant()
 		));
+		// 멱등 체크(EXISTS_REPORT_POST)와 동일한 결정적 제목으로 글을 작성해야 다음 실행에서 중복 생성이 막힌다.
+		// LLM 이 생성한 제목은 본문 머리말(H1)로 보존한다.
+		String body = "# " + generation.content().title() + "\n\n" + generation.content().body();
 		boardService.createPost(new CreateGroupBoardPostCommand(
 			ownerUserId.get(),
 			week.groupId(),
 			retrospectiveBoardId,
-			generation.content().title(),
-			generation.content().body(),
+			title,
+			body,
 			false
 		));
 		log.info("weekly report posted groupId={} weekNumber={}", week.groupId(), week.weekNumber());
