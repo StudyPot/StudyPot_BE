@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.studygroup.repository;
 
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
@@ -33,6 +34,10 @@ public interface StudyGroupRepository {
 	int countActiveOrOnboardingMembers(UUID groupId);
 
 	Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(Collection<UUID> groupIds);
+
+	Optional<AiManagerView> findAiManager(UUID groupId);
+
+	boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt);
 
 	void saveJoinedMember(GroupMember member);
 

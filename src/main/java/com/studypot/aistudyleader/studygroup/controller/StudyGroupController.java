@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.studygroup.controller;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
@@ -14,6 +15,7 @@ import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DeleteStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
+import com.studypot.aistudyleader.studygroup.service.GetAiManagerQuery;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
 import com.studypot.aistudyleader.studygroup.service.GetMyGroupMemberProfileQuery;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupByInviteCodeCommand;
@@ -25,6 +27,7 @@ import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
+import com.studypot.aistudyleader.studygroup.service.UpdateAiManagerCommand;
 import com.studypot.aistudyleader.studygroup.service.UpdateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.UpdateMyGroupMemberProfileCommand;
 import io.swagger.v3.oas.annotations.Operation;
@@ -187,6 +190,50 @@ class StudyGroupController {
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
 		return StudyGroupResponse.from(group, service().countActiveMembers(group.id()));
+	}
+
+	@Operation(
+		summary = "AI 팀장 퍼소나 조회",
+		description = "그룹 멤버가 AI 팀장의 성격(퍼소나)을 조회합니다. 미설정 시 persona 는 빈 문자열입니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "AI 팀장 퍼소나 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/ai-manager")
+	AiManagerResponse getAiManager(
+		Authentication authentication,
+		@Parameter(description = "조회하려는 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return AiManagerResponse.from(service().getAiManager(new GetAiManagerQuery(authenticatedUserId(authentication), groupId)));
+	}
+
+	@Operation(
+		summary = "AI 팀장 퍼소나 수정",
+		description = "그룹 소유자(OWNER)가 AI 팀장의 성격(퍼소나)을 설정/수정합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "수정된 AI 팀장 퍼소나 반환"),
+		@ApiResponse(responseCode = "400", description = "퍼소나 값 검증에 실패함"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아니거나 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}/ai-manager")
+	AiManagerResponse updateAiManager(
+		Authentication authentication,
+		@Parameter(description = "수정할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Valid @RequestBody UpdateAiManagerRequest request
+	) {
+		return AiManagerResponse.from(service().updateAiManager(
+			new UpdateAiManagerCommand(authenticatedUserId(authentication), groupId, request.persona())
+		));
 	}
 
 	@Operation(
@@ -529,6 +576,32 @@ class StudyGroupController {
 				group.endsAt(),
 				memberCount
 			);
+		}
+	}
+
+	@Schema(description = "AI 팀장 퍼소나 수정 요청입니다.")
+	private record UpdateAiManagerRequest(
+		@Schema(description = "AI 팀장의 성격(퍼소나) 설명입니다. 0자 이상 2000자 이하입니다.", example = "차분하고 꼼꼼하게 코드 리뷰를 챙기는 시니어 백엔드 팀장")
+		@NotNull
+		@Size(max = 2000)
+		String persona
+	) {
+	}
+
+	@Schema(description = "AI 팀장 퍼소나 응답입니다.")
+	private record AiManagerResponse(
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "AI 팀장의 성격(퍼소나)입니다. 미설정 시 빈 문자열입니다.", example = "차분하고 꼼꼼한 시니어 백엔드 팀장")
+		String persona,
+		@Schema(description = "퍼소나를 마지막으로 수정한 시각입니다. 미설정 시 null 입니다.", example = "2026-06-24T09:12:00Z")
+		Instant updatedAt,
+		@Schema(description = "퍼소나를 마지막으로 수정한 사용자 닉네임입니다. 미설정 시 null 입니다.", example = "현우")
+		String updatedByNickname
+	) {
+
+		private static AiManagerResponse from(AiManagerView view) {
+			return new AiManagerResponse(view.groupId(), view.persona(), view.updatedAt(), view.updatedByNickname());
 		}
 	}
 

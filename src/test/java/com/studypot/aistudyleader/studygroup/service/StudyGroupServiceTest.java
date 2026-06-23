@@ -373,6 +373,80 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void getAiManagerReturnsPersonaForMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.existingActiveOrOnboardingMember = true;
+		repository.aiManagerView = new com.studypot.aistudyleader.studygroup.domain.AiManagerView(
+			GROUP_ID, "차분하고 꼼꼼한 팀장", NOW, "현우");
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		var result = service.getAiManager(new GetAiManagerQuery(USER_ID, GROUP_ID));
+
+		assertThat(result.persona()).isEqualTo("차분하고 꼼꼼한 팀장");
+		assertThat(result.updatedByNickname()).isEqualTo("현우");
+	}
+
+	@Test
+	void getAiManagerRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getAiManager(new GetAiManagerQuery(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
+	void getAiManagerRejectsMissingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getAiManager(new GetAiManagerQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+	}
+
+	@Test
+	void updateAiManagerUpdatesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.existingActiveOrOnboardingMember = true;
+		repository.aiManagerView = new com.studypot.aistudyleader.studygroup.domain.AiManagerView(
+			GROUP_ID, "꼼꼼한 시니어 팀장", NOW, "현우");
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		var result = service.updateAiManager(new UpdateAiManagerCommand(USER_ID, GROUP_ID, "꼼꼼한 시니어 팀장"));
+
+		assertThat(repository.capturedAiPersona).isEqualTo("꼼꼼한 시니어 팀장");
+		assertThat(repository.capturedAiUpdatedBy).isEqualTo(USER_ID);
+		assertThat(result.persona()).isEqualTo("꼼꼼한 시니어 팀장");
+	}
+
+	@Test
+	void updateAiManagerRejectsNonOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateAiManager(new UpdateAiManagerCommand(JOINER_ID, GROUP_ID, "내맘대로")))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can update the AI manager persona.");
+		assertThat(repository.capturedAiPersona).isNull();
+	}
+
+	@Test
+	void updateAiManagerRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateAiManager(new UpdateAiManagerCommand(JOINER_ID, GROUP_ID, "꼼꼼")))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
 	void deleteGroupSoftDeletesForOwner() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.readGroup = group();
@@ -778,6 +852,10 @@ class StudyGroupServiceTest {
 		private String updatedDisplayName;
 		private Instant updatedAt;
 		private StudyGroup readGroup;
+		private com.studypot.aistudyleader.studygroup.domain.AiManagerView aiManagerView;
+		private boolean aiManagerUpdateResult = true;
+		private String capturedAiPersona;
+		private UUID capturedAiUpdatedBy;
 		private StudyGroupMemberProfile profile;
 		private UUID membersRequestedGroupId;
 		private List<GroupMemberSummary> groupMembers = List.of();
@@ -860,6 +938,18 @@ class StudyGroupServiceTest {
 				counts.put(id, currentMemberCount);
 			}
 			return counts;
+		}
+
+		@Override
+		public java.util.Optional<com.studypot.aistudyleader.studygroup.domain.AiManagerView> findAiManager(UUID groupId) {
+			return java.util.Optional.ofNullable(aiManagerView);
+		}
+
+		@Override
+		public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt) {
+			this.capturedAiPersona = persona;
+			this.capturedAiUpdatedBy = updatedBy;
+			return aiManagerUpdateResult;
 		}
 
 		@Override

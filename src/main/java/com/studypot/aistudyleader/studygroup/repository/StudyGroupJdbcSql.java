@@ -97,6 +97,26 @@ final class StudyGroupJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String SELECT_AI_MANAGER = """
+		select sg.id as group_id,
+		       sg.ai_persona as ai_persona,
+		       sg.ai_persona_updated_at as ai_persona_updated_at,
+		       u.nickname as updated_by_nickname
+		from study_group sg
+		left join users u on u.id = sg.ai_persona_updated_by
+		where sg.id = ?
+		  and sg.deleted_at is null
+		""";
+
+	static final String UPDATE_AI_MANAGER = """
+		update study_group
+		set ai_persona = ?,
+		    ai_persona_updated_by = ?,
+		    ai_persona_updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	// %s 는 group_id IN (?, ?, ...) 자리표시자로 동적 치환된다.
 	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS = """
 		select group_id, count(*) as member_count

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
@@ -177,6 +178,35 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 			counts.put(UuidBinary.fromBytes(resultSet.getBytes("group_id")), resultSet.getInt("member_count"));
 		}, args);
 		return counts;
+	}
+
+	@Override
+	public Optional<AiManagerView> findAiManager(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_AI_MANAGER, (resultSet, rowNumber) -> {
+			String persona = resultSet.getString("ai_persona");
+			return new AiManagerView(
+				UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+				persona == null ? "" : persona,
+				instant(resultSet.getTimestamp("ai_persona_updated_at")),
+				resultSet.getString("updated_by_nickname")
+			);
+		}, uuid(groupId));
+	}
+
+	@Override
+	public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(persona, "persona must not be null");
+		Objects.requireNonNull(updatedBy, "updatedBy must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_AI_MANAGER,
+			persona,
+			uuid(updatedBy),
+			timestamp(updatedAt),
+			uuid(groupId)
+		) == 1;
 	}
 
 	@Override
