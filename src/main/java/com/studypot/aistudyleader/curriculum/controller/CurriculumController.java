@@ -15,6 +15,8 @@ import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.curriculum.service.CurriculumServiceUnavailableException;
+import com.studypot.aistudyleader.curriculum.service.NextWeekPlanService;
+import com.studypot.aistudyleader.curriculum.service.RegenerateNextWeekCommand;
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
@@ -60,6 +62,32 @@ import org.springframework.web.bind.annotation.RestController;
 class CurriculumController {
 
 	private final ObjectProvider<CurriculumService> curriculumService;
+	private final ObjectProvider<NextWeekPlanService> nextWeekPlanService;
+
+	@Operation(
+		summary = "리포트 기반 다음 주차 TODO 재생성",
+		description = "그룹장이 직전 주차의 학습 리포트를 바탕으로 다음 주차의 TODO와 회고 프롬프트를 AI로 재생성합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "재생성된 다음 주차 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹장이 아니어서 재생성할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "주차/다음 주차/리포트를 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/groups/{groupId}/weeks/{weekId}/next-week-plan")
+	CurriculumWeekResponse regenerateNextWeek(
+		Authentication authentication,
+		@Parameter(description = "리포트가 작성된 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Parameter(description = "직전(리포트 대상) 주차 UUID입니다. 이 주차의 다음 주차가 재생성됩니다.", required = true)
+		@PathVariable UUID weekId
+	) {
+		CurriculumWeek week = nextWeekService().regenerateNextWeek(
+			new RegenerateNextWeekCommand(authenticatedUserId(authentication), groupId, weekId)
+		);
+		return CurriculumWeekResponse.from(week);
+	}
 
 	@Operation(
 		summary = "스터디 시작 및 커리큘럼 생성",
@@ -375,6 +403,12 @@ class CurriculumController {
 	private CurriculumService service() {
 		return curriculumService.getIfAvailable(() -> {
 			throw new CurriculumServiceUnavailableException("curriculum service is not configured.");
+		});
+	}
+
+	private NextWeekPlanService nextWeekService() {
+		return nextWeekPlanService.getIfAvailable(() -> {
+			throw new CurriculumServiceUnavailableException("next week plan service is not configured.");
 		});
 	}
 
