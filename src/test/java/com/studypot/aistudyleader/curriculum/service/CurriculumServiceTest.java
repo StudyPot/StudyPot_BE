@@ -458,6 +458,18 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void getWeekRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read the week.");
+	}
+
+	@Test
 	void getWeekRejectsWhenWeekNotFound() {
 		CapturingRepository repository = new CapturingRepository();
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
