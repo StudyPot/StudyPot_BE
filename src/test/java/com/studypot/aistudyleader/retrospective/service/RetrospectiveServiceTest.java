@@ -771,6 +771,10 @@ class RetrospectiveServiceTest {
 		private final List<RetrospectiveNotice> nextWeekAdjusted = new ArrayList<>();
 
 		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 

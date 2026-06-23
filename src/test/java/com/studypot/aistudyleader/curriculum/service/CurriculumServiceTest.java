@@ -1663,6 +1663,10 @@ class CurriculumServiceTest {
 		private final List<WeekStart> weekStarts = new ArrayList<>();
 
 		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 

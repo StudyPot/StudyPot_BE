@@ -385,6 +385,30 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void deleteGroupNotifiesOtherMembers() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		GroupMemberSummary owner = new GroupMemberSummary(
+			OWNER_MEMBER_ID, GROUP_ID, USER_ID,
+			GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
+			"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
+		);
+		GroupMemberSummary joiner = new GroupMemberSummary(
+			JOINED_MEMBER_ID, GROUP_ID, JOINER_ID,
+			GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE,
+			"민수", "minsu", "minsu@example.com", "SUBMITTED"
+		);
+		repository.groupMembers = List.of(owner, joiner);
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		StudyGroupService service = service(repository, List.of("UNUSED"), notifications, GROUP_ID, OWNER_MEMBER_ID);
+
+		service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID));
+
+		// 그룹장(USER_ID) 은 제외하고 다른 멤버(JOINER_ID) 에게만 삭제 알림이 간다.
+		assertThat(notifications.groupDeletedRecipients).containsExactly(JOINER_ID);
+	}
+
+	@Test
 	void deleteGroupRejectsNonOwnerMember() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.readGroup = group();
@@ -902,6 +926,12 @@ class StudyGroupServiceTest {
 
 		private final List<OnboardingRequest> onboardingRequests = new ArrayList<>();
 		private final List<UUID> memberJoinedRecipients = new ArrayList<>();
+		private final List<UUID> groupDeletedRecipients = new ArrayList<>();
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+			groupDeletedRecipients.add(recipientUserId);
+		}
 
 		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
@@ -962,6 +992,10 @@ class StudyGroupServiceTest {
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
 		}
 
 		@Override

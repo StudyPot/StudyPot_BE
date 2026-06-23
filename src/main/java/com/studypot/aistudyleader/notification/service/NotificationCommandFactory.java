@@ -43,6 +43,21 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand groupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		String safeName = (groupName == null || groupName.isBlank()) ? "스터디 그룹" : groupName.strip();
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			null,
+			NotificationType.GROUP_DELETED,
+			"idempotency:notification:group-deleted:group:%s:recipient:%s".formatted(groupId, recipientUserId),
+			"스터디 그룹이 삭제됐어요",
+			"'%s' 그룹이 그룹장에 의해 삭제됐어요.".formatted(safeName),
+			payload("/groups", Map.of("groupId", groupId.toString())),
+			null
+		);
+	}
+
 	static CreateNotificationCommand memberJoined(UUID groupId, UUID recipientUserId, UUID joinedUserId) {
 		Objects.requireNonNull(joinedUserId, "joinedUserId must not be null");
 		return new CreateNotificationCommand(

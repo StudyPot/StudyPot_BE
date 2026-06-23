@@ -122,6 +122,10 @@ class OnboardingServiceTest {
 		}
 
 		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 

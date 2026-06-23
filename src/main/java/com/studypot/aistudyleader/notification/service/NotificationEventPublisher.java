@@ -29,6 +29,8 @@ public interface NotificationEventPublisher {
 
 	void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId);
 
+	void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName);
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
@@ -78,6 +80,10 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
 		}
 	}
 }

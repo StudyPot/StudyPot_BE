@@ -270,8 +270,18 @@ public class StudyGroupService {
 		if (!group.createdBy().equals(command.authenticatedUserId())) {
 			throw new StudyGroupAccessDeniedException("only the study group owner can delete the study group.");
 		}
+		// 삭제 전에 알림을 받을 멤버(그룹장 본인 제외)의 userId 를 미리 수집한다.
+		List<UUID> recipientUserIds = repository.findGroupMembers(command.groupId()).stream()
+			.map(GroupMemberSummary::userId)
+			.filter(userId -> !userId.equals(command.authenticatedUserId()))
+			.distinct()
+			.toList();
 		if (!repository.softDeleteGroup(command.groupId(), clock.instant())) {
 			throw new StudyGroupNotFoundException("study group was not found.");
+		}
+		String groupName = group.name();
+		for (UUID recipientUserId : recipientUserIds) {
+			publishNotification(() -> notificationEvents.publishGroupDeleted(command.groupId(), recipientUserId, groupName));
 		}
 	}
 

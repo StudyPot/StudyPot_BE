@@ -236,6 +236,11 @@ public class NotificationService implements NotificationEventPublisher {
 	}
 
 	@Override
+	public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		publishAfterCommit(NotificationCommandFactory.groupDeleted(groupId, recipientUserId, groupName));
+	}
+
+	@Override
 	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
 			groupId,
