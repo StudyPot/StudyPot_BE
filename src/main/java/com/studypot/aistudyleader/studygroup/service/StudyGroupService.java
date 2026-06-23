@@ -257,6 +257,12 @@ public class StudyGroupService {
 		return updated;
 	}
 
+	@Transactional(readOnly = true)
+	public int countGroupMembers(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return repository.countActiveOrOnboardingMembers(groupId);
+	}
+
 	@Transactional
 	public void deleteGroup(DeleteStudyGroupCommand command) {
 		Objects.requireNonNull(command, "command must not be null");

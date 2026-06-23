@@ -100,7 +100,7 @@ class StudyGroupController {
 		);
 		return service().listMyGroups(listQuery)
 			.stream()
-			.map(StudyGroupResponse::from)
+			.map(group -> StudyGroupResponse.from(group, service().countGroupMembers(group.id())))
 			.toList();
 	}
 
@@ -118,7 +118,7 @@ class StudyGroupController {
 	@ResponseStatus(HttpStatus.CREATED)
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
-		return StudyGroupResponse.from(result.group());
+		return StudyGroupResponse.from(result.group(), 1);
 	}
 
 	@Operation(
@@ -142,7 +142,7 @@ class StudyGroupController {
 		@Valid @RequestBody UpdateGroupRequest request
 	) {
 		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
+		return StudyGroupResponse.from(group, service().countGroupMembers(group.id()));
 	}
 
 	@Operation(
@@ -184,7 +184,7 @@ class StudyGroupController {
 		@PathVariable UUID groupId
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
+		return StudyGroupResponse.from(group, service().countGroupMembers(group.id()));
 	}
 
 	@Operation(
@@ -503,6 +503,8 @@ class StudyGroupController {
 		StudyGroupStatus status,
 		@Schema(description = "최대 참여 가능 인원입니다.", example = "6")
 		int maxMembers,
+		@Schema(description = "현재 활성/온보딩 멤버 수입니다.", example = "3")
+		int memberCount,
 		@Schema(description = "초대 링크/참여 요청에 사용하는 그룹 초대 코드입니다.", example = "SPRING-AB12")
 		String inviteCode,
 		@Schema(description = "스터디 시작일입니다.", example = "2026-05-18")
@@ -511,7 +513,7 @@ class StudyGroupController {
 		LocalDate endsAt
 	) {
 
-		private static StudyGroupResponse from(StudyGroup group) {
+		private static StudyGroupResponse from(StudyGroup group, int memberCount) {
 			return new StudyGroupResponse(
 				group.id(),
 				group.createdBy(),
@@ -520,6 +522,7 @@ class StudyGroupController {
 				group.detailKeywords(),
 				group.status(),
 				group.maxMembers(),
+				memberCount,
 				group.inviteCode(),
 				group.startsAt(),
 				group.endsAt()
