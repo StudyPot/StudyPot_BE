@@ -188,6 +188,46 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_NEXT_PENDING_WEEK,
+			(rs, rowNum) -> new com.studypot.aistudyleader.curriculum.domain.NextWeekTarget(
+				UuidBinary.fromBytes(rs.getBytes("id")),
+				rs.getInt("week_number"),
+				rs.getString("title"),
+				rs.getString("sprint_goal")
+			),
+			uuid(currentWeekId)
+		);
+	}
+
+	@Override
+	public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_LATEST_WEEKLY_REPORT_BODY,
+			(rs, rowNum) -> rs.getString("content"),
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(tasks, "tasks must not be null");
+		Objects.requireNonNull(now, "now must not be null");
+		jdbcTemplate.update(CurriculumJdbcSql.SOFT_DELETE_WEEK_TASKS, timestamp(now), timestamp(now), uuid(weekId));
+		for (WeeklyTask task : tasks) {
+			insertTask(task);
+		}
+		jdbcTemplate.update(CurriculumJdbcSql.UPDATE_WEEK_RETROSPECTIVE_PROMPT, retrospectivePrompt, timestamp(now), uuid(weekId));
+		CurriculumWeekRow row = queryOne(CurriculumJdbcSql.SELECT_WEEK_BY_ID, this::mapWeekRow, uuid(weekId))
+			.orElseThrow(() -> new CurriculumPersistenceException("curriculum week was not found after update."));
+		return row.toWeek(findWeeklyTasksByWeekId(weekId));
+	}
+
+	@Override
 	public boolean existsWeeklyTask(UUID taskId) {
 		Objects.requireNonNull(taskId, "taskId must not be null");
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(CurriculumJdbcSql.EXISTS_WEEKLY_TASK, Boolean.class, uuid(taskId)));

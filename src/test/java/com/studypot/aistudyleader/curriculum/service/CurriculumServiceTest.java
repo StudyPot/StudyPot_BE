@@ -1556,6 +1556,29 @@ class CurriculumServiceTest {
 			return Optional.ofNullable(weekReadContext);
 		}
 
+		private com.studypot.aistudyleader.curriculum.domain.NextWeekTarget nextWeekTarget;
+		private String latestWeeklyReportBody;
+		private CurriculumWeek replacedWeek;
+		private List<WeeklyTask> replacedTasks;
+		private String replacedPrompt;
+
+		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+			return Optional.ofNullable(nextWeekTarget);
+		}
+
+		@Override
+		public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+			return Optional.ofNullable(latestWeeklyReportBody);
+		}
+
+		@Override
+		public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now) {
+			this.replacedTasks = tasks;
+			this.replacedPrompt = retrospectivePrompt;
+			return replacedWeek;
+		}
+
 		@Override
 		public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
 			return Optional.ofNullable(taskReadContext);

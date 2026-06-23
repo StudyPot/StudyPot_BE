@@ -193,6 +193,53 @@ final class CurriculumJdbcSql {
 		order by cw.week_number
 		""";
 
+	static final String SELECT_WEEK_BY_ID = """
+		select id, curriculum_id, week_number, title, description, sprint_goal, retrospective_prompt,
+		       learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
+		from curriculum_week
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_NEXT_PENDING_WEEK = """
+		select nw.id, nw.week_number, nw.title, nw.sprint_goal
+		from curriculum_week cw
+		join curriculum_week nw on nw.curriculum_id = cw.curriculum_id
+		  and nw.week_number = cw.week_number + 1
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and nw.deleted_at is null
+		  and nw.status = 'PENDING'
+		limit 1
+		""";
+
+	static final String SELECT_LATEST_WEEKLY_REPORT_BODY = """
+		select content
+		from group_board_post
+		where group_id = ?
+		  and title like '%주차 학습 리포트'
+		  and status = 'PUBLISHED'
+		  and deleted_at is null
+		order by created_at desc, id desc
+		limit 1
+		""";
+
+	static final String SOFT_DELETE_WEEK_TASKS = """
+		update weekly_task
+		set deleted_at = ?,
+		    updated_at = ?
+		where curriculum_week_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String UPDATE_WEEK_RETROSPECTIVE_PROMPT = """
+		update curriculum_week
+		set retrospective_prompt = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_WEEKLY_TASKS_BY_WEEK = """
 		select wt.id, wt.curriculum_week_id, wt.display_order, wt.task_type, wt.title,
 		       wt.description, wt.required, wt.due_at, wt.generated_by_ai, wt.source_payload,

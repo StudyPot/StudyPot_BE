@@ -36,6 +36,12 @@ public interface CurriculumRepository {
 
 	Optional<CurriculumStartContext> findReadContextByWeekId(UUID weekId, UUID userId);
 
+	Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId);
+
+	Optional<String> findLatestWeeklyReportBody(UUID groupId);
+
+	CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now);
+
 	Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId);
 
 	List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId);

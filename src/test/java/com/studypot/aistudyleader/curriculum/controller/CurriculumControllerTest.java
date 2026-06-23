@@ -1082,6 +1082,21 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public com.studypot.aistudyleader.curriculum.domain.CurriculumWeek replaceNextWeekTasks(UUID weekId, java.util.List<com.studypot.aistudyleader.curriculum.domain.WeeklyTask> tasks, String retrospectivePrompt, java.time.Instant now) {
+			return null;
+		}
+
+		@Override
 		public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
 			return Optional.ofNullable(taskReadContext);
 		}
