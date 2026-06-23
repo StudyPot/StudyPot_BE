@@ -75,7 +75,7 @@ public class NextWeekPlanService {
 		));
 
 		List<WeeklyTask> tasks = toWeeklyTasks(nextWeek.weekId(), generation.plan().tasks(), now);
-		return repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectivePrompt(), now);
+		return repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectiveQuestions(), now);
 	}
 
 	/**
@@ -114,7 +114,7 @@ public class NextWeekPlanService {
 			now
 		));
 		List<WeeklyTask> tasks = toWeeklyTasks(nextWeek.weekId(), generation.plan().tasks(), now);
-		repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectivePrompt(), now);
+		repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectiveQuestions(), now);
 	}
 
 	private List<WeeklyTask> toWeeklyTasks(UUID weekId, List<CurriculumTaskPlan> plans, Instant now) {

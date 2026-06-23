@@ -42,7 +42,12 @@ public interface CurriculumRepository {
 
 	Optional<String> findLatestWeeklyReportBody(UUID groupId);
 
-	CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now);
+	CurriculumWeek replaceNextWeekTasks(
+		UUID weekId,
+		List<WeeklyTask> tasks,
+		List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions,
+		Instant now
+	);
 
 	Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId);
 
