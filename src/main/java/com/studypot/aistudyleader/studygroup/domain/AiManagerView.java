@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.studygroup.domain;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -13,4 +14,8 @@ public record AiManagerView(
 	Instant updatedAt,
 	String updatedByNickname
 ) {
+
+	public AiManagerView {
+		Objects.requireNonNull(persona, "persona must not be null");
+	}
 }
