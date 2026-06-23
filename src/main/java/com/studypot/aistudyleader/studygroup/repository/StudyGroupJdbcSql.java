@@ -40,7 +40,7 @@ final class StudyGroupJdbcSql {
 		join study_group sg on sg.id = gm.group_id
 		where gm.group_id = ?
 		  and gm.permission = 'OWNER'
-		  and gm.status = 'ACTIVE'
+		  and gm.status <> 'LEFT'
 		  and gm.deleted_at is null
 		  and sg.deleted_at is null
 		limit 1
