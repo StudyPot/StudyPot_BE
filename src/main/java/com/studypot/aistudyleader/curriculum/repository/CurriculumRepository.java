@@ -32,6 +32,8 @@ public interface CurriculumRepository {
 
 	Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId);
 
+	Optional<CurriculumWeek> findWeekById(UUID weekId);
+
 	boolean existsCurriculumWeek(UUID weekId);
 
 	Optional<CurriculumStartContext> findReadContextByWeekId(UUID weekId, UUID userId);

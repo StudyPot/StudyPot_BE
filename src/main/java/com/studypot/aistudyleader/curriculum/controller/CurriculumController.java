@@ -19,6 +19,7 @@ import com.studypot.aistudyleader.curriculum.service.NextWeekPlanService;
 import com.studypot.aistudyleader.curriculum.service.RegenerateNextWeekCommand;
 import com.studypot.aistudyleader.curriculum.service.CompleteTaskCommand;
 import com.studypot.aistudyleader.curriculum.service.GetCurrentWeekQuery;
+import com.studypot.aistudyleader.curriculum.service.GetWeekByIdQuery;
 import com.studypot.aistudyleader.curriculum.service.GetCurriculumQuery;
 import com.studypot.aistudyleader.curriculum.service.GetGroupActivityHeatmapQuery;
 import com.studypot.aistudyleader.curriculum.service.GetLearningActivityQuery;
@@ -174,6 +175,27 @@ class CurriculumController {
 		@PathVariable UUID groupId
 	) {
 		CurriculumWeek week = service().getCurrentWeek(new GetCurrentWeekQuery(authenticatedUserId(authentication), groupId));
+		return CurriculumWeekResponse.from(week);
+	}
+
+	@Operation(
+		summary = "주차 단건 조회",
+		description = "그룹 멤버가 특정 커리큘럼 주차의 목표·기간·회고 질문 등 상세를 조회합니다. (주차 네비게이션용)"
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "주차 정보 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 그룹의 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "주차를 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/weeks/{weekId}")
+	CurriculumWeekResponse getWeek(
+		Authentication authentication,
+		@Parameter(description = "조회할 커리큘럼 주차 UUID입니다.", required = true)
+		@PathVariable UUID weekId
+	) {
+		CurriculumWeek week = service().getWeek(new GetWeekByIdQuery(authenticatedUserId(authentication), weekId));
 		return CurriculumWeekResponse.from(week);
 	}
 

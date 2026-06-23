@@ -434,6 +434,52 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void getWeekReturnsWeekForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.currentWeek = currentWeek();
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		CurriculumWeek result = service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID));
+
+		assertThat(result).isSameAs(repository.currentWeek);
+	}
+
+	@Test
+	void getWeekRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
+	void getWeekRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read the week.");
+	}
+
+	@Test
+	void getWeekRejectsWhenWeekNotFound() {
+		CapturingRepository repository = new CapturingRepository();
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("curriculum week was not found.");
+	}
+
+	@Test
 	void listWeeklyTasksReturnsTasksForActiveWeekMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;
@@ -1543,6 +1589,11 @@ class CurriculumServiceTest {
 
 		@Override
 		public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
+			return Optional.ofNullable(currentWeek);
+		}
+
+		@Override
+		public Optional<CurriculumWeek> findWeekById(UUID weekId) {
 			return Optional.ofNullable(currentWeek);
 		}
 
