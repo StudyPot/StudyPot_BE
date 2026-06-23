@@ -112,6 +112,9 @@ studypot:
       limit: ${STUDYPOT_RATE_LIMIT_RETROSPECTIVE_FEEDBACK_LIMIT:2}
       window: ${STUDYPOT_RATE_LIMIT_RETROSPECTIVE_FEEDBACK_WINDOW:PT24H}
   notification:
+    stream:
+      # SSE keepalive 하트비트 주기(ms). 리버스 프록시/NAT 유휴 종료 방지 및 죽은 연결 조기 정리.
+      heartbeat-ms: ${STUDYPOT_NOTIFICATION_STREAM_HEARTBEAT_MS:20000}
     rabbitmq:
       enabled: ${STUDYPOT_NOTIFICATION_RABBITMQ_ENABLED:false}
       exchange: ${STUDYPOT_NOTIFICATION_RABBITMQ_EXCHANGE:studypot.notification.events}
