@@ -1179,6 +1179,12 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> findWeekProgressByGroupIds(
+			java.util.Collection<UUID> groupIds) {
+			return java.util.List.of();
+		}
+
+		@Override
 		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
 			return currentWeek == null ? List.of() : List.of(currentWeek);
 		}

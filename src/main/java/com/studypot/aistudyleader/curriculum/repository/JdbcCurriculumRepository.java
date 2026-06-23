@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
@@ -29,6 +30,8 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -386,6 +389,24 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			timestamp(toExclusive)
 		);
 		return count == null ? 0 : count;
+	}
+
+	@Override
+	public List<GroupWeekProgress> findWeekProgressByGroupIds(Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		if (groupIds.isEmpty()) {
+			return List.of();
+		}
+		List<UUID> ids = List.copyOf(groupIds);
+		String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+		String sql = String.format(CurriculumJdbcSql.SELECT_WEEK_PROGRESS_BY_GROUPS, placeholders);
+		Object[] args = ids.stream().map(JdbcCurriculumRepository::uuid).toArray();
+		return jdbcTemplate.query(sql, (resultSet, rowNumber) -> new GroupWeekProgress(
+			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+			resultSet.getInt("completed_weeks"),
+			resultSet.getInt("in_progress_weeks"),
+			resultSet.getInt("total_weeks")
+		), args);
 	}
 
 	@Override
