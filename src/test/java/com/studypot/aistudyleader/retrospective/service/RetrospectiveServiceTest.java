@@ -308,6 +308,30 @@ class RetrospectiveServiceTest {
 	}
 
 	@Test
+	void listMyRetrospectivesRejectsLeftMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.LEFT
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
 	void requestRejectsPendingMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;

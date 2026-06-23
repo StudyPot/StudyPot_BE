@@ -19,11 +19,9 @@
 ## Related Docs
 - [x] docs/specs/api-contract-v1.md
 - [x] docs/specs/notification-contract-v1.md
-- [ ] docs/operations/pr-review-gate.md
 
 ## Related Feature IDs
 - [x] retrospective
-- [ ] <feature-id>
 
 ## Doc Notes
 - api-contract-v1: 기존 회고 응답 스키마(RetrospectiveResponse)를 그대로 재사용한다. 신규 조회 엔드포인트는 주차별 회고를 모아 리스트로 반환하며 계약 변경 없음.
