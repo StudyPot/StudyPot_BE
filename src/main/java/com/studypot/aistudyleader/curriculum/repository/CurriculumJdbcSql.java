@@ -373,6 +373,19 @@ final class CurriculumJdbcSql {
 		  and tc.completed_at < ?
 		""";
 
+	// 그룹별 주차 진행 집계(완료/진행/전체 주차 수). %s 는 c.group_id IN (?, ?, ...) 동적 치환.
+	static final String SELECT_WEEK_PROGRESS_BY_GROUPS = """
+		select c.group_id as group_id,
+		       sum(case when cw.status = 'COMPLETED' then 1 else 0 end) as completed_weeks,
+		       sum(case when cw.status = 'IN_PROGRESS' then 1 else 0 end) as in_progress_weeks,
+		       count(cw.id) as total_weeks
+		from curriculum c
+		join curriculum_week cw on cw.curriculum_id = c.id and cw.deleted_at is null
+		where c.group_id in (%s)
+		  and c.deleted_at is null
+		group by c.group_id
+		""";
+
 	// 활동 잔디 집계: 완료(DONE)한 todo + 작성한 게시글을 일자별로 합산해 멤버별 활동 개수를 낸다.
 	// 활동이 없는 멤버도 LEFT JOIN 으로 포함(date null, count 0). 파라미터: (from,to,from,to,groupId)
 	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """

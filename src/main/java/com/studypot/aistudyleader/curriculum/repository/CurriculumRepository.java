@@ -4,12 +4,14 @@ import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +19,8 @@ import java.util.UUID;
 public interface CurriculumRepository {
 
 	boolean existsStudyGroup(UUID groupId);
+
+	List<GroupWeekProgress> findWeekProgressByGroupIds(Collection<UUID> groupIds);
 
 	Optional<CurriculumStartContext> findStartContext(UUID groupId, UUID userId);
 

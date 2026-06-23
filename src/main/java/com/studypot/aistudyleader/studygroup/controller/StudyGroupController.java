@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.studygroup.controller;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
@@ -72,6 +73,7 @@ class StudyGroupController {
 
 	private final ObjectProvider<StudyGroupService> studyGroupService;
 	private final ObjectProvider<DetailKeywordSuggestionService> detailKeywordSuggestionService;
+	private final ObjectProvider<CurriculumService> curriculumService;
 
 	@Operation(
 		summary = "내 스터디 그룹 목록 조회",
@@ -102,10 +104,12 @@ class StudyGroupController {
 			order
 		);
 		List<StudyGroup> groups = service().listMyGroups(listQuery);
-		java.util.Map<UUID, Integer> memberCounts = service()
-			.countActiveMembers(groups.stream().map(StudyGroup::id).toList());
+		List<UUID> groupIds = groups.stream().map(StudyGroup::id).toList();
+		java.util.Map<UUID, Integer> memberCounts = service().countActiveMembers(groupIds);
+		java.util.Map<UUID, Integer> progress = curriculumProgress(groupIds);
 		return groups.stream()
-			.map(group -> StudyGroupResponse.from(group, memberCounts.getOrDefault(group.id(), 0)))
+			.map(group -> StudyGroupResponse.from(
+				group, memberCounts.getOrDefault(group.id(), 0), progress.get(group.id())))
 			.toList();
 	}
 
@@ -123,7 +127,7 @@ class StudyGroupController {
 	@ResponseStatus(HttpStatus.CREATED)
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
-		return StudyGroupResponse.from(result.group(), service().countActiveMembers(result.group().id()));
+		return StudyGroupResponse.from(result.group(), service().countActiveMembers(result.group().id()), null);
 	}
 
 	@Operation(
@@ -147,7 +151,8 @@ class StudyGroupController {
 		@Valid @RequestBody UpdateGroupRequest request
 	) {
 		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group, service().countActiveMembers(group.id()));
+		return StudyGroupResponse.from(
+			group, service().countActiveMembers(group.id()), curriculumProgress(java.util.List.of(group.id())).get(group.id()));
 	}
 
 	@Operation(
@@ -189,7 +194,8 @@ class StudyGroupController {
 		@PathVariable UUID groupId
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group, service().countActiveMembers(group.id()));
+		return StudyGroupResponse.from(
+			group, service().countActiveMembers(group.id()), curriculumProgress(java.util.List.of(group.id())).get(group.id()));
 	}
 
 	@Operation(
@@ -378,6 +384,18 @@ class StudyGroupController {
 		});
 	}
 
+	// 커리큘럼 진행도(%). 커리큘럼 서비스 미구성/주차 없음이면 빈 맵을 돌려 응답이 graceful 하게 비운다.
+	private java.util.Map<UUID, Integer> curriculumProgress(java.util.Collection<UUID> groupIds) {
+		if (groupIds.isEmpty()) {
+			return java.util.Map.of();
+		}
+		CurriculumService curriculum = curriculumService.getIfAvailable();
+		if (curriculum == null) {
+			return java.util.Map.of();
+		}
+		return curriculum.progressPercentByGroupIds(groupIds);
+	}
+
 	private DetailKeywordSuggestionService detailKeywordService() {
 		return detailKeywordSuggestionService.getIfAvailable(() -> {
 			throw new StudyGroupServiceUnavailableException("detail keyword suggestion service is not configured.");
@@ -559,10 +577,12 @@ class StudyGroupController {
 		@Schema(description = "스터디 종료일입니다.", example = "2026-06-29")
 		LocalDate endsAt,
 		@Schema(description = "현재 참여(활성/온보딩) 멤버 수입니다.", example = "5")
-		int memberCount
+		int memberCount,
+		@Schema(description = "커리큘럼 주차 진행도(%)입니다. 커리큘럼 미생성 시 null 입니다.", example = "42", nullable = true)
+		Integer progressPercent
 	) {
 
-		private static StudyGroupResponse from(StudyGroup group, int memberCount) {
+		private static StudyGroupResponse from(StudyGroup group, int memberCount, Integer progressPercent) {
 			return new StudyGroupResponse(
 				group.id(),
 				group.createdBy(),
@@ -574,7 +594,8 @@ class StudyGroupController {
 				group.inviteCode(),
 				group.startsAt(),
 				group.endsAt(),
-				memberCount
+				memberCount,
+				progressPercent
 			);
 		}
 	}

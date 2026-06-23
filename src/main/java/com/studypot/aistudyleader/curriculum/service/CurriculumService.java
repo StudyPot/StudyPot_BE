@@ -193,6 +193,24 @@ public class CurriculumService {
 		return repository.countMemberDoneActivity(userId, now.minus(java.time.Duration.ofDays(7)), now);
 	}
 
+	/**
+	 * 그룹별 커리큘럼 주차 진행도(%)를 반환합니다. 커리큘럼이 없거나 주차가 0인 그룹은
+	 * 맵에서 제외돼 호출 측이 상태 기반 기본값으로 대체할 수 있습니다.
+	 */
+	@Transactional(readOnly = true)
+	public Map<UUID, Integer> progressPercentByGroupIds(java.util.Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		Map<UUID, Integer> result = new java.util.HashMap<>();
+		for (com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress progress
+				: repository.findWeekProgressByGroupIds(groupIds)) {
+			Integer percent = progress.progressPercent();
+			if (percent != null) {
+				result.put(progress.groupId(), percent);
+			}
+		}
+		return result;
+	}
+
 	@Transactional(readOnly = true)
 	public Curriculum getCurriculum(GetCurriculumQuery query) {
 		Objects.requireNonNull(query, "query must not be null");

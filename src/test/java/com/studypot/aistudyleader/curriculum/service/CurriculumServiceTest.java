@@ -225,6 +225,24 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void progressPercentByGroupIdsComputesAndSkipsGroupsWithoutWeeks() {
+		CapturingRepository repository = new CapturingRepository();
+		UUID groupWithProgress = UUID.fromString("018f0000-0000-7000-8000-0000000040f1");
+		UUID groupWithoutWeeks = UUID.fromString("018f0000-0000-7000-8000-0000000040f2");
+		repository.weekProgress = List.of(
+			new com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress(groupWithProgress, 2, 1, 4),
+			new com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress(groupWithoutWeeks, 0, 0, 0)
+		);
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		var result = service.progressPercentByGroupIds(List.of(groupWithProgress, groupWithoutWeeks));
+
+		// (2 + 1*0.5) / 4 = 0.625 -> 63
+		assertThat(result).containsEntry(groupWithProgress, 63);
+		assertThat(result).doesNotContainKey(groupWithoutWeeks);
+	}
+
+	@Test
 	void startStudyRejectsWhenGeneratorIsNotConfigured() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
@@ -1738,6 +1756,14 @@ class CurriculumServiceTest {
 			this.memberDoneActivityFrom = fromInclusive;
 			this.memberDoneActivityTo = toExclusive;
 			return memberDoneActivityCount;
+		}
+
+		private java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> weekProgress = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> findWeekProgressByGroupIds(
+			java.util.Collection<UUID> groupIds) {
+			return weekProgress;
 		}
 
 		@Override
