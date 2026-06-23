@@ -86,12 +86,22 @@ public class NotificationService implements NotificationEventPublisher {
 	@Transactional
 	public Notification createNotification(CreateNotificationCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
+		PersistedNotification persisted = persistNotification(command);
+		if (persisted.newlyCreated()) {
+			// 워커(RabbitMQ) 경로: 이 메서드는 프록시를 통해 자체 트랜잭션에서 실행되므로
+			// 트랜잭션 커밋 후 SSE 를 푸시하도록 afterCommit 으로 등록한다.
+			publishAfterCommit(() -> streamPublisher.publishNotificationCreated(persisted.notification()));
+		}
+		return persisted.notification();
+	}
+
+	private PersistedNotification persistNotification(CreateNotificationCommand command) {
 		Notification candidate = command.toDeliveredNotification(idGenerator.get(), clock.instant());
 		Notification savedNotification = repository.saveNotification(candidate);
-		if (savedNotification.id().equals(candidate.id())) {
-			publishAfterCommit(() -> streamPublisher.publishNotificationCreated(savedNotification));
-		}
-		return savedNotification;
+		return new PersistedNotification(savedNotification, savedNotification.id().equals(candidate.id()));
+	}
+
+	private record PersistedNotification(Notification notification, boolean newlyCreated) {
 	}
 
 	@Transactional
@@ -281,7 +291,14 @@ public class NotificationService implements NotificationEventPublisher {
 
 	private void createNotificationSafely(CreateNotificationCommand command) {
 		try {
-			createNotification(command);
+			PersistedNotification persisted = persistNotification(command);
+			if (persisted.newlyCreated()) {
+				// in-process 발행 경로: 이 메서드는 업무 트랜잭션의 afterCommit 단계에서 실행된다.
+				// 여기서 SSE 푸시를 다시 afterCommit 으로 등록하면, 이미 진행 중인 afterCommit 콜백
+				// 순회에 잡히지 않아 푸시가 유실된다(=실시간 알림이 안 가고 30초 폴링으로만 옴).
+				// 이미 커밋이 끝난 시점이므로 저장 직후 즉시 푸시한다.
+				streamPublisher.publishNotificationCreated(persisted.notification());
+			}
 		} catch (RuntimeException exception) {
 			log.warn("in-app notification creation failed type={} idempotencyKey={}",
 				command.notificationType(), command.idempotencyKey());
