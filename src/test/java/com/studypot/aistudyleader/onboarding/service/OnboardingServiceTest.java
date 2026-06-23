@@ -130,6 +130,10 @@ class OnboardingServiceTest {
 		}
 
 		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 

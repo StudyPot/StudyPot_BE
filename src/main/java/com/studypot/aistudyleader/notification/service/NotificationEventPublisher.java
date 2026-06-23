@@ -33,6 +33,8 @@ public interface NotificationEventPublisher {
 
 	void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title);
 
+	void publishLeaderReportPosted(UUID groupId, UUID postId, String title);
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
@@ -90,6 +92,10 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
 		}
 	}
 }

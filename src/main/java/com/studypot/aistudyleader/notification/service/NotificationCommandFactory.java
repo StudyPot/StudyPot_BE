@@ -140,6 +140,31 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand leaderReportPosted(
+		UUID groupId,
+		UUID recipientUserId,
+		UUID postId,
+		String title
+	) {
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			new NotificationRelatedResources(null, null, null, null),
+			NotificationType.LEADER_REPORT_POSTED,
+			"idempotency:notification:leader-report-posted:post:%s:recipient:%s".formatted(postId, recipientUserId),
+			"새 팀장 리포트가 올라왔어요",
+			safeTitle,
+			payload("/groups/%s/posts/%s".formatted(groupId, postId), Map.of(
+				"groupId", groupId.toString(),
+				"postId", postId.toString(),
+				"title", safeTitle
+			)),
+			null
+		);
+	}
+
 	static CreateNotificationCommand taskNotification(
 		NotificationType type,
 		UUID groupId,

@@ -938,6 +938,10 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 
@@ -1004,6 +1008,10 @@ class StudyGroupServiceTest {
 
 		@Override
 		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
 		}
 
 		@Override

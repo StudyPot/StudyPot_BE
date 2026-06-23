@@ -52,15 +52,16 @@ class GroupBoardServiceTest {
 			UUID.fromString("018f0000-0000-7000-8000-000000123101"),
 			UUID.fromString("018f0000-0000-7000-8000-000000123102"),
 			UUID.fromString("018f0000-0000-7000-8000-000000123103"),
-			UUID.fromString("018f0000-0000-7000-8000-000000123104")
+			UUID.fromString("018f0000-0000-7000-8000-000000123104"),
+			UUID.fromString("018f0000-0000-7000-8000-000000123105")
 		);
 
 		List<GroupBoard> boards = service.listBoards(new ListGroupBoardsQuery(USER_ID, GROUP_ID));
 
 		assertThat(repository.insertedBoards)
 			.extracting(GroupBoard::boardType)
-			.containsExactly(GroupBoardType.NOTICE, GroupBoardType.QUESTION, GroupBoardType.RESOURCE, GroupBoardType.RETROSPECTIVE);
-		assertThat(boards).hasSize(4);
+			.containsExactly(GroupBoardType.NOTICE, GroupBoardType.QUESTION, GroupBoardType.RESOURCE, GroupBoardType.RETROSPECTIVE, GroupBoardType.LEADER_REPORT);
+		assertThat(boards).hasSize(5);
 	}
 
 	@Test
@@ -127,6 +128,42 @@ class GroupBoardServiceTest {
 		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "질문 있어요", "JPA 관련 질문", false));
 
 		verify(publisher, never()).publishNoticePosted(any(), any(), any(), any());
+	}
+
+	@Test
+	void createPostOnLeaderReportBoardByOwnerPublishesLeaderReportNotification() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "2주차 학습 리포트", "본문", false));
+
+		verify(publisher).publishLeaderReportPosted(GROUP_ID, POST_ID, "2주차 학습 리포트");
+	}
+
+	@Test
+	void createPostOnLeaderReportBoardByMemberIsRejected() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		GroupBoardService service = service(repository, POST_ID);
+
+		assertThatThrownBy(() -> service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "임의 글", "본문", false)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class);
+	}
+
+	@Test
+	void findOrCreateBoardIdReturnsExistingBoard() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		GroupBoardService service = service(repository, POST_ID);
+
+		UUID boardId = service.findOrCreateBoardId(USER_ID, GROUP_ID, GroupBoardType.LEADER_REPORT);
+
+		assertThat(boardId).isEqualTo(BOARD_ID);
 	}
 
 	@Test
