@@ -89,6 +89,7 @@ class RetrospectiveControllerTest {
 			.andExpect(status().isAccepted())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(RETROSPECTIVE_ID.toString()))
+			.andExpect(jsonPath("$.weekId").value(WEEK_ID.toString()))
 			.andExpect(jsonPath("$.status").value("PENDING"))
 			.andExpect(jsonPath("$.aiFeedback").isMap())
 			.andExpect(jsonPath("$.nextWeekAdjustment").isMap());
@@ -179,6 +180,7 @@ class RetrospectiveControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$[0].id").value(RETROSPECTIVE_ID.toString()))
+			.andExpect(jsonPath("$[0].weekId").value(WEEK_ID.toString()))
 			.andExpect(jsonPath("$[0].status").value("COMPLETED"));
 	}
 
