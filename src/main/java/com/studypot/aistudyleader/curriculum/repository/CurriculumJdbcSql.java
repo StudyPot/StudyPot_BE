@@ -300,24 +300,40 @@ final class CurriculumJdbcSql {
 		  and gm.deleted_at is null
 		""";
 
+	// 활동 잔디 집계: 완료(DONE)한 todo + 작성한 게시글을 일자별로 합산해 멤버별 활동 개수를 낸다.
+	// 활동이 없는 멤버도 LEFT JOIN 으로 포함(date null, count 0). 파라미터: (from,to,from,to,groupId)
 	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """
 		select
 		  gm.id as member_id,
 		  gm.user_id,
 		  coalesce(nullif(gm.display_name, ''), u.nickname) as display_name,
 		  u.nickname,
-		  date(tc.completed_at) as activity_date,
-		  count(tc.id) as activity_count
+		  act.activity_date as activity_date,
+		  count(act.activity_id) as activity_count
 		from group_member gm
 		join users u on u.id = gm.user_id
-		left join task_completion tc on tc.member_id = gm.id
-		  and tc.status = 'DONE'
-		  and tc.completed_at >= ?
-		  and tc.completed_at < ?
+		left join (
+		  select tc.member_id as member_id,
+		         date(tc.completed_at) as activity_date,
+		         tc.id as activity_id
+		  from task_completion tc
+		  where tc.status = 'DONE'
+		    and tc.completed_at >= ?
+		    and tc.completed_at < ?
+		  union all
+		  select p.author_member_id as member_id,
+		         date(p.created_at) as activity_date,
+		         p.id as activity_id
+		  from group_board_post p
+		  where p.deleted_at is null
+		    and p.status = 'PUBLISHED'
+		    and p.created_at >= ?
+		    and p.created_at < ?
+		) act on act.member_id = gm.id
 		where gm.group_id = ?
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and gm.deleted_at is null
-		group by gm.id, gm.user_id, display_name, u.nickname, date(tc.completed_at)
+		group by gm.id, gm.user_id, display_name, u.nickname, act.activity_date
 		order by gm.joined_at asc, gm.id asc
 		""";
 

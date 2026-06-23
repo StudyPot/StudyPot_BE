@@ -107,6 +107,45 @@ final class GroupBoardJdbcSql {
 		limit ?
 		""";
 
+	// 그룹 전체 게시글(모든 게시판) 조회. board_id 조건만 빠지고 정렬/커서는 SELECT_POSTS 와 동일하다.
+	static final String SELECT_ALL_POSTS = """
+		select p.id,
+		       p.group_id,
+		       p.board_id,
+		       p.author_member_id,
+		       gm.user_id as author_user_id,
+		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       p.title,
+		       case
+		         when char_length(p.content) > 160 then concat(left(p.content, 160), '...')
+		         else p.content
+		       end as content_preview,
+		       p.is_pinned,
+		       (
+		         select count(*)
+		         from group_board_comment c
+		         where c.post_id = p.id
+		           and c.deleted_at is null
+		           and c.status = 'PUBLISHED'
+		       ) as comment_count,
+		       p.created_at,
+		       p.updated_at
+		from group_board_post p
+		left join group_member gm on gm.id = p.author_member_id
+		left join users u on u.id = gm.user_id and u.deleted_at is null
+		where p.group_id = ?
+		  and p.deleted_at is null
+		  and p.status = 'PUBLISHED'
+		  and (
+		    ? is null
+		    or p.is_pinned < ?
+		    or (p.is_pinned = ? and p.created_at < ?)
+		    or (p.is_pinned = ? and p.created_at = ? and p.id < ?)
+		  )
+		order by p.is_pinned desc, p.created_at desc, p.id desc
+		limit ?
+		""";
+
 	static final String SELECT_POST = """
 		select p.id,
 		       p.group_id,

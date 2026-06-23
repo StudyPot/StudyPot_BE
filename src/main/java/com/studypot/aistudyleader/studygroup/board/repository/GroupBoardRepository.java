@@ -30,6 +30,8 @@ public interface GroupBoardRepository {
 
 	List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit);
 
+	List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit);
+
 	Optional<GroupBoardPost> findPost(UUID groupId, UUID postId);
 
 	boolean existsPost(UUID postId);
