@@ -97,6 +97,16 @@ final class StudyGroupJdbcSql {
 		  and deleted_at is null
 		""";
 
+	// %s 는 group_id IN (?, ?, ...) 자리표시자로 동적 치환된다.
+	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS = """
+		select group_id, count(*) as member_count
+		from group_member
+		where group_id in (%s)
+		  and status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and deleted_at is null
+		group by group_id
+		""";
+
 	static final String SELECT_GROUPS_BY_MEMBER_USER_ID = """
 		select
 		  sg.id, sg.created_by, sg.name, sg.description, sg.topic, sg.detail_keywords,

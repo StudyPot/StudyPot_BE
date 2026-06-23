@@ -854,6 +854,15 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public java.util.Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(java.util.Collection<UUID> groupIds) {
+			java.util.Map<UUID, Integer> counts = new java.util.HashMap<>();
+			for (UUID id : groupIds) {
+				counts.put(id, currentMemberCount);
+			}
+			return counts;
+		}
+
+		@Override
 		public void saveJoinedMember(GroupMember member) {
 			if (throwDuplicateMembershipOnJoin) {
 				throw new GroupMemberDuplicateMembershipException("group member already exists.");

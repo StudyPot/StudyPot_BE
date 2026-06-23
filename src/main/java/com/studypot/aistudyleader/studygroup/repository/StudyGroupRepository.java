@@ -6,7 +6,9 @@ import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +31,8 @@ public interface StudyGroupRepository {
 	boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId);
 
 	int countActiveOrOnboardingMembers(UUID groupId);
+
+	Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(Collection<UUID> groupIds);
 
 	void saveJoinedMember(GroupMember member);
 

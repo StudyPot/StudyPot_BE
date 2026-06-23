@@ -137,6 +137,18 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void countActiveOrOnboardingMembersByGroupIdsReturnsEmptyForEmptyInput() {
+		assertThat(repository.countActiveOrOnboardingMembersByGroupIds(java.util.List.of())).isEmpty();
+	}
+
+	@Test
+	void countActiveOrOnboardingMembersByGroupsSqlGroupsByGroupId() {
+		assertThat(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS)
+			.contains("group by group_id")
+			.contains("in (%s)");
+	}
+
+	@Test
 	void existsActiveOrOnboardingMemberChecksCurrentMembershipOnly() {
 		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER), eq(Boolean.class), any(Object[].class)))
 			.thenReturn(true);
