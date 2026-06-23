@@ -8,6 +8,9 @@ import java.util.Objects;
 public record NextWeekPlanInput(int weekNumber, String weekTitle, String sprintGoal, String reportText) {
 
 	public NextWeekPlanInput {
+		if (weekNumber <= 0) {
+			throw new IllegalArgumentException("weekNumber must be positive");
+		}
 		weekTitle = (weekTitle == null || weekTitle.isBlank()) ? (weekNumber + "주차") : weekTitle.strip();
 		sprintGoal = sprintGoal == null ? "" : sprintGoal.strip();
 		reportText = Objects.requireNonNull(reportText, "reportText must not be null").strip();

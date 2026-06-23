@@ -87,13 +87,21 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 		List<CurriculumTaskPlan> tasks = new ArrayList<>();
 		for (JsonNode task : tasksNode) {
 			tasks.add(new CurriculumTaskPlan(
-				WeeklyTaskType.valueOf(task.path("taskType").asText()),
-				task.path("title").asText(null),
-				task.path("description").asText(null),
+				WeeklyTaskType.valueOf(requireText(task, "taskType")),
+				requireText(task, "title"),
+				requireText(task, "description"),
 				task.path("required").asBoolean(true)
 			));
 		}
-		return new NextWeekPlan(tasks, node.path("retrospectivePrompt").asText(null));
+		return new NextWeekPlan(tasks, requireText(node, "retrospectivePrompt"));
+	}
+
+	private static String requireText(JsonNode node, String field) {
+		String value = node.path(field).asText(null);
+		if (value == null || value.isBlank()) {
+			throw new IllegalArgumentException("required field '" + field + "' must not be missing or blank.");
+		}
+		return value;
 	}
 
 	private Map<String, Object> schemaFormat() {
