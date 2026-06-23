@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +76,45 @@ public class NextWeekPlanService {
 
 		List<WeeklyTask> tasks = toWeeklyTasks(nextWeek.weekId(), generation.plan().tasks(), now);
 		return repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectivePrompt(), now);
+	}
+
+	/**
+	 * 주차 리포트가 게시된 직후 스케줄러가 호출하는 자동 재생성 경로. 그룹장 인증 검사 없이
+	 * 시스템이 수행하며, 사용량은 actorUserId(그룹장)에게 귀속한다. 다음 주차가 이미
+	 * IN_PROGRESS 로 전환됐어도 마감 전이면 대상으로 삼는다(주차 전이 스케줄러와의 경합 대비).
+	 */
+	@Transactional
+	public void regenerateNextWeekAutomatically(UUID groupId, UUID currentWeekId, UUID actorUserId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
+		Objects.requireNonNull(actorUserId, "actorUserId must not be null");
+		NextWeekPlanGenerator generator = generatorSupplier.get();
+		LlmUsageRecorder recorder = usageRecorderSupplier.get();
+		if (generator == null || recorder == null) {
+			return;
+		}
+		Instant now = clock.instant();
+		Optional<NextWeekTarget> next = repository.findNextRegenerableWeek(currentWeekId, now);
+		if (next.isEmpty()) {
+			return;
+		}
+		Optional<String> reportBody = repository.findLatestWeeklyReportBody(groupId);
+		if (reportBody.isEmpty()) {
+			return;
+		}
+		NextWeekTarget nextWeek = next.get();
+		NextWeekPlanGeneration generation = generator.generate(new NextWeekPlanInput(
+			nextWeek.weekNumber(), nextWeek.title(), nextWeek.sprintGoal(), reportBody.get()
+		));
+		recorder.record(generation.response().toUsage(
+			idGenerator.get(),
+			actorUserId,
+			groupId,
+			LlmUsagePurpose.NEXT_WEEK_ADJUST,
+			now
+		));
+		List<WeeklyTask> tasks = toWeeklyTasks(nextWeek.weekId(), generation.plan().tasks(), now);
+		repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectivePrompt(), now);
 	}
 
 	private List<WeeklyTask> toWeeklyTasks(UUID weekId, List<CurriculumTaskPlan> plans, Instant now) {

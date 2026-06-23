@@ -4,7 +4,9 @@ import com.studypot.aistudyleader.global.domain.UuidV7;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import com.studypot.aistudyleader.curriculum.service.NextWeekPlanService;
 import com.studypot.aistudyleader.report.service.MemberRetrospectiveSummary;
+import com.studypot.aistudyleader.report.service.MemberTaskProgress;
 import com.studypot.aistudyleader.report.service.WeeklyReportData;
 import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
@@ -77,6 +79,26 @@ class WeeklyReportScheduler {
 		order by r.requested_at, r.id
 		""";
 
+	private static final String SELECT_MEMBER_TASK_PROGRESS = """
+		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
+		       coalesce(sum(case when tc.status = 'DONE' then 1 else 0 end), 0) as done_count
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join task_completion tc on tc.member_id = gm.id
+		  and tc.weekly_task_id in (
+		    select wt.id from weekly_task wt where wt.curriculum_week_id = ? and wt.deleted_at is null
+		  )
+		where gm.group_id = ?
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		group by gm.id, member_name
+		order by member_name
+		""";
+
+	private static final String COUNT_WEEK_TASKS = """
+		select count(*) from weekly_task where curriculum_week_id = ? and deleted_at is null
+		""";
+
 	private static final String EXISTS_REPORT_POST = """
 		select exists (
 		  select 1
@@ -91,6 +113,7 @@ class WeeklyReportScheduler {
 	private final ObjectProvider<WeeklyReportGenerator> reportGenerator;
 	private final ObjectProvider<LlmUsageRecorder> usageRecorder;
 	private final GroupBoardService boardService;
+	private final ObjectProvider<NextWeekPlanService> nextWeekPlanService;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 
@@ -99,12 +122,14 @@ class WeeklyReportScheduler {
 		ObjectProvider<WeeklyReportGenerator> reportGenerator,
 		ObjectProvider<LlmUsageRecorder> usageRecorder,
 		GroupBoardService boardService,
+		ObjectProvider<NextWeekPlanService> nextWeekPlanService,
 		Clock clock
 	) {
 		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
 		this.reportGenerator = Objects.requireNonNull(reportGenerator, "reportGenerator must not be null");
 		this.usageRecorder = Objects.requireNonNull(usageRecorder, "usageRecorder must not be null");
 		this.boardService = Objects.requireNonNull(boardService, "boardService must not be null");
+		this.nextWeekPlanService = Objects.requireNonNull(nextWeekPlanService, "nextWeekPlanService must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = UuidV7::generate;
 	}
@@ -154,8 +179,9 @@ class WeeklyReportScheduler {
 			(rs, rowNum) -> new MemberRetrospectiveSummary(rs.getString("member_name"), rs.getString("feedback_summary")),
 			UuidBinary.toBytes(week.weekId())
 		);
-		if (retros.isEmpty()) {
-			return; // 완료된 회고가 없으면 리포트를 만들지 않는다.
+		List<MemberTaskProgress> taskProgress = findMemberTaskProgress(week);
+		if (retros.isEmpty() && taskProgress.isEmpty()) {
+			return; // 회고도 멤버도 없으면 리포트를 만들 수 없다.
 		}
 		Optional<UUID> ownerUserId = findOwnerUserId(week.groupId());
 		if (ownerUserId.isEmpty()) {
@@ -166,7 +192,7 @@ class WeeklyReportScheduler {
 			return;
 		}
 		WeeklyReportGeneration generation = generator.generate(
-			new WeeklyReportData(week.groupId(), week.weekId(), week.weekNumber(), week.weekTitle(), retros)
+			new WeeklyReportData(week.groupId(), week.weekId(), week.weekNumber(), week.weekTitle(), retros, taskProgress)
 		);
 		recorder.record(generation.response().toUsage(
 			idGenerator.get(),
@@ -187,6 +213,36 @@ class WeeklyReportScheduler {
 			false
 		));
 		log.info("weekly report posted groupId={} weekNumber={}", week.groupId(), week.weekNumber());
+		regenerateNextWeek(week, ownerUserId.get());
+	}
+
+	// 리포트가 올라온 직후, 그 리포트를 바탕으로 다음 주차 TODO/회고 프롬프트를 자동 재생성한다.
+	// 리포트 게시가 멱등(주차당 1회)이라 이 호출도 주차당 1회만 일어난다. 실패해도 리포트 게시는 유지한다.
+	private void regenerateNextWeek(DueWeek week, UUID ownerUserId) {
+		NextWeekPlanService service = nextWeekPlanService.getIfAvailable();
+		if (service == null) {
+			return;
+		}
+		try {
+			service.regenerateNextWeekAutomatically(week.groupId(), week.weekId(), ownerUserId);
+		} catch (RuntimeException exception) {
+			log.warn("next week auto-regeneration failed groupId={} weekId={}", week.groupId(), week.weekId(), exception);
+		}
+	}
+
+	private List<MemberTaskProgress> findMemberTaskProgress(DueWeek week) {
+		int totalTasks = totalWeekTasks(week.weekId());
+		return jdbcTemplate.query(
+			SELECT_MEMBER_TASK_PROGRESS,
+			(rs, rowNum) -> new MemberTaskProgress(rs.getString("member_name"), rs.getInt("done_count"), totalTasks),
+			UuidBinary.toBytes(week.weekId()),
+			UuidBinary.toBytes(week.groupId())
+		);
+	}
+
+	private int totalWeekTasks(UUID weekId) {
+		Integer count = jdbcTemplate.queryForObject(COUNT_WEEK_TASKS, Integer.class, UuidBinary.toBytes(weekId));
+		return count == null ? 0 : count;
 	}
 
 	private Optional<UUID> findOwnerUserId(UUID groupId) {

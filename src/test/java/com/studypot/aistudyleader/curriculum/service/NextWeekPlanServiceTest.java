@@ -86,6 +86,47 @@ class NextWeekPlanServiceTest {
 			.isInstanceOf(CurriculumAccessDeniedException.class);
 	}
 
+	@Test
+	void regenerateNextWeekAutomaticallyReplacesTasksWithoutOwnerCheck() {
+		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.of(new NextWeekTarget(NEXT_WEEK_ID, 2, "JPA 심화", "목표")));
+		when(repository.findLatestWeeklyReportBody(GROUP_ID)).thenReturn(Optional.of("지난 주 리포트"));
+		when(repository.replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), any(), eq(NOW))).thenReturn(week());
+		NextWeekPlanGenerator generator = input -> new NextWeekPlanGeneration(
+			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), "회고 질문"),
+			response()
+		);
+		NextWeekPlanService service = new NextWeekPlanService(repository, () -> generator, () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds());
+
+		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+
+		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), eq("회고 질문"), eq(NOW));
+	}
+
+	@Test
+	void regenerateNextWeekAutomaticallySkipsWhenNoRegenerableWeek() {
+		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.empty());
+		NextWeekPlanService service = new NextWeekPlanService(
+			repository, () -> mock(NextWeekPlanGenerator.class), () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds()
+		);
+
+		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+
+		verify(repository, org.mockito.Mockito.never()).replaceNextWeekTasks(any(), any(), any(), any());
+	}
+
+	@Test
+	void regenerateNextWeekAutomaticallySkipsWhenNoReport() {
+		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.of(new NextWeekTarget(NEXT_WEEK_ID, 2, "JPA 심화", "목표")));
+		when(repository.findLatestWeeklyReportBody(GROUP_ID)).thenReturn(Optional.empty());
+		NextWeekPlanService service = new NextWeekPlanService(
+			repository, () -> mock(NextWeekPlanGenerator.class), () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds()
+		);
+
+		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+
+		verify(repository, org.mockito.Mockito.never()).replaceNextWeekTasks(any(), any(), any(), any());
+	}
+
 	private static CurriculumStartContext ownerContext() {
 		return new CurriculumStartContext(
 			GROUP_ID, "g", "topic", List.of("k"), StudyGroupStatus.ACTIVE,

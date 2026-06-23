@@ -41,7 +41,8 @@ class ProviderBackedWeeklyReportGeneratorTest {
 			List.of(
 				new MemberRetrospectiveSummary("현우", "실습을 끝냈고 흐름이 좋다."),
 				new MemberRetrospectiveSummary("지민", "이론은 좋았으나 실습이 부족했다.")
-			)
+			),
+			List.of(new MemberTaskProgress("현우", 3, 4))
 		));
 
 		assertThat(provider.request.purpose()).isEqualTo(LlmUsagePurpose.WEEKLY_REPORT);
@@ -64,7 +65,7 @@ class ProviderBackedWeeklyReportGeneratorTest {
 		);
 
 		assertThatThrownBy(() -> generator.generate(new WeeklyReportData(
-				GROUP_ID, WEEK_ID, 1, "1주차", List.of(new MemberRetrospectiveSummary("현우", "좋았다."))
+				GROUP_ID, WEEK_ID, 1, "1주차", List.of(new MemberRetrospectiveSummary("현우", "좋았다.")), List.of()
 			)))
 			.isInstanceOf(WeeklyReportGenerationException.class);
 	}
@@ -85,7 +86,7 @@ class ProviderBackedWeeklyReportGeneratorTest {
 		);
 
 		assertThatThrownBy(() -> generator.generate(new WeeklyReportData(
-				GROUP_ID, WEEK_ID, 1, "1주차", List.of(new MemberRetrospectiveSummary("현우", "좋았다."))
+				GROUP_ID, WEEK_ID, 1, "1주차", List.of(new MemberRetrospectiveSummary("현우", "좋았다.")), List.of()
 			)))
 			.isInstanceOf(WeeklyReportGenerationException.class);
 	}

@@ -38,6 +38,8 @@ public interface CurriculumRepository {
 
 	Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId);
 
+	Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, Instant now);
+
 	Optional<String> findLatestWeeklyReportBody(UUID groupId);
 
 	CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now);
