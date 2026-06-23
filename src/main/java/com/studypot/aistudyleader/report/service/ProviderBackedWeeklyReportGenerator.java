@@ -17,8 +17,11 @@ import java.util.Objects;
 class ProviderBackedWeeklyReportGenerator implements WeeklyReportGenerator {
 
 	private static final String INSTRUCTIONS = """
-		당신은 스터디 그룹의 AI 팀장입니다. 한 주차 동안 모든 멤버가 작성한 회고를 종합해
+		당신은 스터디 그룹의 AI 팀장입니다. 한 주차 동안의 학습 현황을 종합해
 		팀 전체를 위한 '주차 학습 리포트'를 한국어로 작성하세요.
+		- 멤버 회고(memberRetrospectives)가 있으면 그 내용을 중심으로 작성합니다.
+		- 회고가 없거나 부족하면 각 멤버의 TODO 완료 현황(memberTaskProgress: 완료/전체 개수)을
+		  바탕으로 팀의 진행 상황을 요약하고 다음 주 제안을 작성합니다.
 		- 멤버 개개인의 사적인 정보나 비난은 넣지 마세요. 팀 관점의 요약/성과/개선점/다음 주 제안 위주로 작성합니다.
 		- 비밀키, OAuth, 자격증명류 값은 절대 포함하지 마세요.
 		- 반드시 제공된 JSON 스키마(title, body)에 맞는 JSON 만 반환하세요. body 는 마크다운 단락으로 작성합니다.
@@ -63,10 +66,19 @@ class ProviderBackedWeeklyReportGenerator implements WeeklyReportGenerator {
 		for (MemberRetrospectiveSummary retro : data.memberRetrospectives()) {
 			members.add(Map.of("member", retro.memberName(), "retrospective", retro.summary()));
 		}
+		List<Map<String, Object>> taskProgress = new ArrayList<>();
+		for (MemberTaskProgress progress : data.memberTaskProgress()) {
+			taskProgress.add(Map.of(
+				"member", progress.memberName(),
+				"doneCount", progress.doneCount(),
+				"totalCount", progress.totalCount()
+			));
+		}
 		return LlmPromptSanitizer.sanitizeMap(Map.of(
 			"weekNumber", data.weekNumber(),
 			"weekTitle", data.weekTitle(),
-			"memberRetrospectives", members
+			"memberRetrospectives", members,
+			"memberTaskProgress", taskProgress
 		));
 	}
 

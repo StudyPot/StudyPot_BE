@@ -213,6 +213,20 @@ final class CurriculumJdbcSql {
 		limit 1
 		""";
 
+	// 자동 재생성용: 다음 주차가 이미 IN_PROGRESS 로 전환됐어도(주차 전이 스케줄러와의 경합) 아직 마감 전이면 대상.
+	static final String SELECT_NEXT_REGENERABLE_WEEK = """
+		select nw.id, nw.week_number, nw.title, nw.sprint_goal
+		from curriculum_week cw
+		join curriculum_week nw on nw.curriculum_id = cw.curriculum_id
+		  and nw.week_number = cw.week_number + 1
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and nw.deleted_at is null
+		  and nw.status <> 'COMPLETED'
+		  and nw.ends_at > ?
+		limit 1
+		""";
+
 	static final String SELECT_LATEST_WEEKLY_REPORT_BODY = """
 		select content
 		from group_board_post

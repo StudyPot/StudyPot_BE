@@ -203,6 +203,23 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, Instant now) {
+		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
+		Objects.requireNonNull(now, "now must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_NEXT_REGENERABLE_WEEK,
+			(rs, rowNum) -> new com.studypot.aistudyleader.curriculum.domain.NextWeekTarget(
+				UuidBinary.fromBytes(rs.getBytes("id")),
+				rs.getInt("week_number"),
+				rs.getString("title"),
+				rs.getString("sprint_goal")
+			),
+			uuid(currentWeekId),
+			timestamp(now)
+		);
+	}
+
+	@Override
 	public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return queryOne(

@@ -1087,6 +1087,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, java.time.Instant now) {
+			return Optional.empty();
+		}
+
+		@Override
 		public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
 			return Optional.empty();
 		}
