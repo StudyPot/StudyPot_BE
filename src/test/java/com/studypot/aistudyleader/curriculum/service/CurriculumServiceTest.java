@@ -511,7 +511,7 @@ class CurriculumServiceTest {
 			"JPA 기초와 환경 구성",
 			"공통 환경을 만들고 핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
-			"이번 주 회고 질문",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -1313,7 +1313,7 @@ class CurriculumServiceTest {
 			"JPA 기초와 환경 구성",
 			"공통 환경을 만들고 핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
-			"이번 주 회고 질문",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(Map.of("title", "공식 문서", "url", "https://spring.io/projects/spring-boot")),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -1432,7 +1432,7 @@ class CurriculumServiceTest {
 				weekNumber,
 				weekNumber == 1 ? "JPA 기초와 환경 구성" : "JPA 심화 " + weekNumber + "주차",
 				weekNumber == 1 ? "공통 환경을 만들고 핵심 개념을 맞춥니다." : "주차별 목표를 완성합니다.",
-				"이번 주 회고 질문",
+				java.util.List.of(),
 				List.of("Entity 매핑 이해"),
 				List.of(Map.of("title", "공식 문서", "url", "https://spring.io/projects/spring-boot")),
 				List.of(new CurriculumTaskPlan(
@@ -1560,7 +1560,7 @@ class CurriculumServiceTest {
 		private String latestWeeklyReportBody;
 		private CurriculumWeek replacedWeek;
 		private List<WeeklyTask> replacedTasks;
-		private String replacedPrompt;
+		private java.util.List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> replacedQuestions;
 
 		@Override
 		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
@@ -1578,9 +1578,9 @@ class CurriculumServiceTest {
 		}
 
 		@Override
-		public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now) {
+		public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, java.util.List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions, Instant now) {
 			this.replacedTasks = tasks;
-			this.replacedPrompt = retrospectivePrompt;
+			this.replacedQuestions = retrospectiveQuestions;
 			return replacedWeek;
 		}
 

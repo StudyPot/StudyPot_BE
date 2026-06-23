@@ -516,7 +516,7 @@ class JdbcCurriculumRepositoryTest {
 			"JPA 기초",
 			"핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
-			"이번 주 회고 질문",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -601,7 +601,7 @@ class JdbcCurriculumRepositoryTest {
 				1,
 				"JPA 기초",
 				"핵심 개념을 맞춥니다.",
-				"이번 주 회고 질문",
+				java.util.List.of(),
 				List.of("Entity 매핑 이해"),
 				List.of(),
 				List.of(new CurriculumTaskPlan(WeeklyTaskType.READING, "JPA 읽기", null, true))

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
@@ -19,10 +21,11 @@ import java.util.Objects;
 class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 
 	private static final String INSTRUCTIONS = """
-		직전 주차의 학습 리포트를 바탕으로 '다음 주차' 학습 TODO 목록과 회고 질문 프롬프트를 한국어로 작성하세요.
+		직전 주차의 학습 리포트를 바탕으로 '다음 주차' 학습 TODO 목록과 회고 설문 질문을 한국어로 작성하세요.
 		- tasks: 다음 주차에 수행할 구체적 TODO 3~6개. 각 항목은 taskType(READING/PRACTICE/ASSIGNMENT/PROJECT/CUSTOM),
 		  title, description, required(boolean) 를 포함합니다.
-		- retrospectivePrompt: 다음 주차 회고를 작성할 때 보여줄 회고 유도 질문 2~4개(줄바꿈 구분).
+		- retrospectiveQuestions: 다음 주차 회고 설문 질문 6~7개. 그 중 5~6개는 type=LIKERT_5(5점 척도 진술문),
+		  1~2개는 type=TEXT(자유 서술형). 각 질문은 {text, type} 객체입니다.
 		비밀키, OAuth, 자격증명류 값은 절대 포함하지 마세요. 제공된 JSON 스키마에 맞는 JSON 만 반환하세요.
 		""";
 
@@ -93,7 +96,23 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 				task.path("required").asBoolean(true)
 			));
 		}
-		return new NextWeekPlan(tasks, requireText(node, "retrospectivePrompt"));
+		return new NextWeekPlan(tasks, readQuestions(node.get("retrospectiveQuestions")));
+	}
+
+	private List<RetrospectiveQuestion> readQuestions(JsonNode questionsNode) {
+		if (questionsNode == null || !questionsNode.isArray() || questionsNode.isEmpty()) {
+			throw new IllegalArgumentException("retrospectiveQuestions must be a non-empty array.");
+		}
+		List<RetrospectiveQuestion> questions = new ArrayList<>();
+		int index = 1;
+		for (JsonNode question : questionsNode) {
+			questions.add(new RetrospectiveQuestion(
+				"q" + index++,
+				requireText(question, "text"),
+				RetrospectiveQuestionType.valueOf(requireText(question, "type"))
+			));
+		}
+		return questions;
 	}
 
 	private static String requireText(JsonNode node, String field) {
@@ -116,16 +135,25 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 				"required", Map.of("type", "boolean")
 			)
 		);
+		Map<String, Object> questionSchema = Map.of(
+			"type", "object",
+			"required", List.of("text", "type"),
+			"additionalProperties", false,
+			"properties", Map.of(
+				"text", Map.of("type", "string"),
+				"type", Map.of("type", "string", "enum", List.of("LIKERT_5", "TEXT"))
+			)
+		);
 		return Map.of(
 			"type", "json_schema",
 			"name", "next_week_plan",
 			"schema", Map.of(
 				"type", "object",
-				"required", List.of("tasks", "retrospectivePrompt"),
+				"required", List.of("tasks", "retrospectiveQuestions"),
 				"additionalProperties", false,
 				"properties", Map.of(
 					"tasks", Map.of("type", "array", "items", taskSchema),
-					"retrospectivePrompt", Map.of("type", "string")
+					"retrospectiveQuestions", Map.of("type", "array", "items", questionSchema)
 				)
 			)
 		);

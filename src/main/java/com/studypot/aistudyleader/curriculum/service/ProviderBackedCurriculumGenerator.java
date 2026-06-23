@@ -9,12 +9,15 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumGenerationRequest;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekPlan;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,9 +30,10 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		Set totalWeeks to expectedWeekCount and return exactly one week per sprint window.
 		Number weeks sequentially from 1 to expectedWeekCount.
 		Return JSON that matches the provided schema. Use only the supplied context.
-		For each week, also produce retrospectivePrompt: 한국어로 그 주차의 task/목표를 돌아볼 수 있는
-		회고 유도 질문 2~4개를 한 문자열로 작성한다(줄바꿈으로 구분). 이는 회고를 작성할 때 보여줄
-		'질문 프롬프트'이며 AI 피드백이 아니다.
+		For each week, also produce retrospectiveQuestions: 한국어로 그 주차의 task/목표를 돌아보는
+		회고 설문 질문 6~7개. 그 중 5~6개는 type=LIKERT_5(5점 척도: 매우 그렇다~매우 아니다로 답하는 진술문),
+		1~2개는 type=TEXT(자유 서술형, 예: '가장 어려웠던 점은?'). 각 질문은 {text, type} 객체다.
+		이는 멤버가 회고에서 답할 설문 문항이며 AI 피드백이 아니다.
 		Do not include retrospective feedback, notifications, member progress, or chat behavior.
 		""";
 
@@ -159,15 +163,24 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 				"required", Map.of("type", "boolean")
 			)
 		);
+		Map<String, Object> questionSchema = Map.of(
+			"type", "object",
+			"required", List.of("text", "type"),
+			"additionalProperties", false,
+			"properties", Map.of(
+				"text", Map.of("type", "string"),
+				"type", Map.of("type", "string", "enum", List.of("LIKERT_5", "TEXT"))
+			)
+		);
 		Map<String, Object> weekSchema = Map.of(
 			"type", "object",
-			"required", List.of("weekNumber", "title", "sprintGoal", "retrospectivePrompt", "learningGoals", "resources", "tasks"),
+			"required", List.of("weekNumber", "title", "sprintGoal", "retrospectiveQuestions", "learningGoals", "resources", "tasks"),
 			"additionalProperties", false,
 			"properties", Map.of(
 				"weekNumber", Map.of("type", "integer"),
 				"title", Map.of("type", "string"),
 				"sprintGoal", Map.of("type", "string"),
-				"retrospectivePrompt", Map.of("type", "string"),
+				"retrospectiveQuestions", Map.of("type", "array", "items", questionSchema),
 				"learningGoals", Map.of("type", "array", "items", Map.of("type", "string")),
 				"resources", Map.of("type", "array", "items", resourceSchema),
 				"tasks", Map.of("type", "array", "items", taskSchema)
@@ -233,7 +246,7 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 		int weekNumber,
 		String title,
 		String sprintGoal,
-		String retrospectivePrompt,
+		List<GeneratedQuestion> retrospectiveQuestions,
 		List<String> learningGoals,
 		List<Map<String, String>> resources,
 		List<GeneratedTask> tasks
@@ -245,12 +258,25 @@ public class ProviderBackedCurriculumGenerator implements CurriculumGenerator {
 				weekNumber,
 				title,
 				sprintGoal,
-				retrospectivePrompt,
+				toQuestions(),
 				learningGoals == null ? List.of() : learningGoals,
 				resources == null ? List.of() : resources,
 				generatedTasks.stream().map(GeneratedTask::toTaskPlan).toList()
 			);
 		}
+
+		private List<RetrospectiveQuestion> toQuestions() {
+			List<GeneratedQuestion> source = retrospectiveQuestions == null ? List.of() : retrospectiveQuestions;
+			List<RetrospectiveQuestion> questions = new ArrayList<>();
+			for (int i = 0; i < source.size(); i++) {
+				GeneratedQuestion question = source.get(i);
+				questions.add(new RetrospectiveQuestion("q" + (i + 1), question.text(), question.type()));
+			}
+			return questions;
+		}
+	}
+
+	private record GeneratedQuestion(String text, RetrospectiveQuestionType type) {
 	}
 
 	private record GeneratedTask(

@@ -13,6 +13,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.NextWeekTarget;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion;
+import com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -44,6 +46,8 @@ class NextWeekPlanServiceTest {
 	private static final UUID CURRICULUM_ID = UUID.fromString("018f0000-0000-7000-8000-000000009105");
 	private static final Instant NOW = Instant.parse("2026-06-01T00:00:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+	private static final List<RetrospectiveQuestion> QUESTIONS =
+		List.of(new RetrospectiveQuestion("q1", "이번 주 목표를 달성했다", RetrospectiveQuestionType.LIKERT_5));
 
 	private final CurriculumRepository repository = mock(CurriculumRepository.class);
 
@@ -56,7 +60,7 @@ class NextWeekPlanServiceTest {
 		when(repository.replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), any(), eq(NOW))).thenReturn(expected);
 
 		NextWeekPlanGenerator generator = input -> new NextWeekPlanGeneration(
-			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), "회고 질문"),
+			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), QUESTIONS),
 			response()
 		);
 		NextWeekPlanService service = new NextWeekPlanService(repository, () -> generator, () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds());
@@ -65,7 +69,7 @@ class NextWeekPlanServiceTest {
 
 		assertThat(result).isSameAs(expected);
 		ArgumentCaptor<List<WeeklyTask>> tasks = ArgumentCaptor.forClass(List.class);
-		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), tasks.capture(), eq("회고 질문"), eq(NOW));
+		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), tasks.capture(), eq(QUESTIONS), eq(NOW));
 		assertThat(tasks.getValue()).hasSize(1);
 		assertThat(tasks.getValue().getFirst().curriculumWeekId()).isEqualTo(NEXT_WEEK_ID);
 	}
@@ -92,14 +96,14 @@ class NextWeekPlanServiceTest {
 		when(repository.findLatestWeeklyReportBody(GROUP_ID)).thenReturn(Optional.of("지난 주 리포트"));
 		when(repository.replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), any(), eq(NOW))).thenReturn(week());
 		NextWeekPlanGenerator generator = input -> new NextWeekPlanGeneration(
-			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), "회고 질문"),
+			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), QUESTIONS),
 			response()
 		);
 		NextWeekPlanService service = new NextWeekPlanService(repository, () -> generator, () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds());
 
 		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
 
-		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), eq("회고 질문"), eq(NOW));
+		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), eq(QUESTIONS), eq(NOW));
 	}
 
 	@Test
@@ -137,7 +141,7 @@ class NextWeekPlanServiceTest {
 
 	private static CurriculumWeek week() {
 		return new CurriculumWeek(
-			NEXT_WEEK_ID, CURRICULUM_ID, 2, "JPA 심화", null, "목표", "회고 질문",
+			NEXT_WEEK_ID, CURRICULUM_ID, 2, "JPA 심화", null, "목표", QUESTIONS,
 			List.of(), List.of(), CurriculumWeekStatus.PENDING,
 			NOW, NOW.plusSeconds(604800), List.of(), NOW, NOW
 		);

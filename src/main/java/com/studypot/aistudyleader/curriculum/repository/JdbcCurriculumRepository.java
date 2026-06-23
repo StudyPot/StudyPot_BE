@@ -48,6 +48,9 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	};
 	private static final TypeReference<List<Map<String, String>>> RESOURCE_LIST = new TypeReference<>() {
 	};
+	private static final TypeReference<List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion>> QUESTION_LIST =
+		new TypeReference<>() {
+		};
 
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
@@ -230,15 +233,26 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
-	public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, String retrospectivePrompt, Instant now) {
+	public CurriculumWeek replaceNextWeekTasks(
+		UUID weekId,
+		List<WeeklyTask> tasks,
+		List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions,
+		Instant now
+	) {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		Objects.requireNonNull(tasks, "tasks must not be null");
+		Objects.requireNonNull(retrospectiveQuestions, "retrospectiveQuestions must not be null");
 		Objects.requireNonNull(now, "now must not be null");
 		jdbcTemplate.update(CurriculumJdbcSql.SOFT_DELETE_WEEK_TASKS, timestamp(now), timestamp(now), uuid(weekId));
 		for (WeeklyTask task : tasks) {
 			insertTask(task);
 		}
-		jdbcTemplate.update(CurriculumJdbcSql.UPDATE_WEEK_RETROSPECTIVE_PROMPT, retrospectivePrompt, timestamp(now), uuid(weekId));
+		jdbcTemplate.update(
+			CurriculumJdbcSql.UPDATE_WEEK_RETROSPECTIVE_QUESTIONS,
+			json(retrospectiveQuestions, "curriculum week retrospective questions"),
+			timestamp(now),
+			uuid(weekId)
+		);
 		CurriculumWeekRow row = queryOne(CurriculumJdbcSql.SELECT_WEEK_BY_ID, this::mapWeekRow, uuid(weekId))
 			.orElseThrow(() -> new CurriculumPersistenceException("curriculum week was not found after update."));
 		return row.toWeek(findWeeklyTasksByWeekId(weekId));
@@ -478,7 +492,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			week.title(),
 			week.description(),
 			week.sprintGoal(),
-			week.retrospectivePrompt(),
+			json(week.retrospectiveQuestions(), "curriculum week retrospective questions"),
 			json(week.learningGoals(), "curriculum week learning goals"),
 			json(week.resources(), "curriculum week resources"),
 			week.status().name(),
@@ -587,7 +601,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			resultSet.getString("title"),
 			resultSet.getString("description"),
 			resultSet.getString("sprint_goal"),
-			resultSet.getString("retrospective_prompt"),
+			readNullableQuestions(resultSet.getString("retrospective_questions"), "curriculum week retrospective questions"),
 			readNullableList(resultSet.getString("learning_goals"), "curriculum week learning goals"),
 			readNullableResources(resultSet.getString("resources"), "curriculum week resources"),
 			CurriculumWeekStatus.valueOf(resultSet.getString("status")),
@@ -683,6 +697,10 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		return value == null ? List.of() : read(value, RESOURCE_LIST, fieldName);
 	}
 
+	private List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> readNullableQuestions(String value, String fieldName) {
+		return value == null ? List.of() : read(value, QUESTION_LIST, fieldName);
+	}
+
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
 	}
@@ -749,7 +767,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		String title,
 		String description,
 		String sprintGoal,
-		String retrospectivePrompt,
+		List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions,
 		List<String> learningGoals,
 		List<Map<String, String>> resources,
 		CurriculumWeekStatus status,
@@ -767,7 +785,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 				title,
 				description,
 				sprintGoal,
-				retrospectivePrompt,
+				retrospectiveQuestions,
 				learningGoals,
 				resources,
 				status,

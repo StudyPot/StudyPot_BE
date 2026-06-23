@@ -20,7 +20,7 @@ class ProviderBackedNextWeekPlanGeneratorTest {
 	@Test
 	void generateBuildsRequestAndParsesTasksAndPrompt() {
 		CapturingProvider provider = new CapturingProvider(response("""
-			{"tasks":[{"taskType":"PRACTICE","title":"연관관계 매핑 실습","description":"OneToMany 실습","required":true}],"retrospectivePrompt":"이번 주 실습에서 막힌 점은?"}
+			{"tasks":[{"taskType":"PRACTICE","title":"연관관계 매핑 실습","description":"OneToMany 실습","required":true}],"retrospectiveQuestions":[{"text":"이번 주 실습을 충분히 했다","type":"LIKERT_5"},{"text":"막힌 점은?","type":"TEXT"}]}
 			"""));
 		ProviderBackedNextWeekPlanGenerator generator = new ProviderBackedNextWeekPlanGenerator(
 			provider, JsonMapper.builder().findAndAddModules().build()
@@ -33,12 +33,14 @@ class ProviderBackedNextWeekPlanGeneratorTest {
 		assertThat(provider.request.input()).containsEntry("nextWeekNumber", 2);
 		assertThat(result.plan().tasks()).hasSize(1);
 		assertThat(result.plan().tasks().getFirst().taskType()).isEqualTo(WeeklyTaskType.PRACTICE);
-		assertThat(result.plan().retrospectivePrompt()).isEqualTo("이번 주 실습에서 막힌 점은?");
+		assertThat(result.plan().retrospectiveQuestions()).hasSize(2);
+		assertThat(result.plan().retrospectiveQuestions().getFirst().type())
+			.isEqualTo(com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5);
 	}
 
 	@Test
 	void generateRejectsEmptyTasks() {
-		CapturingProvider provider = new CapturingProvider(response("{\"tasks\":[],\"retrospectivePrompt\":\"x\"}"));
+		CapturingProvider provider = new CapturingProvider(response("{\"tasks\":[],\"retrospectiveQuestions\":[{\"text\":\"x\",\"type\":\"TEXT\"}]}"));
 		ProviderBackedNextWeekPlanGenerator generator = new ProviderBackedNextWeekPlanGenerator(
 			provider, JsonMapper.builder().findAndAddModules().build()
 		);
