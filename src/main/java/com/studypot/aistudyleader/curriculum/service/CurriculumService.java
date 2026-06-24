@@ -45,7 +45,8 @@ public class CurriculumService {
 
 	private static final Logger log = LoggerFactory.getLogger(CurriculumService.class);
 
-	private static final int MIN_MEMBERS_TO_START = 2;
+	// 혼자(1명) 스터디도 시작할 수 있어야 한다(솔로 스터디 허용). 멤버가 0명일 때만 막는다.
+	private static final int MIN_MEMBERS_TO_START = 1;
 
 	private final CurriculumRepository repository;
 	private final Supplier<CurriculumGenerator> generatorSupplier;
