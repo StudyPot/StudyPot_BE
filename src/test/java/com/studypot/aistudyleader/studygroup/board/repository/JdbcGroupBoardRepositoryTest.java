@@ -51,13 +51,15 @@ class JdbcGroupBoardRepositoryTest {
 	@Test
 	void findPostsUsesPinnedCursorAndPageLimit() {
 		GroupBoardPostCursor cursor = new GroupBoardPostCursor(true, NOW, POST_ID);
-		when(jdbcTemplate.query(eq(GroupBoardJdbcSql.SELECT_POSTS), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
+		// ORDER BY/LIMIT 가 정렬 옵션에 따라 동적으로 붙으므로 SQL 문자열은 anyString 으로 매칭(인자 검증이 목적).
+		when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
 			.thenReturn(List.of());
 
-		repository.findPosts(GROUP_ID, BOARD_ID, cursor, 21);
+		repository.findPosts(GROUP_ID, BOARD_ID, cursor,
+			com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort.CREATED_AT_DESC, 21);
 
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-		verify(jdbcTemplate).query(eq(GroupBoardJdbcSql.SELECT_POSTS), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
+		verify(jdbcTemplate).query(anyString(), any(org.springframework.jdbc.core.RowMapper.class), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(GROUP_ID));
 		assertThat((byte[]) args.getValue()[1]).containsExactly(UuidBinary.toBytes(BOARD_ID));
 		assertThat(args.getValue()[2]).isEqualTo(true);

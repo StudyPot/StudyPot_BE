@@ -7,6 +7,7 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardMembership;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPost;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostCursor;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSummary;
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +29,9 @@ public interface GroupBoardRepository {
 
 	boolean insertPost(GroupBoardPost post);
 
-	List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit);
+	List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit);
 
-	List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit);
+	List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit);
 
 	Optional<GroupBoardPost> findPost(UUID groupId, UUID postId);
 

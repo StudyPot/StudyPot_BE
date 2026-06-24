@@ -25,7 +25,9 @@ public record GroupActivityHeatmap(
 		UUID userId,
 		String displayName,
 		String nickname,
-		List<Integer> counts
+		List<Integer> counts,
+		List<Integer> todoCounts,
+		List<Integer> postCounts
 	) {
 	}
 
@@ -47,10 +49,12 @@ public record GroupActivityHeatmap(
 				row.memberId(),
 				ignored -> new MemberAccumulator(row, days.size())
 			);
-			if (row.date() != null && row.count() > 0) {
+			if (row.date() != null) {
 				Integer index = dayIndex.get(row.date());
 				if (index != null) {
 					accumulator.counts.set(index, accumulator.counts.get(index) + row.count());
+					accumulator.todoCounts.set(index, accumulator.todoCounts.get(index) + row.todoCount());
+					accumulator.postCounts.set(index, accumulator.postCounts.get(index) + row.postCount());
 				}
 			}
 		}
@@ -62,7 +66,9 @@ public record GroupActivityHeatmap(
 				accumulator.userId,
 				accumulator.displayName,
 				accumulator.nickname,
-				List.copyOf(accumulator.counts)
+				List.copyOf(accumulator.counts),
+				List.copyOf(accumulator.todoCounts),
+				List.copyOf(accumulator.postCounts)
 			));
 		}
 		return new GroupActivityHeatmap(startDate, endDate, days, members);
@@ -84,6 +90,8 @@ public record GroupActivityHeatmap(
 		private final String displayName;
 		private final String nickname;
 		private final List<Integer> counts;
+		private final List<Integer> todoCounts;
+		private final List<Integer> postCounts;
 
 		private MemberAccumulator(GroupActivityCount row, int dayCount) {
 			this.memberId = row.memberId();
@@ -91,8 +99,12 @@ public record GroupActivityHeatmap(
 			this.displayName = row.displayName();
 			this.nickname = row.nickname();
 			this.counts = new ArrayList<>(dayCount);
+			this.todoCounts = new ArrayList<>(dayCount);
+			this.postCounts = new ArrayList<>(dayCount);
 			for (int i = 0; i < dayCount; i++) {
 				this.counts.add(0);
+				this.todoCounts.add(0);
+				this.postCounts.add(0);
 			}
 		}
 	}

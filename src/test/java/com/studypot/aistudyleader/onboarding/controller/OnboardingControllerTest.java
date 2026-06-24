@@ -302,6 +302,11 @@ class OnboardingControllerTest {
 			}
 
 			@Override
+			public java.util.Optional<UUID> findOwnerUserId(UUID groupId, UUID excludeMemberId) {
+				return java.util.Optional.empty();
+			}
+
+			@Override
 			public java.util.Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
 				return java.util.Optional.empty();
 			}

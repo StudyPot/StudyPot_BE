@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardMembership;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPost;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostCursor;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSummary;
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
@@ -100,14 +101,17 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 	}
 
 	@Override
-	public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+	public List<GroupBoardPostSummary> findPosts(
+		UUID groupId, UUID boardId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(boardId, "boardId must not be null");
+		Objects.requireNonNull(sort, "sort must not be null");
 		Boolean cursorPinned = cursor == null ? null : cursor.pinned();
 		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
 		byte[] cursorId = cursor == null ? null : uuid(cursor.id());
+		String sql = GroupBoardJdbcSql.SELECT_POSTS + "\n" + sort.orderByClause() + "\nlimit ?";
 		return jdbcTemplate.query(
-			GroupBoardJdbcSql.SELECT_POSTS,
+			sql,
 			this::mapPostSummary,
 			uuid(groupId),
 			uuid(boardId),
@@ -123,13 +127,16 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 	}
 
 	@Override
-	public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
+	public List<GroupBoardPostSummary> findAllPosts(
+		UUID groupId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(sort, "sort must not be null");
 		Boolean cursorPinned = cursor == null ? null : cursor.pinned();
 		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
 		byte[] cursorId = cursor == null ? null : uuid(cursor.id());
+		String sql = GroupBoardJdbcSql.SELECT_ALL_POSTS + "\n" + sort.orderByClause() + "\nlimit ?";
 		return jdbcTemplate.query(
-			GroupBoardJdbcSql.SELECT_ALL_POSTS,
+			sql,
 			this::mapPostSummary,
 			uuid(groupId),
 			cursorPinned,

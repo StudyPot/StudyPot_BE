@@ -208,7 +208,9 @@ public class ApiExceptionHandler {
 		ReviewServiceUnavailableException.class,
 		ReviewPersistenceException.class,
 		BookmarkServiceUnavailableException.class,
-		BookmarkPersistenceException.class
+		BookmarkPersistenceException.class,
+		com.studypot.aistudyleader.follow.service.FollowServiceUnavailableException.class,
+		com.studypot.aistudyleader.follow.repository.FollowPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -230,11 +232,19 @@ public class ApiExceptionHandler {
 		NotificationGroupNotFoundException.class,
 		NotificationNotFoundException.class,
 		ReviewNotFoundException.class,
-		BookmarkGroupNotFoundException.class
+		BookmarkGroupNotFoundException.class,
+		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(com.studypot.aistudyleader.follow.service.FollowSelfNotAllowedException.class)
+	public ResponseEntity<ProblemDetail> handleFollowSelfNotAllowed(RuntimeException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse("userId", messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
 
 	@ExceptionHandler({

@@ -1741,6 +1741,11 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit) {
+			return List.of();
+		}
+
+		@Override
 		public int countActiveOrOnboardingMembers(UUID groupId) {
 			return activeOrOnboardingMemberCount;
 		}

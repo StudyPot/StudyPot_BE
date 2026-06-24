@@ -386,6 +386,26 @@ final class CurriculumJdbcSql {
 		group by c.group_id
 		""";
 
+	// 그룹 홈 '최근 활동' 피드: 최근 완료(DONE)된 과제를 멤버 닉네임/과제 제목과 함께 최신순으로 조회한다.
+	static final String SELECT_RECENT_TASK_ACTIVITY = """
+		select gm.id as member_id,
+		       coalesce(nullif(gm.display_name, ''), u.nickname) as member_nickname,
+		       wt.title as task_title,
+		       tc.completed_at as completed_at
+		from task_completion tc
+		join weekly_task wt on wt.id = tc.weekly_task_id and wt.deleted_at is null
+		join curriculum_week cw on cw.id = wt.curriculum_week_id and cw.deleted_at is null
+		join curriculum c on c.id = cw.curriculum_id and c.deleted_at is null
+		join group_member gm on gm.id = tc.member_id
+		join users u on u.id = gm.user_id
+		where c.group_id = ?
+		  and tc.status = 'DONE'
+		  and tc.completed_at is not null
+		  and gm.deleted_at is null
+		order by tc.completed_at desc, tc.id desc
+		limit ?
+		""";
+
 	// 활동 잔디 집계: 완료(DONE)한 todo + 작성한 게시글을 일자별로 합산해 멤버별 활동 개수를 낸다.
 	// 활동이 없는 멤버도 LEFT JOIN 으로 포함(date null, count 0). 파라미터: (from,to,from,to,groupId)
 	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """
@@ -395,13 +415,16 @@ final class CurriculumJdbcSql {
 		  coalesce(nullif(gm.display_name, ''), u.nickname) as display_name,
 		  u.nickname,
 		  act.activity_date as activity_date,
-		  count(act.activity_id) as activity_count
+		  count(act.activity_id) as activity_count,
+		  sum(case when act.activity_type = 'todo' then 1 else 0 end) as todo_count,
+		  sum(case when act.activity_type = 'post' then 1 else 0 end) as post_count
 		from group_member gm
 		join users u on u.id = gm.user_id
 		left join (
 		  select tc.member_id as member_id,
 		         date(tc.completed_at) as activity_date,
-		         tc.id as activity_id
+		         tc.id as activity_id,
+		         'todo' as activity_type
 		  from task_completion tc
 		  where tc.status = 'DONE'
 		    and tc.completed_at >= ?
@@ -409,7 +432,8 @@ final class CurriculumJdbcSql {
 		  union all
 		  select p.author_member_id as member_id,
 		         date(p.created_at) as activity_date,
-		         p.id as activity_id
+		         p.id as activity_id,
+		         'post' as activity_type
 		  from group_board_post p
 		  where p.deleted_at is null
 		    and p.status = 'PUBLISHED'

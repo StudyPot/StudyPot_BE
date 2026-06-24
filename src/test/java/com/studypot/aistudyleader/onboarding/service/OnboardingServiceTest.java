@@ -440,6 +440,7 @@ class OnboardingServiceTest {
 		private java.util.List<com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding> groupOnboardings = java.util.List.of();
 		private UUID allOnboardedOwnerUserId;
 		private java.util.List<UUID> otherMemberUserIds = java.util.List.of();
+		private UUID submitNotificationOwnerUserId;
 		private boolean activateResult = true;
 
 		@Override
@@ -507,6 +508,11 @@ class OnboardingServiceTest {
 		@Override
 		public java.util.List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId) {
 			return otherMemberUserIds;
+		}
+
+		@Override
+		public java.util.Optional<UUID> findOwnerUserId(UUID groupId, UUID excludeMemberId) {
+			return java.util.Optional.ofNullable(submitNotificationOwnerUserId);
 		}
 
 		private static void requireExpectedGroupId(UUID groupId) {

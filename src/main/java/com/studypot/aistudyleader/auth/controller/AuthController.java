@@ -139,6 +139,26 @@ class AuthController {
 		return UserResponse.from(authSessionService().currentUser(userId));
 	}
 
+	@Operation(
+		summary = "내 프로필 수정",
+		description = "인증된 사용자의 닉네임/자기소개를 수정하고 갱신된 프로필을 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "수정된 사용자 정보 반환"),
+		@ApiResponse(responseCode = "400", description = "닉네임이 비었거나 길이 제한을 위반함"),
+		@ApiResponse(responseCode = "401", description = "인증 정보가 없거나 사용자 식별자를 해석할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "인증 서비스가 아직 구성되지 않음")
+	})
+	@org.springframework.web.bind.annotation.PatchMapping(ApiPaths.V1 + "/users/me")
+	UserResponse updateCurrentUser(
+		@AuthenticationPrincipal Jwt jwt,
+		@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody UpdateUserRequest request
+	) {
+		UUID userId = authenticatedUserId(jwt);
+		rateLimitGuard.ifAvailable(guard -> guard.checkUsersMe(userId));
+		return UserResponse.from(authSessionService().updateProfile(userId, request.nickname(), request.bio()));
+	}
+
 	private AuthSessionService authSessionService() {
 		return authSessionService.getIfAvailable(() -> {
 			throw new AuthServiceUnavailableException("auth service is not configured.");
@@ -217,11 +237,25 @@ class AuthController {
 		@Schema(description = "Google OAuth 계정에서 확인한 이메일 주소입니다.", example = "member@studypot.dev")
 		String email,
 		@Schema(description = "서비스에서 표시할 사용자 닉네임입니다.", example = "현우")
-		String nickname
+		String nickname,
+		@Schema(description = "자기소개입니다. 없으면 null.", example = "백엔드 공부 중입니다.", nullable = true)
+		String bio
 	) {
 
 		private static UserResponse from(AuthenticatedUser user) {
-			return new UserResponse(user.id(), user.email(), user.nickname());
+			return new UserResponse(user.id(), user.email(), user.nickname(), user.bio());
 		}
+	}
+
+	@Schema(description = "내 프로필(닉네임/자기소개) 수정 요청입니다.")
+	private record UpdateUserRequest(
+		@Schema(description = "변경할 닉네임입니다. 1~80자.", example = "현우")
+		@jakarta.validation.constraints.NotBlank
+		@jakarta.validation.constraints.Size(max = 80)
+		String nickname,
+		@Schema(description = "변경할 자기소개입니다. 0~500자.", example = "백엔드 공부 중입니다.", nullable = true)
+		@jakarta.validation.constraints.Size(max = 500)
+		String bio
+	) {
 	}
 }

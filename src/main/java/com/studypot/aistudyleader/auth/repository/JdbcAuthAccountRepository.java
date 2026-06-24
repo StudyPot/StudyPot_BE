@@ -76,6 +76,18 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 	}
 
 	@Override
+	public boolean updateProfile(UUID userId, String nickname, String bio, java.time.Instant updatedAt) {
+		int updated = jdbcTemplate.update(
+			AuthJdbcSql.UPDATE_USER_PROFILE,
+			nickname,
+			bio,
+			timestamp(updatedAt),
+			UuidBinary.toBytes(userId)
+		);
+		return updated > 0;
+	}
+
+	@Override
 	public OAuthAccount save(OAuthAccount account) {
 		try {
 			int updatedRows = jdbcTemplate.update(
@@ -148,6 +160,7 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 			uuid(resultSet, "id"),
 			EmailAddress.from(resultSet.getString("email")),
 			resultSet.getString("nickname"),
+			resultSet.getString("bio"),
 			resultSet.getString("profile_image"),
 			instant(resultSet, "last_login_at"),
 			new AuditMetadata(

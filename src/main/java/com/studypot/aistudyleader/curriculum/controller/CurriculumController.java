@@ -272,6 +272,31 @@ class CurriculumController {
 	}
 
 	@Operation(
+		summary = "그룹 최근 활동 피드 조회",
+		description = "그룹 홈 '최근 활동' 카드용으로, 최근 완료된 과제(누가/무슨 과제/언제)를 최신순으로 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "최근 활동 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "활성 그룹 멤버가 아니어서 조회할 수 없음"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "커리큘럼 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/activity-feed")
+	List<RecentActivityResponse> getRecentActivityFeed(
+		Authentication authentication,
+		@Parameter(description = "최근 활동을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Parameter(description = "조회할 최근 활동 수입니다. 1~50, 기본 8.")
+		@RequestParam(defaultValue = "8") int limit
+	) {
+		return service().getRecentTaskActivity(authenticatedUserId(authentication), groupId, limit)
+			.stream()
+			.map(RecentActivityResponse::from)
+			.toList();
+	}
+
+	@Operation(
 		summary = "주차 과제 목록 조회",
 		description = "그룹 멤버가 특정 커리큘럼 주차에 배정된 과제 목록을 표시 순서대로 조회합니다."
 	)
@@ -584,9 +609,15 @@ class CurriculumController {
 			return heatmap.members().stream()
 				.map(member -> {
 					List<Integer> counts = member.counts();
+					List<Integer> todos = member.todoCounts();
+					List<Integer> posts = member.postCounts();
 					List<DailyActivityResponse> daily = new java.util.ArrayList<>(days.size());
 					for (int i = 0; i < days.size(); i++) {
-						daily.add(new DailyActivityResponse(days.get(i), i < counts.size() ? counts.get(i) : 0));
+						daily.add(new DailyActivityResponse(
+							days.get(i),
+							i < counts.size() ? counts.get(i) : 0,
+							i < todos.size() ? todos.get(i) : 0,
+							i < posts.size() ? posts.get(i) : 0));
 					}
 					String nickname = member.nickname() != null ? member.nickname() : member.displayName();
 					return new MemberActivityRowResponse(member.memberId(), nickname, daily);
@@ -599,9 +630,30 @@ class CurriculumController {
 	private record DailyActivityResponse(
 		@Schema(description = "활동 일자입니다.", example = "2026-06-22")
 		LocalDate date,
+		@Schema(description = "그 날 활동 수(완료 과제 + 게시글) 합산입니다.", example = "3")
+		int count,
 		@Schema(description = "그 날 완료(DONE)한 과제 수입니다.", example = "2")
-		int count
+		int todoCount,
+		@Schema(description = "그 날 작성한 게시글 수입니다.", example = "1")
+		int postCount
 	) {
+	}
+
+	@Schema(description = "그룹 최근 활동 피드의 단일 항목입니다.")
+	private record RecentActivityResponse(
+		@Schema(description = "활동한 그룹 멤버 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID memberId,
+		@Schema(description = "멤버 표시 닉네임입니다.", example = "현우")
+		String memberNickname,
+		@Schema(description = "완료한 과제 제목입니다.", example = "JWT 인증 흐름 다이어그램 그리기")
+		String taskTitle,
+		@Schema(description = "완료 시각입니다.", example = "2026-06-22T11:30:00Z")
+		Instant completedAt
+	) {
+
+		private static RecentActivityResponse from(com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity item) {
+			return new RecentActivityResponse(item.memberId(), item.memberNickname(), item.taskTitle(), item.completedAt());
+		}
 	}
 
 	@Schema(description = "주차에 배정된 단일 학습 과제 응답입니다.")

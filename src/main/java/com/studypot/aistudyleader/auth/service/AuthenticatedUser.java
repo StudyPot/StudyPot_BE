@@ -4,7 +4,7 @@ import com.studypot.aistudyleader.auth.domain.AuthUser;
 import java.util.Objects;
 import java.util.UUID;
 
-public record AuthenticatedUser(UUID id, String email, String nickname) {
+public record AuthenticatedUser(UUID id, String email, String nickname, String bio) {
 
 	public AuthenticatedUser {
 		Objects.requireNonNull(id, "id must not be null");
@@ -18,6 +18,6 @@ public record AuthenticatedUser(UUID id, String email, String nickname) {
 		Objects.requireNonNull(user.email(), "user.email must not be null");
 		Objects.requireNonNull(user.email().value(), "user.email.value must not be null");
 		Objects.requireNonNull(user.nickname(), "user.nickname must not be null");
-		return new AuthenticatedUser(user.id(), user.email().value(), user.nickname());
+		return new AuthenticatedUser(user.id(), user.email().value(), user.nickname(), user.bio().orElse(null));
 	}
 }

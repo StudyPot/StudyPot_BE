@@ -41,6 +41,10 @@ class RetrospectiveReminderScheduler {
 		  and gm.deleted_at is null
 		  and cw.ends_at > ?
 		  and cw.ends_at <= ?
+		  and not exists (
+		    select 1 from retrospective r
+		    where r.curriculum_week_id = cw.id and r.member_id = gm.id
+		  )
 		""";
 
 	private final JdbcTemplate jdbcTemplate;

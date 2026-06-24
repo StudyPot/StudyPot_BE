@@ -427,6 +427,22 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		);
 	}
 
+	@Override
+	public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_RECENT_TASK_ACTIVITY,
+			(resultSet, rowNumber) -> new com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity(
+				UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+				resultSet.getString("member_nickname"),
+				resultSet.getString("task_title"),
+				resultSet.getTimestamp("completed_at").toInstant()
+			),
+			uuid(groupId),
+			limit
+		);
+	}
+
 	private static GroupActivityCount mapGroupActivityCount(ResultSet resultSet, int rowNumber) throws SQLException {
 		Date activityDate = resultSet.getDate("activity_date");
 		return new GroupActivityCount(
@@ -435,7 +451,9 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			resultSet.getString("display_name"),
 			resultSet.getString("nickname"),
 			activityDate == null ? null : activityDate.toLocalDate(),
-			resultSet.getInt("activity_count")
+			resultSet.getInt("activity_count"),
+			resultSet.getInt("todo_count"),
+			resultSet.getInt("post_count")
 		);
 	}
 

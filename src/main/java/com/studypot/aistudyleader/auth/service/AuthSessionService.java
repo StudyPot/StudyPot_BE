@@ -92,6 +92,16 @@ public class AuthSessionService {
 		return AuthenticatedUser.from(findActiveUser(authenticatedUserId));
 	}
 
+	@Transactional
+	public AuthenticatedUser updateProfile(UUID authenticatedUserId, String nickname, String bio) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		AuthUser user = findActiveUser(authenticatedUserId);
+		// 도메인 검증(닉네임 공백/길이, bio 길이)을 거친 뒤 부분 업데이트.
+		AuthUser updated = user.updateProfile(nickname, bio, clock.instant());
+		authRepository.updateProfile(updated.id(), updated.nickname(), updated.bio().orElse(null), updated.auditMetadata().updatedAt());
+		return AuthenticatedUser.from(updated);
+	}
+
 	private AuthTokenResult issueTokenPair(AuthUser user, AuthSessionMetadata metadata) {
 		return issueTokenPair(user, metadata, clock.instant());
 	}
