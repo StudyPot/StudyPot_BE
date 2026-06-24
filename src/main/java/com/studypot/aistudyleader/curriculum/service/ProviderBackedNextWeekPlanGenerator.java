@@ -21,9 +21,15 @@ import java.util.Objects;
 class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 
 	private static final String INSTRUCTIONS = """
-		직전 주차의 학습 리포트를 바탕으로 '다음 주차' 학습 TODO 목록과 회고 설문 질문을 한국어로 작성하세요.
+		스터디 그룹의 직전 주차 학습 맥락을 바탕으로 '다음 주차' 학습 TODO 목록과 회고 설문 질문을 한국어로 작성하세요.
+		입력 컨텍스트:
+		- previousWeekTasks: 직전 주차에 멤버들이 수행한 TODO 목록(제목과 필수 여부). 이걸 토대로 학습의 연속성을 유지하세요.
+		- previousWeekReport: 직전 주차 학습 리포트(있으면). 그룹의 진행 상황·강약점을 반영하세요.
+		- memberRetrospectives: 멤버들이 작성한 직전 주차 회고 답변(있으면). 어려웠던 점·요청을 다음 주차에 반영하세요.
+		규칙:
+		- memberRetrospectives 가 비어 있으면(아무도 회고를 적지 않음) previousWeekTasks 만 참고해 자연스러운 다음 단계를 구성하세요.
 		- tasks: 다음 주차에 수행할 구체적 TODO 3~6개. 각 항목은 taskType(READING/PRACTICE/ASSIGNMENT/PROJECT/CUSTOM),
-		  title, description, required(boolean) 를 포함합니다.
+		  title, description, required(boolean) 를 포함합니다. 직전 주차보다 한 단계 발전된 내용이어야 합니다.
 		- retrospectiveQuestions: 다음 주차 회고 설문 질문 6~7개. 그 중 5~6개는 type=LIKERT_5(5점 척도 진술문),
 		  1~2개는 type=TEXT(자유 서술형). 각 질문은 {text, type} 객체입니다.
 		비밀키, OAuth, 자격증명류 값은 절대 포함하지 마세요. 제공된 JSON 스키마에 맞는 JSON 만 반환하세요.
@@ -70,7 +76,9 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 			"nextWeekNumber", input.weekNumber(),
 			"nextWeekTitle", input.weekTitle(),
 			"nextWeekSprintGoal", input.sprintGoal(),
-			"previousWeekReport", input.reportText()
+			"previousWeekReport", input.reportText(),
+			"previousWeekTasks", input.priorTasks(),
+			"memberRetrospectives", input.memberRetrospectives()
 		));
 	}
 

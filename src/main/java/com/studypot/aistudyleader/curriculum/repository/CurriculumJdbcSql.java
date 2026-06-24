@@ -386,6 +386,27 @@ final class CurriculumJdbcSql {
 		group by c.group_id
 		""";
 
+	// 점진 생성: 다음 주차 삽입 시 커리큘럼의 총 주차 수를 1 증가시켜 실제 주차 수와 일치시킨다.
+	static final String INCREMENT_CURRICULUM_TOTAL_WEEKS = """
+		update curriculum
+		set total_weeks = total_weeks + 1,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	// 다음 주차 생성 입력용: 해당 주차의 완료된 멤버 회고 답변 요약(멤버명 + answers JSON).
+	static final String SELECT_WEEK_RETROSPECTIVE_SUMMARIES = """
+		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
+		       json_extract(r.input_summary, '$.answers') as answers_summary
+		from retrospective r
+		join group_member gm on gm.id = r.member_id
+		join users u on u.id = gm.user_id
+		where r.curriculum_week_id = ?
+		  and r.status = 'COMPLETED'
+		order by r.requested_at, r.id
+		""";
+
 	// 그룹 홈 '최근 활동' 피드: 최근 완료(DONE)된 과제를 멤버 닉네임/과제 제목과 함께 최신순으로 조회한다.
 	static final String SELECT_RECENT_TASK_ACTIVITY = """
 		select gm.id as member_id,

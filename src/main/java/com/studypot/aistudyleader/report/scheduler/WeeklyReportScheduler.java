@@ -211,17 +211,17 @@ class WeeklyReportScheduler {
 		regenerateNextWeek(week, ownerUserId.get());
 	}
 
-	// 리포트가 올라온 직후, 그 리포트를 바탕으로 다음 주차 TODO/회고 프롬프트를 자동 재생성한다.
-	// 리포트 게시가 멱등(주차당 1회)이라 이 호출도 주차당 1회만 일어난다. 실패해도 리포트 게시는 유지한다.
+	// 리포트가 올라온 직후, 그 리포트+직전 주차 TODO+멤버 회고를 바탕으로 '다음 주차'를 점진 생성(신규 삽입)한다.
+	// 리포트 게시가 멱등(주차당 1회)이고 다음 주차 생성도 멱등이라 주차당 1회만 일어난다. 실패해도 리포트 게시는 유지한다.
 	private void regenerateNextWeek(DueWeek week, UUID ownerUserId) {
 		NextWeekPlanService service = nextWeekPlanService.getIfAvailable();
 		if (service == null) {
 			return;
 		}
 		try {
-			service.regenerateNextWeekAutomatically(week.groupId(), week.weekId(), ownerUserId);
+			service.createNextWeekAutomatically(week.groupId(), week.weekId(), ownerUserId);
 		} catch (RuntimeException exception) {
-			log.warn("next week auto-regeneration failed groupId={} weekId={}", week.groupId(), week.weekId(), exception);
+			log.warn("next week auto-creation failed groupId={} weekId={}", week.groupId(), week.weekId(), exception);
 		}
 	}
 
