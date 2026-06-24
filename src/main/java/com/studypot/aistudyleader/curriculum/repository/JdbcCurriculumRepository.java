@@ -145,6 +145,13 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_VIEWABLE_CURRICULUM, this::mapCurriculumRow, uuid(groupId))
+			.map(row -> row.toCurriculum(findWeeks(row.id())));
+	}
+
+	@Override
 	public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return queryOne(

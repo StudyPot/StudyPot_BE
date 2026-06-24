@@ -1068,6 +1068,11 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId) {
+			return Optional.ofNullable(activeCurriculum);
+		}
+
+		@Override
 		public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
 			return Optional.ofNullable(currentWeek);
 		}
