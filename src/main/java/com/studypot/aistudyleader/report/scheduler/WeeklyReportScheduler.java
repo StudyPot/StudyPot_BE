@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.report.service.MemberRetrospectiveSummary;
 import com.studypot.aistudyleader.report.service.MemberTaskProgress;
 import com.studypot.aistudyleader.report.service.StudyCompletionReportData;
 import com.studypot.aistudyleader.report.service.StudyCompletionReportGenerator;
+import com.studypot.aistudyleader.report.service.StudyCompletionReportTrigger;
 import com.studypot.aistudyleader.report.service.WeeklyReportData;
 import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
@@ -38,7 +39,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
-class WeeklyReportScheduler {
+class WeeklyReportScheduler implements StudyCompletionReportTrigger {
 
 	private static final Logger log = LoggerFactory.getLogger(WeeklyReportScheduler.class);
 
@@ -126,6 +127,16 @@ class WeeklyReportScheduler {
 		    select 1 from group_board_post p
 		    where p.group_id = sg.id and p.title = ? and p.deleted_at is null
 		  )
+		""";
+
+	// 완료 직후 즉시 트리거용: 단일 그룹 조회(멱등 체크는 generateCompletionReport 내부 EXISTS 로).
+	private static final String SELECT_COMPLETED_GROUP_BY_ID = """
+		select sg.id as group_id, sg.name as group_name, c.id as curriculum_id, c.total_weeks
+		from study_group sg
+		join curriculum c on c.group_id = sg.id and c.deleted_at is null
+		where sg.id = ?
+		  and sg.status = 'COMPLETED'
+		  and sg.deleted_at is null
 		""";
 
 	private static final String COUNT_STUDY_TASKS = """
@@ -255,6 +266,40 @@ class WeeklyReportScheduler {
 			} catch (RuntimeException exception) {
 				log.warn("study completion report failed groupId={}", group.groupId(), exception);
 			}
+		}
+	}
+
+	/** 완료 직후 즉시 호출(StudyCompletionReportTrigger). 해당 그룹의 수료 리포트를 1회 생성·게시(멱등). */
+	@Override
+	public void generateForGroup(UUID groupId) {
+		StudyCompletionReportGenerator generator = completionReportGenerator.getIfAvailable();
+		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
+		if (generator == null || recorder == null) {
+			return; // AI 미구성 환경에서는 동작하지 않는다(주기 스케줄러도 동일).
+		}
+		List<CompletedGroup> groups;
+		try {
+			groups = jdbcTemplate.query(
+				SELECT_COMPLETED_GROUP_BY_ID,
+				(rs, rowNum) -> new CompletedGroup(
+					UuidBinary.fromBytes(rs.getBytes("group_id")),
+					rs.getString("group_name"),
+					UuidBinary.fromBytes(rs.getBytes("curriculum_id")),
+					rs.getInt("total_weeks")
+				),
+				UuidBinary.toBytes(groupId)
+			);
+		} catch (RuntimeException exception) {
+			log.warn("completed-group lookup failed groupId={}", groupId, exception);
+			return;
+		}
+		if (groups.isEmpty()) {
+			return;
+		}
+		try {
+			generateCompletionReport(groups.get(0), generator, recorder);
+		} catch (RuntimeException exception) {
+			log.warn("immediate study completion report failed groupId={}", groupId, exception);
 		}
 	}
 
