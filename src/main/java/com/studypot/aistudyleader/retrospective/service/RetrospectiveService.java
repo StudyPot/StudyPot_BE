@@ -136,8 +136,9 @@ public class RetrospectiveService {
 			throw new RetrospectiveAccessDeniedException("active group membership is required to submit retrospective.");
 		}
 		RetrospectiveProgress progress = requireProgress(command.weekId(), context.memberId());
-		if (!allRequiredTasksDone(progress.id(), command.weekId(), context.memberId())) {
-			throw new RetrospectiveMutationRejectedException("retrospective is locked until all required tasks are completed.");
+		// 작성 가능 = 리포트 미게시 AND (주차 종료 OR 필수 TODO 전부 완료). 리포트 게시 후에는 닫힌다.
+		if (!repository.isRetrospectiveWritable(command.weekId(), context.memberId())) {
+			throw new RetrospectiveMutationRejectedException("retrospective is locked: complete required tasks, or the week has not ended, or the weekly report is already posted.");
 		}
 		Instant now = clock.instant();
 		Map<String, Object> inputSummary = Map.of(
@@ -169,15 +170,6 @@ public class RetrospectiveService {
 			});
 	}
 
-	private boolean allRequiredTasksDone(UUID progressId, UUID weekId, UUID memberId) {
-		List<RetrospectiveTaskSummary> summaries = repository.findTaskSummaries(progressId, weekId, memberId);
-		for (RetrospectiveTaskSummary summary : summaries) {
-			if (summary.required() && summary.status() != TaskCompletionStatus.DONE) {
-				return false;
-			}
-		}
-		return true;
-	}
 
 	@Transactional
 	Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {

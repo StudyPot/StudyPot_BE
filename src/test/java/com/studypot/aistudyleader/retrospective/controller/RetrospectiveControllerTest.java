@@ -385,6 +385,14 @@ class RetrospectiveControllerTest {
 		}
 
 		@Override
+		public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+			// 테스트 fake: 기존 가드와 동일하게 필수 TODO 가 모두 완료면 작성 가능으로 본다.
+			return taskSummaries.stream()
+				.filter(RetrospectiveTaskSummary::required)
+				.allMatch(summary -> summary.status() == TaskCompletionStatus.DONE);
+		}
+
+		@Override
 		public RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId) {
 			return RetrospectiveAiContext.empty();
 		}

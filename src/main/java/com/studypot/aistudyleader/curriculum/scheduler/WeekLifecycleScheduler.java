@@ -43,6 +43,28 @@ class WeekLifecycleScheduler {
 		  )
 		""";
 
+	/**
+	 * COMPLETED 주차의 아직 끝내지 못한(TODO) 과제 완료를 INCOMPLETE 로 확정한다.
+	 * 매 틱 실행해도 TODO 행만 대상이라 멱등이다. (DONE/SKIPPED/이미 INCOMPLETE 는 건드리지 않는다)
+	 */
+	static final String MARK_INCOMPLETE_TODOS = """
+		update task_completion
+		set status = 'INCOMPLETE',
+		    updated_at = ?
+		where status = 'TODO'
+		  and weekly_task_id in (
+		    select wt.id
+		    from weekly_task wt
+		    join curriculum_week cw on cw.id = wt.curriculum_week_id
+		    join curriculum c on c.id = cw.curriculum_id
+		    where cw.status = 'COMPLETED'
+		      and cw.deleted_at is null
+		      and wt.deleted_at is null
+		      and c.status = 'ACTIVE'
+		      and c.deleted_at is null
+		  )
+		""";
+
 	/** 시작이 도래했고 아직 진행 중이어야 하는 PENDING 주차를 활성화 대상으로 조회. */
 	static final String SELECT_WEEKS_TO_ACTIVATE = """
 		select c.group_id, cw.id as week_id, cw.week_number, cw.title
@@ -90,6 +112,14 @@ class WeekLifecycleScheduler {
 			}
 		} catch (RuntimeException exception) {
 			log.warn("completing ended weeks failed", exception);
+		}
+		try {
+			int marked = jdbcTemplate.update(MARK_INCOMPLETE_TODOS, Timestamp.from(now));
+			if (marked > 0) {
+				log.info("marked {} task completion(s) as INCOMPLETE for ended week(s)", marked);
+			}
+		} catch (RuntimeException exception) {
+			log.warn("marking incomplete task completions failed", exception);
 		}
 	}
 

@@ -425,11 +425,17 @@ public class CurriculumService {
 			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
 		Instant now = clock.instant();
 		// 해당 주차가 시작되기 전에는 '완료(DONE)'로 표시할 수 없다. (미완료/스킵 등 다른 전환은 허용)
+		// 주차가 종료(ends_at 경과)된 뒤에도 완료를 막는다 — 종료 시 미완료가 확정되고 회고/리포트로 넘어가기 때문.
 		if (command.status() == TaskCompletionStatus.DONE) {
 			repository.findCurriculumWeekStartsAt(task.curriculumWeekId())
 				.filter(now::isBefore)
 				.ifPresent(weekStartsAt -> {
 					throw new TaskCompletionUpdateRejectedException("아직 시작되지 않은 주차의 과제는 완료할 수 없어요.");
+				});
+			repository.findWeekDueAt(task.curriculumWeekId())
+				.filter(weekEndsAt -> !now.isBefore(weekEndsAt))
+				.ifPresent(weekEndsAt -> {
+					throw new TaskCompletionUpdateRejectedException("이미 종료된 주차의 과제는 완료할 수 없어요.");
 				});
 		}
 		MemberWeekProgress progress = findOrCreateProgressForTaskCompletion(task.curriculumWeekId(), context.memberId(), now);

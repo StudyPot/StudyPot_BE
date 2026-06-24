@@ -138,6 +138,10 @@ class OnboardingServiceTest {
 		}
 
 		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 		}
 

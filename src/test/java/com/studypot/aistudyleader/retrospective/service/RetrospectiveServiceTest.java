@@ -788,6 +788,13 @@ class RetrospectiveServiceTest {
 			return overview;
 		}
 
+		private boolean writable = true;
+
+		@Override
+		public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+			return writable;
+		}
+
 		private List<RetrospectiveStatus> updatedStatuses() {
 			return updatedRetrospectives.stream()
 				.map(Retrospective::status)
@@ -869,6 +876,10 @@ class RetrospectiveServiceTest {
 
 		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
 		@Override

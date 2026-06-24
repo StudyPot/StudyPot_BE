@@ -181,6 +181,17 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 		));
 	}
 
+	@Override
+	public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveFinalReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"회고 마감이 곧 끝나요",
+			"잠시 후 이번 주차 리포트가 만들어져요. 그 전에 아직 작성하지 않은 회고를 마무리해 주세요."
+		));
+	}
+
 	private void publishAfterCommit(CreateNotificationCommand command) {
 		publishAfterCommit(() -> publishSafely(command));
 	}

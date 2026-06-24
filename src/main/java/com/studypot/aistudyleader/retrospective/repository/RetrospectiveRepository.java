@@ -36,4 +36,7 @@ public interface RetrospectiveRepository {
 	boolean updateRetrospectiveAnswers(Retrospective retrospective);
 
 	List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId);
+
+	/** 해당 주차에 지금 회고를 작성/제출할 수 있는지(unlock 규칙 + 리포트 게시 여부 반영). */
+	boolean isRetrospectiveWritable(UUID weekId, UUID memberId);
 }

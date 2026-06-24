@@ -1068,6 +1068,10 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 			onboardingRequests.add(new OnboardingRequest(groupId, recipientUserId));
 		}
@@ -1138,6 +1142,10 @@ class StudyGroupServiceTest {
 
 		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
 		@Override
