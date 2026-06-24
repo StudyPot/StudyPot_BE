@@ -148,6 +148,18 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	}
 
 	@Test
+	void generatedMessageStripsLeakedProposedActionFieldName() {
+		provider.response = response("""
+			{"message":"영속성 컨텍스트는 1차 캐시예요. proposedAction 없이도 괜찮다면 말씀해주세요.","conversationSummary":"필드명 누출 방지 회귀 테스트입니다."}""");
+
+		AiConversationAssistantResponse result = generator.generate(request("영속성 컨텍스트가 뭐야?"));
+
+		assertThat(result.message())
+			.doesNotContain("proposedAction")
+			.contains("영속성 컨텍스트는 1차 캐시예요");
+	}
+
+	@Test
 	void generatedMessageRemovesInternalProvenanceLeadIns() {
 		provider.response = response("""
 			{"message":"내가 DB에서 확인한 바로는, 지금 바로 다음 액션 하나만 하자: Actuator health부터 확인해보자.","conversationSummary":"내부 근거 접두어 제거 회귀 테스트입니다."}""");
