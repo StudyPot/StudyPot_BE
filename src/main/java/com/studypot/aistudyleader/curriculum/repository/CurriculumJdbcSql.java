@@ -374,11 +374,13 @@ final class CurriculumJdbcSql {
 		""";
 
 	// 그룹별 주차 진행 집계(완료/진행/전체 주차 수). %s 는 c.group_id IN (?, ?, ...) 동적 치환.
+	// 분모는 '생성된 주차 행 수'가 아니라 커리큘럼의 계획 전체 주차수(c.total_weeks)를 쓴다.
+	// (주차 점진 생성이라 생성된 행 수로 나누면 1주차 진행만으로도 진행률이 과장됨)
 	static final String SELECT_WEEK_PROGRESS_BY_GROUPS = """
 		select c.group_id as group_id,
 		       sum(case when cw.status = 'COMPLETED' then 1 else 0 end) as completed_weeks,
 		       sum(case when cw.status = 'IN_PROGRESS' then 1 else 0 end) as in_progress_weeks,
-		       count(cw.id) as total_weeks
+		       max(c.total_weeks) as total_weeks
 		from curriculum c
 		join curriculum_week cw on cw.curriculum_id = c.id and cw.deleted_at is null
 		where c.group_id in (%s)

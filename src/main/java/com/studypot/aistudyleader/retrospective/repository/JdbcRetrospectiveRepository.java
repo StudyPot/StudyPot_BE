@@ -215,8 +215,8 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 			RetrospectiveJdbcSql.SELECT_WEEK_WRITABILITY,
 			(resultSet, rowNumber) -> com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview.unlocked(
 				resultSet.getString("status"),
-				resultSet.getLong("required_total"),
-				resultSet.getLong("required_done"),
+				resultSet.getLong("total_tasks"),
+				resultSet.getLong("done_tasks"),
 				resultSet.getBoolean("report_posted")
 			),
 			uuid(memberId),
@@ -227,12 +227,12 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview mapWeekOverview(ResultSet resultSet, int rowNumber)
 		throws SQLException {
-		long requiredTotal = resultSet.getLong("required_total");
-		long requiredDone = resultSet.getLong("required_done");
+		long totalTasks = resultSet.getLong("total_tasks");
+		long doneTasks = resultSet.getLong("done_tasks");
 		String status = resultSet.getString("status");
 		boolean reportPosted = resultSet.getBoolean("report_posted");
 		boolean unlocked = com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview
-			.unlocked(status, requiredTotal, requiredDone, reportPosted);
+			.unlocked(status, totalTasks, doneTasks, reportPosted);
 		return new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
 			UuidBinary.fromBytes(resultSet.getBytes("week_id")),
 			resultSet.getInt("week_number"),
