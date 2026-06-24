@@ -175,7 +175,8 @@ final class RetrospectiveJdbcSql {
 		where id = ?
 		""";
 
-	// 그룹의 활성 커리큘럼 주차별: 회고 질문 + 내 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	// 그룹의 (활성 또는 완료된) 커리큘럼 주차별: 회고 질문 + 내 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	// 완료된 스터디도 과거 회고를 다시 볼 수 있도록 COMPLETED 커리큘럼도 포함한다.
 	// AI 생성 과제는 required 플래그가 항상 false 라, 잠금 기준을 '전체 TODO 처리(DONE/SKIPPED)'로 본다.
 	static final String SELECT_RETROSPECTIVE_OVERVIEW = """
 		select cw.id as week_id, cw.week_number, cw.status, cw.retrospective_questions,
@@ -194,7 +195,7 @@ final class RetrospectiveJdbcSql {
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
 		where c.group_id = ?
-		  and c.status = 'ACTIVE'
+		  and c.status in ('ACTIVE', 'COMPLETED')
 		  and c.deleted_at is null
 		  and cw.deleted_at is null
 		order by cw.week_number
