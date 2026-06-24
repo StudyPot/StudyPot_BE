@@ -132,42 +132,30 @@ class CurriculumServiceTest {
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = service(
 			repository,
-			generationWithWeeks(3),
+			generationWithWeeks(1),
 			LLM_USAGE_ID,
 			CURRICULUM_ID,
 			WEEK_ID,
-			SECOND_WEEK_ID,
-			THIRD_WEEK_ID,
-			TASK_ID,
-			SECOND_WEEK_TASK_ID,
-			THIRD_WEEK_TASK_ID
+			TASK_ID
 		);
 
 		Curriculum result = service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID));
 
-		assertThat(result.totalWeeks()).isEqualTo(3);
+		// 점진 생성: 시작 시점에는 1주차만 생성·저장된다(첫 sprint window 의 날짜 사용).
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::weekNumber)
-			.containsExactly(1, 2, 3);
+			.containsExactly(1);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::status)
-			.containsExactly(CurriculumWeekStatus.IN_PROGRESS, CurriculumWeekStatus.PENDING, CurriculumWeekStatus.PENDING);
+			.containsExactly(CurriculumWeekStatus.IN_PROGRESS);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::startsAt)
-			.containsExactly(
-				Instant.parse("2026-06-01T00:00:00Z"),
-				Instant.parse("2026-06-08T00:00:00Z"),
-				Instant.parse("2026-06-15T00:00:00Z")
-			);
+			.containsExactly(Instant.parse("2026-06-01T00:00:00Z"));
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::endsAt)
-			.containsExactly(
-				Instant.parse("2026-06-08T00:00:00Z"),
-				Instant.parse("2026-06-15T00:00:00Z"),
-				Instant.parse("2026-06-22T00:00:00Z")
-			);
-		assertThat(result.weeks().get(1).tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
-		assertThat(repository.generationRequest.sprintWindows()).hasSize(3);
+			.containsExactly(Instant.parse("2026-06-08T00:00:00Z"));
+		// 생성기에는 1주차 window 만 전달된다(나머지 주차는 리포트 시점에 점진 생성).
+		assertThat(repository.generationRequest.sprintWindows()).hasSize(1);
 	}
 
 	@Test
@@ -180,7 +168,8 @@ class CurriculumServiceTest {
 			LocalDate.parse("2026-06-21")
 		);
 		repository.submittedResponses = List.of(submittedResponse());
-		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID);
+		// 시작 시점에는 1주차 window 만 전달되므로, 생성기가 2주차를 만들면 mismatch 로 거부된다.
+		CurriculumService service = service(repository, generationWithWeeks(2), LLM_USAGE_ID, CURRICULUM_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumGenerationException.class)
@@ -1675,6 +1664,15 @@ class CurriculumServiceTest {
 		@Override
 		public List<WeeklyTask> findWeeklyTasksByWeekId(UUID weekId) {
 			return weeklyTasks;
+		}
+
+		@Override
+		public void insertNextWeek(com.studypot.aistudyleader.curriculum.domain.CurriculumWeek week) {
+		}
+
+		@Override
+		public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
+			return List.of();
 		}
 
 		@Override

@@ -1,8 +1,12 @@
 package com.studypot.aistudyleader.curriculum.service;
 
+import com.studypot.aistudyleader.curriculum.domain.Curriculum;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintPlanner;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
+import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
 import com.studypot.aistudyleader.curriculum.domain.NextWeekTarget;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
@@ -79,12 +83,13 @@ public class NextWeekPlanService {
 	}
 
 	/**
-	 * 주차 리포트가 게시된 직후 스케줄러가 호출하는 자동 재생성 경로. 그룹장 인증 검사 없이
-	 * 시스템이 수행하며, 사용량은 actorUserId(그룹장)에게 귀속한다. 다음 주차가 이미
-	 * IN_PROGRESS 로 전환됐어도 마감 전이면 대상으로 삼는다(주차 전이 스케줄러와의 경합 대비).
+	 * 주차 리포트가 게시된 직후 스케줄러가 호출하는 '다음 주차 점진 생성' 경로.
+	 * 직전 주차의 TODO + 리포트 + 멤버 회고를 입력으로 AI가 다음 주차를 만든다(회고가 없으면 직전 주차 TODO만 참고).
+	 * 다음 주차가 마지막 주차를 넘으면(스터디 종료) 또는 이미 존재하면(멱등) 아무것도 하지 않는다.
+	 * 그룹장 인증 검사 없이 시스템이 수행하며, 사용량은 actorUserId(그룹장)에게 귀속한다.
 	 */
 	@Transactional
-	public void regenerateNextWeekAutomatically(UUID groupId, UUID currentWeekId, UUID actorUserId) {
+	public void createNextWeekAutomatically(UUID groupId, UUID currentWeekId, UUID actorUserId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
 		Objects.requireNonNull(actorUserId, "actorUserId must not be null");
@@ -94,17 +99,38 @@ public class NextWeekPlanService {
 			return;
 		}
 		Instant now = clock.instant();
-		Optional<NextWeekTarget> next = repository.findNextRegenerableWeek(currentWeekId, now);
-		if (next.isEmpty()) {
+
+		// 그룹 기간(전체 주차 계획) + 현재 커리큘럼
+		Optional<CurriculumStartContext> contextOpt = repository.findReadContextByWeekId(currentWeekId, actorUserId);
+		Optional<Curriculum> curriculumOpt = repository.findActiveCurriculumByGroupId(groupId);
+		if (contextOpt.isEmpty() || curriculumOpt.isEmpty()) {
 			return;
 		}
-		Optional<String> reportBody = repository.findLatestWeeklyReportBody(groupId);
-		if (reportBody.isEmpty()) {
-			return;
+		CurriculumStartContext context = contextOpt.get();
+		Curriculum curriculum = curriculumOpt.get();
+		List<CurriculumSprintWindow> windows = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
+		int maxWeekNumber = curriculum.weeks().stream().mapToInt(CurriculumWeek::weekNumber).max().orElse(0);
+		int nextWeekNumber = maxWeekNumber + 1;
+		if (nextWeekNumber > windows.size()) {
+			return; // 마지막 주차까지 생성됨(스터디 종료)
 		}
-		NextWeekTarget nextWeek = next.get();
+		if (curriculum.weeks().stream().anyMatch(week -> week.weekNumber() == nextWeekNumber)) {
+			return; // 멱등: 이미 다음 주차가 존재
+		}
+		CurriculumSprintWindow window = windows.get(nextWeekNumber - 1);
+
+		// 입력 컨텍스트: 직전 주차 TODO + 리포트 + 멤버 회고(없으면 빈)
+		List<String> priorTasks = repository.findWeeklyTasksByWeekId(currentWeekId).stream()
+			.map(task -> task.title() + (task.required() ? " (필수)" : " (선택)"))
+			.toList();
+		String reportBody = repository.findLatestWeeklyReportBody(groupId).orElse("");
+		List<String> retrospectives = repository.findCompletedRetrospectiveSummaries(currentWeekId);
+		if (priorTasks.isEmpty() && reportBody.isBlank() && retrospectives.isEmpty()) {
+			return; // 참고할 자료가 전혀 없으면 다음 주차 생성을 보류(다음 스케줄 틱에 재시도)
+		}
+
 		NextWeekPlanGeneration generation = generator.generate(new NextWeekPlanInput(
-			nextWeek.weekNumber(), nextWeek.title(), nextWeek.sprintGoal(), reportBody.get()
+			nextWeekNumber, nextWeekNumber + "주차", "", reportBody, priorTasks, retrospectives
 		));
 		recorder.record(generation.response().toUsage(
 			idGenerator.get(),
@@ -113,8 +139,27 @@ public class NextWeekPlanService {
 			LlmUsagePurpose.NEXT_WEEK_ADJUST,
 			now
 		));
-		List<WeeklyTask> tasks = toWeeklyTasks(nextWeek.weekId(), generation.plan().tasks(), now);
-		repository.replaceNextWeekTasks(nextWeek.weekId(), tasks, generation.plan().retrospectiveQuestions(), now);
+
+		UUID weekId = idGenerator.get();
+		List<WeeklyTask> tasks = toWeeklyTasks(weekId, generation.plan().tasks(), now);
+		CurriculumWeek nextWeek = new CurriculumWeek(
+			weekId,
+			curriculum.id(),
+			nextWeekNumber,
+			nextWeekNumber + "주차",
+			null,
+			null,
+			generation.plan().retrospectiveQuestions(),
+			List.of(),
+			List.of(),
+			CurriculumWeekStatus.PENDING,
+			window.startsAt(),
+			window.endsAt(),
+			tasks,
+			now,
+			now
+		);
+		repository.insertNextWeek(nextWeek);
 	}
 
 	private List<WeeklyTask> toWeeklyTasks(UUID weekId, List<CurriculumTaskPlan> plans, Instant now) {

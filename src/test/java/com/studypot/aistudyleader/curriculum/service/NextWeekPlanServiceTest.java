@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.studypot.aistudyleader.curriculum.domain.Curriculum;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumTaskPlan;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
@@ -91,44 +92,56 @@ class NextWeekPlanServiceTest {
 	}
 
 	@Test
-	void regenerateNextWeekAutomaticallyReplacesTasksWithoutOwnerCheck() {
-		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.of(new NextWeekTarget(NEXT_WEEK_ID, 2, "JPA 심화", "목표")));
+	void createNextWeekAutomaticallyInsertsNextWeekFromPriorContext() {
+		when(repository.findReadContextByWeekId(WEEK_ID, USER_ID)).thenReturn(Optional.of(ownerContext()));
+		when(repository.findActiveCurriculumByGroupId(GROUP_ID)).thenReturn(Optional.of(curriculumWithWeeks(1)));
+		when(repository.findWeeklyTasksByWeekId(WEEK_ID)).thenReturn(List.of());
 		when(repository.findLatestWeeklyReportBody(GROUP_ID)).thenReturn(Optional.of("지난 주 리포트"));
-		when(repository.replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), any(), eq(NOW))).thenReturn(week());
+		when(repository.findCompletedRetrospectiveSummaries(WEEK_ID)).thenReturn(List.of("현우: 어려웠음"));
 		NextWeekPlanGenerator generator = input -> new NextWeekPlanGeneration(
 			new NextWeekPlan(List.of(new CurriculumTaskPlan(WeeklyTaskType.PRACTICE, "실습", "설명", true)), QUESTIONS),
 			response()
 		);
 		NextWeekPlanService service = new NextWeekPlanService(repository, () -> generator, () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds());
 
-		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+		service.createNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
 
-		verify(repository).replaceNextWeekTasks(eq(NEXT_WEEK_ID), any(), eq(QUESTIONS), eq(NOW));
+		ArgumentCaptor<CurriculumWeek> captor = ArgumentCaptor.forClass(CurriculumWeek.class);
+		verify(repository).insertNextWeek(captor.capture());
+		assertThat(captor.getValue().weekNumber()).isEqualTo(2);
+		assertThat(captor.getValue().status()).isEqualTo(CurriculumWeekStatus.PENDING);
+		assertThat(captor.getValue().retrospectiveQuestions()).isEqualTo(QUESTIONS);
+		assertThat(captor.getValue().tasks()).hasSize(1);
 	}
 
 	@Test
-	void regenerateNextWeekAutomaticallySkipsWhenNoRegenerableWeek() {
-		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.empty());
+	void createNextWeekAutomaticallySkipsWhenStudyAlreadyOnLastWeek() {
+		when(repository.findReadContextByWeekId(WEEK_ID, USER_ID)).thenReturn(Optional.of(ownerContext()));
+		when(repository.findActiveCurriculumByGroupId(GROUP_ID))
+			.thenReturn(Optional.of(curriculumWithWeeks(1, 2, 3, 4, 5, 6)));
 		NextWeekPlanService service = new NextWeekPlanService(
 			repository, () -> mock(NextWeekPlanGenerator.class), () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds()
 		);
 
-		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+		service.createNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
 
-		verify(repository, org.mockito.Mockito.never()).replaceNextWeekTasks(any(), any(), any(), any());
+		verify(repository, org.mockito.Mockito.never()).insertNextWeek(any());
 	}
 
 	@Test
-	void regenerateNextWeekAutomaticallySkipsWhenNoReport() {
-		when(repository.findNextRegenerableWeek(eq(WEEK_ID), any())).thenReturn(Optional.of(new NextWeekTarget(NEXT_WEEK_ID, 2, "JPA 심화", "목표")));
+	void createNextWeekAutomaticallySkipsWhenNothingToReference() {
+		when(repository.findReadContextByWeekId(WEEK_ID, USER_ID)).thenReturn(Optional.of(ownerContext()));
+		when(repository.findActiveCurriculumByGroupId(GROUP_ID)).thenReturn(Optional.of(curriculumWithWeeks(1)));
+		when(repository.findWeeklyTasksByWeekId(WEEK_ID)).thenReturn(List.of());
 		when(repository.findLatestWeeklyReportBody(GROUP_ID)).thenReturn(Optional.empty());
+		when(repository.findCompletedRetrospectiveSummaries(WEEK_ID)).thenReturn(List.of());
 		NextWeekPlanService service = new NextWeekPlanService(
 			repository, () -> mock(NextWeekPlanGenerator.class), () -> mock(LlmUsageRecorder.class), CLOCK, fixedIds()
 		);
 
-		service.regenerateNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
+		service.createNextWeekAutomatically(GROUP_ID, WEEK_ID, USER_ID);
 
-		verify(repository, org.mockito.Mockito.never()).replaceNextWeekTasks(any(), any(), any(), any());
+		verify(repository, org.mockito.Mockito.never()).insertNextWeek(any());
 	}
 
 	private static CurriculumStartContext ownerContext() {
@@ -142,6 +155,26 @@ class NextWeekPlanServiceTest {
 	private static CurriculumWeek week() {
 		return new CurriculumWeek(
 			NEXT_WEEK_ID, CURRICULUM_ID, 2, "JPA 심화", null, "목표", QUESTIONS,
+			List.of(), List.of(), CurriculumWeekStatus.PENDING,
+			NOW, NOW.plusSeconds(604800), List.of(), NOW, NOW
+		);
+	}
+
+	private static Curriculum curriculumWithWeeks(int... weekNumbers) {
+		List<CurriculumWeek> weeks = java.util.Arrays.stream(weekNumbers)
+			.mapToObj(NextWeekPlanServiceTest::weekOfNumber)
+			.toList();
+		return new Curriculum(
+			CURRICULUM_ID, GROUP_ID, null, "커리큘럼", 6,
+			java.util.Map.of(), true, null,
+			com.studypot.aistudyleader.curriculum.domain.CurriculumStatus.ACTIVE,
+			weeks, NOW, NOW
+		);
+	}
+
+	private static CurriculumWeek weekOfNumber(int number) {
+		return new CurriculumWeek(
+			UUID.randomUUID(), CURRICULUM_ID, number, number + "주차", null, null, QUESTIONS,
 			List.of(), List.of(), CurriculumWeekStatus.PENDING,
 			NOW, NOW.plusSeconds(604800), List.of(), NOW, NOW
 		);

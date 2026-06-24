@@ -105,7 +105,10 @@ public class CurriculumService {
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());
 		Map<String, Object> onboardingSummary = onboardingSummary(submittedResponses, now);
-		List<CurriculumSprintWindow> sprintWindows = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
+		// 전체 기간 주차 계획(날짜/주차수)은 결정적으로 계산하되, 시작 시점에는 1주차만 생성·저장한다.
+		// 이후 주차는 직전 주차 리포트+회고(없으면 직전 주차 TODO)를 참고해 리포트 게시 시점에 점진 생성한다.
+		List<CurriculumSprintWindow> fullSprintPlan = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
+		List<CurriculumSprintWindow> sprintWindows = List.of(fullSprintPlan.get(0));
 		CurriculumGenerator generator = generatorSupplier.get();
 		if (generator == null) {
 			throw new CurriculumGenerationException("curriculum generator is not configured.");

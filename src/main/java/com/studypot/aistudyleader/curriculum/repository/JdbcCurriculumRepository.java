@@ -550,6 +550,31 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		);
 	}
 
+	@Override
+	public void insertNextWeek(CurriculumWeek week) {
+		Objects.requireNonNull(week, "week must not be null");
+		insertWeek(week);
+		for (WeeklyTask task : week.tasks()) {
+			insertTask(task);
+		}
+		// 커리큘럼 총 주차 수를 실제 주차 수와 일치시킨다.
+		jdbcTemplate.update(CurriculumJdbcSql.INCREMENT_CURRICULUM_TOTAL_WEEKS, timestamp(week.updatedAt()), uuid(week.curriculumId()));
+	}
+
+	@Override
+	public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEK_RETROSPECTIVE_SUMMARIES,
+			(resultSet, rowNumber) -> {
+				String memberName = resultSet.getString("member_name");
+				String answers = resultSet.getString("answers_summary");
+				return (memberName == null ? "익명" : memberName) + ": " + (answers == null ? "" : answers);
+			},
+			uuid(weekId)
+		);
+	}
+
 	private void insertWeek(CurriculumWeek week) {
 		jdbcTemplate.update(
 			CurriculumJdbcSql.INSERT_CURRICULUM_WEEK,

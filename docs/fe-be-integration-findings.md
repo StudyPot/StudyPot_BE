@@ -265,12 +265,15 @@
 - ⏳ 남음: **리포트 생성 10분 전** 리마인더(미제출자만, `ends_at+20분`) + 리포트 타이밍 `ends_at+30분` 지연
   (`WeeklyReportScheduler` 쿼리 `ends_at <= now - 30m`) + `NotificationCommandFactory` 신규 알림타입.
 
-### ⏳ #18 진행 상태 (부분 적용)
+### ⏳ #18 진행 상태
+- ✅ **A 적용**(브랜치 `codex/curriculum-incremental-generation`):
+  - **A1** `CurriculumService.startStudy` — 전체 주차 계획은 결정적으로 계산하되 **시작 시 1주차만 생성·저장**(첫 window).
+  - **A2** 리포트 게시 직후 `NextWeekPlanService.createNextWeekAutomatically` — 직전 주차 TODO + 리포트 + 멤버 회고를 입력으로
+    **다음 주차를 신규 생성·insert**(회고 없으면 TODO만, 마지막 주차 초과/중복 시 멱등 스킵). `NextWeekPlanInput`/생성기 프롬프트에
+    priorTasks·memberRetrospectives 추가, 리포지토리 `insertNextWeek`·`findCompletedRetrospectiveSummaries`·total_weeks 증가.
+  - 전체 851+ 테스트 통과. **검증 한계**: 실제 LLM 다음주 품질 + 스케줄러→DB E2E는 배포환경 확인 필요.
 - ✅ **D-필터** 적용(미제출자만 1시간 리마인더). **#16**(회고 잠금)에서 C 조건2 일부 선반영.
-- ⏳ **A/B/C/D-나머지 보류** — 사유: A(커리큘럼 점진 생성)는 AI 생성 프롬프트·스터디 시작 검증
-  (`requireGenerationMatchesSprintWindows`)·`NextWeekPlanService`(교체→insert)·스케줄러 타이밍을 동시에 바꾸는
-  **대형 재설계**라 별도 설계+테스트 사이클 필요(근-프로덕션 코드에 일괄 투입 시 스터디 생성/전이 깨질 위험).
-  단계 권장: ① A 단독 브랜치(단일주 생성→리포트시 다음주 insert) + 통합테스트 → ② B(종료 처리/잠금) → ③ C(리포트 후 닫기) → ④ D-나머지.
+- ⏳ **B/C/D-나머지** 남음 — B(종료 시 미완료 확정+TODO 잠금) → C(리포트 후 회고 닫기) → D(리포트 30분 지연+10분전 신규 리마인더).
 
 ## 알림(Notification)
 
