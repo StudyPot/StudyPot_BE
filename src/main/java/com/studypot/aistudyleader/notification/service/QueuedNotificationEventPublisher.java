@@ -73,6 +73,18 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 	}
 
 	@Override
+	public void publishStudyCompleted(UUID groupId, String groupName) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		String safeName = requireText(groupName, "groupName");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				publishSafely(NotificationCommandFactory.studyCompleted(groupId, recipientUserId, safeName));
+			}
+		});
+	}
+
+	@Override
 	public void publishTaskDueReminder(
 		UUID groupId,
 		UUID recipientUserId,

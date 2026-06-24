@@ -165,6 +165,28 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	static CreateNotificationCommand studyCompleted(
+		UUID groupId,
+		UUID recipientUserId,
+		String groupName
+	) {
+		String safeName = requireText(groupName, "groupName");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			new NotificationRelatedResources(null, null, null, null),
+			NotificationType.STUDY_COMPLETED,
+			"idempotency:notification:study-completed:group:%s:recipient:%s".formatted(groupId, recipientUserId),
+			"스터디를 완주했어요 🎉",
+			safeName,
+			payload("/groups/%s".formatted(groupId), Map.of(
+				"groupId", groupId.toString(),
+				"groupName", safeName
+			)),
+			null
+		);
+	}
+
 	static CreateNotificationCommand taskNotification(
 		NotificationType type,
 		UUID groupId,
