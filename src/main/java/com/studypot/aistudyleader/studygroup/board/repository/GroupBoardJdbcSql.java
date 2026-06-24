@@ -63,9 +63,9 @@ final class GroupBoardJdbcSql {
 
 	static final String INSERT_POST = """
 		insert into group_board_post (
-		  id, group_id, board_id, author_member_id, title, content, is_pinned, status,
-		  created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
+		  id, group_id, board_id, author_member_id, author_display_name_override,
+		  title, content, is_pinned, status, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
 		""";
 
 	static final String SELECT_POSTS = """
@@ -74,7 +74,7 @@ final class GroupBoardJdbcSql {
 		       p.board_id,
 		       p.author_member_id,
 		       gm.user_id as author_user_id,
-		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
 		       p.title,
 		       case
 		         when char_length(p.content) > 160 then concat(left(p.content, 160), '...')
@@ -113,7 +113,7 @@ final class GroupBoardJdbcSql {
 		       p.board_id,
 		       p.author_member_id,
 		       gm.user_id as author_user_id,
-		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
 		       p.title,
 		       case
 		         when char_length(p.content) > 160 then concat(left(p.content, 160), '...')
@@ -150,7 +150,7 @@ final class GroupBoardJdbcSql {
 		       p.board_id,
 		       p.author_member_id,
 		       gm.user_id as author_user_id,
-		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
 		       p.title,
 		       p.content,
 		       p.is_pinned,
