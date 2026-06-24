@@ -1,0 +1,22 @@
+package com.studypot.aistudyleader.ai.service;
+
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * AI 팀장 메시지에 제안된 액션을 확인/거절하는 명령.
+ */
+public record DecideAiConversationMessageActionCommand(
+	UUID authenticatedUserId,
+	UUID conversationId,
+	UUID messageId,
+	AiConversationMessageActionDecision decision
+) {
+
+	public DecideAiConversationMessageActionCommand {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(conversationId, "conversationId must not be null");
+		Objects.requireNonNull(messageId, "messageId must not be null");
+		Objects.requireNonNull(decision, "decision must not be null");
+	}
+}

@@ -76,6 +76,10 @@ public record AiConversationMessage(
 		);
 	}
 
+	public AiConversationMessage withMetadata(Map<String, Object> metadata) {
+		return new AiConversationMessage(id, conversationId, llmUsageId, senderType, content, metadata, createdAt);
+	}
+
 	private static String requiredContent(String value) {
 		String normalized = value == null ? "" : value.strip();
 		if (normalized.isBlank()) {

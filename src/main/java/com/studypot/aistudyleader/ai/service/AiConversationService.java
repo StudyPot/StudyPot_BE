@@ -47,6 +47,7 @@ public class AiConversationService {
 	private final AiConversationAssistantResponseGenerator assistantResponseGenerator;
 	private final LlmUsageRecorder usageRecorder;
 	private final AiConversationStreamPublisher streamPublisher;
+	private final AiConversationBoardGateway boardGateway;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -70,12 +71,25 @@ public class AiConversationService {
 		LlmUsageRecorder usageRecorder,
 		AiConversationStreamPublisher streamPublisher
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 		this.assistantResponseGenerator = assistantResponseGenerator;
 		this.usageRecorder = usageRecorder;
 		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
+		this.boardGateway = boardGateway;
 	}
 
 	@Transactional
@@ -165,6 +179,96 @@ public class AiConversationService {
 			return message;
 		}
 		return generateAssistantMessage(command, context, message);
+	}
+
+	/**
+	 * AI 팀장 메시지에 제안된 액션(현재 SHARE_QUESTION)을 사용자가 확인/거절한다(확인 후 실행 모델).
+	 * CONFIRM 이면 권한 검사 후 실제 실행(질문 게시판 등록)하고 결과를 메시지 metadata 에 기록한다.
+	 * 반환값은 액션 상태가 갱신된 원본 메시지(프론트 버튼 상태 갱신용).
+	 */
+	@Transactional
+	public AiConversationMessage decideMessageAction(DecideAiConversationMessageActionCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		AiConversationMessageContext context = requireMessageContext(command.conversationId(), command.authenticatedUserId());
+		if (!context.hasActiveMembership()) {
+			throw new AiConversationAccessDeniedException("active group membership is required to act on an AI conversation message.");
+		}
+		AiConversationMessage message = repository.findMessage(command.messageId())
+			.orElseThrow(() -> new AiConversationNotFoundException("AI conversation message was not found."));
+		if (!message.conversationId().equals(command.conversationId())) {
+			throw new AiConversationNotFoundException("AI conversation message was not found.");
+		}
+		Map<String, Object> metadata = new LinkedHashMap<>(message.metadata());
+		Map<String, Object> pendingAction = asStringMap(metadata.get("pendingAction"));
+		if (pendingAction.isEmpty()) {
+			throw new AiConversationMutationRejectedException("this message has no pending action to decide.");
+		}
+		if (!"PENDING".equals(pendingAction.get("status"))) {
+			throw new AiConversationMutationRejectedException("this action has already been decided.");
+		}
+		Instant now = clock.instant();
+		if (command.decision() == AiConversationMessageActionDecision.REJECT) {
+			pendingAction.put("status", "REJECTED");
+			metadata.put("pendingAction", pendingAction);
+			persistMessageMetadata(command.messageId(), metadata);
+			return message.withMetadata(metadata);
+		}
+		String type = String.valueOf(pendingAction.get("type"));
+		if (!"SHARE_QUESTION".equals(type)) {
+			throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
+		}
+		executeShareQuestion(context, command, pendingAction, now);
+		metadata.put("pendingAction", pendingAction);
+		persistMessageMetadata(command.messageId(), metadata);
+		return message.withMetadata(metadata);
+	}
+
+	private void executeShareQuestion(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		Map<String, Object> question = asStringMap(pendingAction.get("question"));
+		String title = stringValue(question.get("title"));
+		String summary = stringValue(question.get("summary"));
+		if (title.isBlank() || summary.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed question to share is incomplete.");
+		}
+		UUID postId = boardGateway.shareQuestionToBoard(command.authenticatedUserId(), context.groupId(), title, summary);
+		pendingAction.put("status", "EXECUTED");
+		pendingAction.put("result", Map.of("postId", postId.toString(), "boardType", "QUESTION"));
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"질문을 '질문' 게시판에 올렸어요. 다른 멤버들도 확인할 수 있어요. ✅",
+			Map.of("kind", "action_result", "action", "SHARE_QUESTION", "postId", postId.toString()),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void persistMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+		if (!repository.updateMessageMetadata(messageId, metadata)) {
+			throw new AiConversationMutationRejectedException("AI conversation message metadata could not be updated.");
+		}
+	}
+
+	private static Map<String, Object> asStringMap(Object value) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		if (value instanceof Map<?, ?> map) {
+			map.forEach((key, entryValue) -> result.put(String.valueOf(key), entryValue));
+		}
+		return result;
+	}
+
+	private static String stringValue(Object value) {
+		return value == null ? "" : value.toString().strip();
 	}
 
 	@Transactional(readOnly = true)

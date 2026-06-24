@@ -96,6 +96,18 @@ final class AiConversationJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	static final String SELECT_MESSAGE_BY_ID = """
+		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
+		from ai_conversation_message m
+		where m.id = ?
+		""";
+
+	static final String UPDATE_MESSAGE_METADATA = """
+		update ai_conversation_message
+		set metadata = ?
+		where id = ?
+		""";
+
 	static final String SELECT_MESSAGES = """
 		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
 		from ai_conversation_message m

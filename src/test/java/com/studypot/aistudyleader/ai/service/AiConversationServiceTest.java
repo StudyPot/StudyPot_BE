@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -670,6 +671,146 @@ class AiConversationServiceTest {
 		assertThat(repository.lastMessageLimit).isZero();
 	}
 
+	@Test
+	void confirmShareQuestionPostsToBoardAndMarksExecuted() {
+		UUID postId = UUID.fromString("018f0000-0000-7000-8000-0000000091aa");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "JPA 영속성 컨텍스트란?", "summary", "질문과 답변 요약입니다."));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 이 질문은 다른 분들께도 도움이 될 것 같아요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(postId);
+		AiConversationService service = serviceWithBoard(repository, gateway, MESSAGE_ID);
+
+		AiConversationMessage result = service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.calls).hasSize(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastGroupId).isEqualTo(GROUP_ID);
+		assertThat(gateway.lastTitle).isEqualTo("JPA 영속성 컨텍스트란?");
+		assertThat(gateway.lastContent).isEqualTo("질문과 답변 요약입니다.");
+		assertThat(repository.updatedMetadataMessageId).isEqualTo(ASSISTANT_MESSAGE_ID);
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+		assertThat(repository.insertedMessages).hasSize(1);
+		assertThat(repository.insertedMessages.getFirst().content()).contains("게시판에 올렸어요");
+		assertThat(actionStatus(result.metadata())).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void rejectShareQuestionMarksRejectedWithoutPosting() {
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "t", "summary", "s"));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(UUID.randomUUID());
+		AiConversationService service = serviceWithBoard(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.REJECT
+		));
+
+		assertThat(gateway.calls).isEmpty();
+		assertThat(repository.insertedMessages).isEmpty();
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("REJECTED");
+	}
+
+	@Test
+	void decideRejectsWhenMessageHasNoPendingAction() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"그냥 답변입니다.",
+			Map.of(),
+			NOW
+		);
+		AiConversationService service = serviceWithBoard(repository, new RecordingBoardGateway(UUID.randomUUID()), MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				ASSISTANT_MESSAGE_ID,
+				AiConversationMessageActionDecision.CONFIRM
+			)))
+			.isInstanceOf(AiConversationMutationRejectedException.class);
+	}
+
+	private static String actionStatus(Map<String, Object> metadata) {
+		Object pendingAction = metadata.get("pendingAction");
+		assertThat(pendingAction).isInstanceOf(Map.class);
+		return String.valueOf(((Map<?, ?>) pendingAction).get("status"));
+	}
+
+	private static AiConversationService serviceWithBoard(
+		CapturingRepository repository,
+		AiConversationBoardGateway boardGateway,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			null,
+			null,
+			AiConversationStreamPublisher.noop(),
+			boardGateway
+		);
+	}
+
+	private static final class RecordingBoardGateway implements AiConversationBoardGateway {
+
+		private final UUID postId;
+		private final List<UUID> calls = new ArrayList<>();
+		private UUID lastUserId;
+		private UUID lastGroupId;
+		private String lastTitle;
+		private String lastContent;
+
+		private RecordingBoardGateway(UUID postId) {
+			this.postId = postId;
+		}
+
+		@Override
+		public UUID shareQuestionToBoard(UUID authenticatedUserId, UUID groupId, String title, String content) {
+			calls.add(groupId);
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastTitle = title;
+			lastContent = content;
+			return postId;
+		}
+	}
+
 	private static AiConversationService service(CapturingRepository repository, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new AiConversationService(
@@ -799,6 +940,9 @@ class AiConversationServiceTest {
 		private final List<AiConversationMessage> insertedMessages = new ArrayList<>();
 		private int lastMessageLimit;
 		private String updatedSummary;
+		private AiConversationMessage messageForAction;
+		private UUID updatedMetadataMessageId;
+		private Map<String, Object> updatedMetadata;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -845,6 +989,21 @@ class AiConversationServiceTest {
 		public boolean insertMessage(AiConversationMessage message) {
 			insertedMessage = message;
 			insertedMessages.add(message);
+			return true;
+		}
+
+		@Override
+		public Optional<AiConversationMessage> findMessage(UUID messageId) {
+			if (messageForAction != null && messageForAction.id().equals(messageId)) {
+				return Optional.of(messageForAction);
+			}
+			return insertedMessages.stream().filter(message -> message.id().equals(messageId)).findFirst();
+		}
+
+		@Override
+		public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+			updatedMetadataMessageId = messageId;
+			updatedMetadata = metadata;
 			return true;
 		}
 

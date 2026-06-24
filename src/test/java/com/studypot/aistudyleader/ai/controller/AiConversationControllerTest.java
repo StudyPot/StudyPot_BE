@@ -33,6 +33,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -490,6 +491,16 @@ class AiConversationControllerTest {
 		@Override
 		public boolean insertMessage(AiConversationMessage message) {
 			insertedMessage = message;
+			return true;
+		}
+
+		@Override
+		public Optional<AiConversationMessage> findMessage(UUID messageId) {
+			return messages.stream().filter(message -> message.id().equals(messageId)).findFirst();
+		}
+
+		@Override
+		public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
 			return true;
 		}
 

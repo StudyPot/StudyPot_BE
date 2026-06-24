@@ -94,11 +94,11 @@ class CurriculumServiceTest {
 			.containsEntry("generatedAt", NOW.toString());
 		assertThat(result.weeks()).hasSize(1);
 		assertThat(result.weeks().getFirst().id()).isEqualTo(WEEK_ID);
-		assertThat(result.weeks().getFirst().startsAt()).isEqualTo(Instant.parse("2026-05-11T00:00:00Z"));
-		assertThat(result.weeks().getFirst().endsAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
+		assertThat(result.weeks().getFirst().startsAt()).isEqualTo(Instant.parse("2026-05-10T15:00:00Z"));
+		assertThat(result.weeks().getFirst().endsAt()).isEqualTo(Instant.parse("2026-05-17T14:30:00Z"));
 		assertThat(result.weeks().getFirst().tasks()).hasSize(1);
 		assertThat(result.weeks().getFirst().tasks().getFirst().id()).isEqualTo(TASK_ID);
-		assertThat(result.weeks().getFirst().tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
+		assertThat(result.weeks().getFirst().tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-05-17T14:30:00Z"));
 		assertThat(repository.generationRequest.onboardingSummary())
 			.containsEntry("submittedResponseCount", 1);
 		assertThat(repository.generationRequest.sprintWindows())
@@ -152,10 +152,10 @@ class CurriculumServiceTest {
 			.containsExactly(CurriculumWeekStatus.IN_PROGRESS);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::startsAt)
-			.containsExactly(Instant.parse("2026-06-01T00:00:00Z"));
+			.containsExactly(Instant.parse("2026-05-31T15:00:00Z"));
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::endsAt)
-			.containsExactly(Instant.parse("2026-06-08T00:00:00Z"));
+			.containsExactly(Instant.parse("2026-06-07T14:30:00Z"));
 		// 생성기에는 1주차 window 만 전달된다(나머지 주차는 리포트 시점에 점진 생성).
 		assertThat(repository.generationRequest.sprintWindows()).hasSize(1);
 	}
