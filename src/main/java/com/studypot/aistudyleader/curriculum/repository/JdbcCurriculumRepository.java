@@ -574,6 +574,35 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		);
 	}
 
+	@Override
+	public List<String> findCompletedRetrospectiveAdjustments(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEK_RETROSPECTIVE_ADJUSTMENTS,
+			(resultSet, rowNumber) -> resultSet.getString("adjustment"),
+			uuid(weekId)
+		).stream().filter(JdbcCurriculumRepository::isMeaningfulJson).toList();
+	}
+
+	@Override
+	public List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(since, "since must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_TEAM_LEAD_ADJUSTMENT_CANDIDATES,
+			(resultSet, rowNumber) -> resultSet.getString("candidate"),
+			uuid(groupId), timestamp(since)
+		).stream().filter(JdbcCurriculumRepository::isMeaningfulJson).toList();
+	}
+
+	private static boolean isMeaningfulJson(String value) {
+		if (value == null) {
+			return false;
+		}
+		String trimmed = value.strip();
+		return !trimmed.isEmpty() && !trimmed.equals("{}") && !trimmed.equalsIgnoreCase("null");
+	}
+
 	private void insertWeek(CurriculumWeek week) {
 		jdbcTemplate.update(
 			CurriculumJdbcSql.INSERT_CURRICULUM_WEEK,

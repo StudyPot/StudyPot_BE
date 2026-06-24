@@ -129,8 +129,14 @@ public class NextWeekPlanService {
 			return; // 참고할 자료가 전혀 없으면 다음 주차 생성을 보류(다음 스케줄 틱에 재시도)
 		}
 
+		// 회고 AI 피드백(주차에 묶임) + 팀장 대화(주차 무관, 현재 주차 시작 이후)의 구조화된 조정 제안을 모아 반영한다.
+		Instant currentWeekStart = repository.findCurriculumWeekStartsAt(currentWeekId).orElse(Instant.EPOCH);
+		List<String> adjustmentSuggestions = new ArrayList<>();
+		adjustmentSuggestions.addAll(repository.findCompletedRetrospectiveAdjustments(currentWeekId));
+		adjustmentSuggestions.addAll(repository.findTeamLeadAdjustmentCandidates(groupId, currentWeekStart));
+
 		NextWeekPlanGeneration generation = generator.generate(new NextWeekPlanInput(
-			nextWeekNumber, nextWeekNumber + "주차", "", reportBody, priorTasks, retrospectives
+			nextWeekNumber, nextWeekNumber + "주차", "", reportBody, priorTasks, retrospectives, adjustmentSuggestions
 		));
 		recorder.record(generation.response().toUsage(
 			idGenerator.get(),

@@ -26,6 +26,8 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 		- previousWeekTasks: 직전 주차에 멤버들이 수행한 TODO 목록(제목과 필수 여부). 이걸 토대로 학습의 연속성을 유지하세요.
 		- previousWeekReport: 직전 주차 학습 리포트(있으면). 그룹의 진행 상황·강약점을 반영하세요.
 		- memberRetrospectives: 멤버들이 작성한 직전 주차 회고 답변(있으면). 어려웠던 점·요청을 다음 주차에 반영하세요.
+		- adjustmentSuggestions: 회고 AI 피드백과 팀장 대화에서 도출된 '다음 주차 조정 제안'(있으면, JSON). 난이도 조정,
+		  태스크 변경(taskChanges), 보충자료(supportMaterials) 요청이 담겨 있으니 tasks 구성 시 최우선으로 반영하세요.
 		규칙:
 		- memberRetrospectives 가 비어 있으면(아무도 회고를 적지 않음) previousWeekTasks 만 참고해 자연스러운 다음 단계를 구성하세요.
 		- tasks: 다음 주차에 수행할 구체적 TODO 3~6개. 각 항목은 taskType(READING/PRACTICE/ASSIGNMENT/PROJECT/CUSTOM),
@@ -78,7 +80,8 @@ class ProviderBackedNextWeekPlanGenerator implements NextWeekPlanGenerator {
 			"nextWeekSprintGoal", input.sprintGoal(),
 			"previousWeekReport", input.reportText(),
 			"previousWeekTasks", input.priorTasks(),
-			"memberRetrospectives", input.memberRetrospectives()
+			"memberRetrospectives", input.memberRetrospectives(),
+			"adjustmentSuggestions", input.adjustmentSuggestions()
 		));
 	}
 

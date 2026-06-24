@@ -65,6 +65,12 @@ public interface CurriculumRepository {
 	/** 다음 주차 생성 입력용: 해당 주차의 완료된 회고 답변 요약(멤버별)을 조회한다. 없으면 빈 목록. */
 	List<String> findCompletedRetrospectiveSummaries(UUID weekId);
 
+	/** 다음 주차 생성 입력용: 해당 주차의 완료된 회고가 만든 구조화된 '다음 주차 조정 제안'(JSON)을 조회한다. 없으면 빈 목록. */
+	List<String> findCompletedRetrospectiveAdjustments(UUID weekId);
+
+	/** 다음 주차 생성 입력용: 그룹의 팀장 대화에서 since 이후 도출된 '다음 주차 조정 후보'(JSON)를 조회한다. 없으면 빈 목록. */
+	List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since);
+
 	boolean existsWeeklyTask(UUID taskId);
 
 	Optional<WeeklyTask> findWeeklyTaskById(UUID taskId);

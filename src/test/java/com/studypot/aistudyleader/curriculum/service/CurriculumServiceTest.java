@@ -1679,6 +1679,16 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public List<String> findCompletedRetrospectiveAdjustments(UUID weekId) {
+			return List.of();
+		}
+
+		@Override
+		public List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since) {
+			return List.of();
+		}
+
+		@Override
 		public boolean existsWeeklyTask(UUID taskId) {
 			return taskExists;
 		}
