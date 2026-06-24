@@ -244,11 +244,13 @@ class AiConversationController {
 	private record DecideMessageActionRequest(
 		@NotNull
 		@Schema(description = "액션 결정입니다. CONFIRM(실행) 또는 REJECT(건너뛰기).", example = "CONFIRM")
-		AiConversationMessageActionDecision decision
+		AiConversationMessageActionDecision decision,
+		@Schema(description = "'기타' 직접 요청 시 작성 방식 지시입니다. 있으면 그 지시대로 글을 재작성해 등록합니다.", example = "예시 코드 포함해서 더 짧게 정리해줘")
+		String instruction
 	) {
 
 		private DecideAiConversationMessageActionCommand toCommand(UUID authenticatedUserId, UUID conversationId, UUID messageId) {
-			return new DecideAiConversationMessageActionCommand(authenticatedUserId, conversationId, messageId, decision);
+			return new DecideAiConversationMessageActionCommand(authenticatedUserId, conversationId, messageId, decision, instruction);
 		}
 	}
 

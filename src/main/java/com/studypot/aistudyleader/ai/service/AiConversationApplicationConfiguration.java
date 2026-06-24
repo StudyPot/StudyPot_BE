@@ -26,6 +26,19 @@ class AiConversationApplicationConfiguration {
 	}
 
 	@Bean
+	@Conditional(LlmProviderConfiguredCondition.class)
+	@ConditionalOnMissingBean(AiConversationQuestionRefiner.class)
+	AiConversationQuestionRefiner aiConversationQuestionRefiner(
+		LlmProviderClient provider,
+		ObjectMapper objectMapper,
+		Clock clock,
+		ObjectProvider<LlmUsageRecorder> usageRecorder
+	) {
+		LlmUsageRecorder recorder = usageRecorder.getIfAvailable(() -> usage -> { });
+		return new ProviderBackedAiConversationQuestionRefiner(provider, objectMapper, recorder, UuidV7::generate, clock);
+	}
+
+	@Bean
 	@ConditionalOnBean(AiConversationRepository.class)
 	AiConversationService aiConversationService(
 		AiConversationRepository repository,
@@ -33,16 +46,18 @@ class AiConversationApplicationConfiguration {
 		ObjectProvider<AiConversationAssistantResponseGenerator> assistantResponseGenerator,
 		ObjectProvider<LlmUsageRecorder> usageRecorder,
 		ObjectProvider<AiConversationStreamPublisher> streamPublisher,
-		ObjectProvider<AiConversationBoardGateway> boardGateway
+		ObjectProvider<AiConversationBoardGateway> boardGateway,
+		ObjectProvider<AiConversationQuestionRefiner> questionRefiner
 	) {
 		AiConversationAssistantResponseGenerator generator = assistantResponseGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
 		AiConversationStreamPublisher publisher = streamPublisher.getIfAvailable(AiConversationStreamPublisher::noop);
 		AiConversationBoardGateway gateway = boardGateway.getIfAvailable();
+		AiConversationQuestionRefiner refiner = questionRefiner.getIfAvailable();
 		if (generator == null || recorder == null) {
-			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway);
+			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner);
 		}
-		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway);
+		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner);
 	}
 
 	@Bean

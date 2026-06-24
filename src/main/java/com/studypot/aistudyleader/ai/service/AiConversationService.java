@@ -48,6 +48,7 @@ public class AiConversationService {
 	private final LlmUsageRecorder usageRecorder;
 	private final AiConversationStreamPublisher streamPublisher;
 	private final AiConversationBoardGateway boardGateway;
+	private final AiConversationQuestionRefiner questionRefiner;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -83,6 +84,19 @@ public class AiConversationService {
 		AiConversationStreamPublisher streamPublisher,
 		AiConversationBoardGateway boardGateway
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -90,6 +104,7 @@ public class AiConversationService {
 		this.usageRecorder = usageRecorder;
 		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
 		this.boardGateway = boardGateway;
+		this.questionRefiner = questionRefiner;
 	}
 
 	@Transactional
@@ -238,7 +253,22 @@ public class AiConversationService {
 		if (title.isBlank() || summary.isBlank()) {
 			throw new AiConversationMutationRejectedException("the proposed question to share is incomplete.");
 		}
-		UUID postId = boardGateway.shareQuestionToBoard(command.authenticatedUserId(), context.groupId(), title, summary);
+		// '기타' 직접 요청: 사용자가 지시를 줬고 재작성기가 있으면 지시대로 제목/본문을 다시 작성한다.
+		// 재작성 실패 시 원래 초안으로 등록(통째 실패보다 등록을 우선).
+		String postTitle = title;
+		String postContent = summary;
+		if (command.instruction() != null && questionRefiner != null) {
+			try {
+				RefinedQuestionPost refined = questionRefiner.refine(
+					command.authenticatedUserId(), context.groupId(), title, summary, command.instruction());
+				postTitle = refined.title();
+				postContent = refined.content();
+			} catch (RuntimeException exception) {
+				log.warn("question share refine failed; falling back to original draft");
+				log.debug("question share refine failure detail", exception);
+			}
+		}
+		UUID postId = boardGateway.shareQuestionToBoard(command.authenticatedUserId(), context.groupId(), postTitle, postContent);
 		pendingAction.put("status", "EXECUTED");
 		pendingAction.put("result", Map.of("postId", postId.toString(), "boardType", "QUESTION"));
 		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
