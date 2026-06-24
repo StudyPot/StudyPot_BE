@@ -330,6 +330,52 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		assertThat(result.conversationSummaryPatch()).isNull();
 	}
 
+	@Test
+	void proposesShowExistingPostWhenSimilarBoardPostExists() {
+		provider.response = response("""
+			{"message":"이 개념은 이미 게시판에 비슷한 글이 있어요.","conversationSummary":"기존 글 안내","proposedAction":{"type":"SHOW_EXISTING_POST","postId":"post-1"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"영속성 컨텍스트가 뭐야?",
+			contextWithQuestionPosts(List.of(Map.of("postId", "post-1", "title", "JPA 영속성 컨텍스트")))
+		));
+
+		assertThat(result.metadata()).containsKey("pendingAction");
+		Object pendingAction = result.metadata().get("pendingAction");
+		assertThat(pendingAction).isInstanceOf(Map.class);
+		Map<?, ?> action = (Map<?, ?>) pendingAction;
+		assertThat(action.get("type")).isEqualTo("SHOW_EXISTING_POST");
+		assertThat(action.get("postId")).isEqualTo("post-1");
+		assertThat(action.get("title")).isEqualTo("JPA 영속성 컨텍스트");
+	}
+
+	@Test
+	void dropsShowExistingPostWhenPostIdNotInContext() {
+		provider.response = response("""
+			{"message":"비슷한 글이 있을지도 몰라요.","conversationSummary":"환각 postId 차단","proposedAction":{"type":"SHOW_EXISTING_POST","postId":"ghost-id"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"질문이에요",
+			contextWithQuestionPosts(List.of(Map.of("postId", "post-1", "title", "제목")))
+		));
+
+		assertThat(result.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	private static AiConversationPromptContext contextWithQuestionPosts(List<Map<String, Object>> posts) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT"),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			List.of(),
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			posts
+		);
+	}
+
 	private static AiConversationAssistantRequest request(String content) {
 		return request(
 			content,
