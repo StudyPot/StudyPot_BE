@@ -28,6 +28,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Pattern.compile("\\bobservedDbEvidence\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
 		Pattern.compile("\\binferenceFromContext\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
 		Pattern.compile("\\brecommendedNextAction\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("\\bproposedAction\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
+		Pattern.compile("\\bSHARE_QUESTION\\b\\s*[:\\-]?\\s*", Pattern.CASE_INSENSITIVE),
 		Pattern.compile("내가\\s*DB에서\\s*확인한\\s*바로는\\s*[,，:：]?\\s*"),
 		Pattern.compile("DB에서\\s*확인한\\s*바로는\\s*[,，:：]?\\s*"),
 		Pattern.compile("DB\\s*기준으로(?:는)?\\s*[,，:：]?\\s*"),
@@ -59,8 +61,10 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Do not infer private details about other members.
 		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
-Whenever the member's latest message is a genuine study question (not a greeting, status update, venting, personal/private matter, or out-of-scope request) and you answered it substantively, PROACTIVELY offer — on your own, WITHOUT being asked — to share it to the group's question board so other members benefit. By default, make this offer for every such genuine study question; only skip it when the question is trivial, highly personal, or specific to just this one member. To offer, set proposedAction with type "SHARE_QUESTION" and a question object holding a concise board-ready title and a summary that combines the member's question and your answer in clean Korean, and end the message with one short sentence offering to post it (예: "이 질문은 다른 분들께도 도움이 될 것 같아요. 제가 정리해서 게시판에 올려둘까요?"). Offer at most one share per reply. The client renders confirm buttons from proposedAction. When no share fits, omit proposedAction entirely.
-		""";
+			Whenever the member's latest message is a genuine study question (not a greeting, status update, venting, personal/private matter, or out-of-scope request) and you answered it substantively, PROACTIVELY offer — on your own, WITHOUT being asked — to share it to the group's question board so other members benefit. By default make this offer for every such genuine study question; skip only when it is trivial, highly personal, or specific to just this one member.
+			To make the offer you MUST populate the JSON field proposedAction = {type:"SHARE_QUESTION", question:{title, summary}} with a concise board-ready title and a Korean summary that combines the member's question and your answer. Offering only in the message text WITHOUT populating that JSON field is wrong and the share will silently fail.
+			In the message, add exactly ONE short natural Korean sentence offering to post it (예: "이 질문은 다른 분들께도 도움이 될 것 같아요. 제가 정리해서 게시판에 올려둘까요?"). NEVER write the literal words "proposedAction", "action", "SHARE_QUESTION", "button", or "버튼", and never describe the mechanism/JSON in the message — the message is natural Korean only. Offer at most one share per reply; when no share fits, omit the proposedAction field entirely.
+			""";
 
 	private final LlmProviderClient provider;
 	private final ObjectMapper objectMapper;
