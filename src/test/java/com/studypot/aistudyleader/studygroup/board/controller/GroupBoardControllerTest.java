@@ -161,6 +161,11 @@ class GroupBoardControllerTest {
 		}
 
 		@Override
+		public java.util.Optional<String> findGroupStatus(UUID groupId) {
+			return java.util.Optional.of("ACTIVE");
+		}
+
+		@Override
 		public Optional<GroupBoardMembership> findMembership(UUID groupId, UUID userId) {
 			return Optional.of(new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "현우", GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE));
 		}

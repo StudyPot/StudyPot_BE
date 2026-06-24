@@ -107,6 +107,19 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void createPostOnCompletedGroupIsRejected() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(board());
+		repository.groupStatus = "COMPLETED";
+		GroupBoardService service = service(repository, POST_ID);
+
+		assertThatThrownBy(() -> service.createPost(new CreateGroupBoardPostCommand(
+			USER_ID, GROUP_ID, BOARD_ID, "질문", "본문", false)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class);
+	}
+
+	@Test
 	void createPostWithAuthorDisplayNameOverrideShowsOverrideButKeepsMemberOwnership() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
@@ -404,6 +417,13 @@ class GroupBoardServiceTest {
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
 			return groupExists;
+		}
+
+		private String groupStatus = "ACTIVE";
+
+		@Override
+		public Optional<String> findGroupStatus(UUID groupId) {
+			return Optional.ofNullable(groupStatus);
 		}
 
 		@Override

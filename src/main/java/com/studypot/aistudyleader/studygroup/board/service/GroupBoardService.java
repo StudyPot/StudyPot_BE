@@ -108,6 +108,10 @@ public class GroupBoardService {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
 		GroupBoard board = requireBoard(command.groupId(), command.boardId());
+		// 완료된 스터디는 멤버 글쓰기 차단. 단 팀장 리포트(마감/수료 리포트)는 시스템이 계속 게시해야 하므로 예외.
+		if (board.boardType() != GroupBoardType.LEADER_REPORT) {
+			requireWritableGroup(command.groupId());
+		}
 		if (command.pinned() && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the study group owner can pin board posts.");
 		}
@@ -176,6 +180,7 @@ public class GroupBoardService {
 	public GroupBoardPost updatePost(UpdateGroupBoardPostCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
+		requireWritableGroup(command.groupId());
 		GroupBoardPost post = requirePost(command.groupId(), command.postId());
 		if (command.changesContent() && !post.authoredBy(membership.memberId())) {
 			throw new GroupBoardAccessDeniedException("only the post author can update post title or content.");
@@ -199,6 +204,7 @@ public class GroupBoardService {
 	public void deletePost(DeleteGroupBoardPostCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
+		requireWritableGroup(command.groupId());
 		GroupBoardPost post = requirePost(command.groupId(), command.postId());
 		if (!post.authoredBy(membership.memberId()) && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the post author or study group owner can delete board posts.");
@@ -226,6 +232,7 @@ public class GroupBoardService {
 	public GroupBoardComment createComment(CreateGroupBoardCommentCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
+		requireWritableGroup(command.groupId());
 		requirePost(command.groupId(), command.postId());
 		Instant now = clock.instant();
 		GroupBoardComment comment;
@@ -253,6 +260,7 @@ public class GroupBoardService {
 	public GroupBoardComment updateComment(UpdateGroupBoardCommentCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
+		requireWritableGroup(command.groupId());
 		GroupBoardComment comment = requireComment(command.groupId(), command.commentId());
 		if (!comment.authoredBy(membership.memberId())) {
 			throw new GroupBoardAccessDeniedException("only the comment author can update comment content.");
@@ -273,6 +281,7 @@ public class GroupBoardService {
 	public void deleteComment(DeleteGroupBoardCommentCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
+		requireWritableGroup(command.groupId());
 		GroupBoardComment comment = requireComment(command.groupId(), command.commentId());
 		if (!comment.authoredBy(membership.memberId()) && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the comment author or study group owner can delete board comments.");
@@ -288,6 +297,13 @@ public class GroupBoardService {
 		return java.util.stream.IntStream.range(0, types.length)
 			.mapToObj(index -> GroupBoard.createDefault(idGenerator.get(), groupId, types[index], index + 1, now))
 			.toList();
+	}
+
+	private void requireWritableGroup(UUID groupId) {
+		String status = repository.findGroupStatus(groupId).orElse(null);
+		if ("COMPLETED".equals(status) || "ARCHIVED".equals(status)) {
+			throw new GroupBoardAccessDeniedException("완료된 스터디의 게시판에는 새 글/댓글을 쓸 수 없어요.");
+		}
 	}
 
 	private GroupBoardMembership requireActiveMembership(UUID groupId, UUID userId) {

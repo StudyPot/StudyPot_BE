@@ -11,6 +11,13 @@ final class GroupBoardJdbcSql {
 		)
 		""";
 
+	static final String SELECT_GROUP_STATUS = """
+		select status
+		from study_group
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_MEMBERSHIP = """
 		select gm.group_id,
 		       gm.id as member_id,

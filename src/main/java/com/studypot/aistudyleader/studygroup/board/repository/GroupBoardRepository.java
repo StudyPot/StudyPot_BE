@@ -17,6 +17,9 @@ public interface GroupBoardRepository {
 
 	boolean existsStudyGroup(UUID groupId);
 
+	/** 그룹 상태 문자열(ACTIVE/COMPLETED 등)을 조회한다. 완료 그룹 쓰기 차단용. */
+	Optional<String> findGroupStatus(UUID groupId);
+
 	Optional<GroupBoardMembership> findMembership(UUID groupId, UUID userId);
 
 	List<GroupBoard> findBoardsByGroupId(UUID groupId);

@@ -39,6 +39,13 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 	}
 
 	@Override
+	public Optional<String> findGroupStatus(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(GroupBoardJdbcSql.SELECT_GROUP_STATUS, (resultSet, rowNumber) -> resultSet.getString("status"), uuid(groupId))
+			.stream().findFirst();
+	}
+
+	@Override
 	public Optional<GroupBoardMembership> findMembership(UUID groupId, UUID userId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");
