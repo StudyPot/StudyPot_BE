@@ -7,6 +7,8 @@ import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.curriculum.service.NextWeekPlanService;
 import com.studypot.aistudyleader.report.service.MemberRetrospectiveSummary;
 import com.studypot.aistudyleader.report.service.MemberTaskProgress;
+import com.studypot.aistudyleader.report.service.StudyCompletionReportData;
+import com.studypot.aistudyleader.report.service.StudyCompletionReportGenerator;
 import com.studypot.aistudyleader.report.service.WeeklyReportData;
 import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
@@ -111,8 +113,61 @@ class WeeklyReportScheduler {
 		)
 		""";
 
+	private static final String COMPLETION_REPORT_TITLE = "수료 리포트";
+
+	// 완료(COMPLETED)됐는데 아직 수료 리포트가 없는 그룹.
+	private static final String SELECT_COMPLETED_GROUPS_FOR_REPORT = """
+		select sg.id as group_id, sg.name as group_name, c.id as curriculum_id, c.total_weeks
+		from study_group sg
+		join curriculum c on c.group_id = sg.id and c.deleted_at is null
+		where sg.status = 'COMPLETED'
+		  and sg.deleted_at is null
+		  and not exists (
+		    select 1 from group_board_post p
+		    where p.group_id = sg.id and p.title = ? and p.deleted_at is null
+		  )
+		""";
+
+	private static final String COUNT_STUDY_TASKS = """
+		select count(*)
+		from weekly_task wt
+		join curriculum_week cw on cw.id = wt.curriculum_week_id
+		where cw.curriculum_id = ? and cw.deleted_at is null and wt.deleted_at is null
+		""";
+
+	private static final String SELECT_STUDY_MEMBER_TASK_PROGRESS = """
+		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
+		       coalesce(sum(case when tc.status = 'DONE' then 1 else 0 end), 0) as done_count
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join task_completion tc on tc.member_id = gm.id
+		  and tc.weekly_task_id in (
+		    select wt.id from weekly_task wt
+		    join curriculum_week cw on cw.id = wt.curriculum_week_id
+		    where cw.curriculum_id = ? and cw.deleted_at is null and wt.deleted_at is null
+		  )
+		where gm.group_id = ?
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		group by gm.id, member_name
+		order by member_name
+		""";
+
+	private static final String SELECT_STUDY_RETROSPECTIVES = """
+		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
+		       json_extract(r.input_summary, '$.answers') as feedback_summary
+		from retrospective r
+		join group_member gm on gm.id = r.member_id
+		join users u on u.id = gm.user_id
+		join curriculum_week cw on cw.id = r.curriculum_week_id
+		where cw.curriculum_id = ?
+		  and r.status = 'COMPLETED'
+		order by r.requested_at, r.id
+		""";
+
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectProvider<WeeklyReportGenerator> reportGenerator;
+	private final ObjectProvider<StudyCompletionReportGenerator> completionReportGenerator;
 	private final ObjectProvider<LlmUsageRecorder> usageRecorder;
 	private final GroupBoardService boardService;
 	private final ObjectProvider<NextWeekPlanService> nextWeekPlanService;
@@ -122,6 +177,7 @@ class WeeklyReportScheduler {
 	WeeklyReportScheduler(
 		JdbcTemplate jdbcTemplate,
 		ObjectProvider<WeeklyReportGenerator> reportGenerator,
+		ObjectProvider<StudyCompletionReportGenerator> completionReportGenerator,
 		ObjectProvider<LlmUsageRecorder> usageRecorder,
 		GroupBoardService boardService,
 		ObjectProvider<NextWeekPlanService> nextWeekPlanService,
@@ -129,6 +185,7 @@ class WeeklyReportScheduler {
 	) {
 		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
 		this.reportGenerator = Objects.requireNonNull(reportGenerator, "reportGenerator must not be null");
+		this.completionReportGenerator = Objects.requireNonNull(completionReportGenerator, "completionReportGenerator must not be null");
 		this.usageRecorder = Objects.requireNonNull(usageRecorder, "usageRecorder must not be null");
 		this.boardService = Objects.requireNonNull(boardService, "boardService must not be null");
 		this.nextWeekPlanService = Objects.requireNonNull(nextWeekPlanService, "nextWeekPlanService must not be null");
@@ -168,6 +225,90 @@ class WeeklyReportScheduler {
 				log.warn("weekly report generation failed groupId={} weekId={}", week.groupId(), week.weekId(), exception);
 			}
 		}
+		StudyCompletionReportGenerator completionGenerator = completionReportGenerator.getIfAvailable();
+		if (completionGenerator != null) {
+			generateCompletionReports(completionGenerator, recorder);
+		}
+	}
+
+	/** 완료된 스터디 중 아직 수료 리포트가 없는 그룹에 전체 스터디 종합 수료 리포트를 1회 게시한다(멱등). */
+	private void generateCompletionReports(StudyCompletionReportGenerator generator, LlmUsageRecorder recorder) {
+		List<CompletedGroup> groups;
+		try {
+			groups = jdbcTemplate.query(
+				SELECT_COMPLETED_GROUPS_FOR_REPORT,
+				(rs, rowNum) -> new CompletedGroup(
+					UuidBinary.fromBytes(rs.getBytes("group_id")),
+					rs.getString("group_name"),
+					UuidBinary.fromBytes(rs.getBytes("curriculum_id")),
+					rs.getInt("total_weeks")
+				),
+				COMPLETION_REPORT_TITLE
+			);
+		} catch (RuntimeException exception) {
+			log.warn("completed-group query failed", exception);
+			return;
+		}
+		for (CompletedGroup group : groups) {
+			try {
+				generateCompletionReport(group, generator, recorder);
+			} catch (RuntimeException exception) {
+				log.warn("study completion report failed groupId={}", group.groupId(), exception);
+			}
+		}
+	}
+
+	private void generateCompletionReport(CompletedGroup group, StudyCompletionReportGenerator generator, LlmUsageRecorder recorder) {
+		Boolean exists = jdbcTemplate.queryForObject(
+			EXISTS_REPORT_POST, Boolean.class, UuidBinary.toBytes(group.groupId()), COMPLETION_REPORT_TITLE);
+		if (Boolean.TRUE.equals(exists)) {
+			return;
+		}
+		List<MemberRetrospectiveSummary> retros = jdbcTemplate.query(
+			SELECT_STUDY_RETROSPECTIVES,
+			(rs, rowNum) -> new MemberRetrospectiveSummary(rs.getString("member_name"), rs.getString("feedback_summary")),
+			UuidBinary.toBytes(group.curriculumId())
+		);
+		List<MemberTaskProgress> taskProgress = findStudyMemberTaskProgress(group);
+		if (retros.isEmpty() && taskProgress.isEmpty()) {
+			return;
+		}
+		Optional<UUID> ownerUserId = findOwnerUserId(group.groupId());
+		if (ownerUserId.isEmpty()) {
+			return;
+		}
+		UUID leaderReportBoardId = boardService.findOrCreateBoardId(ownerUserId.get(), group.groupId(), GroupBoardType.LEADER_REPORT);
+		WeeklyReportGeneration generation = generator.generate(new StudyCompletionReportData(
+			group.groupId(), group.groupName(), group.totalWeeks(), retros, taskProgress
+		));
+		recorder.record(generation.response().toUsage(
+			idGenerator.get(),
+			ownerUserId.get(),
+			group.groupId(),
+			LlmUsagePurpose.WEEKLY_REPORT,
+			clock.instant()
+		));
+		String body = "# " + generation.content().title() + "\n\n" + generation.content().body();
+		boardService.createPost(new CreateGroupBoardPostCommand(
+			ownerUserId.get(),
+			group.groupId(),
+			leaderReportBoardId,
+			COMPLETION_REPORT_TITLE,
+			body,
+			false
+		));
+		log.info("study completion report posted groupId={}", group.groupId());
+	}
+
+	private List<MemberTaskProgress> findStudyMemberTaskProgress(CompletedGroup group) {
+		Integer total = jdbcTemplate.queryForObject(COUNT_STUDY_TASKS, Integer.class, UuidBinary.toBytes(group.curriculumId()));
+		int totalTasks = total == null ? 0 : total;
+		return jdbcTemplate.query(
+			SELECT_STUDY_MEMBER_TASK_PROGRESS,
+			(rs, rowNum) -> new MemberTaskProgress(rs.getString("member_name"), rs.getInt("done_count"), totalTasks),
+			UuidBinary.toBytes(group.curriculumId()),
+			UuidBinary.toBytes(group.groupId())
+		);
 	}
 
 	private void generateForWeek(DueWeek week, WeeklyReportGenerator generator, LlmUsageRecorder recorder) {
@@ -254,5 +395,8 @@ class WeeklyReportScheduler {
 	}
 
 	private record DueWeek(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+	}
+
+	private record CompletedGroup(UUID groupId, String groupName, UUID curriculumId, int totalWeeks) {
 	}
 }

@@ -15,4 +15,10 @@ class WeeklyReportConfiguration {
 	WeeklyReportGenerator weeklyReportGenerator(LlmProviderClient provider, ObjectMapper objectMapper) {
 		return new ProviderBackedWeeklyReportGenerator(provider, objectMapper);
 	}
+
+	@Bean
+	@Conditional(LlmProviderConfiguredCondition.class)
+	StudyCompletionReportGenerator studyCompletionReportGenerator(LlmProviderClient provider, ObjectMapper objectMapper) {
+		return new ProviderBackedStudyCompletionReportGenerator(provider, objectMapper);
+	}
 }
