@@ -49,6 +49,7 @@ public class AiConversationService {
 	private final AiConversationStreamPublisher streamPublisher;
 	private final AiConversationBoardGateway boardGateway;
 	private final AiConversationQuestionRefiner questionRefiner;
+	private final AiConversationCurriculumGateway curriculumGateway;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -97,6 +98,20 @@ public class AiConversationService {
 		AiConversationBoardGateway boardGateway,
 		AiConversationQuestionRefiner questionRefiner
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, questionRefiner, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner,
+		AiConversationCurriculumGateway curriculumGateway
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -105,6 +120,7 @@ public class AiConversationService {
 		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
 		this.boardGateway = boardGateway;
 		this.questionRefiner = questionRefiner;
+		this.curriculumGateway = curriculumGateway;
 	}
 
 	@Transactional
@@ -229,13 +245,45 @@ public class AiConversationService {
 			return message.withMetadata(metadata);
 		}
 		String type = String.valueOf(pendingAction.get("type"));
-		if (!"SHARE_QUESTION".equals(type)) {
-			throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
+		switch (type) {
+			case "SHARE_QUESTION" -> executeShareQuestion(context, command, pendingAction, now);
+			case "COMPLETE_TASK" -> executeCompleteTask(command, pendingAction, now);
+			default -> throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
 		}
-		executeShareQuestion(context, command, pendingAction, now);
 		metadata.put("pendingAction", pendingAction);
 		persistMessageMetadata(command.messageId(), metadata);
 		return message.withMetadata(metadata);
+	}
+
+	private void executeCompleteTask(
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (curriculumGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation curriculum action is not configured.");
+		}
+		String taskId = stringValue(pendingAction.get("taskId"));
+		String completionStatus = stringValue(pendingAction.get("completionStatus"));
+		if (taskId.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed task action is incomplete.");
+		}
+		if (completionStatus.isBlank()) {
+			completionStatus = "DONE";
+		}
+		curriculumGateway.completeTask(command.authenticatedUserId(), UUID.fromString(taskId), completionStatus);
+		pendingAction.put("status", "EXECUTED");
+		String label = "DONE".equals(completionStatus) ? "완료" : "미완료";
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"과제를 " + label + " 처리했어요. ✅",
+			Map.of("kind", "action_result", "action", "COMPLETE_TASK"),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
 	}
 
 	private void executeShareQuestion(
