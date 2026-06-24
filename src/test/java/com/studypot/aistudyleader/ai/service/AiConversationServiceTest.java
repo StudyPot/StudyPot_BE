@@ -709,6 +709,39 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void confirmShareQuestionWithInstructionPostsRefinedDraft() {
+		UUID postId = UUID.fromString("018f0000-0000-7000-8000-0000000091bb");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "원래 제목", "summary", "원래 요약"));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(postId);
+		RecordingQuestionRefiner refiner = new RecordingQuestionRefiner(new RefinedQuestionPost("다듬은 제목", "다듬은 본문"));
+		AiConversationService service = serviceWithBoardAndRefiner(repository, gateway, refiner, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM,
+			"예시 코드 포함해서 더 짧게"
+		));
+
+		assertThat(refiner.lastInstruction).isEqualTo("예시 코드 포함해서 더 짧게");
+		assertThat(gateway.lastTitle).isEqualTo("다듬은 제목");
+		assertThat(gateway.lastContent).isEqualTo("다듬은 본문");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
 	void rejectShareQuestionMarksRejectedWithoutPosting() {
 		CapturingRepository repository = new CapturingRepository();
 		Map<String, Object> pendingAction = new LinkedHashMap<>();
@@ -769,6 +802,15 @@ class AiConversationServiceTest {
 		AiConversationBoardGateway boardGateway,
 		UUID... ids
 	) {
+		return serviceWithBoardAndRefiner(repository, boardGateway, null, ids);
+	}
+
+	private static AiConversationService serviceWithBoardAndRefiner(
+		CapturingRepository repository,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner refiner,
+		UUID... ids
+	) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new AiConversationService(
 			repository,
@@ -783,8 +825,25 @@ class AiConversationServiceTest {
 			null,
 			null,
 			AiConversationStreamPublisher.noop(),
-			boardGateway
+			boardGateway,
+			refiner
 		);
+	}
+
+	private static final class RecordingQuestionRefiner implements AiConversationQuestionRefiner {
+
+		private final RefinedQuestionPost refined;
+		private String lastInstruction;
+
+		private RecordingQuestionRefiner(RefinedQuestionPost refined) {
+			this.refined = refined;
+		}
+
+		@Override
+		public RefinedQuestionPost refine(UUID authenticatedUserId, UUID groupId, String originalTitle, String originalSummary, String instruction) {
+			lastInstruction = instruction;
+			return refined;
+		}
 	}
 
 	private static final class RecordingBoardGateway implements AiConversationBoardGateway {
