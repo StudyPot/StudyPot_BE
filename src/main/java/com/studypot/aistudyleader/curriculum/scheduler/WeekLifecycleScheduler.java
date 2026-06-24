@@ -87,6 +87,45 @@ class WeekLifecycleScheduler {
 		  and status = 'PENDING'
 		""";
 
+	/**
+	 * 모든 계획 주차(total_weeks)가 생성·COMPLETED 된 ACTIVE 그룹을 '스터디 완료' 대상으로 조회.
+	 * (마지막 주차까지 도달했고 미완료 주차가 하나도 없을 때)
+	 */
+	static final String SELECT_FINISHED_STUDIES = """
+		select sg.id as group_id, sg.name as group_name
+		from study_group sg
+		join curriculum c on c.group_id = sg.id and c.status = 'ACTIVE' and c.deleted_at is null
+		where sg.status = 'ACTIVE'
+		  and sg.deleted_at is null
+		  and (
+		    select max(cw.week_number)
+		    from curriculum_week cw
+		    where cw.curriculum_id = c.id and cw.deleted_at is null
+		  ) >= c.total_weeks
+		  and not exists (
+		    select 1 from curriculum_week cw2
+		    where cw2.curriculum_id = c.id and cw2.deleted_at is null and cw2.status <> 'COMPLETED'
+		  )
+		""";
+
+	/** 그룹을 COMPLETED 로 전이(동시성 대비 ACTIVE 조건 유지, 멱등). */
+	static final String COMPLETE_STUDY_GROUP = """
+		update study_group
+		set status = 'COMPLETED',
+		    updated_at = ?
+		where id = ?
+		  and status = 'ACTIVE'
+		""";
+
+	/** 그룹의 활성 커리큘럼도 COMPLETED 로 전이. */
+	static final String COMPLETE_CURRICULUM = """
+		update curriculum
+		set status = 'COMPLETED',
+		    updated_at = ?
+		where group_id = ?
+		  and status = 'ACTIVE'
+		""";
+
 	private final JdbcTemplate jdbcTemplate;
 	private final NotificationEventPublisher publisher;
 	private final Clock clock;
@@ -102,6 +141,51 @@ class WeekLifecycleScheduler {
 		Instant now = clock.instant();
 		completeEndedWeeks(now);
 		activateStartedWeeks(now);
+		completeFinishedStudies(now);
+	}
+
+	/** 모든 계획 주차가 끝난 그룹을 COMPLETED 로 전이하고 전원에게 완료 알림을 보낸다. */
+	private void completeFinishedStudies(Instant now) {
+		List<FinishedStudy> finished;
+		try {
+			finished = jdbcTemplate.query(
+				SELECT_FINISHED_STUDIES,
+				(resultSet, rowNumber) -> new FinishedStudy(
+					UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+					resultSet.getString("group_name")
+				)
+			);
+		} catch (RuntimeException exception) {
+			log.warn("selecting finished studies failed", exception);
+			return;
+		}
+		for (FinishedStudy study : finished) {
+			completeStudy(study, now);
+		}
+	}
+
+	private void completeStudy(FinishedStudy study, Instant now) {
+		int updated;
+		try {
+			updated = jdbcTemplate.update(COMPLETE_STUDY_GROUP, Timestamp.from(now), UuidBinary.toBytes(study.groupId()));
+		} catch (RuntimeException exception) {
+			log.warn("completing study group failed groupId={}", study.groupId(), exception);
+			return;
+		}
+		if (updated == 0) {
+			return; // 다른 틱에서 이미 완료 처리됨(멱등)
+		}
+		try {
+			jdbcTemplate.update(COMPLETE_CURRICULUM, Timestamp.from(now), UuidBinary.toBytes(study.groupId()));
+		} catch (RuntimeException exception) {
+			log.warn("completing curriculum failed groupId={}", study.groupId(), exception);
+		}
+		try {
+			publisher.publishStudyCompleted(study.groupId(), study.groupName());
+		} catch (RuntimeException exception) {
+			log.warn("study completed notification failed groupId={}", study.groupId(), exception);
+		}
+		log.info("completed study groupId={}", study.groupId());
 	}
 
 	private void completeEndedWeeks(Instant now) {
@@ -165,5 +249,8 @@ class WeekLifecycleScheduler {
 	}
 
 	record Activation(UUID groupId, UUID weekId, int weekNumber, String title) {
+	}
+
+	record FinishedStudy(UUID groupId, String groupName) {
 	}
 }

@@ -863,6 +863,10 @@ class RetrospectiveServiceTest {
 		}
 
 		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
+		}
+
+		@Override
 		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
 		}
 

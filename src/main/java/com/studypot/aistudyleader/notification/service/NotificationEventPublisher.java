@@ -37,6 +37,8 @@ public interface NotificationEventPublisher {
 
 	void publishLeaderReportPosted(UUID groupId, UUID postId, String title);
 
+	void publishStudyCompleted(UUID groupId, String groupName);
+
 	static NotificationEventPublisher noop() {
 		return NoOpNotificationEventPublisher.INSTANCE;
 	}
@@ -102,6 +104,10 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
 		}
 	}
 }
