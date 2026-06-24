@@ -346,6 +346,26 @@ public class CurriculumService {
 		return GroupActivityHeatmap.of(startDate, endDate, rows);
 	}
 
+	/** 그룹 홈 '최근 활동' 피드: 최근 완료된 과제(누가/무슨 과제/언제)를 최신순으로 N건 조회. */
+	@Transactional(readOnly = true)
+	public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> getRecentTaskActivity(
+		UUID authenticatedUserId, UUID groupId, int limit) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		CurriculumStartContext context = repository.findReadContext(groupId, authenticatedUserId)
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(groupId)) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read group activity.");
+		}
+		int safeLimit = Math.max(1, Math.min(limit, 50));
+		return repository.findRecentTaskActivity(groupId, safeLimit);
+	}
+
 	@Transactional(readOnly = true)
 	public MemberWeekProgress getMyWeekProgress(GetWeekProgressQuery query) {
 		Objects.requireNonNull(query, "query must not be null");

@@ -191,12 +191,14 @@ class GroupBoardControllerTest {
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor,
+				com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort sort, int limit) {
 			return List.of();
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor,
+				com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort sort, int limit) {
 			return List.of();
 		}
 

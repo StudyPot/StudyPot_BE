@@ -29,4 +29,7 @@ public interface OnboardingRepository {
 	Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId);
 
 	List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId);
+
+	/** 온보딩 제출 알림 수신자(방장)용. 방장이 제출자 본인이면 빈 값. */
+	Optional<UUID> findOwnerUserId(UUID groupId, UUID excludeMemberId);
 }

@@ -121,6 +121,18 @@ final class OnboardingJdbcSql {
 		  and gm.deleted_at is null
 		""";
 
+	// 온보딩 제출 알림은 방장에게만. 방장이 제출자 본인이면(gm.id = excludeMemberId) 제외돼 빈 결과.
+	static final String SELECT_OWNER_USER_ID_EXCLUDING_MEMBER = """
+		select gm.user_id
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.permission = 'OWNER'
+		  and gm.id <> ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		limit 1
+		""";
+
 	static final String SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED = """
 		select owner.user_id
 		from group_member owner

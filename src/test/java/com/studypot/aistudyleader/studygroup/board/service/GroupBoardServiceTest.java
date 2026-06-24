@@ -1,5 +1,7 @@
 package com.studypot.aistudyleader.studygroup.board.service;
 
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -159,7 +161,12 @@ class GroupBoardServiceTest {
 		CapturingRepository repository = new CapturingRepository();
 		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
 		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
-		GroupBoardService service = service(repository, POST_ID);
+		// listBoards reconcile 이 누락된 기본 보드(4종)를 채우며 id 를 생성하므로 충분한 id 를 공급한다.
+		GroupBoardService service = service(repository, POST_ID,
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a1"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a2"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a3"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a4"));
 
 		UUID boardId = service.findOrCreateBoardId(USER_ID, GROUP_ID, GroupBoardType.LEADER_REPORT);
 
@@ -390,7 +397,10 @@ class GroupBoardServiceTest {
 		@Override
 		public void insertDefaultBoards(List<GroupBoard> boards) {
 			insertedBoards = List.copyOf(boards);
-			this.boards = List.copyOf(boards);
+			// 실제 DB 처럼 기존 보드에 추가(병합)한다. reconcile 삽입 후에도 기존 보드가 유지돼야 함.
+			List<GroupBoard> merged = new ArrayList<>(this.boards);
+			merged.addAll(boards);
+			this.boards = merged;
 		}
 
 		@Override
@@ -411,13 +421,13 @@ class GroupBoardServiceTest {
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 			lastPostLimit = limit;
 			return postSummaries;
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 			lastPostLimit = limit;
 			return postSummaries;
 		}

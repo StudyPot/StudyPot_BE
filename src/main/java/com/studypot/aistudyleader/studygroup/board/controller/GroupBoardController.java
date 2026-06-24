@@ -99,11 +99,15 @@ class GroupBoardController {
 		@PathVariable UUID boardId,
 		@Parameter(description = "다음 페이지 조회용 커서입니다.")
 		@RequestParam(required = false) String cursor,
+		@Parameter(description = "정렬 기준입니다. (createdAt, commentCount) 기본 createdAt.")
+		@RequestParam(required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc) 기본 desc.")
+		@RequestParam(required = false) String order,
 		@Parameter(description = "조회할 게시글 수입니다. 1부터 100까지 허용됩니다.")
 		@RequestParam(defaultValue = "20") int pageSize
 	) {
 		CursorPageResponse<GroupBoardPostSummary> page = service().listPosts(
-			new ListGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, boardId, cursor, pageSize)
+			new ListGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, boardId, cursor, sort, order, pageSize)
 		);
 		return new CursorPageResponse<>(
 			page.items().stream().map(GroupBoardPostSummaryResponse::from).toList(),
@@ -130,11 +134,15 @@ class GroupBoardController {
 		@PathVariable UUID groupId,
 		@Parameter(description = "다음 페이지 조회용 커서입니다.")
 		@RequestParam(required = false) String cursor,
+		@Parameter(description = "정렬 기준입니다. (createdAt, commentCount) 기본 createdAt.")
+		@RequestParam(required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc) 기본 desc.")
+		@RequestParam(required = false) String order,
 		@Parameter(description = "조회할 게시글 수입니다. 1부터 100까지 허용됩니다.")
 		@RequestParam(defaultValue = "20") int pageSize
 	) {
 		CursorPageResponse<GroupBoardPostSummary> page = service().listAllPosts(
-			new ListAllGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, cursor, pageSize)
+			new ListAllGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, cursor, sort, order, pageSize)
 		);
 		return new CursorPageResponse<>(
 			page.items().stream().map(GroupBoardPostSummaryResponse::from).toList(),

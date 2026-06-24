@@ -103,9 +103,8 @@ final class GroupBoardJdbcSql {
 		    or (p.is_pinned = ? and p.created_at < ?)
 		    or (p.is_pinned = ? and p.created_at = ? and p.id < ?)
 		  )
-		order by p.is_pinned desc, p.created_at desc, p.id desc
-		limit ?
 		""";
+	// ORDER BY 와 LIMIT 은 리포지토리에서 GroupBoardPostSort 기준으로 동적으로 붙인다.
 
 	// 그룹 전체 게시글(모든 게시판) 조회. board_id 조건만 빠지고 정렬/커서는 SELECT_POSTS 와 동일하다.
 	static final String SELECT_ALL_POSTS = """
@@ -142,9 +141,8 @@ final class GroupBoardJdbcSql {
 		    or (p.is_pinned = ? and p.created_at < ?)
 		    or (p.is_pinned = ? and p.created_at = ? and p.id < ?)
 		  )
-		order by p.is_pinned desc, p.created_at desc, p.id desc
-		limit ?
 		""";
+	// ORDER BY 와 LIMIT 은 리포지토리에서 GroupBoardPostSort 기준으로 동적으로 붙인다.
 
 	static final String SELECT_POST = """
 		select p.id,

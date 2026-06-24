@@ -11,8 +11,11 @@ public final class AuthUser extends AggregateRoot<UUID> {
 
 	private static final int MAX_NICKNAME_LENGTH = 80;
 
+	private static final int MAX_BIO_LENGTH = 500;
+
 	private final EmailAddress email;
 	private final String nickname;
+	private final String bio;
 	private final String profileImage;
 	private final Instant lastLoginAt;
 	private final AuditMetadata auditMetadata;
@@ -21,6 +24,7 @@ public final class AuthUser extends AggregateRoot<UUID> {
 		UUID id,
 		EmailAddress email,
 		String nickname,
+		String bio,
 		String profileImage,
 		Instant lastLoginAt,
 		AuditMetadata auditMetadata
@@ -28,6 +32,7 @@ public final class AuthUser extends AggregateRoot<UUID> {
 		super(id);
 		this.email = Objects.requireNonNull(email, "email must not be null");
 		this.nickname = requireNickname(nickname);
+		this.bio = requireBio(bio);
 		this.profileImage = blankToNull(profileImage);
 		this.lastLoginAt = lastLoginAt;
 		this.auditMetadata = Objects.requireNonNull(auditMetadata, "auditMetadata must not be null");
@@ -41,23 +46,30 @@ public final class AuthUser extends AggregateRoot<UUID> {
 		Instant now
 	) {
 		Objects.requireNonNull(now, "now must not be null");
-		return new AuthUser(id, email, nickname, profileImage, null, AuditMetadata.created(now));
+		return new AuthUser(id, email, nickname, null, profileImage, null, AuditMetadata.created(now));
 	}
 
 	public static AuthUser rehydrate(
 		UUID id,
 		EmailAddress email,
 		String nickname,
+		String bio,
 		String profileImage,
 		Instant lastLoginAt,
 		AuditMetadata auditMetadata
 	) {
-		return new AuthUser(id, email, nickname, profileImage, lastLoginAt, auditMetadata);
+		return new AuthUser(id, email, nickname, bio, profileImage, lastLoginAt, auditMetadata);
 	}
 
 	public AuthUser recordLogin(Instant now) {
 		Objects.requireNonNull(now, "now must not be null");
-		return new AuthUser(id(), email, nickname, profileImage, now, auditMetadata.touch(now));
+		return new AuthUser(id(), email, nickname, bio, profileImage, now, auditMetadata.touch(now));
+	}
+
+	/** 프로필(닉네임/자기소개) 수정. */
+	public AuthUser updateProfile(String nickname, String bio, Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new AuthUser(id(), email, nickname, bio, profileImage, lastLoginAt, auditMetadata.touch(now));
 	}
 
 	public EmailAddress email() {
@@ -66,6 +78,10 @@ public final class AuthUser extends AggregateRoot<UUID> {
 
 	public String nickname() {
 		return nickname;
+	}
+
+	public Optional<String> bio() {
+		return Optional.ofNullable(bio);
 	}
 
 	public Optional<String> profileImage() {
@@ -89,6 +105,14 @@ public final class AuthUser extends AggregateRoot<UUID> {
 			throw new IllegalArgumentException(
 				"nickname length must be <= " + MAX_NICKNAME_LENGTH + ": " + normalized.length()
 			);
+		}
+		return normalized;
+	}
+
+	private static String requireBio(String bio) {
+		String normalized = blankToNull(bio);
+		if (normalized != null && normalized.length() > MAX_BIO_LENGTH) {
+			throw new IllegalArgumentException("bio length must be <= " + MAX_BIO_LENGTH + ": " + normalized.length());
 		}
 		return normalized;
 	}

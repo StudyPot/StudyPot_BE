@@ -271,6 +271,11 @@ class AuthSessionServiceTest {
 		}
 
 		@Override
+		public boolean updateProfile(java.util.UUID userId, String nickname, String bio, java.time.Instant updatedAt) {
+			return usersById.computeIfPresent(userId, (id, u) -> u.updateProfile(nickname, bio, updatedAt)) != null;
+		}
+
+		@Override
 		public OAuthAccount save(OAuthAccount account) {
 			activeAccounts.put(account.providerAccountLiveKey(), account);
 			return account;

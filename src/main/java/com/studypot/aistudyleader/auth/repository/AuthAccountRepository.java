@@ -18,4 +18,7 @@ public interface AuthAccountRepository {
 	AuthUser save(AuthUser user);
 
 	OAuthAccount save(OAuthAccount account);
+
+	/** 프로필(닉네임/자기소개) 부분 수정. 대상 활성 사용자가 없으면 false. */
+	boolean updateProfile(UUID userId, String nickname, String bio, java.time.Instant updatedAt);
 }

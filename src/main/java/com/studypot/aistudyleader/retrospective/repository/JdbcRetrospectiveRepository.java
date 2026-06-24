@@ -36,6 +36,20 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 	private static final TypeReference<List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion>> QUESTION_LIST =
 		new TypeReference<>() {
 		};
+	// 회고 질문이 비어 있는 주차(기능 추가 이전 생성된 기존 커리큘럼 등)에 제공하는 기본 질문셋.
+	private static final List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> DEFAULT_QUESTIONS = List.of(
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-1", "이번 주 목표한 학습을 충분히 달성했나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-2", "이번 주 학습 난이도는 적절했나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-3", "다음 주에도 현재 학습 페이스를 유지할 수 있을 것 같나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-text-1", "이번 주 학습에서 가장 도움이 된 점과 아쉬운 점을 자유롭게 적어주세요.",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.TEXT));
 	private static final int PRIOR_RETROSPECTIVES_LIMIT = 3;
 
 	private final JdbcTemplate jdbcTemplate;
@@ -197,11 +211,17 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		throws SQLException {
 		long requiredTotal = resultSet.getLong("required_total");
 		long requiredDone = resultSet.getLong("required_done");
-		boolean unlocked = requiredTotal == 0 || requiredDone >= requiredTotal;
+		String status = resultSet.getString("status");
+		// 시작 안 한(PENDING) 미래 주차는 잠금(과거: requiredTotal==0 → 무조건 unlock 되던 vacuous-truth 버그 제거).
+		// 회고 작성 가능 조건: (1) 시작된 주차에서 필수 TODO 모두 완료, 또는 (2) 주차 종료(COMPLETED).
+		boolean started = "IN_PROGRESS".equals(status) || "COMPLETED".equals(status);
+		boolean ended = "COMPLETED".equals(status);
+		boolean allRequiredDone = requiredTotal == 0 || requiredDone >= requiredTotal;
+		boolean unlocked = ended || (started && allRequiredDone);
 		return new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
 			UuidBinary.fromBytes(resultSet.getBytes("week_id")),
 			resultSet.getInt("week_number"),
-			resultSet.getString("status"),
+			status,
 			unlocked,
 			resultSet.getLong("answered_count") > 0,
 			readQuestions(resultSet.getString("retrospective_questions"))
@@ -210,10 +230,12 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> readQuestions(String value) {
 		if (value == null || value.isBlank()) {
-			return List.of();
+			// 질문 미생성 주차는 기본 질문셋으로 대체(기존 그룹도 회고 작성 가능).
+			return DEFAULT_QUESTIONS;
 		}
 		try {
-			return objectMapper.readValue(value, QUESTION_LIST);
+			List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> parsed = objectMapper.readValue(value, QUESTION_LIST);
+			return parsed.isEmpty() ? DEFAULT_QUESTIONS : parsed;
 		} catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
 			throw new RetrospectivePersistenceException("failed to read retrospective questions.", exception);
 		}

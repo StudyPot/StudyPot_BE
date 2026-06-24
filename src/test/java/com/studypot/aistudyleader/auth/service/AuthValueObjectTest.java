@@ -100,13 +100,13 @@ class AuthValueObjectTest {
 		UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000301");
 
 		assertThatNullPointerException()
-			.isThrownBy(() -> new AuthenticatedUser(null, "member@example.com", "Study Member"))
+			.isThrownBy(() -> new AuthenticatedUser(null, "member@example.com", "Study Member", null))
 			.withMessage("id must not be null");
 		assertThatNullPointerException()
-			.isThrownBy(() -> new AuthenticatedUser(id, null, "Study Member"))
+			.isThrownBy(() -> new AuthenticatedUser(id, null, "Study Member", null))
 			.withMessage("email must not be null");
 		assertThatNullPointerException()
-			.isThrownBy(() -> new AuthenticatedUser(id, "member@example.com", null))
+			.isThrownBy(() -> new AuthenticatedUser(id, "member@example.com", null, null))
 			.withMessage("nickname must not be null");
 	}
 

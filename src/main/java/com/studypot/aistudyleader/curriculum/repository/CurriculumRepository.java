@@ -79,6 +79,8 @@ public interface CurriculumRepository {
 
 	List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive);
 
+	List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit);
+
 	int countActiveOrOnboardingMembers(UUID groupId);
 
 	int countMemberDoneActivity(UUID userId, Instant fromInclusive, Instant toExclusive);

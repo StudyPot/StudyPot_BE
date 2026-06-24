@@ -170,7 +170,8 @@ class GoogleOAuth2LoginHandlerTest {
 			new AuthenticatedUser(
 				UUID.fromString("018f0000-0000-7000-8000-000000000201"),
 				"member@example.com",
-				"Study Member"
+				"Study Member",
+				null
 			)
 		);
 	}

@@ -75,9 +75,6 @@ public record TaskCompletion(
 		if (requestedStatus == null) {
 			throw new IllegalArgumentException("status is required.");
 		}
-		if (requestedStatus == TaskCompletionStatus.TODO) {
-			throw new IllegalArgumentException("TODO is not a task completion action.");
-		}
 		if (!canTransitionTo(requestedStatus)) {
 			throw new IllegalArgumentException("task completion cannot transition from " + status + " to " + requestedStatus + ".");
 		}
@@ -86,11 +83,17 @@ public record TaskCompletion(
 		String nextIncompleteReason = normalizeNullableText(requestedIncompleteReason);
 		String nextEvidenceUrl = normalizeNullableText(requestedEvidenceUrl);
 		return switch (requestedStatus) {
-			case TODO -> throw new IllegalArgumentException("TODO is not a task completion action.");
+			// 체크 해제: 완료 기록을 비우고 초기(TODO) 상태로 되돌린다(완료 ↔ 미체크 토글).
+			case TODO -> todo(now);
 			case DONE -> done(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 			case INCOMPLETE -> incomplete(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 			case SKIPPED -> skipped(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 		};
+	}
+
+	private TaskCompletion todo(Instant now) {
+		// 모든 완료/미완료 부가정보를 비운다.
+		return copy(TaskCompletionStatus.TODO, null, null, null, null, null, now);
 	}
 
 	private TaskCompletion done(Instant now, String requestedCompletionNote, String requestedIncompleteReason, String requestedEvidenceUrl) {
@@ -135,8 +138,8 @@ public record TaskCompletion(
 	}
 
 	private boolean canTransitionTo(TaskCompletionStatus nextStatus) {
-		// 완료/미완료/스킵 사이를 자유롭게 전환할 수 있다. TODO 로 되돌리는 것만 막는다(update 에서 이미 차단).
-		return nextStatus != TaskCompletionStatus.TODO;
+		// 완료/미완료/스킵/TODO(체크 해제) 사이를 자유롭게 전환할 수 있다.
+		return true;
 	}
 
 	private void requireNotBeforeExistingTimestamps(Instant now) {

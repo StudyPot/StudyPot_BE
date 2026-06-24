@@ -1,5 +1,7 @@
 package com.studypot.aistudyleader.studygroup.board.service;
 
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
+
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoard;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardComment;
@@ -16,6 +18,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -53,13 +56,19 @@ public class GroupBoardService {
 		Objects.requireNonNull(query, "query must not be null");
 		requireActiveMembership(query.groupId(), query.authenticatedUserId());
 		List<GroupBoard> boards = repository.findBoardsByGroupId(query.groupId());
-		if (!boards.isEmpty()) {
+		// 누락된 기본 보드 타입(나중에 추가된 LEADER_REPORT 등)을 채워 넣는다. self-heal·멱등 →
+		// 기능 추가 이전에 생성된 기존 그룹도 다음 진입 시 새 기본 보드(예: AI 팀장 탭)가 자동 노출된다.
+		EnumSet<GroupBoardType> existingTypes = EnumSet.noneOf(GroupBoardType.class);
+		boards.forEach(board -> existingTypes.add(board.boardType()));
+		List<GroupBoard> missing = defaultBoards(query.groupId()).stream()
+			.filter(board -> !existingTypes.contains(board.boardType()))
+			.toList();
+		if (missing.isEmpty()) {
 			return boards;
 		}
-		List<GroupBoard> defaults = defaultBoards(query.groupId());
-		repository.insertDefaultBoards(defaults);
+		repository.insertDefaultBoards(missing);
 		List<GroupBoard> reloaded = repository.findBoardsByGroupId(query.groupId());
-		return reloaded.isEmpty() ? defaults : reloaded;
+		return reloaded.isEmpty() ? missing : reloaded;
 	}
 
 	@Transactional(readOnly = true)
@@ -67,26 +76,31 @@ public class GroupBoardService {
 		Objects.requireNonNull(query, "query must not be null");
 		requireActiveMembership(query.groupId(), query.authenticatedUserId());
 		requireBoard(query.groupId(), query.boardId());
-		GroupBoardPostCursor cursor = decodePostCursor(query.cursor());
-		List<GroupBoardPostSummary> fetched = repository.findPosts(query.groupId(), query.boardId(), cursor, query.pageSize() + 1);
+		GroupBoardPostSort sort = query.sortOrder();
+		// keyset 커서는 기본 정렬(createdAt desc)에서만 안정적. 그 외 정렬은 커서 무시 + 단일 페이지.
+		GroupBoardPostCursor cursor = sort.keysetCursorSupported() ? decodePostCursor(query.cursor()) : null;
+		List<GroupBoardPostSummary> fetched = repository.findPosts(query.groupId(), query.boardId(), cursor, sort, query.pageSize() + 1);
 		if (fetched.size() <= query.pageSize()) {
 			return CursorPageResponse.firstPage(fetched, null);
 		}
 		List<GroupBoardPostSummary> items = List.copyOf(fetched.subList(0, query.pageSize()));
-		return CursorPageResponse.firstPage(items, encodePostCursor(items.getLast()));
+		String nextCursor = sort.keysetCursorSupported() ? encodePostCursor(items.getLast()) : null;
+		return CursorPageResponse.firstPage(items, nextCursor);
 	}
 
 	@Transactional(readOnly = true)
 	public CursorPageResponse<GroupBoardPostSummary> listAllPosts(ListAllGroupBoardPostsQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		requireActiveMembership(query.groupId(), query.authenticatedUserId());
-		GroupBoardPostCursor cursor = decodePostCursor(query.cursor());
-		List<GroupBoardPostSummary> fetched = repository.findAllPosts(query.groupId(), cursor, query.pageSize() + 1);
+		GroupBoardPostSort sort = query.sortOrder();
+		GroupBoardPostCursor cursor = sort.keysetCursorSupported() ? decodePostCursor(query.cursor()) : null;
+		List<GroupBoardPostSummary> fetched = repository.findAllPosts(query.groupId(), cursor, sort, query.pageSize() + 1);
 		if (fetched.size() <= query.pageSize()) {
 			return CursorPageResponse.firstPage(fetched, null);
 		}
 		List<GroupBoardPostSummary> items = List.copyOf(fetched.subList(0, query.pageSize()));
-		return CursorPageResponse.firstPage(items, encodePostCursor(items.getLast()));
+		String nextCursor = sort.keysetCursorSupported() ? encodePostCursor(items.getLast()) : null;
+		return CursorPageResponse.firstPage(items, nextCursor);
 	}
 
 	@Transactional
