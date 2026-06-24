@@ -61,6 +61,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Do not infer private details about other members.
 		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
+			tasks contains the member's weekly tasks (each with id, title, completionStatus). If the member clearly states they finished a specific one of these tasks (or wants to undo a completion), set proposedAction = {type:"COMPLETE_TASK", taskId:<one of the provided task id values>, completionStatus:"DONE" when finished or "TODO" when undoing} and add one short Korean sentence confirming you will mark it. Use ONLY a taskId that appears in tasks; never invent one. Do not combine COMPLETE_TASK with any share/show action. When this applies, omit the question-sharing offer.
 			questionBoardPosts contains existing group question-board posts (each with postId, title, contentPreview). When the member asks a study question, FIRST check whether one of these existing posts already clearly explains the same concept. If yes, do NOT offer to share a new post; instead set proposedAction = {type:"SHOW_EXISTING_POST", postId:<one of the provided postId values>} and add one short natural Korean sentence telling them a similar question is already on the board and they can check it. Use ONLY a postId that appears in questionBoardPosts; never invent or guess a postId. If no existing post clearly matches, follow the sharing rule below instead.
 			Whenever the member's latest message is a genuine study question (not a greeting, status update, venting, personal/private matter, or out-of-scope request) and you answered it substantively, and no existing post already covers it, PROACTIVELY offer — on your own, WITHOUT being asked — to share it to the group's question board so other members benefit. By default make this offer for every such genuine study question; skip only when it is trivial, highly personal, or specific to just this one member.
 			To make the offer you MUST populate the JSON field proposedAction = {type:"SHARE_QUESTION", question:{title, summary}} with a concise board-ready title and a Korean summary that combines the member's question and your answer. Offering only in the message text WITHOUT populating that JSON field is wrong and the share will silently fail.
@@ -95,7 +96,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			);
 		}
 		try {
-			GeneratedAiConversationResponse generated = readResponse(response.outputText(), allowedQuestionPosts(request));
+			GeneratedAiConversationResponse generated = readResponse(response.outputText(), allowedQuestionPosts(request), allowedTasks(request));
 			return new AiConversationAssistantResponse(
 				generated.message(),
 				generated.conversationSummary(),
@@ -211,7 +212,19 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		return result;
 	}
 
-	private GeneratedAiConversationResponse readResponse(String outputText, Map<String, String> allowedPosts) {
+	private static Map<String, String> allowedTasks(AiConversationAssistantRequest request) {
+		Map<String, String> result = new LinkedHashMap<>();
+		for (Map<String, Object> task : request.promptContext().tasks()) {
+			Object id = task.get("id");
+			Object title = task.get("title");
+			if (id != null && title != null) {
+				result.put(id.toString(), title.toString());
+			}
+		}
+		return result;
+	}
+
+	private GeneratedAiConversationResponse readResponse(String outputText, Map<String, String> allowedPosts, Map<String, String> allowedTasks) {
 		JsonNode node = parseJsonLenient(outputText);
 		if (node == null) {
 			// JSON 객체로 파싱조차 안 되는 경우(코드펜스/잡텍스트/잘림)에도 채팅이 통째로 깨지지 않도록
@@ -234,7 +247,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		if (adjustmentNode != null && adjustmentNode.isObject() && !adjustmentNode.isEmpty()) {
 			metadata.put("nextWeekAdjustmentCandidate", objectMapper.convertValue(adjustmentNode, OBJECT_MAP));
 		}
-		readProposedAction(node.get("proposedAction"), allowedPosts).ifPresent(action -> metadata.put("pendingAction", action));
+		readProposedAction(node.get("proposedAction"), allowedPosts, allowedTasks).ifPresent(action -> metadata.put("pendingAction", action));
 		return new GeneratedAiConversationResponse(message, conversationSummary, metadata);
 	}
 
@@ -281,11 +294,30 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		return value == null ? fallback : value;
 	}
 
-	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode, Map<String, String> allowedPosts) {
+	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode, Map<String, String> allowedPosts, Map<String, String> allowedTasks) {
 		if (actionNode == null || !actionNode.isObject() || actionNode.isEmpty()) {
 			return Optional.empty();
 		}
 		String type = actionNode.path("type").asText("");
+		if ("COMPLETE_TASK".equals(type)) {
+			String taskId = actionNode.path("taskId").asText("").strip();
+			String taskTitle = allowedTasks.get(taskId);
+			if (taskId.isBlank() || taskTitle == null) {
+				// 컨텍스트로 제공한 과제에 없는 taskId 는 환각으로 보고 무시한다.
+				return Optional.empty();
+			}
+			String completionStatus = actionNode.path("completionStatus").asText("DONE").strip();
+			if (!List.of("DONE", "TODO", "INCOMPLETE", "SKIPPED").contains(completionStatus)) {
+				completionStatus = "DONE";
+			}
+			Map<String, Object> pending = new LinkedHashMap<>();
+			pending.put("type", "COMPLETE_TASK");
+			pending.put("status", "PENDING");
+			pending.put("taskId", taskId);
+			pending.put("title", taskTitle);
+			pending.put("completionStatus", completionStatus);
+			return Optional.of(pending);
+		}
 		if ("SHOW_EXISTING_POST".equals(type)) {
 			String postId = actionNode.path("postId").asText("").strip();
 			String title = allowedPosts.get(postId);
@@ -344,8 +376,10 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 					"proposedAction", Map.of(
 						"type", "object",
 						"properties", Map.of(
-							"type", Map.of("type", "string", "enum", List.of("SHARE_QUESTION", "SHOW_EXISTING_POST")),
+							"type", Map.of("type", "string", "enum", List.of("SHARE_QUESTION", "SHOW_EXISTING_POST", "COMPLETE_TASK")),
 							"postId", Map.of("type", "string"),
+							"taskId", Map.of("type", "string"),
+							"completionStatus", Map.of("type", "string", "enum", List.of("DONE", "TODO", "INCOMPLETE", "SKIPPED")),
 							"question", Map.of(
 								"type", "object",
 								"properties", Map.of(

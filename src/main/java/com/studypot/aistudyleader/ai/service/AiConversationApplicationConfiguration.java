@@ -6,6 +6,7 @@ import com.studypot.aistudyleader.global.domain.UuidV7;
 import com.studypot.aistudyleader.llm.service.LlmProviderConfiguredCondition;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
+import com.studypot.aistudyleader.curriculum.service.CurriculumService;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardService;
 import java.time.Clock;
 import org.springframework.beans.factory.ObjectProvider;
@@ -23,6 +24,11 @@ class AiConversationApplicationConfiguration {
 		// @ConditionalOnBean 은 설정 평가 순서에 취약(GroupBoardService 등록 전이면 빈이 안 만들어짐)하므로
 		// 무조건 등록하고 런타임에 ObjectProvider 로 resolve 한다.
 		return new GroupBoardBackedAiConversationBoardGateway(groupBoardService);
+	}
+
+	@Bean
+	AiConversationCurriculumGateway aiConversationCurriculumGateway(ObjectProvider<CurriculumService> curriculumService) {
+		return new CurriculumServiceBackedAiConversationCurriculumGateway(curriculumService);
 	}
 
 	@Bean
@@ -47,17 +53,19 @@ class AiConversationApplicationConfiguration {
 		ObjectProvider<LlmUsageRecorder> usageRecorder,
 		ObjectProvider<AiConversationStreamPublisher> streamPublisher,
 		ObjectProvider<AiConversationBoardGateway> boardGateway,
-		ObjectProvider<AiConversationQuestionRefiner> questionRefiner
+		ObjectProvider<AiConversationQuestionRefiner> questionRefiner,
+		ObjectProvider<AiConversationCurriculumGateway> curriculumGateway
 	) {
 		AiConversationAssistantResponseGenerator generator = assistantResponseGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
 		AiConversationStreamPublisher publisher = streamPublisher.getIfAvailable(AiConversationStreamPublisher::noop);
 		AiConversationBoardGateway gateway = boardGateway.getIfAvailable();
 		AiConversationQuestionRefiner refiner = questionRefiner.getIfAvailable();
+		AiConversationCurriculumGateway curriculum = curriculumGateway.getIfAvailable();
 		if (generator == null || recorder == null) {
-			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner);
+			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner, curriculum);
 		}
-		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner);
+		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner, curriculum);
 	}
 
 	@Bean

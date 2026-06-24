@@ -362,6 +362,51 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		assertThat(result.metadata()).doesNotContainKey("pendingAction");
 	}
 
+	@Test
+	void proposesCompleteTaskWhenMemberFinishedTaskInList() {
+		provider.response = response("""
+			{"message":"수고했어요! 완료로 표시할게요.","conversationSummary":"과제 완료","proposedAction":{"type":"COMPLETE_TASK","taskId":"task-1","completionStatus":"DONE"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"JPA 실습 다 했어",
+			contextWithTasks(List.of(Map.of("id", "task-1", "title", "JPA 실습", "completionStatus", "TODO")))
+		));
+
+		assertThat(result.metadata()).containsKey("pendingAction");
+		Map<?, ?> action = (Map<?, ?>) result.metadata().get("pendingAction");
+		assertThat(action.get("type")).isEqualTo("COMPLETE_TASK");
+		assertThat(action.get("taskId")).isEqualTo("task-1");
+		assertThat(action.get("title")).isEqualTo("JPA 실습");
+		assertThat(action.get("completionStatus")).isEqualTo("DONE");
+	}
+
+	@Test
+	void dropsCompleteTaskWhenTaskIdNotInContext() {
+		provider.response = response("""
+			{"message":"표시해볼게요.","conversationSummary":"환각 taskId 차단","proposedAction":{"type":"COMPLETE_TASK","taskId":"ghost"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"다 했어",
+			contextWithTasks(List.of(Map.of("id", "task-1", "title", "제목", "completionStatus", "TODO")))
+		));
+
+		assertThat(result.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	private static AiConversationPromptContext contextWithTasks(List<Map<String, Object>> tasks) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT"),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			tasks,
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			List.of()
+		);
+	}
+
 	private static AiConversationPromptContext contextWithQuestionPosts(List<Map<String, Object>> posts) {
 		return new AiConversationPromptContext(
 			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
