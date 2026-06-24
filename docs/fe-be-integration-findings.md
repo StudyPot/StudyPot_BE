@@ -314,6 +314,18 @@
 - **수정 방향(FE, 미적용)**: line-height 살짝 키우기(`leading-none`→`leading-[1.15]`/`leading-tight`)로 세로 클립 해소,
   필요 시 `max-w`를 64~66px로 약간 확대하거나 라벨 높이에 여유 패딩. (해당 패턴은 Home/그룹/추가 라벨 다수에 동일 적용 필요)
 
+## 스케줄러 / 운영
+
+### 🔴 #23 삭제된 그룹의 스케줄러 반복 실패 — 상태: 미해결(기록만, 나중에)
+- **현상**: prod 로그에 `WeeklyReportScheduler ... GroupBoardNotFoundException: study group was not found`
+  (line 188 `findOrCreateBoardId`→`requireActiveMembership`)가 매 틱 반복. prod에서 **20개 그룹** 해당.
+- **원인**: study_group이 **soft-delete(`deleted_at` 설정)** 됐는데 **ACTIVE 커리큘럼 + 마감 지난 주차**가 남아 있음.
+  `WeeklyReportScheduler.SELECT_DUE_REPORT_WEEKS`(및 `WeekLifecycleScheduler`·`RetrospectiveReminderScheduler`)가
+  `c.status='ACTIVE' AND c.deleted_at IS NULL` 만 보고 **study_group.deleted_at 은 검사하지 않음**.
+- **영향**: 무의미한 LLM 리포트 시도 + 로그 노이즈(15분마다 ×20). #18-A 무관, 기존 문제.
+- **권장 수정**: 스케줄러 due 쿼리들에 `join study_group sg on sg.id=c.group_id and sg.deleted_at is null` 추가
+  (또는 그룹 삭제 시 커리큘럼도 비활성화). 그룹 삭제 흐름과 함께 점검 권장.
+
 ## 아직 안 본 페이지 (다음 검증 대상)
 ④ GroupTodoPage · ⑤ GroupRetrospectivePage · ⑥ GroupAiPage · ⑧ GroupOnboardingPage ·
 GroupCurriculumPage · GroupJoinPage · BookmarksPage · ⑩ 레일/알림/룰 관련.

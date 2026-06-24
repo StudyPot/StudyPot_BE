@@ -141,7 +141,9 @@ class CurriculumServiceTest {
 
 		Curriculum result = service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID));
 
-		// 점진 생성: 시작 시점에는 1주차만 생성·저장된다(첫 sprint window 의 날짜 사용).
+		// 점진 생성: 시작 시점에는 1주차만 생성·저장되지만, total_weeks 는 전체 계획 주차 수(3주)로 저장된다
+		// (FE 가 잠긴 미래 주차 슬롯을 그릴 수 있도록).
+		assertThat(result.totalWeeks()).isEqualTo(3);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::weekNumber)
 			.containsExactly(1);
@@ -385,7 +387,8 @@ class CurriculumServiceTest {
 			NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 

@@ -553,12 +553,11 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	@Override
 	public void insertNextWeek(CurriculumWeek week) {
 		Objects.requireNonNull(week, "week must not be null");
+		// total_weeks 는 시작 시점에 전체 계획 주차 수로 고정 저장되므로 여기서 증가시키지 않는다.
 		insertWeek(week);
 		for (WeeklyTask task : week.tasks()) {
 			insertTask(task);
 		}
-		// 커리큘럼 총 주차 수를 실제 주차 수와 일치시킨다.
-		jdbcTemplate.update(CurriculumJdbcSql.INCREMENT_CURRICULUM_TOTAL_WEEKS, timestamp(week.updatedAt()), uuid(week.curriculumId()));
 	}
 
 	@Override

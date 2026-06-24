@@ -125,7 +125,8 @@ class JdbcCurriculumRepositoryTest {
 			NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 
 		repository.saveStartedCurriculum(GROUP_ID, NOW, usage, curriculum);
@@ -182,7 +183,8 @@ class JdbcCurriculumRepositoryTest {
 					NOW,
 					CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 					List.of(WEEK_ID),
-					List.of(TASK_ID)
+					List.of(TASK_ID),
+					1
 				)
 			))
 			.isInstanceOf(CurriculumPersistenceException.class)
