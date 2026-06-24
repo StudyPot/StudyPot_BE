@@ -15,6 +15,8 @@ import org.springframework.beans.factory.ObjectProvider;
  */
 class GroupBoardBackedAiConversationBoardGateway implements AiConversationBoardGateway {
 
+	private static final String AI_AUTHOR_DISPLAY_NAME = "AI 팀장";
+
 	private final ObjectProvider<GroupBoardService> groupBoardService;
 
 	GroupBoardBackedAiConversationBoardGateway(ObjectProvider<GroupBoardService> groupBoardService) {
@@ -29,7 +31,7 @@ class GroupBoardBackedAiConversationBoardGateway implements AiConversationBoardG
 		}
 		UUID boardId = service.findOrCreateBoardId(authenticatedUserId, groupId, GroupBoardType.QUESTION);
 		GroupBoardPost post = service.createPost(
-			new CreateGroupBoardPostCommand(authenticatedUserId, groupId, boardId, title, content, false)
+			new CreateGroupBoardPostCommand(authenticatedUserId, groupId, boardId, title, content, false, AI_AUTHOR_DISPLAY_NAME)
 		);
 		return post.id();
 	}

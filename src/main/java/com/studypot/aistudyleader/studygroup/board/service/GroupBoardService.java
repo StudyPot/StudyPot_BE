@@ -115,6 +115,9 @@ public class GroupBoardService {
 			throw new GroupBoardAccessDeniedException("only the study group owner can post to the leader report board.");
 		}
 		Instant now = clock.instant();
+		String overrideName = command.authorDisplayNameOverride();
+		boolean hasOverride = overrideName != null && !overrideName.isBlank();
+		String displayName = hasOverride ? overrideName : membership.displayName();
 		GroupBoardPost post;
 		try {
 			post = GroupBoardPost.create(
@@ -123,12 +126,12 @@ public class GroupBoardService {
 				command.boardId(),
 				membership.memberId(),
 				membership.userId(),
-				membership.displayName(),
+				displayName,
 				command.title(),
 				command.content(),
 				command.pinned(),
 				now
-			);
+			).withAuthorDisplayNameOverride(hasOverride ? overrideName : null);
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(fieldFromMessage(exception.getMessage()), exception);
 		}

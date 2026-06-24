@@ -107,6 +107,28 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void createPostWithAuthorDisplayNameOverrideShowsOverrideButKeepsMemberOwnership() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(board());
+		GroupBoardService service = service(repository, POST_ID);
+
+		GroupBoardPost post = service.createPost(new CreateGroupBoardPostCommand(
+			USER_ID,
+			GROUP_ID,
+			BOARD_ID,
+			"JPA 영속성 컨텍스트란?",
+			"질문과 답변 요약",
+			false,
+			"AI 팀장"
+		));
+
+		assertThat(post.authorDisplayName()).isEqualTo("AI 팀장");
+		assertThat(post.authorMemberId()).isEqualTo(MEMBER_ID);
+		assertThat(repository.insertedPost.authorDisplayNameOverride()).isEqualTo("AI 팀장");
+	}
+
+	@Test
 	void createPostOnNoticeBoardPublishesNoticeNotification() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);

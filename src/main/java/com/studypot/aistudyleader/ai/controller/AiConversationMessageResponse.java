@@ -40,7 +40,9 @@ record AiConversationMessageResponse(
 		@Schema(description = "공유 제안된 질문 제목입니다.")
 		String title,
 		@Schema(description = "공유 제안된 질문 요약입니다.")
-		String summary
+		String summary,
+		@Schema(description = "실행 완료(EXECUTED) 시 생성된 게시글 UUID입니다. 그 외엔 null.")
+		String postId
 	) {
 
 		static MessageActionView from(Map<String, Object> metadata) {
@@ -58,7 +60,11 @@ record AiConversationMessageResponse(
 				title = stringOrNull(question.get("title"));
 				summary = stringOrNull(question.get("summary"));
 			}
-			return new MessageActionView(type, status, title, summary);
+			String postId = null;
+			if (pendingAction.get("result") instanceof Map<?, ?> result) {
+				postId = stringOrNull(result.get("postId"));
+			}
+			return new MessageActionView(type, status, title, summary, postId);
 		}
 
 		private static String stringOrNull(Object value) {

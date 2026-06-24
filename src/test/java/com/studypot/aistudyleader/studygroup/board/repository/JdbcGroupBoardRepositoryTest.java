@@ -80,6 +80,7 @@ class JdbcGroupBoardRepositoryTest {
 		verify(jdbcTemplate).update(eq(GroupBoardJdbcSql.INSERT_POST), args.capture());
 		assertThat((byte[]) args.getValue()[0]).containsExactly(UuidBinary.toBytes(POST_ID));
 		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(MEMBER_ID));
-		assertThat(args.getValue()[6]).isEqualTo(true);
+		assertThat(args.getValue()[4]).isNull(); // author_display_name_override (일반 글은 null)
+		assertThat(args.getValue()[7]).isEqualTo(true); // is_pinned
 	}
 }
