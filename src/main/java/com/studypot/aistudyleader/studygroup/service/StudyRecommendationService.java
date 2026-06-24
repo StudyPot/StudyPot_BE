@@ -43,20 +43,23 @@ public class StudyRecommendationService {
 		- 반드시 제공된 JSON 스키마(suggestions 배열)에 맞는 JSON 만 반환하세요.
 		""";
 
+	// 개별(비공개) 그룹을 식별하지 않도록 주제 단위로 익명 집계한다. 방금 완료한 그룹/주제는 제외.
 	private static final String SELECT_POPULAR_TOPICS = """
-		select sg.name as group_name, sg.topic as topic, count(gm.id) as member_count
+		select sg.topic as topic,
+		       count(distinct gm.id) as member_count,
+		       count(distinct sg.id) as group_count
 		from study_group sg
 		left join group_member gm on gm.group_id = sg.id
 		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and gm.deleted_at is null
 		where sg.id <> ?
-		  and sg.is_public = 1
 		  and sg.deleted_at is null
 		  and sg.topic is not null
 		  and sg.topic <> ''
+		  and sg.topic <> ?
 		  and sg.status in ('ONBOARDING', 'READY_TO_START', 'ACTIVE', 'COMPLETED')
-		group by sg.id, sg.name, sg.topic
-		order by member_count desc, sg.created_at desc
+		group by sg.topic
+		order by member_count desc, max(sg.created_at) desc
 		limit %d
 		""".formatted(POPULAR_LIMIT);
 
@@ -86,7 +89,7 @@ public class StudyRecommendationService {
 	public StudyRecommendations recommend(UUID authenticatedUserId, UUID completedGroupId, String topic, List<String> keywords) {
 		Objects.requireNonNull(completedGroupId, "completedGroupId must not be null");
 		List<StudyRecommendations.AiSuggestion> aiSuggestions = generateAiSuggestions(authenticatedUserId, topic, keywords);
-		List<StudyRecommendations.PopularTopic> popularTopics = findPopularTopics(completedGroupId);
+		List<StudyRecommendations.PopularTopic> popularTopics = findPopularTopics(completedGroupId, topic);
 		return new StudyRecommendations(aiSuggestions, popularTopics);
 	}
 
@@ -151,16 +154,17 @@ public class StudyRecommendationService {
 		}
 	}
 
-	private List<StudyRecommendations.PopularTopic> findPopularTopics(UUID excludeGroupId) {
+	private List<StudyRecommendations.PopularTopic> findPopularTopics(UUID excludeGroupId, String excludeTopic) {
 		try {
 			return jdbcTemplate.query(
 				SELECT_POPULAR_TOPICS,
 				(rs, rowNum) -> new StudyRecommendations.PopularTopic(
-					rs.getString("group_name"),
 					rs.getString("topic"),
-					rs.getInt("member_count")
+					rs.getInt("member_count"),
+					rs.getInt("group_count")
 				),
-				UuidBinary.toBytes(excludeGroupId)
+				UuidBinary.toBytes(excludeGroupId),
+				excludeTopic == null ? "" : excludeTopic
 			);
 		} catch (RuntimeException exception) {
 			log.warn("popular topics query failed", exception);

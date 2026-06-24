@@ -37,8 +37,8 @@ class StudyRecommendationServiceTest {
 			{"suggestions":[{"title":"Spring Security 심화","reason":"인증/인가를 더 깊게"}]}
 			""");
 		JdbcTemplate jdbc = mock(JdbcTemplate.class);
-		when(jdbc.query(anyString(), any(RowMapper.class), any())).thenReturn(List.of(
-			new StudyRecommendations.PopularTopic("백엔드 면접 스터디", "Spring Boot", 5)
+		when(jdbc.query(anyString(), any(RowMapper.class), any(), any())).thenReturn(List.of(
+			new StudyRecommendations.PopularTopic("Spring Boot", 12, 3)
 		));
 
 		StudyRecommendationService service = new StudyRecommendationService(
@@ -62,8 +62,8 @@ class StudyRecommendationServiceTest {
 	@SuppressWarnings("unchecked")
 	void recommendReturnsPopularTopicsOnlyWhenLlmUnavailable() {
 		JdbcTemplate jdbc = mock(JdbcTemplate.class);
-		when(jdbc.query(anyString(), any(RowMapper.class), any())).thenReturn(List.of(
-			new StudyRecommendations.PopularTopic("알고리즘 스터디", "코딩테스트", 3)
+		when(jdbc.query(anyString(), any(RowMapper.class), any(), any())).thenReturn(List.of(
+			new StudyRecommendations.PopularTopic("코딩테스트", 3, 2)
 		));
 
 		StudyRecommendationService service = new StudyRecommendationService(
