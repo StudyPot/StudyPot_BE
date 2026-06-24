@@ -129,6 +129,22 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	}
 
 	@Override
+	public Optional<AiConversationMessage> findMessage(UUID messageId) {
+		Objects.requireNonNull(messageId, "messageId must not be null");
+		return queryOne(AiConversationJdbcSql.SELECT_MESSAGE_BY_ID, this::mapMessage, uuid(messageId));
+	}
+
+	@Override
+	public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+		Objects.requireNonNull(messageId, "messageId must not be null");
+		return jdbcTemplate.update(
+			AiConversationJdbcSql.UPDATE_MESSAGE_METADATA,
+			json(metadata, "AI conversation message metadata"),
+			uuid(messageId)
+		) == 1;
+	}
+
+	@Override
 	public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
 		Objects.requireNonNull(conversationId, "conversationId must not be null");
 		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());

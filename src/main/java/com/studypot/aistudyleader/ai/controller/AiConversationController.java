@@ -3,8 +3,10 @@ package com.studypot.aistudyleader.ai.controller;
 import com.studypot.aistudyleader.ai.domain.AiConversation;
 import com.studypot.aistudyleader.ai.domain.AiConversationMessage;
 import com.studypot.aistudyleader.ai.domain.AiConversationType;
+import com.studypot.aistudyleader.ai.service.AiConversationMessageActionDecision;
 import com.studypot.aistudyleader.ai.service.AiConversationService;
 import com.studypot.aistudyleader.ai.service.AiConversationServiceUnavailableException;
+import com.studypot.aistudyleader.ai.service.DecideAiConversationMessageActionCommand;
 import com.studypot.aistudyleader.ai.service.ListAiConversationMessagesQuery;
 import com.studypot.aistudyleader.ai.service.OpenAiConversationCommand;
 import com.studypot.aistudyleader.ai.service.SendAiConversationMessageCommand;
@@ -91,6 +93,34 @@ class AiConversationController {
 		@Valid @RequestBody CreateMessageRequest request
 	) {
 		AiConversationMessage message = service().sendMessage(request.toCommand(authenticatedUserId(authentication), conversationId));
+		return AiConversationMessageResponse.from(message);
+	}
+
+	@Operation(
+		summary = "AI 팀장 메시지 제안 액션 확인/거절",
+		description = "AI 팀장 메시지에 제안된 액션(예: 질문 게시판 공유)을 확인(CONFIRM)하면 실행하고, 거절(REJECT)하면 건너뜁니다. (확인 후 실행)"
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "액션 결정 처리 완료(갱신된 메시지 반환)"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 대화의 활성 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "대상 대화 또는 메시지를 찾을 수 없음"),
+		@ApiResponse(responseCode = "409", description = "결정할 수 있는 제안 액션이 없거나 이미 처리됨"),
+		@ApiResponse(responseCode = "422", description = "요청 형식이 올바르지 않음"),
+		@ApiResponse(responseCode = "503", description = "AI 대화 서비스 또는 액션 실행이 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/ai-conversations/{conversationId}/messages/{messageId}/action")
+	AiConversationMessageResponse decideMessageAction(
+		Authentication authentication,
+		@Parameter(description = "대상 AI 대화 세션 UUID입니다.", required = true)
+		@PathVariable UUID conversationId,
+		@Parameter(description = "제안 액션이 담긴 AI 대화 메시지 UUID입니다.", required = true)
+		@PathVariable UUID messageId,
+		@Valid @RequestBody DecideMessageActionRequest request
+	) {
+		AiConversationMessage message = service().decideMessageAction(
+			request.toCommand(authenticatedUserId(authentication), conversationId, messageId)
+		);
 		return AiConversationMessageResponse.from(message);
 	}
 
@@ -207,6 +237,18 @@ class AiConversationController {
 
 		private SendAiConversationMessageCommand toCommand(UUID authenticatedUserId, UUID conversationId) {
 			return new SendAiConversationMessageCommand(authenticatedUserId, conversationId, content);
+		}
+	}
+
+	@Schema(description = "AI 팀장 메시지 제안 액션 결정 요청입니다.")
+	private record DecideMessageActionRequest(
+		@NotNull
+		@Schema(description = "액션 결정입니다. CONFIRM(실행) 또는 REJECT(건너뛰기).", example = "CONFIRM")
+		AiConversationMessageActionDecision decision
+	) {
+
+		private DecideAiConversationMessageActionCommand toCommand(UUID authenticatedUserId, UUID conversationId, UUID messageId) {
+			return new DecideAiConversationMessageActionCommand(authenticatedUserId, conversationId, messageId, decision);
 		}
 	}
 

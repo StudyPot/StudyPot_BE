@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -58,6 +59,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Do not infer private details about other members.
 		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
+		If the member's latest message is a genuine study question (not a greeting, status update, venting, or out-of-scope request) and you answered it substantively, you MAY offer to share it to the group's question board so other members benefit. In that case set proposedAction with type "SHARE_QUESTION" and a question object holding a concise board-ready title and a summary that combines the member's question and your answer in clean Korean. Suggest at most one share, only when it would genuinely help others, and end the message with one short sentence offering to post it (예: "이 질문은 다른 분들께도 도움이 될 것 같아요. 게시판에 올려둘까요?"). The client renders confirm buttons from proposedAction. When no share fits, omit proposedAction entirely.
 		""";
 
 	private final LlmProviderClient provider;
@@ -200,7 +202,29 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		if (adjustmentNode != null && adjustmentNode.isObject() && !adjustmentNode.isEmpty()) {
 			metadata.put("nextWeekAdjustmentCandidate", objectMapper.convertValue(adjustmentNode, OBJECT_MAP));
 		}
+		readProposedAction(node.get("proposedAction")).ifPresent(action -> metadata.put("pendingAction", action));
 		return new GeneratedAiConversationResponse(message, conversationSummary, metadata);
+	}
+
+	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode) {
+		if (actionNode == null || !actionNode.isObject() || actionNode.isEmpty()) {
+			return Optional.empty();
+		}
+		String type = actionNode.path("type").asText("");
+		JsonNode questionNode = actionNode.get("question");
+		if (!"SHARE_QUESTION".equals(type) || questionNode == null || !questionNode.isObject()) {
+			return Optional.empty();
+		}
+		String title = questionNode.path("title").asText("").strip();
+		String summary = questionNode.path("summary").asText("").strip();
+		if (title.isBlank() || summary.isBlank()) {
+			return Optional.empty();
+		}
+		Map<String, Object> pending = new LinkedHashMap<>();
+		pending.put("type", "SHARE_QUESTION");
+		pending.put("status", "PENDING");
+		pending.put("question", Map.of("title", title, "summary", summary));
+		return Optional.of(pending);
 	}
 
 	private static String removeInternalDiagnosticLabels(String message) {
@@ -227,6 +251,19 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 							"difficulty", Map.of("type", "string"),
 							"taskChanges", Map.of("type", "array", "items", Map.of("type", "string")),
 							"supportMaterials", Map.of("type", "array", "items", Map.of("type", "string"))
+						)
+					),
+					"proposedAction", Map.of(
+						"type", "object",
+						"properties", Map.of(
+							"type", Map.of("type", "string", "enum", List.of("SHARE_QUESTION")),
+							"question", Map.of(
+								"type", "object",
+								"properties", Map.of(
+									"title", Map.of("type", "string"),
+									"summary", Map.of("type", "string")
+								)
+							)
 						)
 					)
 				)
