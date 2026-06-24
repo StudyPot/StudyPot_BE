@@ -400,6 +400,31 @@ final class CurriculumJdbcSql {
 		order by r.requested_at, r.id
 		""";
 
+	// 다음 주차 생성 입력: 해당 주차 완료 회고의 구조화된 '다음 주차 조정 제안'(JSON) 원문을 조회한다.
+	static final String SELECT_WEEK_RETROSPECTIVE_ADJUSTMENTS = """
+		select r.next_week_adjustment as adjustment
+		from retrospective r
+		where r.curriculum_week_id = ?
+		  and r.status = 'COMPLETED'
+		  and r.next_week_adjustment is not null
+		order by r.requested_at, r.id
+		""";
+
+	// 다음 주차 생성 입력: 그룹의 팀장 대화(TEAM_LEAD_CHAT) AI 응답 metadata 에 담긴 '다음 주차 조정 후보'(JSON)를
+	// since(현재 주차 시작) 이후로 조회한다. 일반 팀장 채팅은 주차에 묶이지 않으므로 그룹+시간창으로 조인한다.
+	static final String SELECT_TEAM_LEAD_ADJUSTMENT_CANDIDATES = """
+		select json_extract(m.metadata, '$.nextWeekAdjustmentCandidate') as candidate
+		from ai_conversation_message m
+		join ai_conversation c on c.id = m.conversation_id
+		where c.group_id = ?
+		  and c.conversation_type = 'TEAM_LEAD_CHAT'
+		  and m.sender_type = 'ASSISTANT'
+		  and m.created_at >= ?
+		  and json_extract(m.metadata, '$.nextWeekAdjustmentCandidate') is not null
+		order by m.created_at, m.id
+		limit 30
+		""";
+
 	// 그룹 홈 '최근 활동' 피드: 최근 완료(DONE)된 과제를 멤버 닉네임/과제 제목과 함께 최신순으로 조회한다.
 	static final String SELECT_RECENT_TASK_ACTIVITY = """
 		select gm.id as member_id,

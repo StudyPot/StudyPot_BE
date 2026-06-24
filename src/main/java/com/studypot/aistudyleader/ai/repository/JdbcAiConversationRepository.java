@@ -356,6 +356,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		putText(result, "startsAt", resultSet.getString("starts_at"));
 		putText(result, "endsAt", resultSet.getString("ends_at"));
 		putInstant(result, "startedAt", instant(resultSet.getTimestamp("started_at")));
+		putText(result, "aiPersona", resultSet.getString("ai_persona"));
 		return result;
 	}
 

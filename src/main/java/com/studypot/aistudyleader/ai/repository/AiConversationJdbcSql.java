@@ -115,7 +115,7 @@ final class AiConversationJdbcSql {
 
 	static final String SELECT_STUDY_GROUP_PROMPT_CONTEXT = """
 		select sg.id, sg.name, sg.description, sg.topic, sg.detail_keywords, sg.level,
-		       sg.status, sg.starts_at, sg.ends_at, sg.started_at
+		       sg.status, sg.starts_at, sg.ends_at, sg.started_at, sg.ai_persona
 		from study_group sg
 		where sg.id = ?
 		  and sg.deleted_at is null
