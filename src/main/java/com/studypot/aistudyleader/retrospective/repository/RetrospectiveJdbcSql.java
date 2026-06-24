@@ -175,15 +175,16 @@ final class RetrospectiveJdbcSql {
 		where id = ?
 		""";
 
-	// 그룹의 활성 커리큘럼 주차별: 회고 질문 + 내 필수 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	// 그룹의 활성 커리큘럼 주차별: 회고 질문 + 내 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	// AI 생성 과제는 required 플래그가 항상 false 라, 잠금 기준을 '전체 TODO 처리(DONE/SKIPPED)'로 본다.
 	static final String SELECT_RETROSPECTIVE_OVERVIEW = """
 		select cw.id as week_id, cw.week_number, cw.status, cw.retrospective_questions,
 		       (select count(*) from weekly_task wt
-		          where wt.curriculum_week_id = cw.id and wt.required = true and wt.deleted_at is null) as required_total,
+		          where wt.curriculum_week_id = cw.id and wt.deleted_at is null) as total_tasks,
 		       (select count(*) from task_completion tc
 		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
-		          where wt2.curriculum_week_id = cw.id and wt2.required = true and wt2.deleted_at is null
-		            and tc.member_id = ? and tc.status = 'DONE') as required_done,
+		          where wt2.curriculum_week_id = cw.id and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status in ('DONE', 'SKIPPED')) as done_tasks,
 		       (select count(*) from retrospective r
 		          where r.curriculum_week_id = cw.id and r.member_id = ? and r.status = 'COMPLETED') as answered_count,
 		       exists (select 1 from group_board_post gbp
@@ -199,15 +200,15 @@ final class RetrospectiveJdbcSql {
 		order by cw.week_number
 		""";
 
-	// 한 주차의 회고 작성 가능 여부 산정에 필요한 값(상태/필수TODO/리포트 게시 여부)을 weekId 기준으로 조회.
+	// 한 주차의 회고 작성 가능 여부 산정에 필요한 값(상태/전체TODO 처리/리포트 게시 여부)을 weekId 기준으로 조회.
 	static final String SELECT_WEEK_WRITABILITY = """
 		select cw.status,
 		       (select count(*) from weekly_task wt
-		          where wt.curriculum_week_id = cw.id and wt.required = true and wt.deleted_at is null) as required_total,
+		          where wt.curriculum_week_id = cw.id and wt.deleted_at is null) as total_tasks,
 		       (select count(*) from task_completion tc
 		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
-		          where wt2.curriculum_week_id = cw.id and wt2.required = true and wt2.deleted_at is null
-		            and tc.member_id = ? and tc.status = 'DONE') as required_done,
+		          where wt2.curriculum_week_id = cw.id and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status in ('DONE', 'SKIPPED')) as done_tasks,
 		       exists (select 1 from group_board_post gbp
 		          where gbp.group_id = c.group_id
 		            and gbp.title = concat(cw.week_number, '주차 학습 리포트')
