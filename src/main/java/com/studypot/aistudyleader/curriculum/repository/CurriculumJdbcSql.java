@@ -144,6 +144,18 @@ final class CurriculumJdbcSql {
 		  and deleted_at is null
 		""";
 
+	// 조회(표시) 전용: 완료된 스터디도 커리큘럼을 다시 볼 수 있도록 COMPLETED 도 포함한다.
+	static final String SELECT_VIEWABLE_CURRICULUM = """
+		select id, group_id, llm_usage_id, title, total_weeks, onboarding_summary,
+		       generated_by_ai, generation_prompt, status, created_at, updated_at
+		from curriculum
+		where group_id = ?
+		  and status in ('ACTIVE', 'COMPLETED')
+		  and deleted_at is null
+		order by case status when 'ACTIVE' then 0 else 1 end
+		limit 1
+		""";
+
 	static final String SELECT_CURRICULUM_WEEKS = """
 		select id, curriculum_id, week_number, title, description, sprint_goal, retrospective_questions,
 		       learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
@@ -180,6 +192,7 @@ final class CurriculumJdbcSql {
 		limit 1
 		""";
 
+	// 완료된 스터디도 주차/커리큘럼을 다시 볼 수 있도록 COMPLETED 커리큘럼의 주차도 포함한다.
 	static final String SELECT_WEEKS_BY_GROUP = """
 		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
 		       cw.sprint_goal, cw.retrospective_questions, cw.learning_goals, cw.resources, cw.status,
@@ -187,7 +200,7 @@ final class CurriculumJdbcSql {
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
 		where c.group_id = ?
-		  and c.status = 'ACTIVE'
+		  and c.status in ('ACTIVE', 'COMPLETED')
 		  and c.deleted_at is null
 		  and cw.deleted_at is null
 		order by cw.week_number

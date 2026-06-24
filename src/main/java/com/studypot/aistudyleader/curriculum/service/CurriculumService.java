@@ -232,7 +232,7 @@ public class CurriculumService {
 		if (!context.canReadCurriculum()) {
 			throw new CurriculumAccessDeniedException("active group membership is required to read the curriculum.");
 		}
-		return repository.findActiveCurriculumByGroupId(query.groupId())
+		return repository.findViewableCurriculumByGroupId(query.groupId())
 			.orElseThrow(() -> new CurriculumNotFoundException("active curriculum was not found."));
 	}
 

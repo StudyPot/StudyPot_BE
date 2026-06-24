@@ -34,6 +34,9 @@ public interface CurriculumRepository {
 
 	Optional<Curriculum> findActiveCurriculumByGroupId(UUID groupId);
 
+	/** 조회(표시) 전용: ACTIVE 또는 COMPLETED 커리큘럼을 반환한다(완료 후 다시 보기). */
+	Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId);
+
 	Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId);
 
 	Optional<CurriculumWeek> findWeekById(UUID weekId);
