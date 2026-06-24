@@ -207,17 +207,32 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		);
 	}
 
+	@Override
+	public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		List<Boolean> result = jdbcTemplate.query(
+			RetrospectiveJdbcSql.SELECT_WEEK_WRITABILITY,
+			(resultSet, rowNumber) -> com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview.unlocked(
+				resultSet.getString("status"),
+				resultSet.getLong("required_total"),
+				resultSet.getLong("required_done"),
+				resultSet.getBoolean("report_posted")
+			),
+			uuid(memberId),
+			uuid(weekId)
+		);
+		return !result.isEmpty() && Boolean.TRUE.equals(result.get(0));
+	}
+
 	private com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview mapWeekOverview(ResultSet resultSet, int rowNumber)
 		throws SQLException {
 		long requiredTotal = resultSet.getLong("required_total");
 		long requiredDone = resultSet.getLong("required_done");
 		String status = resultSet.getString("status");
-		// 시작 안 한(PENDING) 미래 주차는 잠금(과거: requiredTotal==0 → 무조건 unlock 되던 vacuous-truth 버그 제거).
-		// 회고 작성 가능 조건: (1) 시작된 주차에서 필수 TODO 모두 완료, 또는 (2) 주차 종료(COMPLETED).
-		boolean started = "IN_PROGRESS".equals(status) || "COMPLETED".equals(status);
-		boolean ended = "COMPLETED".equals(status);
-		boolean allRequiredDone = requiredTotal == 0 || requiredDone >= requiredTotal;
-		boolean unlocked = ended || (started && allRequiredDone);
+		boolean reportPosted = resultSet.getBoolean("report_posted");
+		boolean unlocked = com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview
+			.unlocked(status, requiredTotal, requiredDone, reportPosted);
 		return new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
 			UuidBinary.fromBytes(resultSet.getBytes("week_id")),
 			resultSet.getInt("week_number"),

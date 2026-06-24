@@ -261,6 +261,35 @@ final class NotificationCommandFactory {
 		);
 	}
 
+	// 리포트 생성 직전(마감 +20분 무렵)에 아직 회고를 안 쓴 멤버에게 보내는 마지막 리마인더.
+	// 1시간 전 리마인더와 멱등키를 분리(:final)해 같은 주차에 두 알림이 따로 발송되도록 한다.
+	static CreateNotificationCommand retrospectiveFinalReminder(
+		UUID groupId,
+		UUID recipientUserId,
+		UUID weekId,
+		String title,
+		String body
+	) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return new CreateNotificationCommand(
+			groupId,
+			recipientUserId,
+			new NotificationRelatedResources(null, weekId, null, null),
+			NotificationType.RETROSPECTIVE_REMINDER,
+			"idempotency:notification:retrospective_reminder:final:week:%s:recipient:%s".formatted(
+				weekId,
+				recipientUserId
+			),
+			title,
+			body,
+			payload("/weeks/%s/retrospectives/me".formatted(weekId), Map.of(
+				"groupId", groupId.toString(),
+				"weekId", weekId.toString()
+			)),
+			null
+		);
+	}
+
 	private static Map<String, Object> payload(String deepLink, Map<String, Object> values) {
 		Map<String, Object> payload = new LinkedHashMap<>(values);
 		payload.put("deepLink", deepLink);

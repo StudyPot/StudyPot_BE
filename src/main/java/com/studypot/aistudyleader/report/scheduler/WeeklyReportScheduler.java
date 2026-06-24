@@ -44,6 +44,10 @@ class WeeklyReportScheduler {
 	// 중복 작성은 게시글 제목으로 멱등 처리한다.
 	private static final Duration LOOKBACK = Duration.ofDays(7);
 
+	// 주차 마감 직후가 아니라 마감 +30분 시점부터 리포트를 만든다.
+	// (마감 임박/직후에 회고를 마저 쓰는 멤버를 위한 유예. 이 유예 동안 마감 10분 전 리마인더가 미제출자에게 한 번 더 간다)
+	private static final Duration REPORT_DELAY = Duration.ofMinutes(30);
+
 	private static final String SELECT_DUE_REPORT_WEEKS = """
 		select c.group_id, cw.id as week_id, cw.week_number, cw.title as week_title
 		from curriculum_week cw
@@ -150,7 +154,7 @@ class WeeklyReportScheduler {
 					rs.getInt("week_number"),
 					rs.getString("week_title")
 				),
-				Timestamp.from(now),
+				Timestamp.from(now.minus(REPORT_DELAY)),
 				Timestamp.from(now.minus(LOOKBACK))
 			);
 		} catch (RuntimeException exception) {

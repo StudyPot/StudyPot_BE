@@ -23,6 +23,8 @@ public interface NotificationEventPublisher {
 	// 오버라이드를 누락해도 컴파일은 통과하면서 프로덕션에서 조용히 noop 이 되는 버그가 생긴다. (실제 발생함)
 	void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId);
 
+	void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId);
+
 	void publishOnboardingCompleted(UUID groupId, UUID ownerUserId);
 
 	void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId);
@@ -72,6 +74,10 @@ public interface NotificationEventPublisher {
 
 		@Override
 		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
 		@Override

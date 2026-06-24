@@ -185,7 +185,11 @@ final class RetrospectiveJdbcSql {
 		          where wt2.curriculum_week_id = cw.id and wt2.required = true and wt2.deleted_at is null
 		            and tc.member_id = ? and tc.status = 'DONE') as required_done,
 		       (select count(*) from retrospective r
-		          where r.curriculum_week_id = cw.id and r.member_id = ? and r.status = 'COMPLETED') as answered_count
+		          where r.curriculum_week_id = cw.id and r.member_id = ? and r.status = 'COMPLETED') as answered_count,
+		       exists (select 1 from group_board_post gbp
+		          where gbp.group_id = c.group_id
+		            and gbp.title = concat(cw.week_number, '주차 학습 리포트')
+		            and gbp.deleted_at is null) as report_posted
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
 		where c.group_id = ?
@@ -193,6 +197,26 @@ final class RetrospectiveJdbcSql {
 		  and c.deleted_at is null
 		  and cw.deleted_at is null
 		order by cw.week_number
+		""";
+
+	// 한 주차의 회고 작성 가능 여부 산정에 필요한 값(상태/필수TODO/리포트 게시 여부)을 weekId 기준으로 조회.
+	static final String SELECT_WEEK_WRITABILITY = """
+		select cw.status,
+		       (select count(*) from weekly_task wt
+		          where wt.curriculum_week_id = cw.id and wt.required = true and wt.deleted_at is null) as required_total,
+		       (select count(*) from task_completion tc
+		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
+		          where wt2.curriculum_week_id = cw.id and wt2.required = true and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status = 'DONE') as required_done,
+		       exists (select 1 from group_board_post gbp
+		          where gbp.group_id = c.group_id
+		            and gbp.title = concat(cw.week_number, '주차 학습 리포트')
+		            and gbp.deleted_at is null) as report_posted
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
 		""";
 
 	private RetrospectiveJdbcSql() {

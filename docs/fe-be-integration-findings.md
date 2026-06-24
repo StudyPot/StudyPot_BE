@@ -273,7 +273,15 @@
     priorTasks·memberRetrospectives 추가, 리포지토리 `insertNextWeek`·`findCompletedRetrospectiveSummaries`·total_weeks 증가.
   - 전체 851+ 테스트 통과. **검증 한계**: 실제 LLM 다음주 품질 + 스케줄러→DB E2E는 배포환경 확인 필요.
 - ✅ **D-필터** 적용(미제출자만 1시간 리마인더). **#16**(회고 잠금)에서 C 조건2 일부 선반영.
-- ⏳ **B/C/D-나머지** 남음 — B(종료 시 미완료 확정+TODO 잠금) → C(리포트 후 회고 닫기) → D(리포트 30분 지연+10분전 신규 리마인더).
+- ✅ **B/C/D 적용**(브랜치 `codex/curriculum-week-lifecycle`):
+  - **B** `WeekLifecycleScheduler` — 주차 COMPLETED 시 그 주차의 TODO 완료를 INCOMPLETE 로 확정(`MARK_INCOMPLETE_TODOS`, 멱등).
+    `CurriculumService.completeMyTask` — `ends_at` 경과(종료) 주차의 DONE 전환 차단(시작 전 차단과 동일 패턴).
+  - **C** 회고 unlock 규칙을 `RetrospectiveWeekOverview.unlocked(status, requiredTotal, requiredDone, reportPosted)`로 중앙화 —
+    `unlocked = !reportPosted && (ended || (started && allRequiredDone))`. overview SQL + 신규 `SELECT_WEEK_WRITABILITY`에
+    `report_posted`(group_board_post 제목=`N주차 학습 리포트`) 반영. 제출 가드를 `isRetrospectiveWritable`로 교체 → 리포트 게시 후 닫힘.
+  - **D** `WeeklyReportScheduler` 리포트 타이밍 `ends_at + 30분` 지연. `RetrospectiveReminderScheduler`에 마감 10분 전(=마감+20분)
+    미제출·리포트미게시 멤버 대상 **마지막 리마인더**(`SELECT_FINAL_REMINDERS` + `publishRetrospectiveFinalReminder`, 멱등키 `:final` 분리).
+  - 전체 테스트 통과 + `RetrospectiveWeekOverviewTest`(unlock 규칙) 추가.
 
 ## 알림(Notification)
 
