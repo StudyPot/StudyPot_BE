@@ -97,7 +97,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 				generated.metadata(),
 				response.withResponseSummary("Generated AI conversation response for conversation " + request.messageContext().conversationId())
 			);
-		} catch (JsonProcessingException | IllegalArgumentException exception) {
+		} catch (IllegalArgumentException exception) {
 			throw new AiConversationResponseGenerationException(
 				"AI conversation response output was invalid.",
 				exception,
@@ -193,17 +193,74 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		);
 	}
 
-	private GeneratedAiConversationResponse readResponse(String outputText) throws JsonProcessingException {
-		JsonNode node = objectMapper.readTree(outputText);
-		String message = removeInternalDiagnosticLabels(requiredText(node.get("message"), "message"));
-		String conversationSummary = requiredText(node.get("conversationSummary"), "conversationSummary");
-		JsonNode adjustmentNode = node.get("nextWeekAdjustmentCandidate");
+	private GeneratedAiConversationResponse readResponse(String outputText) {
+		JsonNode node = parseJsonLenient(outputText);
+		if (node == null) {
+			// JSON 객체로 파싱조차 안 되는 경우(코드펜스/잡텍스트/잘림)에도 채팅이 통째로 깨지지 않도록
+			// 정제한 원문을 메시지로 살려 응답한다(요약/액션은 생략).
+			String salvaged = removeInternalDiagnosticLabels(stripCodeFences(outputText == null ? "" : outputText));
+			if (salvaged.isBlank()) {
+				throw new IllegalArgumentException("message must not be blank.");
+			}
+			return new GeneratedAiConversationResponse(salvaged, "", Map.of());
+		}
+		String rawMessage = textOrNull(node.get("message"));
+		if (rawMessage == null) {
+			// 정상 JSON 객체인데 message 가 없으면 스키마 위반 → 실패로 기록(원문 노출 방지).
+			throw new IllegalArgumentException("message must not be blank.");
+		}
+		String message = removeInternalDiagnosticLabels(rawMessage);
+		String conversationSummary = textOrDefault(node.get("conversationSummary"), "");
 		Map<String, Object> metadata = new LinkedHashMap<>();
+		JsonNode adjustmentNode = node.get("nextWeekAdjustmentCandidate");
 		if (adjustmentNode != null && adjustmentNode.isObject() && !adjustmentNode.isEmpty()) {
 			metadata.put("nextWeekAdjustmentCandidate", objectMapper.convertValue(adjustmentNode, OBJECT_MAP));
 		}
 		readProposedAction(node.get("proposedAction")).ifPresent(action -> metadata.put("pendingAction", action));
 		return new GeneratedAiConversationResponse(message, conversationSummary, metadata);
+	}
+
+	/**
+	 * 모델 출력에서 JSON 객체를 관대하게 파싱한다: 코드펜스/주변 잡텍스트를 제거하고 첫 {{ ... }} 블록만 읽는다.
+	 * 파싱 불가 시 null 을 반환해 호출부가 원문을 살리도록 한다.
+	 */
+	private JsonNode parseJsonLenient(String outputText) {
+		if (outputText == null || outputText.isBlank()) {
+			return null;
+		}
+		String candidate = stripCodeFences(outputText);
+		int start = candidate.indexOf('{');
+		int end = candidate.lastIndexOf('}');
+		if (start >= 0 && end > start) {
+			candidate = candidate.substring(start, end + 1);
+		}
+		try {
+			JsonNode node = objectMapper.readTree(candidate);
+			return node != null && node.isObject() ? node : null;
+		} catch (JsonProcessingException exception) {
+			return null;
+		}
+	}
+
+	private static String stripCodeFences(String text) {
+		String trimmed = text.strip();
+		if (trimmed.startsWith("```")) {
+			trimmed = trimmed.replaceFirst("^```[a-zA-Z0-9]*\\s*", "").replaceFirst("\\s*```$", "");
+		}
+		return trimmed.strip();
+	}
+
+	private static String textOrNull(JsonNode node) {
+		if (node == null || node.isMissingNode() || node.isNull()) {
+			return null;
+		}
+		String value = node.asText();
+		return value == null || value.isBlank() ? null : value.strip();
+	}
+
+	private static String textOrDefault(JsonNode node, String fallback) {
+		String value = textOrNull(node);
+		return value == null ? fallback : value;
 	}
 
 	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode) {
@@ -269,14 +326,6 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 				)
 			)
 		);
-	}
-
-	private static String requiredText(JsonNode node, String fieldName) {
-		String value = node == null || node.isMissingNode() || node.isNull() ? null : node.asText();
-		if (value == null || value.isBlank()) {
-			throw new IllegalArgumentException(fieldName + " must not be blank.");
-		}
-		return value.strip();
 	}
 
 	private static String statusOf(Map<String, Object> source) {

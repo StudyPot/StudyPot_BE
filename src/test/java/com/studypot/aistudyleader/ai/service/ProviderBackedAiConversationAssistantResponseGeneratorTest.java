@@ -298,6 +298,26 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 			});
 	}
 
+	@Test
+	void parsesJsonWrappedInMarkdownCodeFences() {
+		provider.response = response("```json\n{\"message\":\"네, 도와드릴게요.\",\"conversationSummary\":\"코드펜스로 감싼 응답 회귀 테스트입니다.\"}\n```");
+
+		AiConversationAssistantResponse result = generator.generate(request("코드펜스 응답 테스트"));
+
+		assertThat(result.message()).isEqualTo("네, 도와드릴게요.");
+		assertThat(result.conversationSummaryPatch()).isEqualTo("코드펜스로 감싼 응답 회귀 테스트입니다.");
+	}
+
+	@Test
+	void salvagesPlainTextWhenProviderReturnsNonJson() {
+		provider.response = response("안녕하세요! 이번 주 학습은 어떻게 되어가고 있나요?");
+
+		AiConversationAssistantResponse result = generator.generate(request("비 JSON 응답 살리기 테스트"));
+
+		assertThat(result.message()).isEqualTo("안녕하세요! 이번 주 학습은 어떻게 되어가고 있나요?");
+		assertThat(result.conversationSummaryPatch()).isNull();
+	}
+
 	private static AiConversationAssistantRequest request(String content) {
 		return request(
 			content,
