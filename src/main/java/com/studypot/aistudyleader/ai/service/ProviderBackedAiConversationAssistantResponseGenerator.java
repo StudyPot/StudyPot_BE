@@ -61,7 +61,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Do not infer private details about other members.
 		Use no diagnostic headings, internal labels, or field-name-like prefixes in the member-facing message.
 		Do not include secrets, OAuth data, provider keys, cookies, or credential-like values.
-			Whenever the member's latest message is a genuine study question (not a greeting, status update, venting, personal/private matter, or out-of-scope request) and you answered it substantively, PROACTIVELY offer — on your own, WITHOUT being asked — to share it to the group's question board so other members benefit. By default make this offer for every such genuine study question; skip only when it is trivial, highly personal, or specific to just this one member.
+			questionBoardPosts contains existing group question-board posts (each with postId, title, contentPreview). When the member asks a study question, FIRST check whether one of these existing posts already clearly explains the same concept. If yes, do NOT offer to share a new post; instead set proposedAction = {type:"SHOW_EXISTING_POST", postId:<one of the provided postId values>} and add one short natural Korean sentence telling them a similar question is already on the board and they can check it. Use ONLY a postId that appears in questionBoardPosts; never invent or guess a postId. If no existing post clearly matches, follow the sharing rule below instead.
+			Whenever the member's latest message is a genuine study question (not a greeting, status update, venting, personal/private matter, or out-of-scope request) and you answered it substantively, and no existing post already covers it, PROACTIVELY offer — on your own, WITHOUT being asked — to share it to the group's question board so other members benefit. By default make this offer for every such genuine study question; skip only when it is trivial, highly personal, or specific to just this one member.
 			To make the offer you MUST populate the JSON field proposedAction = {type:"SHARE_QUESTION", question:{title, summary}} with a concise board-ready title and a Korean summary that combines the member's question and your answer. Offering only in the message text WITHOUT populating that JSON field is wrong and the share will silently fail.
 			In the message, add exactly ONE short natural Korean sentence offering to post it (예: "이 질문은 다른 분들께도 도움이 될 것 같아요. 제가 정리해서 게시판에 올려둘까요?"). NEVER write the literal words "proposedAction", "action", "SHARE_QUESTION", "button", or "버튼", and never describe the mechanism/JSON in the message — the message is natural Korean only. Offer at most one share per reply; when no share fits, omit the proposedAction field entirely.
 			""";
@@ -94,7 +95,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 			);
 		}
 		try {
-			GeneratedAiConversationResponse generated = readResponse(response.outputText());
+			GeneratedAiConversationResponse generated = readResponse(response.outputText(), allowedQuestionPosts(request));
 			return new AiConversationAssistantResponse(
 				generated.message(),
 				generated.conversationSummary(),
@@ -127,6 +128,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		input.put("tasks", context.tasks());
 		input.put("progress", context.progress());
 		input.put("retrospective", context.retrospective());
+		input.put("questionBoardPosts", context.questionBoardPosts());
 		input.put("teamLeaderOperatingContract", teamLeaderOperatingContract(persona));
 		if (!persona.isBlank()) {
 			input.put("teamLeaderPersona", persona);
@@ -197,7 +199,19 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		);
 	}
 
-	private GeneratedAiConversationResponse readResponse(String outputText) {
+	private static Map<String, String> allowedQuestionPosts(AiConversationAssistantRequest request) {
+		Map<String, String> result = new LinkedHashMap<>();
+		for (Map<String, Object> post : request.promptContext().questionBoardPosts()) {
+			Object id = post.get("postId");
+			Object title = post.get("title");
+			if (id != null && title != null) {
+				result.put(id.toString(), title.toString());
+			}
+		}
+		return result;
+	}
+
+	private GeneratedAiConversationResponse readResponse(String outputText, Map<String, String> allowedPosts) {
 		JsonNode node = parseJsonLenient(outputText);
 		if (node == null) {
 			// JSON 객체로 파싱조차 안 되는 경우(코드펜스/잡텍스트/잘림)에도 채팅이 통째로 깨지지 않도록
@@ -220,7 +234,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		if (adjustmentNode != null && adjustmentNode.isObject() && !adjustmentNode.isEmpty()) {
 			metadata.put("nextWeekAdjustmentCandidate", objectMapper.convertValue(adjustmentNode, OBJECT_MAP));
 		}
-		readProposedAction(node.get("proposedAction")).ifPresent(action -> metadata.put("pendingAction", action));
+		readProposedAction(node.get("proposedAction"), allowedPosts).ifPresent(action -> metadata.put("pendingAction", action));
 		return new GeneratedAiConversationResponse(message, conversationSummary, metadata);
 	}
 
@@ -267,11 +281,24 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		return value == null ? fallback : value;
 	}
 
-	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode) {
+	private Optional<Map<String, Object>> readProposedAction(JsonNode actionNode, Map<String, String> allowedPosts) {
 		if (actionNode == null || !actionNode.isObject() || actionNode.isEmpty()) {
 			return Optional.empty();
 		}
 		String type = actionNode.path("type").asText("");
+		if ("SHOW_EXISTING_POST".equals(type)) {
+			String postId = actionNode.path("postId").asText("").strip();
+			String title = allowedPosts.get(postId);
+			if (postId.isBlank() || title == null) {
+				// 컨텍스트로 제공한 글에 없는 postId 는 환각으로 보고 무시한다.
+				return Optional.empty();
+			}
+			Map<String, Object> pending = new LinkedHashMap<>();
+			pending.put("type", "SHOW_EXISTING_POST");
+			pending.put("postId", postId);
+			pending.put("title", title);
+			return Optional.of(pending);
+		}
 		JsonNode questionNode = actionNode.get("question");
 		if (!"SHARE_QUESTION".equals(type) || questionNode == null || !questionNode.isObject()) {
 			return Optional.empty();
@@ -317,7 +344,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 					"proposedAction", Map.of(
 						"type", "object",
 						"properties", Map.of(
-							"type", Map.of("type", "string", "enum", List.of("SHARE_QUESTION")),
+							"type", Map.of("type", "string", "enum", List.of("SHARE_QUESTION", "SHOW_EXISTING_POST")),
+							"postId", Map.of("type", "string"),
 							"question", Map.of(
 								"type", "object",
 								"properties", Map.of(

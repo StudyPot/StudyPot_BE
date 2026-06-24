@@ -125,6 +125,22 @@ final class AiConversationJdbcSql {
 		limit ?
 		""";
 
+	// 4단계: 기존 유사 질문 안내용 — 그룹 QUESTION 게시판의 최근 글(제목/본문요약)을 컨텍스트로 제공.
+	static final String SELECT_QUESTION_BOARD_POSTS_FOR_PROMPT = """
+		select p.id, p.title,
+		       case
+		         when char_length(p.content) > 200 then concat(left(p.content, 200), '...')
+		         else p.content
+		       end as content_preview
+		from group_board_post p
+		join group_board b on b.id = p.board_id and b.board_type = 'QUESTION' and b.deleted_at is null
+		where p.group_id = ?
+		  and p.deleted_at is null
+		  and p.status = 'PUBLISHED'
+		order by p.created_at desc, p.id desc
+		limit 30
+		""";
+
 	static final String SELECT_STUDY_GROUP_PROMPT_CONTEXT = """
 		select sg.id, sg.name, sg.description, sg.topic, sg.detail_keywords, sg.level,
 		       sg.status, sg.starts_at, sg.ends_at, sg.started_at, sg.ai_persona

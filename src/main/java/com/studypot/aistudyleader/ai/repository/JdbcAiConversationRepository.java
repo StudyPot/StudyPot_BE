@@ -188,8 +188,21 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 					uuid(resolvedWeek.weekId()),
 					uuid(context.memberId())
 				).orElse(Map.of("status", "NOT_AVAILABLE")),
-			findRetrospectivePromptContext(context, resolvedWeek.weekId())
+			findRetrospectivePromptContext(context, resolvedWeek.weekId()),
+			jdbcTemplate.query(
+				AiConversationJdbcSql.SELECT_QUESTION_BOARD_POSTS_FOR_PROMPT,
+				this::mapQuestionBoardPostForPrompt,
+				uuid(context.groupId())
+			)
 		);
+	}
+
+	private Map<String, Object> mapQuestionBoardPostForPrompt(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("postId", requiredUuid(resultSet, "id").toString());
+		result.put("title", requiredString(resultSet, "title"));
+		putText(result, "contentPreview", resultSet.getString("content_preview"));
+		return result;
 	}
 
 	@Override

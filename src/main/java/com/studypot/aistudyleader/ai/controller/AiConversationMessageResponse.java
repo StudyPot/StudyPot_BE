@@ -54,14 +54,16 @@ record AiConversationMessageResponse(
 			}
 			String type = stringOrNull(pendingAction.get("type"));
 			String status = stringOrNull(pendingAction.get("status"));
-			String title = null;
+			String title = stringOrNull(pendingAction.get("title"));
 			String summary = null;
 			if (pendingAction.get("question") instanceof Map<?, ?> question) {
-				title = stringOrNull(question.get("title"));
+				if (title == null) {
+					title = stringOrNull(question.get("title"));
+				}
 				summary = stringOrNull(question.get("summary"));
 			}
-			String postId = null;
-			if (pendingAction.get("result") instanceof Map<?, ?> result) {
+			String postId = stringOrNull(pendingAction.get("postId"));
+			if (postId == null && pendingAction.get("result") instanceof Map<?, ?> result) {
 				postId = stringOrNull(result.get("postId"));
 			}
 			return new MessageActionView(type, status, title, summary, postId);

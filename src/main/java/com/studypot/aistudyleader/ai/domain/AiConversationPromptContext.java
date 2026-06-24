@@ -15,7 +15,8 @@ public record AiConversationPromptContext(
 	Map<String, Object> week,
 	List<Map<String, Object>> tasks,
 	Map<String, Object> progress,
-	Map<String, Object> retrospective
+	Map<String, Object> retrospective,
+	List<Map<String, Object>> questionBoardPosts
 ) {
 
 	public AiConversationPromptContext {
@@ -27,6 +28,21 @@ public record AiConversationPromptContext(
 		tasks = copyList(tasks);
 		progress = copyMap(progress);
 		retrospective = copyMap(retrospective);
+		questionBoardPosts = copyList(questionBoardPosts);
+	}
+
+	// 질문 게시판 글 목록 없이 호출하는 호환 생성자.
+	public AiConversationPromptContext(
+		Map<String, Object> studyGroup,
+		Map<String, Object> curriculum,
+		Map<String, Object> conversation,
+		List<Map<String, Object>> messages,
+		Map<String, Object> week,
+		List<Map<String, Object>> tasks,
+		Map<String, Object> progress,
+		Map<String, Object> retrospective
+	) {
+		this(studyGroup, curriculum, conversation, messages, week, tasks, progress, retrospective, List.of());
 	}
 
 	public static AiConversationPromptContext empty() {
@@ -38,7 +54,8 @@ public record AiConversationPromptContext(
 			Map.of("status", "NOT_AVAILABLE"),
 			List.of(),
 			Map.of("status", "NOT_AVAILABLE"),
-			Map.of("status", "NOT_AVAILABLE")
+			Map.of("status", "NOT_AVAILABLE"),
+			List.of()
 		);
 	}
 
