@@ -600,7 +600,7 @@ class StudyGroupController {
 					.map(suggestion -> new AiSuggestionResponse(suggestion.title(), suggestion.reason()))
 					.toList(),
 				recommendations.popularTopics().stream()
-					.map(topic -> new PopularTopicResponse(topic.groupName(), topic.topic(), topic.memberCount()))
+					.map(topic -> new PopularTopicResponse(topic.topic(), topic.memberCount(), topic.groupCount()))
 					.toList()
 			);
 		}
@@ -614,14 +614,14 @@ class StudyGroupController {
 		) {
 		}
 
-		@Schema(description = "다른 그룹의 인기 주제 항목입니다.")
+		@Schema(description = "다른 그룹들의 인기 주제(익명 집계) 항목입니다.")
 		private record PopularTopicResponse(
-			@Schema(description = "그룹 이름입니다.", example = "백엔드 면접 스터디")
-			String groupName,
 			@Schema(description = "스터디 주제입니다.", example = "Spring Boot")
 			String topic,
-			@Schema(description = "현재 활동 멤버 수입니다.", example = "5")
-			int memberCount
+			@Schema(description = "해당 주제를 학습 중인 멤버 수입니다.", example = "12")
+			int memberCount,
+			@Schema(description = "해당 주제로 진행 중인 그룹 수입니다.", example = "3")
+			int groupCount
 		) {
 		}
 	}

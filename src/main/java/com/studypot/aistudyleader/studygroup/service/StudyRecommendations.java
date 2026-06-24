@@ -28,13 +28,13 @@ public record StudyRecommendations(List<AiSuggestion> aiSuggestions, List<Popula
 		}
 	}
 
-	/** 다른 그룹의 인기 주제: 그룹 이름 + 주제 + 멤버 수. */
-	public record PopularTopic(String groupName, String topic, int memberCount) {
+	/** 다른 그룹들의 인기 주제(익명 집계): 주제 + 학습 멤버 수 + 그룹 수. 개별 그룹은 식별하지 않는다. */
+	public record PopularTopic(String topic, int memberCount, int groupCount) {
 
 		public PopularTopic {
-			groupName = (groupName == null) ? "" : groupName.strip();
 			topic = (topic == null) ? "" : topic.strip();
 			memberCount = Math.max(memberCount, 0);
+			groupCount = Math.max(groupCount, 0);
 		}
 	}
 }
