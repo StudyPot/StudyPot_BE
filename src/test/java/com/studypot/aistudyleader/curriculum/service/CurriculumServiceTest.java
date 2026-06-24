@@ -107,16 +107,16 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void startStudyRejectsWhenFewerThanTwoMembers() {
+	void startStudyRejectsWhenNoMembers() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
 		repository.submittedResponses = List.of(submittedResponse());
-		repository.activeOrOnboardingMemberCount = 1;
+		repository.activeOrOnboardingMemberCount = 0;
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumStartRejectedException.class)
-			.hasMessage("study group needs at least 2 members to start.");
+			.hasMessage("study group needs at least 1 members to start.");
 		assertThat(repository.savedCurriculum).isNull();
 	}
 
