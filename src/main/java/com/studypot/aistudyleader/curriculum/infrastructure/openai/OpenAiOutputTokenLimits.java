@@ -12,7 +12,9 @@ record OpenAiOutputTokenLimits(
 	private static final int DEFAULT_DETAIL_KEYWORD_SUGGEST = 256;
 	private static final int DEFAULT_CURRICULUM_GENERATE = 16_384;
 	private static final int DEFAULT_RETROSPECTIVE_FEEDBACK = 2048;
-	private static final int DEFAULT_TEAM_LEAD_CHAT = 1536;
+	// 추론(gpt-5 계열) 모델은 이 예산을 추론 토큰으로도 소모하므로, JSON 출력이 잘리지 않게 여유를 둔다.
+	// (cap 상향이며 실제 과금은 사용한 토큰 기준이라 비용 영향은 없다.)
+	private static final int DEFAULT_TEAM_LEAD_CHAT = 4096;
 
 	OpenAiOutputTokenLimits {
 		detailKeywordSuggest = positiveOrDefault(
