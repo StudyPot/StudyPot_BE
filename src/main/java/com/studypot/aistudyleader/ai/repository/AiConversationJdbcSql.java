@@ -125,6 +125,14 @@ final class AiConversationJdbcSql {
 		limit ?
 		""";
 
+	// 3단계: 과제 추가(그룹장 전용) 제안 게이팅용 — 멤버의 그룹 권한 조회.
+	static final String SELECT_MEMBER_PERMISSION = """
+		select permission
+		from group_member
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	// 4단계: 기존 유사 질문 안내용 — 그룹 QUESTION 게시판의 최근 글(제목/본문요약)을 컨텍스트로 제공.
 	static final String SELECT_QUESTION_BOARD_POSTS_FOR_PROMPT = """
 		select p.id, p.title,

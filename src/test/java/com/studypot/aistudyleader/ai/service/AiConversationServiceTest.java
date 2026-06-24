@@ -742,6 +742,73 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void confirmCompleteTaskInvokesCurriculumGateway() {
+		UUID taskId = UUID.fromString("018f0000-0000-7000-8000-0000000091cc");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "COMPLETE_TASK");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("taskId", taskId.toString());
+		pendingAction.put("title", "JPA 실습");
+		pendingAction.put("completionStatus", "DONE");
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"이 과제를 완료로 표시할까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingCurriculumGateway gateway = new RecordingCurriculumGateway();
+		AiConversationService service = serviceWithCurriculum(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.calls).isEqualTo(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastTaskId).isEqualTo(taskId);
+		assertThat(gateway.lastStatus).isEqualTo("DONE");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void confirmAddTaskInvokesCurriculumGateway() {
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "ADD_TASK");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("title", "트랜잭션 실습");
+		pendingAction.put("description", "선언적 트랜잭션 예제 따라하기");
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"이번 주에 추가할까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingCurriculumGateway gateway = new RecordingCurriculumGateway();
+		AiConversationService service = serviceWithCurriculum(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.addCalls).isEqualTo(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastAddGroupId).isEqualTo(GROUP_ID);
+		assertThat(gateway.lastAddTitle).isEqualTo("트랜잭션 실습");
+		assertThat(gateway.lastAddDescription).isEqualTo("선언적 트랜잭션 예제 따라하기");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
 	void rejectShareQuestionMarksRejectedWithoutPosting() {
 		CapturingRepository repository = new CapturingRepository();
 		Map<String, Object> pendingAction = new LinkedHashMap<>();
@@ -828,6 +895,61 @@ class AiConversationServiceTest {
 			boardGateway,
 			refiner
 		);
+	}
+
+	private static AiConversationService serviceWithCurriculum(
+		CapturingRepository repository,
+		AiConversationCurriculumGateway curriculumGateway,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			null,
+			null,
+			AiConversationStreamPublisher.noop(),
+			null,
+			null,
+			curriculumGateway
+		);
+	}
+
+	private static final class RecordingCurriculumGateway implements AiConversationCurriculumGateway {
+
+		private int calls;
+		private UUID lastUserId;
+		private UUID lastTaskId;
+		private String lastStatus;
+
+		private int addCalls;
+		private UUID lastAddGroupId;
+		private String lastAddTitle;
+		private String lastAddDescription;
+
+		@Override
+		public void completeTask(UUID authenticatedUserId, UUID taskId, String completionStatus) {
+			calls++;
+			lastUserId = authenticatedUserId;
+			lastTaskId = taskId;
+			lastStatus = completionStatus;
+		}
+
+		@Override
+		public void addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+			addCalls++;
+			lastUserId = authenticatedUserId;
+			lastAddGroupId = groupId;
+			lastAddTitle = title;
+			lastAddDescription = description;
+		}
 	}
 
 	private static final class RecordingQuestionRefiner implements AiConversationQuestionRefiner {

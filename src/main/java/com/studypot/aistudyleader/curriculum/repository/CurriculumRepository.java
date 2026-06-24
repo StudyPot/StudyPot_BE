@@ -62,6 +62,9 @@ public interface CurriculumRepository {
 	/** 점진 생성: 기존 커리큘럼에 다음 주차(+TODO)를 새로 삽입한다. */
 	void insertNextWeek(CurriculumWeek week);
 
+	/** 단일 주간 과제를 삽입한다(AI 채팅 과제 추가 등). */
+	void insertWeeklyTask(WeeklyTask task);
+
 	/** 다음 주차 생성 입력용: 해당 주차의 완료된 회고 답변 요약(멤버별)을 조회한다. 없으면 빈 목록. */
 	List<String> findCompletedRetrospectiveSummaries(UUID weekId);
 

@@ -42,7 +42,9 @@ record AiConversationMessageResponse(
 		@Schema(description = "공유 제안된 질문 요약입니다.")
 		String summary,
 		@Schema(description = "실행 완료(EXECUTED) 시 생성된 게시글 UUID입니다. 그 외엔 null.")
-		String postId
+		String postId,
+		@Schema(description = "COMPLETE_TASK 액션의 목표 완료 상태입니다(DONE/TODO 등). 그 외엔 null.")
+		String completionStatus
 	) {
 
 		static MessageActionView from(Map<String, Object> metadata) {
@@ -62,11 +64,15 @@ record AiConversationMessageResponse(
 				}
 				summary = stringOrNull(question.get("summary"));
 			}
+			if (summary == null) {
+				summary = stringOrNull(pendingAction.get("description")); // ADD_TASK 설명
+			}
 			String postId = stringOrNull(pendingAction.get("postId"));
 			if (postId == null && pendingAction.get("result") instanceof Map<?, ?> result) {
 				postId = stringOrNull(result.get("postId"));
 			}
-			return new MessageActionView(type, status, title, summary, postId);
+			String completionStatus = stringOrNull(pendingAction.get("completionStatus"));
+			return new MessageActionView(type, status, title, summary, postId, completionStatus);
 		}
 
 		private static String stringOrNull(Object value) {
