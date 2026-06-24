@@ -335,6 +335,15 @@
 - **영향**: 팀장 리포트 기능이 배포 이후 줄곧 무음 실패(라이브 DB 제약 확인). #10/#18-A가 이 경로를 더 자주 타며 노출.
 - **수정**: Flyway **V11** — CHECK 제약을 LEADER_REPORT 포함으로 재정의. (배포 시 적용)
 
+### 🔴 #26 getCurriculum 응답에 weeks 누락 — Todo 주차 네비/목록 깨짐 — 상태: ✅ 수정(BE, 배포필요)
+- **현상**: Todo에서 **이전/다음 주차로 이동 불가**, 주차 목록 비어 보임(공백 상태에선 "-주차"로 표시).
+- **근본 원인**: dev FE Todo는 `allCurriculumWeeks = curriculum.weeks ?? []`로 네비를 구성하는데,
+  BE `GET /groups/{id}/curriculum`(`CurriculumResponse`)이 **`weeks` 배열을 반환하지 않음**(id/title/totalWeeks/status만).
+  loadInitial은 `listCurriculumWeeks`(GET /weeks)를 호출하지 않아 `curriculum.weeks`가 항상 undefined →
+  `allCurriculumWeeks=[]` → `canPrev/canNext=false` → 네비 전체 무력화. (점진 생성과 무관한 기존 계약 불일치)
+- **수정**: `CurriculumResponse`에 `weeks: [{id, weekNumber, title, status}]` 추가(`CurriculumWeekSummaryResponse`).
+  FE가 이미 기대하는 형태라 BE만 고치면 배포 FE에서 바로 동작. startStudy/getCurriculum 응답 모두 포함.
+
 ## 아직 안 본 페이지 (다음 검증 대상)
 ④ GroupTodoPage · ⑤ GroupRetrospectivePage · ⑥ GroupAiPage · ⑧ GroupOnboardingPage ·
 GroupCurriculumPage · GroupJoinPage · BookmarksPage · ⑩ 레일/알림/룰 관련.
