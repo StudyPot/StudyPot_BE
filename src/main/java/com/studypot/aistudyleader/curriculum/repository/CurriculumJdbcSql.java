@@ -476,6 +476,7 @@ final class CurriculumJdbcSql {
 		  from group_board_post p
 		  where p.deleted_at is null
 		    and p.status = 'PUBLISHED'
+		    and p.author_display_name_override is null
 		    and p.created_at >= ?
 		    and p.created_at < ?
 		) act on act.member_id = gm.id
