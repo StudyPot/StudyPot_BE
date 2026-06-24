@@ -326,6 +326,15 @@
 - **권장 수정**: 스케줄러 due 쿼리들에 `join study_group sg on sg.id=c.group_id and sg.deleted_at is null` 추가
   (또는 그룹 삭제 시 커리큘럼도 비활성화). 그룹 삭제 흐름과 함께 점검 권장.
 
+### 🔴 #24 LEADER_REPORT 보드 CHECK 제약 누락 — 팀장 리포트 무음 실패 — 상태: ✅ 수정(V11, 배포필요)
+- **현상**: prod에서 주차 리포트 게시가 계속 실패(`createPost`→`requireBoard` "group board was not found").
+  LEADER_REPORT 보드가 DB에 생성 안 됨 → 리포트 미게시 → #18-A 다음주 생성도 트리거 안 됨.
+- **근본 원인**: `group_board.board_type` CHECK 제약(V3)이 `('NOTICE','QUESTION','RESOURCE','RETROSPECTIVE')` 뿐 —
+  **LEADER_REPORT 누락**(기능 추가 시 제약 마이그레이션 빠짐). `INSERT_DEFAULT_BOARD`가 `INSERT IGNORE`라
+  제약 위반이 조용히 묻혀 보드가 안 생기고, `findOrCreateBoardId`는 영속 안 된 in-memory id 반환 → createPost 실패.
+- **영향**: 팀장 리포트 기능이 배포 이후 줄곧 무음 실패(라이브 DB 제약 확인). #10/#18-A가 이 경로를 더 자주 타며 노출.
+- **수정**: Flyway **V11** — CHECK 제약을 LEADER_REPORT 포함으로 재정의. (배포 시 적용)
+
 ## 아직 안 본 페이지 (다음 검증 대상)
 ④ GroupTodoPage · ⑤ GroupRetrospectivePage · ⑥ GroupAiPage · ⑧ GroupOnboardingPage ·
 GroupCurriculumPage · GroupJoinPage · BookmarksPage · ⑩ 레일/알림/룰 관련.
