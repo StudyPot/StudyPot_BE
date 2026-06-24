@@ -23,6 +23,8 @@ import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupByInviteCodeC
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.ListGroupMembersQuery;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
+import com.studypot.aistudyleader.studygroup.service.StudyRecommendations;
+import com.studypot.aistudyleader.studygroup.service.StudyRecommendationService;
 import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
@@ -74,6 +76,7 @@ class StudyGroupController {
 	private final ObjectProvider<StudyGroupService> studyGroupService;
 	private final ObjectProvider<DetailKeywordSuggestionService> detailKeywordSuggestionService;
 	private final ObjectProvider<CurriculumService> curriculumService;
+	private final ObjectProvider<StudyRecommendationService> studyRecommendationService;
 
 	@Operation(
 		summary = "내 스터디 그룹 목록 조회",
@@ -196,6 +199,29 @@ class StudyGroupController {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
 		return StudyGroupResponse.from(
 			group, service().countActiveMembers(group.id()), curriculumProgress(java.util.List.of(group.id())).get(group.id()));
+	}
+
+	@Operation(
+		summary = "다음 스터디 추천 조회",
+		description = "완료한 스터디 주제를 기반으로 AI 맞춤 제안과 다른 공개 그룹의 인기 주제를 추천합니다. 멤버만 조회할 수 있습니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "추천 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/recommendations")
+	StudyRecommendationsResponse getRecommendations(
+		Authentication authentication,
+		@Parameter(description = "추천 기준이 되는(완료한) 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		UUID userId = authenticatedUserId(authentication);
+		StudyGroup group = service().getGroup(new GetStudyGroupQuery(userId, groupId));
+		StudyRecommendations recommendations = recommendationService()
+			.recommend(userId, group.id(), group.topic(), group.detailKeywords());
+		return StudyRecommendationsResponse.from(recommendations);
 	}
 
 	@Operation(
@@ -402,6 +428,12 @@ class StudyGroupController {
 		});
 	}
 
+	private StudyRecommendationService recommendationService() {
+		return studyRecommendationService.getIfAvailable(() -> {
+			throw new StudyGroupServiceUnavailableException("study recommendation service is not configured.");
+		});
+	}
+
 	private static UUID authenticatedUserId(Authentication authentication) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new AuthSessionRejectedException("authenticated user is required.");
@@ -551,6 +583,46 @@ class StudyGroupController {
 
 		private static DetailKeywordSuggestionsResponse from(DetailKeywordSuggestions suggestions) {
 			return new DetailKeywordSuggestionsResponse(suggestions.keywords());
+		}
+	}
+
+	@Schema(description = "다음 스터디 추천 응답입니다.")
+	private record StudyRecommendationsResponse(
+		@Schema(description = "완료한 스터디 주제 기반 AI 맞춤 제안입니다.")
+		List<AiSuggestionResponse> aiSuggestions,
+		@Schema(description = "다른 공개 그룹의 인기/최근 주제입니다.")
+		List<PopularTopicResponse> popularTopics
+	) {
+
+		private static StudyRecommendationsResponse from(StudyRecommendations recommendations) {
+			return new StudyRecommendationsResponse(
+				recommendations.aiSuggestions().stream()
+					.map(suggestion -> new AiSuggestionResponse(suggestion.title(), suggestion.reason()))
+					.toList(),
+				recommendations.popularTopics().stream()
+					.map(topic -> new PopularTopicResponse(topic.groupName(), topic.topic(), topic.memberCount()))
+					.toList()
+			);
+		}
+
+		@Schema(description = "AI 맞춤 추천 항목입니다.")
+		private record AiSuggestionResponse(
+			@Schema(description = "추천 스터디 주제입니다.", example = "Spring Security 심화")
+			String title,
+			@Schema(description = "추천 이유입니다.")
+			String reason
+		) {
+		}
+
+		@Schema(description = "다른 그룹의 인기 주제 항목입니다.")
+		private record PopularTopicResponse(
+			@Schema(description = "그룹 이름입니다.", example = "백엔드 면접 스터디")
+			String groupName,
+			@Schema(description = "스터디 주제입니다.", example = "Spring Boot")
+			String topic,
+			@Schema(description = "현재 활동 멤버 수입니다.", example = "5")
+			int memberCount
+		) {
 		}
 	}
 
