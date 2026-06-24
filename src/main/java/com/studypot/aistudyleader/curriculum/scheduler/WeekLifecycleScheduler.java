@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.curriculum.scheduler;
 
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
+import com.studypot.aistudyleader.report.service.StudyCompletionReportTrigger;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -128,11 +130,18 @@ class WeekLifecycleScheduler {
 
 	private final JdbcTemplate jdbcTemplate;
 	private final NotificationEventPublisher publisher;
+	private final ObjectProvider<StudyCompletionReportTrigger> completionReportTrigger;
 	private final Clock clock;
 
-	WeekLifecycleScheduler(JdbcTemplate jdbcTemplate, NotificationEventPublisher publisher, Clock clock) {
+	WeekLifecycleScheduler(
+		JdbcTemplate jdbcTemplate,
+		NotificationEventPublisher publisher,
+		ObjectProvider<StudyCompletionReportTrigger> completionReportTrigger,
+		Clock clock
+	) {
 		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
 		this.publisher = Objects.requireNonNull(publisher, "publisher must not be null");
+		this.completionReportTrigger = Objects.requireNonNull(completionReportTrigger, "completionReportTrigger must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 	}
 
@@ -184,6 +193,15 @@ class WeekLifecycleScheduler {
 			publisher.publishStudyCompleted(study.groupId(), study.groupName());
 		} catch (RuntimeException exception) {
 			log.warn("study completed notification failed groupId={}", study.groupId(), exception);
+		}
+		// 완료 직후 수료 리포트를 바로 생성한다(15분 주기 폴링을 기다리지 않도록). 멱등·best-effort.
+		try {
+			StudyCompletionReportTrigger trigger = completionReportTrigger.getIfAvailable();
+			if (trigger != null) {
+				trigger.generateForGroup(study.groupId());
+			}
+		} catch (RuntimeException exception) {
+			log.warn("immediate completion report trigger failed groupId={}", study.groupId(), exception);
 		}
 		log.info("completed study groupId={}", study.groupId());
 	}

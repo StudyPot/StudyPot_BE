@@ -12,12 +12,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
+import com.studypot.aistudyleader.report.service.StudyCompletionReportTrigger;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -28,7 +30,10 @@ class WeekLifecycleSchedulerTest {
 
 	private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 	private final NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
-	private final WeekLifecycleScheduler scheduler = new WeekLifecycleScheduler(jdbcTemplate, publisher, CLOCK);
+	@SuppressWarnings("unchecked")
+	private final ObjectProvider<StudyCompletionReportTrigger> completionReportTrigger = mock(ObjectProvider.class);
+	private final WeekLifecycleScheduler scheduler =
+		new WeekLifecycleScheduler(jdbcTemplate, publisher, completionReportTrigger, CLOCK);
 
 	@Test
 	void advanceWeeksCompletesEndedWeeks() {
