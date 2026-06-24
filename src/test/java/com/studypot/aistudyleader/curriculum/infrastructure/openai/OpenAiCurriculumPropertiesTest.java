@@ -34,7 +34,7 @@ class OpenAiCurriculumPropertiesTest {
 			assertThat(limits.detailKeywordSuggest()).isEqualTo(256);
 			assertThat(limits.curriculumGenerate()).isEqualTo(16_384);
 			assertThat(limits.retrospectiveFeedback()).isEqualTo(2048);
-			assertThat(limits.teamLeadChat()).isEqualTo(1536);
+			assertThat(limits.teamLeadChat()).isEqualTo(4096);
 		});
 	}
 
