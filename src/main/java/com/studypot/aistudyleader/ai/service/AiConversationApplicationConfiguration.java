@@ -19,8 +19,9 @@ import org.springframework.context.annotation.Configuration;
 class AiConversationApplicationConfiguration {
 
 	@Bean
-	@ConditionalOnBean(GroupBoardService.class)
-	AiConversationBoardGateway aiConversationBoardGateway(GroupBoardService groupBoardService) {
+	AiConversationBoardGateway aiConversationBoardGateway(ObjectProvider<GroupBoardService> groupBoardService) {
+		// @ConditionalOnBean 은 설정 평가 순서에 취약(GroupBoardService 등록 전이면 빈이 안 만들어짐)하므로
+		// 무조건 등록하고 런타임에 ObjectProvider 로 resolve 한다.
 		return new GroupBoardBackedAiConversationBoardGateway(groupBoardService);
 	}
 
