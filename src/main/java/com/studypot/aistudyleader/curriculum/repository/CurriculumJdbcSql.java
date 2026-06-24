@@ -386,15 +386,6 @@ final class CurriculumJdbcSql {
 		group by c.group_id
 		""";
 
-	// 점진 생성: 다음 주차 삽입 시 커리큘럼의 총 주차 수를 1 증가시켜 실제 주차 수와 일치시킨다.
-	static final String INCREMENT_CURRICULUM_TOTAL_WEEKS = """
-		update curriculum
-		set total_weeks = total_weeks + 1,
-		    updated_at = ?
-		where id = ?
-		  and deleted_at is null
-		""";
-
 	// 다음 주차 생성 입력용: 해당 주차의 완료된 멤버 회고 답변 요약(멤버명 + answers JSON).
 	static final String SELECT_WEEK_RETROSPECTIVE_SUMMARIES = """
 		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,

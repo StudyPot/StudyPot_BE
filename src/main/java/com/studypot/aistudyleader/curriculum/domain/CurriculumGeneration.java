@@ -84,8 +84,12 @@ public record CurriculumGeneration(
 		Instant now,
 		List<CurriculumSprintWindow> sprintWindows,
 		List<UUID> weekIds,
-		List<UUID> taskIds
+		List<UUID> taskIds,
+		int plannedTotalWeeks
 	) {
+		if (plannedTotalWeeks < weeks.size()) {
+			throw new IllegalArgumentException("plannedTotalWeeks must be >= generated weeks size");
+		}
 		sprintWindows = List.copyOf(Objects.requireNonNull(sprintWindows, "sprintWindows must not be null"));
 		if (sprintWindows.size() != weeks.size()) {
 			throw new IllegalArgumentException("sprintWindows size must match weeks size");
@@ -151,7 +155,7 @@ public record CurriculumGeneration(
 			groupId,
 			llmUsageId,
 			title,
-			weeks.size(),
+			plannedTotalWeeks,
 			onboardingSummary,
 			true,
 			generationPrompt,

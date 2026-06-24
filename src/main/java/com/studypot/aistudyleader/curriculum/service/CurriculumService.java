@@ -153,7 +153,10 @@ public class CurriculumService {
 			now,
 			sprintWindows,
 			weekIds,
-			taskIds
+			taskIds,
+			// total_weeks 는 전체 계획 주차 수(고정)로 저장한다. 시작 시점엔 1주차만 생성되지만
+			// FE 가 잠긴 미래 주차 슬롯을 그릴 수 있도록 전체 주차 수를 내려준다.
+			fullSprintPlan.size()
 		);
 		try {
 			repository.saveStartedCurriculum(context.groupId(), now, llmUsage, curriculum);

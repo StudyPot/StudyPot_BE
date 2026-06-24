@@ -495,7 +495,9 @@ class CurriculumController {
 		@Schema(description = "멤버 온보딩 응답을 바탕으로 정리한 커리큘럼 입력 요약입니다.", example = "{\"keywords\":[\"JPA\",\"Security\"],\"preferredTasks\":[\"PRACTICE\"]}")
 		Map<String, Object> onboardingSummary,
 		@Schema(description = "커리큘럼 생성/진행 상태입니다.", example = "ACTIVE")
-		CurriculumStatus status
+		CurriculumStatus status,
+		@Schema(description = "커리큘럼에 포함된 주차 요약 목록입니다. 주차 네비게이션/잠금 처리에 사용합니다.")
+		java.util.List<CurriculumWeekSummaryResponse> weeks
 	) {
 
 		private static CurriculumResponse from(Curriculum curriculum) {
@@ -505,7 +507,30 @@ class CurriculumController {
 				curriculum.title(),
 				curriculum.totalWeeks(),
 				curriculum.onboardingSummary(),
-				curriculum.status()
+				curriculum.status(),
+				curriculum.weeks().stream().map(CurriculumWeekSummaryResponse::from).toList()
+			);
+		}
+	}
+
+	@Schema(description = "커리큘럼 주차 요약 응답입니다.")
+	private record CurriculumWeekSummaryResponse(
+		@Schema(description = "커리큘럼 주차 UUID입니다.", example = "018f6f55-8bf2-78d9-a332-6e74b1484520")
+		UUID id,
+		@Schema(description = "커리큘럼 안에서의 주차 번호입니다.", example = "1")
+		int weekNumber,
+		@Schema(description = "주차 제목입니다.", example = "JPA 엔티티 매핑과 연관관계")
+		String title,
+		@Schema(description = "주차 진행 상태입니다.", example = "IN_PROGRESS")
+		CurriculumWeekStatus status
+	) {
+
+		private static CurriculumWeekSummaryResponse from(CurriculumWeek week) {
+			return new CurriculumWeekSummaryResponse(
+				week.id(),
+				week.weekNumber(),
+				week.title(),
+				week.status()
 			);
 		}
 	}

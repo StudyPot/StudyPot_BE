@@ -169,7 +169,8 @@ class CurriculumControllerTest {
 			TestCurriculumBeans.NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 
 		mockMvc.perform(get(CURRICULUM_PATH)
