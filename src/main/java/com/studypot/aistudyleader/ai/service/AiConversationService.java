@@ -248,6 +248,7 @@ public class AiConversationService {
 		switch (type) {
 			case "SHARE_QUESTION" -> executeShareQuestion(context, command, pendingAction, now);
 			case "COMPLETE_TASK" -> executeCompleteTask(command, pendingAction, now);
+			case "ADD_TASK" -> executeAddTask(context, command, pendingAction, now);
 			default -> throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
 		}
 		metadata.put("pendingAction", pendingAction);
@@ -324,6 +325,35 @@ public class AiConversationService {
 			command.conversationId(),
 			"질문을 '질문' 게시판에 올렸어요. 다른 멤버들도 확인할 수 있어요. ✅",
 			Map.of("kind", "action_result", "action", "SHARE_QUESTION", "postId", postId.toString()),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeAddTask(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (curriculumGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation curriculum action is not configured.");
+		}
+		String title = stringValue(pendingAction.get("title"));
+		String description = stringValue(pendingAction.get("description"));
+		if (title.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed task to add is incomplete.");
+		}
+		curriculumGateway.addTaskToCurrentWeek(
+			command.authenticatedUserId(), context.groupId(), title, description.isBlank() ? null : description);
+		pendingAction.put("status", "EXECUTED");
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"이번 주 과제에 추가했어요. ✅",
+			Map.of("kind", "action_result", "action", "ADD_TASK"),
 			now
 		);
 		if (repository.insertMessage(confirmation)) {

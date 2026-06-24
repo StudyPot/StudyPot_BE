@@ -64,6 +64,9 @@ record AiConversationMessageResponse(
 				}
 				summary = stringOrNull(question.get("summary"));
 			}
+			if (summary == null) {
+				summary = stringOrNull(pendingAction.get("description")); // ADD_TASK 설명
+			}
 			String postId = stringOrNull(pendingAction.get("postId"));
 			if (postId == null && pendingAction.get("result") instanceof Map<?, ?> result) {
 				postId = stringOrNull(result.get("postId"));

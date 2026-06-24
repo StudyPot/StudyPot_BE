@@ -17,6 +17,7 @@ import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
@@ -443,6 +444,43 @@ public class CurriculumService {
 		return repository.findTaskCompletion(command.taskId(), context.memberId())
 			.map(completion -> updateTaskCompletion(completion, command, now))
 			.orElseGet(() -> createTaskCompletion(command, task, progress, context.memberId(), now));
+	}
+
+	/**
+	 * 그룹장이 현재(진행 중) 주차에 단일 과제를 추가한다(AI 채팅 액션). 그룹 소유자만 허용.
+	 */
+	@Transactional
+	public WeeklyTask addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		CurriculumStartContext context = repository.findReadContext(groupId, authenticatedUserId)
+			.orElseThrow(() -> new CurriculumNotFoundException("study group was not found."));
+		if (!context.isOwner()) {
+			throw new CurriculumAccessDeniedException("only the study group owner can add a weekly task.");
+		}
+		CurriculumWeek currentWeek = repository.findCurrentWeekByGroupId(groupId)
+			.orElseThrow(() -> new CurriculumNotFoundException("no in-progress week is available to add a task."));
+		int nextOrder = repository.findWeeklyTasksByWeekId(currentWeek.id()).stream()
+			.mapToInt(WeeklyTask::displayOrder)
+			.max()
+			.orElse(0) + 1;
+		Instant now = clock.instant();
+		WeeklyTask task = new WeeklyTask(
+			idGenerator.get(),
+			currentWeek.id(),
+			nextOrder,
+			WeeklyTaskType.CUSTOM,
+			title,
+			description,
+			false,
+			null,
+			true,
+			Map.of("source", "AI_CHAT_ADD"),
+			now,
+			now
+		);
+		repository.insertWeeklyTask(task);
+		return task;
 	}
 
 	private MemberWeekProgress findOrCreateProgressForTaskCompletion(UUID weekId, UUID memberId, Instant now) {

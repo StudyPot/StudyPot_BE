@@ -776,6 +776,39 @@ class AiConversationServiceTest {
 	}
 
 	@Test
+	void confirmAddTaskInvokesCurriculumGateway() {
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "ADD_TASK");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("title", "트랜잭션 실습");
+		pendingAction.put("description", "선언적 트랜잭션 예제 따라하기");
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"이번 주에 추가할까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingCurriculumGateway gateway = new RecordingCurriculumGateway();
+		AiConversationService service = serviceWithCurriculum(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.addCalls).isEqualTo(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastAddGroupId).isEqualTo(GROUP_ID);
+		assertThat(gateway.lastAddTitle).isEqualTo("트랜잭션 실습");
+		assertThat(gateway.lastAddDescription).isEqualTo("선언적 트랜잭션 예제 따라하기");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
 	void rejectShareQuestionMarksRejectedWithoutPosting() {
 		CapturingRepository repository = new CapturingRepository();
 		Map<String, Object> pendingAction = new LinkedHashMap<>();
@@ -896,12 +929,26 @@ class AiConversationServiceTest {
 		private UUID lastTaskId;
 		private String lastStatus;
 
+		private int addCalls;
+		private UUID lastAddGroupId;
+		private String lastAddTitle;
+		private String lastAddDescription;
+
 		@Override
 		public void completeTask(UUID authenticatedUserId, UUID taskId, String completionStatus) {
 			calls++;
 			lastUserId = authenticatedUserId;
 			lastTaskId = taskId;
 			lastStatus = completionStatus;
+		}
+
+		@Override
+		public void addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+			addCalls++;
+			lastUserId = authenticatedUserId;
+			lastAddGroupId = groupId;
+			lastAddTitle = title;
+			lastAddDescription = description;
 		}
 	}
 

@@ -369,7 +369,17 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		if (context.summary() != null && !context.summary().isBlank()) {
 			result.put("summary", context.summary());
 		}
+		result.put("memberIsOwner", isOwner(context.memberId()));
 		return result;
+	}
+
+	private boolean isOwner(UUID memberId) {
+		String permission = jdbcTemplate.query(
+			AiConversationJdbcSql.SELECT_MEMBER_PERMISSION,
+			(resultSet, rowNumber) -> resultSet.getString("permission"),
+			uuid(memberId)
+		).stream().findFirst().orElse("MEMBER");
+		return "OWNER".equals(permission);
 	}
 
 	private Map<String, Object> mapStudyGroupPromptContext(ResultSet resultSet, int rowNumber) throws SQLException {

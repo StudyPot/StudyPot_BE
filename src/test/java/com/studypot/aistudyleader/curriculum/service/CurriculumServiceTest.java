@@ -1673,6 +1673,13 @@ class CurriculumServiceTest {
 		public void insertNextWeek(com.studypot.aistudyleader.curriculum.domain.CurriculumWeek week) {
 		}
 
+		private WeeklyTask insertedWeeklyTask;
+
+		@Override
+		public void insertWeeklyTask(WeeklyTask task) {
+			insertedWeeklyTask = task;
+		}
+
 		@Override
 		public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
 			return List.of();

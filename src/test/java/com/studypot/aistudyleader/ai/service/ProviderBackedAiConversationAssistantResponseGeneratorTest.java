@@ -393,6 +393,36 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		assertThat(result.metadata()).doesNotContainKey("pendingAction");
 	}
 
+	@Test
+	void proposesAddTaskOnlyForOwner() {
+		provider.response = response("""
+			{"message":"이번 주에 추가할게요.","conversationSummary":"과제 추가","proposedAction":{"type":"ADD_TASK","task":{"title":"트랜잭션 실습","description":"예제 따라하기"}}}""");
+		AiConversationAssistantResponse asOwner = generator.generate(request("트랜잭션 실습 과제 추가해줘", contextWithOwner(true)));
+		assertThat(asOwner.metadata()).containsKey("pendingAction");
+		Map<?, ?> action = (Map<?, ?>) asOwner.metadata().get("pendingAction");
+		assertThat(action.get("type")).isEqualTo("ADD_TASK");
+		assertThat(action.get("title")).isEqualTo("트랜잭션 실습");
+
+		provider.response = response("""
+			{"message":"추가해볼게요.","conversationSummary":"비그룹장 차단","proposedAction":{"type":"ADD_TASK","task":{"title":"X"}}}""");
+		AiConversationAssistantResponse asMember = generator.generate(request("과제 추가해줘", contextWithOwner(false)));
+		assertThat(asMember.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	private static AiConversationPromptContext contextWithOwner(boolean owner) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT", "memberIsOwner", owner),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			List.of(),
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			List.of()
+		);
+	}
+
 	private static AiConversationPromptContext contextWithTasks(List<Map<String, Object>> tasks) {
 		return new AiConversationPromptContext(
 			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),

@@ -33,4 +33,13 @@ class CurriculumServiceBackedAiConversationCurriculumGateway implements AiConver
 		}
 		service.completeMyTask(new CompleteTaskCommand(authenticatedUserId, taskId, status, null, null, null));
 	}
+
+	@Override
+	public void addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+		CurriculumService service = curriculumService.getIfAvailable();
+		if (service == null) {
+			throw new AiConversationServiceUnavailableException("curriculum service is not available.");
+		}
+		service.addTaskToCurrentWeek(authenticatedUserId, groupId, title, description);
+	}
 }

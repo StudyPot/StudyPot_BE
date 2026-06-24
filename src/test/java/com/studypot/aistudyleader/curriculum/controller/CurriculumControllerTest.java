@@ -1122,6 +1122,10 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public void insertWeeklyTask(com.studypot.aistudyleader.curriculum.domain.WeeklyTask task) {
+		}
+
+		@Override
 		public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
 			return List.of();
 		}

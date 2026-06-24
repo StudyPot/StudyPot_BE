@@ -623,6 +623,12 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		);
 	}
 
+	@Override
+	public void insertWeeklyTask(WeeklyTask task) {
+		Objects.requireNonNull(task, "task must not be null");
+		insertTask(task);
+	}
+
 	private void insertTask(WeeklyTask task) {
 		jdbcTemplate.update(
 			CurriculumJdbcSql.INSERT_WEEKLY_TASK,

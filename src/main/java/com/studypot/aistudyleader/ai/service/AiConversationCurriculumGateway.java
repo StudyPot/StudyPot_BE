@@ -10,4 +10,7 @@ public interface AiConversationCurriculumGateway {
 
 	/** 멤버 본인 과제의 완료 상태를 변경한다(권한/소유 검증은 커리큘럼 서비스가 수행). */
 	void completeTask(UUID authenticatedUserId, UUID taskId, String completionStatus);
+
+	/** 현재 주차에 과제를 추가한다(그룹장만; 권한 검증은 커리큘럼 서비스가 수행). */
+	void addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description);
 }
