@@ -239,6 +239,7 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 			status,
 			unlocked,
 			resultSet.getLong("answered_count") > 0,
+			reportPosted,
 			readQuestions(resultSet.getString("retrospective_questions"))
 		);
 	}

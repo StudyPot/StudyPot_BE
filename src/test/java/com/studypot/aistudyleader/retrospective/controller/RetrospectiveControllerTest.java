@@ -190,7 +190,7 @@ class RetrospectiveControllerTest {
 	@Test
 	void getRetrospectiveOverviewReturnsPerWeekLockAndQuestions() throws Exception {
 		repository.overview = List.of(new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
-			WEEK_ID, 2, "IN_PROGRESS", true, false,
+			WEEK_ID, 2, "IN_PROGRESS", true, false, false,
 			List.of(new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
 				"q1", "이번 주 목표를 달성했다", com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5))
 		));

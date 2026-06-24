@@ -15,6 +15,7 @@ public record RetrospectiveWeekOverview(
 	String status,
 	boolean unlocked,
 	boolean answered,
+	boolean reportPosted,
 	List<RetrospectiveQuestion> questions
 ) {
 
