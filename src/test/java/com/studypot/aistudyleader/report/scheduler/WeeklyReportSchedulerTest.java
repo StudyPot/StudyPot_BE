@@ -30,6 +30,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -125,8 +126,10 @@ class WeeklyReportSchedulerTest {
 		// 두 그룹 모두 시도된다(삭제 그룹 실패가 살아있는 그룹 처리를 막지 않는다).
 		verify(boardService).findOrCreateBoardId(any(), eq(liveGroup), eq(GroupBoardType.LEADER_REPORT));
 		verify(boardService).findOrCreateBoardId(any(), eq(deletedGroup), eq(GroupBoardType.LEADER_REPORT));
-		// 살아있는 그룹만 실제 게시된다.
-		verify(boardService, times(1)).createPost(any(CreateGroupBoardPostCommand.class));
+		// 살아있는 그룹만 실제 게시되고, 자동 리포트는 방장이 아니라 'AI 팀장' 명의로 올라간다.
+		ArgumentCaptor<CreateGroupBoardPostCommand> postCaptor = ArgumentCaptor.forClass(CreateGroupBoardPostCommand.class);
+		verify(boardService, times(1)).createPost(postCaptor.capture());
+		assertThat(postCaptor.getValue().authorDisplayNameOverride()).isEqualTo("AI 팀장");
 		// 삭제된 그룹은 WARN 노이즈 없이 DEBUG 로 스킵된다.
 		assertThat(appender.list).noneMatch(event -> event.getLevel() == Level.WARN);
 	}
