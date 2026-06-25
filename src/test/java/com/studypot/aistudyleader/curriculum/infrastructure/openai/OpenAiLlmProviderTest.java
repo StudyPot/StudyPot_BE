@@ -156,7 +156,7 @@ class OpenAiLlmProviderTest {
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
 			OpenAiOutputTokenLimits.defaults(),
-			new OpenAiPurposeModels("gpt-5-nano")
+			new OpenAiPurposeModels("gpt-5-nano", null, null, null)
 		);
 
 		LlmStructuredResponse detailResult = provider.requestStructured(new LlmStructuredRequest(
@@ -198,7 +198,7 @@ class OpenAiLlmProviderTest {
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
 			OpenAiOutputTokenLimits.defaults(),
-			new OpenAiPurposeModels("gpt-5-nano")
+			new OpenAiPurposeModels("gpt-5-nano", null, null, null)
 		);
 
 		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(
