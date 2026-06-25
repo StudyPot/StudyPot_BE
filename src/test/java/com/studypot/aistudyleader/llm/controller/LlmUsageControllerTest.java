@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.studypot.aistudyleader.AiStudyLeaderApplication;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageFilter;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageRow;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageSummary;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmUsageAccessContext;
@@ -182,6 +185,21 @@ class LlmUsageControllerTest {
 		@Override
 		public List<LlmUsage> findUserUsage(UUID userId, int limit) {
 			return List.of();
+		}
+
+		@Override
+		public Optional<String> findUserEmail(UUID userId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public List<AdminLlmUsageRow> findAdminUsage(AdminLlmUsageFilter filter) {
+			return List.of();
+		}
+
+		@Override
+		public AdminLlmUsageSummary summarizeAdminUsage(AdminLlmUsageFilter filter) {
+			return AdminLlmUsageSummary.EMPTY;
 		}
 
 		private static LlmUsage usage() {
