@@ -1,11 +1,18 @@
-package com.studypot.aistudyleader.llm.admin;
+package com.studypot.aistudyleader.llm.admin.controller;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageFilter;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageRow;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageService;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageSummary;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmUsageServiceUnavailableException;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +32,15 @@ class AdminLlmUsageController {
 
 	private final ObjectProvider<AdminLlmUsageService> adminLlmUsageService;
 
-	@Operation(summary = "운영자 여부 확인", description = "현재 로그인한 사용자가 운영자 허용목록에 포함되는지 반환합니다.")
+	@Operation(
+		summary = "운영자 여부 확인",
+		description = "현재 로그인한 사용자가 운영자 허용목록에 포함되는지 여부와 이메일을 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "운영자 여부와 이메일 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "LLM 사용 기록 서비스가 아직 구성되지 않음")
+	})
 	@GetMapping(ApiPaths.V1 + "/admin/me")
 	AdminIdentityResponse me(Authentication authentication) {
 		AdminLlmUsageService.AdminIdentity identity = service().identify(authenticatedUserId(authentication));
@@ -36,6 +51,12 @@ class AdminLlmUsageController {
 		summary = "전체 LLM 사용 기록 조회(운영자)",
 		description = "모든 그룹을 가로질러 그룹/사용자/목적/상태/기간 필터로 LLM 사용 기록과 집계 요약을 조회합니다."
 	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "LLM 사용 기록 목록과 집계 요약 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "운영자 허용목록에 없어 조회할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "LLM 사용 기록 서비스가 아직 구성되지 않음")
+	})
 	@GetMapping(ApiPaths.V1 + "/admin/llm-usage")
 	AdminLlmUsagePage listUsage(
 		Authentication authentication,
@@ -84,9 +105,21 @@ class AdminLlmUsageController {
 		return authentication.getName();
 	}
 
-	record AdminIdentityResponse(String email, boolean admin) {
+	@Schema(description = "운영자 여부 확인 응답입니다.")
+	record AdminIdentityResponse(
+		@Schema(description = "현재 로그인한 사용자의 이메일입니다.", example = "owner@studypot.com")
+		String email,
+		@Schema(description = "운영자 허용목록 포함 여부입니다.", example = "true")
+		boolean admin
+	) {
 	}
 
-	record AdminLlmUsagePage(AdminLlmUsageSummary summary, List<AdminLlmUsageRow> items) {
+	@Schema(description = "운영자 LLM 사용 기록 조회 응답(집계 요약 + 목록)입니다.")
+	record AdminLlmUsagePage(
+		@Schema(description = "필터 조건 전체에 대한 집계 요약입니다.")
+		AdminLlmUsageSummary summary,
+		@Schema(description = "최신순 LLM 사용 기록 목록입니다.")
+		List<AdminLlmUsageRow> items
+	) {
 	}
 }
