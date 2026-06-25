@@ -22,8 +22,21 @@ class OpenAiReasoningEffortsTest {
 	}
 
 	@Test
+	void structuredOutputPurposesUseLowReasoningToPreserveBudget() {
+		// 구조화 출력(JSON)을 쓰는 대화/회고 계열은 추론 모델이 토큰 예산을 추론에 소진해 content 가
+		// 비는 실패가 잦으므로 low 로 고정한다.
+		OpenAiReasoningEfforts efforts = OpenAiReasoningEfforts.defaults();
+
+		assertThat(efforts.forPurpose(LlmUsagePurpose.TEAM_LEAD_CHAT)).isEqualTo(OpenAiReasoningEffort.LOW);
+		assertThat(efforts.forPurpose(LlmUsagePurpose.RETROSPECTIVE_FEEDBACK)).isEqualTo(OpenAiReasoningEffort.LOW);
+		assertThat(efforts.forPurpose(LlmUsagePurpose.RETROSPECTIVE_ANALYZE)).isEqualTo(OpenAiReasoningEffort.LOW);
+		assertThat(efforts.forPurpose(LlmUsagePurpose.NEXT_WEEK_ADJUST)).isEqualTo(OpenAiReasoningEffort.LOW);
+	}
+
+	@Test
 	void unconfiguredPurposesFallBackToModelDefault() {
-		assertThat(OpenAiReasoningEfforts.defaults().forPurpose(LlmUsagePurpose.TEAM_LEAD_CHAT)).isNull();
+		// 커리큘럼 생성은 별도 설정이 없어 모델 기본 추론(null)을 사용한다.
+		assertThat(OpenAiReasoningEfforts.defaults().forPurpose(LlmUsagePurpose.CURRICULUM_GENERATE)).isNull();
 	}
 
 	@Test
