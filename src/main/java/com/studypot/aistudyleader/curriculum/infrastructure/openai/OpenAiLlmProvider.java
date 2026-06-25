@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.curriculum.infrastructure.openai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studypot.aistudyleader.llm.domain.LlmModelPricing;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
@@ -10,7 +11,6 @@ import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmStructuredRequest;
 import com.studypot.aistudyleader.llm.service.LlmStructuredResponse;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -98,7 +98,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 				outputText,
 				inputTokens,
 				outputTokens,
-				BigDecimal.ZERO,
+				LlmModelPricing.costUsd(requestModel, inputTokens, outputTokens),
 				elapsedMillis(startedAt),
 				LlmUsageStatus.SUCCESS,
 				null,
@@ -312,7 +312,7 @@ class OpenAiLlmProvider implements LlmProviderClient {
 			requestModel,
 			inputTokens,
 			outputTokens,
-			BigDecimal.ZERO,
+			LlmModelPricing.costUsd(requestModel, inputTokens, outputTokens),
 			latencyMs,
 			LlmUsageStatus.FAILED,
 			errorCode,
