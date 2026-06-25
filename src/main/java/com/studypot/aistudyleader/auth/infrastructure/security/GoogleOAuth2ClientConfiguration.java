@@ -58,7 +58,12 @@ class GoogleOAuth2ClientConfiguration {
 	) {
 		DefaultOAuth2AuthorizationRequestResolver resolver =
 			new DefaultOAuth2AuthorizationRequestResolver(clientRegistrationRepository, AUTHORIZATION_BASE_URI);
-		resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+		// PKCE 유지 + 항상 구글 계정 선택창을 띄운다(prompt=select_account).
+		// 브라우저에 이미 로그인된 구글 계정으로 자동 진행되어 다른 계정으로 로그인하지 못하는 문제를 막는다.
+		resolver.setAuthorizationRequestCustomizer(
+			OAuth2AuthorizationRequestCustomizers.withPkce()
+				.andThen(builder -> builder.additionalParameters(params -> params.put("prompt", "select_account")))
+		);
 		return resolver;
 	}
 
