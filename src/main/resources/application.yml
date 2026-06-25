@@ -79,6 +79,10 @@ logging:
 studypot:
   openapi:
     public-docs-enabled: ${STUDYPOT_OPENAPI_PUBLIC_DOCS_ENABLED:false}
+  admin:
+    # 운영자(LLM 사용 기록 열람) 이메일 허용목록. 쉼표로 구분합니다. 예: a@x.com,b@y.com
+    # 환경변수 STUDYPOT_ADMIN_EMAILS로 덮어쓸 수 있으며, 미설정 시 아래 기본값을 사용합니다.
+    emails: ${STUDYPOT_ADMIN_EMAILS:hw62459930@gmail.com}
   ai:
     openai:
       api-key: ${STUDYPOT_AI_OPENAI_API_KEY:}
