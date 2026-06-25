@@ -135,6 +135,10 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 
 	private static final String COMPLETION_REPORT_TITLE = "수료 리포트";
 
+	// AI가 자동 게시하는 리포트의 작성자 표시명. author_display_name_override 로 올려
+	// 작성 주체(방장 userId)와 무관하게 'AI 팀장' 명의로 보이게 한다.
+	private static final String AI_LEADER_DISPLAY_NAME = "AI 팀장";
+
 	// 완료(COMPLETED)됐는데 아직 수료 리포트가 없는 그룹.
 	private static final String SELECT_COMPLETED_GROUPS_FOR_REPORT = """
 		select sg.id as group_id, sg.name as group_name, c.id as curriculum_id, c.total_weeks
@@ -366,7 +370,8 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 			leaderReportBoardId,
 			COMPLETION_REPORT_TITLE,
 			body,
-			false
+			false,
+			AI_LEADER_DISPLAY_NAME
 		));
 		log.info("study completion report posted groupId={}", group.groupId());
 	}
@@ -427,7 +432,8 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 			leaderReportBoardId,
 			title,
 			body,
-			false
+			false,
+			AI_LEADER_DISPLAY_NAME
 		));
 		log.info("weekly report posted groupId={} weekNumber={}", week.groupId(), week.weekNumber());
 		return ownerUserId;
