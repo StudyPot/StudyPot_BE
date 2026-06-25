@@ -3,6 +3,9 @@ package com.studypot.aistudyleader.llm.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageFilter;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageRow;
+import com.studypot.aistudyleader.llm.admin.AdminLlmUsageSummary;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.llm.domain.LlmUsageAccessContext;
@@ -132,6 +135,21 @@ class LlmUsageServiceTest {
 		@Override
 		public List<LlmUsage> findUserUsage(UUID userId, int limit) {
 			return List.of();
+		}
+
+		@Override
+		public Optional<String> findUserEmail(UUID userId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public List<AdminLlmUsageRow> findAdminUsage(AdminLlmUsageFilter filter) {
+			return List.of();
+		}
+
+		@Override
+		public AdminLlmUsageSummary summarizeAdminUsage(AdminLlmUsageFilter filter) {
+			return AdminLlmUsageSummary.EMPTY;
 		}
 	}
 }
