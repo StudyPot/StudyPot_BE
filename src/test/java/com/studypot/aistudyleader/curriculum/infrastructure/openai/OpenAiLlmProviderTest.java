@@ -57,7 +57,7 @@ class OpenAiLlmProviderTest {
 		assertThat(result.outputText()).isEqualTo("{\"ok\":true}");
 		assertThat(result.inputTokens()).isEqualTo(12);
 		assertThat(result.outputTokens()).isEqualTo(7);
-		assertThat(result.totalCostUsd()).isEqualByComparingTo(BigDecimal.ZERO);
+		assertThat(result.totalCostUsd()).isEqualByComparingTo(new BigDecimal("0.000006"));
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("authorization", "Bearer secret");
 		assertThat(result.requestPayload()).containsEntry("apiMode", "RESPONSES");
@@ -105,6 +105,7 @@ class OpenAiLlmProviderTest {
 		assertThat(result.outputText()).isEqualTo("{\"ok\":true}");
 		assertThat(result.inputTokens()).isEqualTo(11);
 		assertThat(result.outputTokens()).isEqualTo(6);
+		assertThat(result.totalCostUsd()).isEqualByComparingTo(new BigDecimal("0.000103"));
 		assertThat(result.status()).isEqualTo(LlmUsageStatus.SUCCESS);
 		assertThat(result.requestPayload()).containsEntry("apiMode", "CHAT_COMPLETIONS");
 		assertThat(result.requestPayload()).containsEntry("outputBudget", 256);
