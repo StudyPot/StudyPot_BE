@@ -125,7 +125,7 @@ class OpenAiLlmProviderTest {
 			JsonMapper.builder().findAndAddModules().build(),
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
-			new OpenAiOutputTokenLimits(111, 222, 333, 444, 555)
+			new OpenAiOutputTokenLimits(111, 222, 333, 444, 555, 666)
 		);
 
 		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(

@@ -7,7 +7,8 @@ record OpenAiOutputTokenLimits(
 	Integer curriculumGenerate,
 	Integer retrospectiveFeedback,
 	Integer teamLeadChat,
-	Integer studyRecommendation
+	Integer studyRecommendation,
+	Integer weeklyReport
 ) {
 
 	private static final int DEFAULT_DETAIL_KEYWORD_SUGGEST = 256;
@@ -18,6 +19,8 @@ record OpenAiOutputTokenLimits(
 	private static final int DEFAULT_TEAM_LEAD_CHAT = 4096;
 	// 추천 3건(제목+이유)을 추론 토큰까지 감안해 잘리지 않게 담을 여유.
 	private static final int DEFAULT_STUDY_RECOMMENDATION = 2048;
+	// 주차 리포트는 전원 회고를 종합하므로 입력이 크고, 추론 토큰까지 감안해 본문이 잘리지 않게 넉넉히 둔다.
+	private static final int DEFAULT_WEEKLY_REPORT = 8192;
 
 	OpenAiOutputTokenLimits {
 		detailKeywordSuggest = positiveOrDefault(
@@ -41,10 +44,11 @@ record OpenAiOutputTokenLimits(
 			DEFAULT_STUDY_RECOMMENDATION,
 			"studyRecommendation"
 		);
+		weeklyReport = positiveOrDefault(weeklyReport, DEFAULT_WEEKLY_REPORT, "weeklyReport");
 	}
 
 	static OpenAiOutputTokenLimits defaults() {
-		return new OpenAiOutputTokenLimits(null, null, null, null, null);
+		return new OpenAiOutputTokenLimits(null, null, null, null, null, null);
 	}
 
 	int forPurpose(LlmUsagePurpose purpose) {
@@ -52,7 +56,8 @@ record OpenAiOutputTokenLimits(
 			case DETAIL_KEYWORD_SUGGEST -> detailKeywordSuggest;
 			case STUDY_RECOMMENDATION -> studyRecommendation;
 			case CURRICULUM_GENERATE, CURRICULUM_REGENERATE_WEEK -> curriculumGenerate;
-			case RETROSPECTIVE_ANALYZE, RETROSPECTIVE_FEEDBACK, NEXT_WEEK_ADJUST, WEEKLY_REPORT -> retrospectiveFeedback;
+			case RETROSPECTIVE_ANALYZE, RETROSPECTIVE_FEEDBACK, NEXT_WEEK_ADJUST -> retrospectiveFeedback;
+			case WEEKLY_REPORT -> weeklyReport;
 			case TEAM_LEAD_CHAT -> teamLeadChat;
 		};
 	}
