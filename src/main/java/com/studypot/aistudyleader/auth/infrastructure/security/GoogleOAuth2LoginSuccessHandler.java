@@ -14,6 +14,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -45,9 +47,11 @@ public class GoogleOAuth2LoginSuccessHandler implements AuthenticationSuccessHan
 		try {
 			AuthTokenResult result = authSessionService()
 				.loginWithGoogleProfile(profile(authentication), metadata(request));
+			// 쿠키도 계속 발급(데스크톱 하위호환)하되, 쿠키를 못 쓰는 환경(모바일/크로스도메인)을 위해
+			// 토큰을 redirect URL fragment(#)로도 전달한다. fragment 는 서버 로그/Referer 에 남지 않는다.
 			tokenCookiePort.addTokenCookies(response, result);
 			invalidateSession(request);
-			redirectStrategy.sendRedirect(request, response, properties.oauth2().frontendSuccessUri().toString());
+			redirectStrategy.sendRedirect(request, response, successUriWithTokens(result));
 		} catch (
 			AuthServiceUnavailableException
 			| AuthSessionRejectedException
@@ -57,6 +61,21 @@ public class GoogleOAuth2LoginSuccessHandler implements AuthenticationSuccessHan
 			invalidateSession(request);
 			redirectStrategy.sendRedirect(request, response, properties.oauth2().frontendFailureUri().toString());
 		}
+	}
+
+	// 프론트 성공 URI 에 토큰을 fragment(#)로 덧붙인다. (예: https://app/auth/success#access_token=...&refresh_token=...)
+	private String successUriWithTokens(AuthTokenResult result) {
+		String base = properties.oauth2().frontendSuccessUri().toString();
+		String fragment = "access_token=" + encode(result.accessToken())
+			+ "&refresh_token=" + encode(result.refreshToken())
+			+ "&token_type=" + encode(result.tokenType())
+			+ "&expires_in=" + result.expiresIn();
+		String separator = base.contains("#") ? "&" : "#";
+		return base + separator + fragment;
+	}
+
+	private static String encode(String value) {
+		return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
 	}
 
 	private AuthSessionService authSessionService() {
