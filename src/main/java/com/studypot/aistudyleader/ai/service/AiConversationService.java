@@ -280,7 +280,7 @@ public class AiConversationService {
 		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
 			idGenerator.get(),
 			command.conversationId(),
-			"과제를 " + label + " 처리했어요. ✅",
+			"과제를 " + label + " 처리했어. ✅",
 			Map.of("kind", "action_result", "action", "COMPLETE_TASK"),
 			now
 		);
@@ -325,7 +325,7 @@ public class AiConversationService {
 		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
 			idGenerator.get(),
 			command.conversationId(),
-			"질문을 '질문' 게시판에 올렸어요. 다른 멤버들도 확인할 수 있어요. ✅",
+			"질문을 '질문' 게시판에 올렸어. 다른 멤버들도 볼 수 있어. ✅",
 			Map.of("kind", "action_result", "action", "SHARE_QUESTION", "postId", postId.toString()),
 			now
 		);
@@ -417,7 +417,7 @@ public class AiConversationService {
 		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
 			idGenerator.get(),
 			command.conversationId(),
-			"이번 주 과제에 추가했어요. ✅",
+			"이번 주 과제에 추가했어. ✅",
 			Map.of("kind", "action_result", "action", "ADD_TASK"),
 			now
 		);

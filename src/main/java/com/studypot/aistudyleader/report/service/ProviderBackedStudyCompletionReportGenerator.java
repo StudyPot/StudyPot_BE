@@ -23,6 +23,7 @@ class ProviderBackedStudyCompletionReportGenerator implements StudyCompletionRep
 		- 회고가 부족하면 memberTaskProgress(각 멤버의 전체 TODO 완료/전체 개수)로 전체 진행과 성과를 요약합니다.
 		- 구성: 전체 여정 요약 / 잘한 점·성과 / 아쉬웠던 점 / 앞으로의 학습 제안. 마지막엔 완주 축하 한마디.
 		- 멤버 개개인의 사적인 정보나 비난은 넣지 마세요. 팀 관점으로 작성합니다.
+		- 리포트는 그 자체로 완결돼야 합니다. "원하면 다음 글에서는 …해줄게", "다음 편에서…" 처럼 다음 글을 예고/약속하는 문장은 절대 넣지 마세요.
 		- 비밀키, OAuth, 자격증명류 값은 절대 포함하지 마세요.
 		- 반드시 제공된 JSON 스키마(title, body)에 맞는 JSON 만 반환하세요. body 는 마크다운 단락으로 작성합니다.
 		""";

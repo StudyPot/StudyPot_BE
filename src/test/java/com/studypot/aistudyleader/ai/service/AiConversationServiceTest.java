@@ -704,7 +704,7 @@ class AiConversationServiceTest {
 		assertThat(repository.updatedMetadataMessageId).isEqualTo(ASSISTANT_MESSAGE_ID);
 		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
 		assertThat(repository.insertedMessages).hasSize(1);
-		assertThat(repository.insertedMessages.getFirst().content()).contains("게시판에 올렸어요");
+		assertThat(repository.insertedMessages.getFirst().content()).contains("게시판에 올렸어");
 		assertThat(actionStatus(result.metadata())).isEqualTo("EXECUTED");
 	}
 
