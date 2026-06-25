@@ -221,12 +221,22 @@ class AuthController {
 		String tokenType,
 		@Schema(description = "새 access token의 남은 유효 시간(초)입니다.", example = "3600")
 		long expiresIn,
+		@Schema(description = "새 access token. 쿠키를 못 쓰는 클라이언트(모바일/크로스도메인)가 Authorization 헤더에 사용합니다.")
+		String accessToken,
+		@Schema(description = "새 refresh token. 쿠키를 못 쓰는 클라이언트가 다음 갱신 요청 바디에 사용합니다.")
+		String refreshToken,
 		@Schema(description = "갱신된 세션에 연결된 현재 사용자 정보입니다.")
 		UserResponse user
 	) {
 
 		private static AuthSessionResponse from(AuthTokenResult result) {
-			return new AuthSessionResponse(result.tokenType(), result.expiresIn(), UserResponse.from(result.user()));
+			return new AuthSessionResponse(
+				result.tokenType(),
+				result.expiresIn(),
+				result.accessToken(),
+				result.refreshToken(),
+				UserResponse.from(result.user())
+			);
 		}
 	}
 

@@ -123,8 +123,8 @@ class AuthControllerTest {
 			.andReturn();
 
 		JsonNode body = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
-		assertThat(body.has("accessToken")).isFalse();
-		assertThat(body.has("refreshToken")).isFalse();
+		assertThat(body.get("accessToken").asText()).isNotBlank();
+		assertThat(body.get("refreshToken").asText()).isNotBlank();
 		assertThat(body.get("tokenType").asText()).isEqualTo("Bearer");
 		assertThat(body.get("expiresIn").asLong()).isPositive();
 		assertThat(body.at("/user/email").asText()).isEqualTo("member@example.com");
@@ -237,8 +237,8 @@ class AuthControllerTest {
 			.andReturn();
 
 		JsonNode body = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
-		assertThat(body.has("accessToken")).isFalse();
-		assertThat(body.has("refreshToken")).isFalse();
+		assertThat(body.get("accessToken").asText()).isNotBlank();
+		assertThat(body.get("refreshToken").asText()).isNotBlank();
 		assertThat(body.get("tokenType").asText()).isEqualTo("Bearer");
 		assertThat(body.at("/user/email").asText()).isEqualTo("member@example.com");
 		assertThat(cookieValueFromSetCookie(refreshResult, "studypot_access_token")).isNotBlank();
