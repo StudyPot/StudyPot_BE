@@ -225,6 +225,17 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		return !result.isEmpty() && Boolean.TRUE.equals(result.get(0));
 	}
 
+	@Override
+	public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+			RetrospectiveJdbcSql.ALL_ACTIVE_MEMBERS_RETROSPECTIVE_COMPLETED,
+			Boolean.class,
+			uuid(weekId),
+			uuid(weekId)
+		));
+	}
+
 	private com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview mapWeekOverview(ResultSet resultSet, int rowNumber)
 		throws SQLException {
 		long totalTasks = resultSet.getLong("total_tasks");

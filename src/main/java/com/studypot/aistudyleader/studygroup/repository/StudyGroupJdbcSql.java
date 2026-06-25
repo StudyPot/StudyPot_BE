@@ -255,6 +255,15 @@ final class StudyGroupJdbcSql {
 		  and deleted_at is null
 		""";
 
+	// 그룹 삭제 시 커리큘럼도 함께 soft-delete (스케줄러가 삭제된 그룹에 동작/알림하지 않도록).
+	static final String SOFT_DELETE_CURRICULUM_BY_GROUP = """
+		update curriculum
+		set deleted_at = ?,
+		    updated_at = ?
+		where group_id = ?
+		  and deleted_at is null
+		""";
+
 	static final String SELECT_GROUP_MEMBERS = """
 		select
 		  gm.id as member_id, gm.group_id, gm.user_id, gm.display_name,

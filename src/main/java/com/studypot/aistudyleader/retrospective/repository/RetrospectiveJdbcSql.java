@@ -221,6 +221,25 @@ final class RetrospectiveJdbcSql {
 		  and c.deleted_at is null
 		""";
 
+	// 해당 주차에 대해 그룹의 모든 활성 멤버가 회고를 COMPLETED 로 제출했는지(미제출 활성 멤버가 0명인지).
+	static final String ALL_ACTIVE_MEMBERS_RETROSPECTIVE_COMPLETED = """
+		select count(*) = 0
+		from group_member gm
+		where gm.group_id = (
+		        select c.group_id from curriculum_week cw
+		        join curriculum c on c.id = cw.curriculum_id
+		        where cw.id = ?
+		      )
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		  and not exists (
+		    select 1 from retrospective r
+		    where r.curriculum_week_id = ?
+		      and r.member_id = gm.id
+		      and r.status = 'COMPLETED'
+		  )
+		""";
+
 	private RetrospectiveJdbcSql() {
 	}
 }

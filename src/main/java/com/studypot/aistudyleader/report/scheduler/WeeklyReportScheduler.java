@@ -10,6 +10,7 @@ import com.studypot.aistudyleader.report.service.MemberTaskProgress;
 import com.studypot.aistudyleader.report.service.StudyCompletionReportData;
 import com.studypot.aistudyleader.report.service.StudyCompletionReportGenerator;
 import com.studypot.aistudyleader.report.service.StudyCompletionReportTrigger;
+import com.studypot.aistudyleader.report.service.WeeklyReportTrigger;
 import com.studypot.aistudyleader.report.service.WeeklyReportData;
 import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
@@ -39,7 +40,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
-class WeeklyReportScheduler implements StudyCompletionReportTrigger {
+class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyReportTrigger {
 
 	private static final Logger log = LoggerFactory.getLogger(WeeklyReportScheduler.class);
 
@@ -61,6 +62,19 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger {
 		  and cw.ends_at <= ?
 		  and cw.ends_at > ?
 		order by cw.ends_at
+		""";
+
+	// 즉시 트리거(전원 회고 완료 등)용 단일 주차 조회. 마감 시점과 무관, 멱등은 제목으로 보장.
+	private static final String SELECT_WEEK_FOR_REPORT_BY_ID = """
+		select c.group_id, cw.id as week_id, cw.week_number, cw.title as week_title
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
+		where cw.id = ?
+		  and c.status = 'ACTIVE'
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		  and sg.deleted_at is null
 		""";
 
 	private static final String SELECT_OWNER_USER_ID = """
@@ -357,10 +371,16 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger {
 	}
 
 	private void generateForWeek(DueWeek week, WeeklyReportGenerator generator, LlmUsageRecorder recorder) {
+		// 스케줄 경로: 리포트 게시 + (게시됐을 때만) 다음 주차 생성.
+		postWeeklyReport(week, generator, recorder).ifPresent(ownerUserId -> regenerateNextWeek(week, ownerUserId));
+	}
+
+	/** 주차 리포트를 게시한다(멱등). 게시했으면 작성자(owner) userId, 이미 있거나 데이터 부족이면 empty. 다음 주차 생성은 하지 않는다. */
+	private Optional<UUID> postWeeklyReport(DueWeek week, WeeklyReportGenerator generator, LlmUsageRecorder recorder) {
 		String title = week.weekNumber() + "주차 학습 리포트";
 		Boolean exists = jdbcTemplate.queryForObject(EXISTS_REPORT_POST, Boolean.class, UuidBinary.toBytes(week.groupId()), title);
 		if (Boolean.TRUE.equals(exists)) {
-			return; // 이미 리포트가 작성된 주차
+			return Optional.empty(); // 이미 리포트가 작성된 주차
 		}
 		List<MemberRetrospectiveSummary> retros = jdbcTemplate.query(
 			SELECT_MEMBER_RETROSPECTIVES,
@@ -369,11 +389,11 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger {
 		);
 		List<MemberTaskProgress> taskProgress = findMemberTaskProgress(week);
 		if (retros.isEmpty() && taskProgress.isEmpty()) {
-			return; // 회고도 멤버도 없으면 리포트를 만들 수 없다.
+			return Optional.empty(); // 회고도 멤버도 없으면 리포트를 만들 수 없다.
 		}
 		Optional<UUID> ownerUserId = findOwnerUserId(week.groupId());
 		if (ownerUserId.isEmpty()) {
-			return;
+			return Optional.empty();
 		}
 		UUID leaderReportBoardId = boardService.findOrCreateBoardId(ownerUserId.get(), week.groupId(), GroupBoardType.LEADER_REPORT);
 		WeeklyReportGeneration generation = generator.generate(
@@ -398,7 +418,44 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger {
 			false
 		));
 		log.info("weekly report posted groupId={} weekNumber={}", week.groupId(), week.weekNumber());
-		regenerateNextWeek(week, ownerUserId.get());
+		return ownerUserId;
+	}
+
+	/**
+	 * 전원 회고 완료 등으로 주차가 끝나기 전에 즉시 호출되는 트리거(WeeklyReportTrigger).
+	 * 주차 리포트만 게시하고 다음 주차는 만들지 않는다. 멱등(제목 'N주차 학습 리포트').
+	 */
+	@Override
+	public void generateForWeekImmediately(UUID weekId) {
+		WeeklyReportGenerator generator = reportGenerator.getIfAvailable();
+		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
+		if (generator == null || recorder == null) {
+			return; // AI 미구성 환경
+		}
+		List<DueWeek> weeks;
+		try {
+			weeks = jdbcTemplate.query(
+				SELECT_WEEK_FOR_REPORT_BY_ID,
+				(rs, rowNum) -> new DueWeek(
+					UuidBinary.fromBytes(rs.getBytes("group_id")),
+					UuidBinary.fromBytes(rs.getBytes("week_id")),
+					rs.getInt("week_number"),
+					rs.getString("week_title")
+				),
+				UuidBinary.toBytes(weekId)
+			);
+		} catch (RuntimeException exception) {
+			log.warn("immediate weekly report week lookup failed weekId={}", weekId, exception);
+			return;
+		}
+		if (weeks.isEmpty()) {
+			return;
+		}
+		try {
+			postWeeklyReport(weeks.get(0), generator, recorder); // 다음 주차 생성은 하지 않음
+		} catch (RuntimeException exception) {
+			log.warn("immediate weekly report failed weekId={}", weekId, exception);
+		}
 	}
 
 	// 리포트가 올라온 직후, 그 리포트+직전 주차 TODO+멤버 회고를 바탕으로 '다음 주차'를 점진 생성(신규 삽입)한다.

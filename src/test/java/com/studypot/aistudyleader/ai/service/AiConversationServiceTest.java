@@ -990,6 +990,25 @@ class AiConversationServiceTest {
 			lastContent = content;
 			return postId;
 		}
+
+		private UUID lastUpdatedPostId;
+		private UUID lastDeletedPostId;
+
+		@Override
+		public void updatePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId, String title, String content) {
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastUpdatedPostId = postId;
+			lastTitle = title;
+			lastContent = content;
+		}
+
+		@Override
+		public void deletePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId) {
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastDeletedPostId = postId;
+		}
 	}
 
 	private static AiConversationService service(CapturingRepository repository, UUID... ids) {

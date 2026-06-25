@@ -186,6 +186,11 @@ public class GroupBoardService {
 		GroupBoardPost updated;
 		try {
 			updated = post.update(command.title(), command.content(), command.pinned(), clock.instant());
+			// AI 팀장 명의(author_display_name_override)로 올라간 글을 사람이 제목/본문 수정하면,
+			// 그 사람(작성자)의 글로 전환되도록 표시명 override 를 제거한다.
+			if (command.changesContent() && post.authorDisplayNameOverride() != null) {
+				updated = updated.withAuthorDisplayNameOverride(null);
+			}
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(fieldFromMessage(exception.getMessage()), exception);
 		}

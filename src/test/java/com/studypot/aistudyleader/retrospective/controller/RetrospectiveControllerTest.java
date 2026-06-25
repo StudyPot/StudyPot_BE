@@ -393,6 +393,11 @@ class RetrospectiveControllerTest {
 		}
 
 		@Override
+		public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+			return false;
+		}
+
+		@Override
 		public RetrospectiveAiContext findAiContext(UUID groupId, UUID memberId, UUID weekId, UUID retrospectiveId) {
 			return RetrospectiveAiContext.empty();
 		}

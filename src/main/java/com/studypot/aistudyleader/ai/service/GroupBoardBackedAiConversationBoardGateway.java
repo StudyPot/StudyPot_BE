@@ -3,7 +3,9 @@ package com.studypot.aistudyleader.ai.service;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPost;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.service.CreateGroupBoardPostCommand;
+import com.studypot.aistudyleader.studygroup.board.service.DeleteGroupBoardPostCommand;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardService;
+import com.studypot.aistudyleader.studygroup.board.service.UpdateGroupBoardPostCommand;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
@@ -34,5 +36,23 @@ class GroupBoardBackedAiConversationBoardGateway implements AiConversationBoardG
 			new CreateGroupBoardPostCommand(authenticatedUserId, groupId, boardId, title, content, false, AI_AUTHOR_DISPLAY_NAME)
 		);
 		return post.id();
+	}
+
+	@Override
+	public void updatePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId, String title, String content) {
+		requireService().updatePost(new UpdateGroupBoardPostCommand(authenticatedUserId, groupId, postId, title, content, null));
+	}
+
+	@Override
+	public void deletePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId) {
+		requireService().deletePost(new DeleteGroupBoardPostCommand(authenticatedUserId, groupId, postId));
+	}
+
+	private GroupBoardService requireService() {
+		GroupBoardService service = groupBoardService.getIfAvailable();
+		if (service == null) {
+			throw new AiConversationServiceUnavailableException("group board service is not available.");
+		}
+		return service;
 	}
 }

@@ -36,9 +36,12 @@ class RetrospectiveReminderScheduler {
 		select c.group_id, cw.id as week_id, gm.user_id
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
 		join group_member gm on gm.group_id = c.group_id
 		where cw.status = 'IN_PROGRESS'
 		  and c.status = 'ACTIVE'
+		  and sg.status = 'ACTIVE'
+		  and sg.deleted_at is null
 		  and cw.deleted_at is null
 		  and c.deleted_at is null
 		  and gm.status = 'ACTIVE'
@@ -57,8 +60,11 @@ class RetrospectiveReminderScheduler {
 		select c.group_id, cw.id as week_id, gm.user_id
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
 		join group_member gm on gm.group_id = c.group_id
 		where c.status = 'ACTIVE'
+		  and sg.status = 'ACTIVE'
+		  and sg.deleted_at is null
 		  and cw.deleted_at is null
 		  and c.deleted_at is null
 		  and gm.status = 'ACTIVE'
