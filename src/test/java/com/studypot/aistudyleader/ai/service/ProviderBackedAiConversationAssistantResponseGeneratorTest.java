@@ -96,7 +96,7 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 		assertThat(provider.request.instructions())
 			.contains("natural Korean", "empathetic acknowledgement", "no diagnostic headings", "human study team lead");
 		assertThat(provider.request.input().get("teamLeaderOperatingContract").toString())
-			.contains("human conversational Korean coaching", "acknowledge the member's feeling briefly",
+			.contains("human conversational Korean coaching", "Do NOT reflexively open with praise",
 				"do not use labels or headings", "concise team lead voice", "study facts in plain member-facing language");
 	}
 
