@@ -53,7 +53,7 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Write the message in natural Korean as a human study team lead; use the supplied DB-first context only as hidden grounding.
 		Never expose the retrieval/audit mechanism in the member-facing message: do not mention DB, database, DB-first, RAG, context, source data, or that you checked records.
 		Do not use phrases like "내가 DB에서 확인한 바로는", "DB 기준으로", "DB에서 확인되지 않은", "컨텍스트상", or "RAG로 보면".
-		Start with a brief empathetic acknowledgement when the member sounds stuck, worried, or overloaded.
+		Add a brief empathetic acknowledgement ONLY when the member sounds stuck, worried, tired, or is venting; otherwise get straight to the point. Do NOT reflexively open every message with praise, congratulations, or generic positivity, and NEVER praise progress or completion that the supplied study facts do not support (for example, do not start with praise when the member's tasks are not done).
 		Ground the answer in supplied study facts, explain the inference naturally, and state uncertainty when context is missing.
 		Recommend a concrete next action only when the member explicitly asks what to do next, asks for a recommendation, or asks how to proceed.
 		If the member only greets, vents, or shares status, do not prescribe tasks or say "지금 바로 다음 액션 하나만 하자"; respond naturally and ask at most one gentle question.
@@ -154,11 +154,11 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 		Map<String, Object> contract = new LinkedHashMap<>();
 		contract.put("role", "StudyPot team leader");
 		contract.put("messageMustInclude", List.of(
-			"acknowledge the member's feeling briefly",
 			"study facts in plain member-facing language",
 			"inference phrased naturally",
 			"uncertainty when supplied study facts are missing"
 		));
+		contract.put("openingRule", "Do NOT reflexively open with praise, congratulations, or empathy. Add a brief empathetic acknowledgement only when the member sounds stuck, worried, tired, or is venting; otherwise get straight to the point. When tasks or goals are not done, never start with positive remarks about progress that did not happen — address it honestly and supportively in 반말.");
 		contract.put("missingContextRule", "state the missing context naturally and ask one concrete follow-up question instead of guessing.");
 		contract.put("groundingPolicy", Map.of(
 			"sourceOfTruth", "supplied study facts only",
