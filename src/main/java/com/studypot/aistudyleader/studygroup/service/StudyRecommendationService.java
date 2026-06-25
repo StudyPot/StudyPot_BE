@@ -63,6 +63,19 @@ public class StudyRecommendationService {
 		limit %d
 		""".formatted(POPULAR_LIMIT);
 
+	// 그룹별로 추천을 1회만 생성해 캐시한다(first-write-wins). 이후 요청은 LLM/집계 없이 저장값을 반환한다.
+	private static final String SELECT_CACHE = """
+		select ai_suggestions, popular_topics
+		from study_recommendation
+		where group_id = ?
+		""";
+
+	// 이미 캐시가 있으면(동시 요청 레이스 포함) 무시한다. 먼저 저장된 값이 정답이다.
+	private static final String INSERT_CACHE = """
+		insert ignore into study_recommendation (group_id, ai_suggestions, popular_topics)
+		values (?, ?, ?)
+		""";
+
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectProvider<LlmProviderClient> provider;
 	private final ObjectProvider<LlmUsageRecorder> usageRecorder;
@@ -88,9 +101,88 @@ public class StudyRecommendationService {
 
 	public StudyRecommendations recommend(UUID authenticatedUserId, UUID completedGroupId, String topic, List<String> keywords) {
 		Objects.requireNonNull(completedGroupId, "completedGroupId must not be null");
+
+		// 1) 캐시가 있으면 LLM/집계를 다시 돌리지 않고 그대로 반환한다.
+		StudyRecommendations cached = readCache(completedGroupId);
+		if (cached != null) {
+			return cached;
+		}
+
+		// 2) 캐시 미스: 새로 생성한다.
 		List<StudyRecommendations.AiSuggestion> aiSuggestions = generateAiSuggestions(authenticatedUserId, topic, keywords);
 		List<StudyRecommendations.PopularTopic> popularTopics = findPopularTopics(completedGroupId, topic);
-		return new StudyRecommendations(aiSuggestions, popularTopics);
+		StudyRecommendations generated = new StudyRecommendations(aiSuggestions, popularTopics);
+
+		// 3) 의미 있는 결과만 캐시한다. 둘 다 비면(LLM 일시 미구성/실패) 저장하지 않아 다음 요청에서 재시도한다.
+		if (aiSuggestions.isEmpty() && popularTopics.isEmpty()) {
+			return generated;
+		}
+
+		// 4) first-write-wins 저장. 동시 요청이 먼저 썼다면 그 값을 정답으로 다시 읽어 반환한다.
+		StudyRecommendations persisted = persist(completedGroupId, generated);
+		return persisted != null ? persisted : generated;
+	}
+
+	private StudyRecommendations readCache(UUID groupId) {
+		try {
+			List<StudyRecommendations> rows = jdbcTemplate.query(
+				SELECT_CACHE,
+				(rs, rowNum) -> new StudyRecommendations(
+					readSuggestions(rs.getString("ai_suggestions")),
+					readPopularTopics(rs.getString("popular_topics"))
+				),
+				UuidBinary.toBytes(groupId)
+			);
+			return rows.isEmpty() ? null : rows.get(0);
+		} catch (RuntimeException exception) {
+			// 캐시 조회 실패는 치명적이지 않다. 생성 경로로 폴백한다.
+			log.warn("study recommendation cache read failed groupId={}", groupId, exception);
+			return null;
+		}
+	}
+
+	private StudyRecommendations persist(UUID groupId, StudyRecommendations recommendations) {
+		try {
+			jdbcTemplate.update(
+				INSERT_CACHE,
+				UuidBinary.toBytes(groupId),
+				objectMapper.writeValueAsString(recommendations.aiSuggestions()),
+				objectMapper.writeValueAsString(recommendations.popularTopics())
+			);
+			// 레이스로 다른 요청이 먼저 저장했을 수 있으니 저장된 정답을 다시 읽어 반환한다.
+			return readCache(groupId);
+		} catch (RuntimeException | com.fasterxml.jackson.core.JsonProcessingException exception) {
+			// 저장 실패해도 방금 만든 결과는 그대로 응답한다(부가 기능).
+			log.warn("study recommendation cache write failed groupId={}", groupId, exception);
+			return null;
+		}
+	}
+
+	private List<StudyRecommendations.PopularTopic> readPopularTopics(String json) {
+		if (json == null || json.isBlank()) {
+			return List.of();
+		}
+		try {
+			JsonNode array = objectMapper.readTree(json);
+			if (!array.isArray()) {
+				return List.of();
+			}
+			List<StudyRecommendations.PopularTopic> result = new ArrayList<>();
+			for (JsonNode item : array) {
+				String topic = item.path("topic").asText("");
+				if (topic.isBlank()) {
+					continue;
+				}
+				result.add(new StudyRecommendations.PopularTopic(
+					topic,
+					item.path("memberCount").asInt(0),
+					item.path("groupCount").asInt(0)
+				));
+			}
+			return List.copyOf(result);
+		} catch (RuntimeException | com.fasterxml.jackson.core.JsonProcessingException exception) {
+			return List.of();
+		}
 	}
 
 	private List<StudyRecommendations.AiSuggestion> generateAiSuggestions(UUID userId, String topic, List<String> keywords) {
@@ -136,7 +228,8 @@ public class StudyRecommendationService {
 	private List<StudyRecommendations.AiSuggestion> readSuggestions(String outputText) {
 		try {
 			JsonNode node = objectMapper.readTree(outputText);
-			JsonNode array = node.path("suggestions");
+			// LLM 출력은 {"suggestions":[...]}, 캐시는 [...] 형태로 저장된다. 둘 다 허용한다.
+			JsonNode array = node.isArray() ? node : node.path("suggestions");
 			if (!array.isArray()) {
 				return List.of();
 			}
