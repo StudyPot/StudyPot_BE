@@ -83,6 +83,7 @@ public class SecurityConfiguration {
 					.requestMatchers(HttpMethod.GET, ApiPaths.V1 + "/auth/csrf").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/oauth2/authorization/google").permitAll()
 					.requestMatchers(HttpMethod.GET, "/api/login/oauth2/code/google").permitAll()
+					.requestMatchers(HttpMethod.GET, "/admin", "/admin/**").permitAll()
 					.requestMatchers(ApiPaths.V1 + "/**").authenticated()
 					.anyRequest().denyAll();
 				})

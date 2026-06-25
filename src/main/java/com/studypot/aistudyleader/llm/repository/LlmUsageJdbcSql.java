@@ -50,6 +50,46 @@ final class LlmUsageJdbcSql {
 		limit ?
 		""";
 
+	static final String SELECT_USER_EMAIL = """
+		select email
+		from users
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	/**
+	 * 운영자 전용 목록 조회의 고정 SELECT/FROM 절입니다. WHERE 조건과 LIMIT은 동적으로 덧붙입니다.
+	 */
+	static final String SELECT_ADMIN_USAGE_PREFIX = """
+		select u.id, u.user_id, usr.nickname as user_nickname, usr.email as user_email,
+		       u.group_id, sg.name as group_name,
+		       u.purpose, u.provider, u.model, u.input_tokens, u.output_tokens,
+		       u.total_cost_usd, u.latency_ms, u.status, u.error_code,
+		       u.request_payload, u.response_summary, u.created_at
+		from llm_usage u
+		left join users usr on usr.id = u.user_id
+		left join study_group sg on sg.id = u.group_id
+		""";
+
+	static final String SELECT_ADMIN_USAGE_SUFFIX = """
+		order by u.created_at desc, u.id desc
+		limit ?
+		""";
+
+	/**
+	 * 운영자 전용 집계 조회의 고정 SELECT/FROM 절입니다. WHERE 조건을 동적으로 덧붙입니다.
+	 */
+	static final String SELECT_ADMIN_SUMMARY_PREFIX = """
+		select
+		  count(*) as total_calls,
+		  coalesce(sum(case when u.status = 'SUCCESS' then 1 else 0 end), 0) as success_calls,
+		  coalesce(sum(case when u.status <> 'SUCCESS' then 1 else 0 end), 0) as failed_calls,
+		  coalesce(sum(u.input_tokens), 0) as input_tokens,
+		  coalesce(sum(u.output_tokens), 0) as output_tokens,
+		  coalesce(sum(u.total_cost_usd), 0) as total_cost_usd
+		from llm_usage u
+		""";
+
 	private LlmUsageJdbcSql() {
 	}
 }
