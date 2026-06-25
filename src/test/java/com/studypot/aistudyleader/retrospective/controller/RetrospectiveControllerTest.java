@@ -82,16 +82,33 @@ class RetrospectiveControllerTest {
 	}
 
 	@Test
-	void requestRetrospectiveReturnsAcceptedPendingRetrospective() throws Exception {
+	void submitRetrospectiveStoresAnswersAndReturnsCompleted() throws Exception {
 		mockMvc.perform(post(RETROSPECTIVE_PATH)
 				.with(user(USER_ID.toString()))
-				.with(xsrf("retro-xsrf")))
-			.andExpect(status().isAccepted())
+				.with(xsrf("retro-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"answers\":[{\"questionId\":\"q1\",\"score\":5}]}"))
+			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id").value(RETROSPECTIVE_ID.toString()))
-			.andExpect(jsonPath("$.status").value("PENDING"))
-			.andExpect(jsonPath("$.aiFeedback").isMap())
-			.andExpect(jsonPath("$.nextWeekAdjustment").isMap());
+			.andExpect(jsonPath("$.weekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.answers[0].questionId").value("q1"));
+	}
+
+	@Test
+	void submitRetrospectiveReturnsConflictWhenRequiredTasksIncomplete() throws Exception {
+		repository.taskSummaries = List.of(new RetrospectiveTaskSummary(
+			TASK_ID, 1, WeeklyTaskType.READING, "JPA 읽기", true,
+			TestRetrospectiveBeans.WEEK_DUE_AT, TaskCompletionStatus.TODO, null, null, null, null
+		));
+
+		mockMvc.perform(post(RETROSPECTIVE_PATH)
+				.with(user(USER_ID.toString()))
+				.with(xsrf("retro-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"answers\":[{\"questionId\":\"q1\",\"score\":5}]}"))
+			.andExpect(status().isConflict());
 	}
 
 	@Test
@@ -167,6 +184,52 @@ class RetrospectiveControllerTest {
 		mockMvc.perform(get(RETROSPECTIVE_PATH)
 				.with(user(USER_ID.toString())))
 			.andExpect(status().isNotFound())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getRetrospectiveOverviewReturnsPerWeekLockAndQuestions() throws Exception {
+		repository.overview = List.of(new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
+			WEEK_ID, 2, "IN_PROGRESS", true, false, false,
+			List.of(new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+				"q1", "이번 주 목표를 달성했다", com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5))
+		));
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/overview")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].weekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].unlocked").value(true))
+			.andExpect(jsonPath("$[0].answered").value(false))
+			.andExpect(jsonPath("$[0].questions[0].type").value("LIKERT_5"));
+	}
+
+	@Test
+	void listMyRetrospectivesReturnsMyGroupRetrospectives() throws Exception {
+		repository.myGroupRetrospectives = List.of(completedRetrospective());
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/me")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(RETROSPECTIVE_ID.toString()))
+			.andExpect(jsonPath("$[0].weekId").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].status").value("COMPLETED"));
+	}
+
+	@Test
+	void listMyRetrospectivesReturnsForbiddenForLeftMember() throws Exception {
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID,
+			MEMBER_ID,
+			StudyGroupStatus.ACTIVE,
+			GroupMemberPermission.MEMBER,
+			GroupMemberStatus.LEFT
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/retrospectives/me")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isForbidden())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
@@ -259,10 +322,12 @@ class RetrospectiveControllerTest {
 		private RetrospectiveProgress progress;
 		private Retrospective existingRetrospective;
 		private List<RetrospectiveTaskSummary> taskSummaries;
+		private List<Retrospective> myGroupRetrospectives;
 		private Deque<UUID> ids;
 
 		void reset() {
 			weekExists = true;
+			myGroupRetrospectives = List.of();
 			membership = new RetrospectiveMembershipContext(
 				GROUP_ID,
 				MEMBER_ID,
@@ -295,6 +360,16 @@ class RetrospectiveControllerTest {
 		}
 
 		@Override
+		public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public java.util.List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+			return myGroupRetrospectives;
+		}
+
+		@Override
 		public Optional<RetrospectiveProgress> findProgress(UUID weekId, UUID memberId) {
 			return Optional.ofNullable(progress);
 		}
@@ -307,6 +382,19 @@ class RetrospectiveControllerTest {
 		@Override
 		public List<RetrospectiveTaskSummary> findTaskSummaries(UUID progressId, UUID weekId, UUID memberId) {
 			return taskSummaries;
+		}
+
+		@Override
+		public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+			// 테스트 fake: 기존 가드와 동일하게 필수 TODO 가 모두 완료면 작성 가능으로 본다.
+			return taskSummaries.stream()
+				.filter(RetrospectiveTaskSummary::required)
+				.allMatch(summary -> summary.status() == TaskCompletionStatus.DONE);
+		}
+
+		@Override
+		public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+			return false;
 		}
 
 		@Override
@@ -335,6 +423,19 @@ class RetrospectiveControllerTest {
 		public boolean updateRetrospectiveResult(Retrospective retrospective) {
 			existingRetrospective = retrospective;
 			return true;
+		}
+
+		@Override
+		public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+			existingRetrospective = retrospective;
+			return true;
+		}
+
+		java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> overview = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+			return overview;
 		}
 	}
 }

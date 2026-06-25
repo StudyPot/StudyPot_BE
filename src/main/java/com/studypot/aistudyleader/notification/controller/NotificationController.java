@@ -19,6 +19,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -71,7 +73,10 @@ class NotificationController {
 		@ApiResponse(responseCode = "503", description = "알림 스트림 서비스가 아직 구성되지 않음")
 	})
 	@GetMapping(path = ApiPaths.V1 + "/users/me/notifications/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	SseEmitter subscribeMyNotificationStream(Authentication authentication) {
+	SseEmitter subscribeMyNotificationStream(Authentication authentication, HttpServletResponse response) {
+		// 리버스 프록시(nginx 등)의 응답 버퍼링을 비활성화해 SSE 이벤트가 실시간으로 전달되도록 한다.
+		response.setHeader("X-Accel-Buffering", "no");
+		response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
 		return streamService().subscribe(authenticatedUserId(authentication));
 	}
 

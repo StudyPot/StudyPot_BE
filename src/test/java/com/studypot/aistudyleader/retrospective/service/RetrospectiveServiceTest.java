@@ -285,6 +285,53 @@ class RetrospectiveServiceTest {
 	}
 
 	@Test
+	void listMyRetrospectivesReturnsMyRetrospectivesForActiveMember() {
+		Retrospective existing = existingRetrospective(RetrospectiveStatus.COMPLETED);
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = activeMember();
+		repository.myRetrospectives = List.of(existing);
+		RetrospectiveService service = service(repository);
+
+		List<Retrospective> result = service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID));
+
+		assertThat(result).containsExactly(existing);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = null;
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsLeftMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.LEFT
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
+	void listMyRetrospectivesRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new RetrospectiveMembershipContext(
+			GROUP_ID, MEMBER_ID, StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING
+		);
+		RetrospectiveService service = service(repository);
+
+		assertThatThrownBy(() -> service.listMyRetrospectives(new ListMyRetrospectivesQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(RetrospectiveAccessDeniedException.class);
+	}
+
+	@Test
 	void requestRejectsPendingMember() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.weekExists = true;
@@ -677,6 +724,18 @@ class RetrospectiveServiceTest {
 			return Optional.ofNullable(membership);
 		}
 
+		private List<Retrospective> myRetrospectives = List.of();
+
+		@Override
+		public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+			return Optional.ofNullable(membership);
+		}
+
+		@Override
+		public List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+			return myRetrospectives;
+		}
+
 		@Override
 		public Optional<RetrospectiveProgress> findProgress(UUID weekId, UUID memberId) {
 			return Optional.ofNullable(progress);
@@ -713,6 +772,32 @@ class RetrospectiveServiceTest {
 			updatedRetrospective = retrospective;
 			updatedRetrospectives.add(retrospective);
 			return true;
+		}
+
+		@Override
+		public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+			updatedRetrospective = retrospective;
+			updatedRetrospectives.add(retrospective);
+			return true;
+		}
+
+		java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> overview = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+			return overview;
+		}
+
+		private boolean writable = true;
+
+		@Override
+		public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+			return writable;
+		}
+
+		@Override
+		public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+			return false;
 		}
 
 		private List<RetrospectiveStatus> updatedStatuses() {
@@ -769,6 +854,42 @@ class RetrospectiveServiceTest {
 
 		private final List<RetrospectiveNotice> retrospectiveReady = new ArrayList<>();
 		private final List<RetrospectiveNotice> nextWeekAdjusted = new ArrayList<>();
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
 
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {

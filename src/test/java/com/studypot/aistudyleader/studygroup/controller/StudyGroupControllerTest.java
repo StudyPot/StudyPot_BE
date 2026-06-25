@@ -23,6 +23,7 @@ import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
@@ -246,6 +247,30 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
+	void joinGroupByInviteCodeReturnsJoinedMember() throws Exception {
+		mockMvc.perform(post(GROUPS_PATH + "/join")
+				.with(user(USER_ID.toString()))
+				.with(xsrf("join-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(joinRequestJson("INVITE-0001")))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()))
+			.andExpect(jsonPath("$.userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$.status").value("PENDING_ONBOARDING"));
+	}
+
+	@Test
+	void joinGroupByInviteCodeRejectsUnknownCode() throws Exception {
+		mockMvc.perform(post(GROUPS_PATH + "/join")
+				.with(user(USER_ID.toString()))
+				.with(xsrf("join-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(joinRequestJson("WRONG-CODE")))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
 	void joinGroupReturnsConflictProblemForMismatchedInviteCode() throws Exception {
 		mockMvc.perform(post(JOIN_PATH)
 				.with(user(USER_ID.toString()))
@@ -315,48 +340,85 @@ class StudyGroupControllerTest {
 	}
 
 	@Test
-	void patchGroupReturnsUpdatedStudyGroupResponse() throws Exception {
-		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
-				.with(user(USER_ID.toString()))
-				.with(xsrf("group-update-xsrf"))
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(validUpdateRequestJson()))
+	void listGroupMembersRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void listGroupMembersReturnsMembersWithProfileFields() throws Exception {
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members")
+				.with(user(OTHER_USER_ID.toString())))
 			.andExpect(status().isOk())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$.id").value(GROUP_ID.toString()))
-			.andExpect(jsonPath("$.name").value("Backend Deep Dive"))
-			.andExpect(jsonPath("$.topic").value("Spring Boot"))
-			.andExpect(jsonPath("$.detailKeywords[0]").value("Security"))
-			.andExpect(jsonPath("$.detailKeywords[1]").value("Testing"))
-			.andExpect(jsonPath("$.maxMembers").value(8))
-			.andExpect(jsonPath("$.startsAt").value("2026-05-11"))
-			.andExpect(jsonPath("$.endsAt").value("2026-06-22"));
+			.andExpect(jsonPath("$[0].userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$[0].permission").value("OWNER"))
+			.andExpect(jsonPath("$[0].status").value("ACTIVE"))
+			.andExpect(jsonPath("$[0].displayName").value("현우"))
+			.andExpect(jsonPath("$[0].nickname").value("hyunwoo"))
+			.andExpect(jsonPath("$[0].email").value("hyunwoo@example.com"))
+			.andExpect(jsonPath("$[0].onboardingStatus").value("SUBMITTED"))
+			.andExpect(jsonPath("$[1].userId").value(OTHER_USER_ID.toString()))
+			.andExpect(jsonPath("$[1].permission").value("MEMBER"))
+			.andExpect(jsonPath("$[1].displayName").doesNotExist())
+			.andExpect(jsonPath("$[1].onboardingStatus").doesNotExist());
 	}
 
 	@Test
-	void patchGroupReturnsForbiddenWhenRequesterIsNotOwner() throws Exception {
-		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
-				.with(user(OTHER_USER_ID.toString()))
-				.with(xsrf("group-update-xsrf"))
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(validUpdateRequestJson()))
+	void listGroupMembersReturnsForbiddenForNonMember() throws Exception {
+		UUID strangerUserId = UUID.fromString("018f0000-0000-7000-8000-0000000028ff");
+		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID + "/members")
+				.with(user(strangerUserId.toString())))
 			.andExpect(status().isForbidden())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-			.andExpect(jsonPath("$.title").value("Forbidden"))
-			.andExpect(jsonPath("$.detail").value("only the study group owner can update this study group."));
+			.andExpect(jsonPath("$.detail").value("authenticated user is not a member of this study group."));
 	}
 
 	@Test
-	void deleteGroupReturnsNoContentAndHidesDeletedGroup() throws Exception {
-		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+	void updateGroupReturnsUpdatedGroupForOwner() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("update-xsrf"))
 				.with(user(USER_ID.toString()))
-				.with(xsrf("group-delete-xsrf")))
-			.andExpect(status().isNoContent());
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"새 스터디 이름\",\"topic\":\"Spring Boot\",\"detailKeywords\":[\"JPA\",\"Security\"],\"maxMembers\":6,\"startsAt\":\"2026-05-18\",\"endsAt\":\"2026-06-29\",\"description\":\"수정됨\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.name").value("새 스터디 이름"));
+	}
 
-		mockMvc.perform(get(GROUPS_PATH + "/" + GROUP_ID)
+	@Test
+	void updateGroupRequiresAuthentication() throws Exception {
+		mockMvc.perform(patch(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("update-xsrf"))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"이름\",\"topic\":\"Spring\",\"detailKeywords\":[\"JPA\"],\"maxMembers\":6,\"startsAt\":\"2026-05-18\",\"endsAt\":\"2026-06-29\"}"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void deleteGroupReturnsNoContentForOwner() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf"))
 				.with(user(USER_ID.toString())))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.detail").value("study group was not found."));
+			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void deleteGroupRequiresAuthentication() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void deleteGroupReturnsForbiddenForNonMember() throws Exception {
+		mockMvc.perform(delete(GROUPS_PATH + "/" + GROUP_ID)
+				.with(xsrf("delete-xsrf"))
+				.with(user(OTHER_USER_ID.toString())))
+			.andExpect(status().isForbidden())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("authenticated user is not a member of this study group."));
 	}
 
 	@Test
@@ -439,20 +501,6 @@ class StudyGroupControllerTest {
 			  "startsAt": "2026-05-10",
 			  "endsAt": "2026-06-21",
 			  "description": "Weekly backend interview prep"
-			}
-			""";
-	}
-
-	private static String validUpdateRequestJson() {
-		return """
-			{
-			  "name": "Backend Deep Dive",
-			  "topic": "Spring Boot",
-			  "detailKeywords": ["Security", "Testing"],
-			  "maxMembers": 8,
-			  "startsAt": "2026-05-11",
-			  "endsAt": "2026-06-22",
-			  "description": "Owner curated backend interview prep"
 			}
 			""";
 	}
@@ -559,15 +607,6 @@ class StudyGroupControllerTest {
 	private static final class NoopStudyGroupRepository implements StudyGroupRepository {
 
 		private String profileDisplayName = "현우";
-		private StudyGroup group = testGroup(
-			"Backend Interview Study",
-			"Spring Boot",
-			List.of("JPA", "Security"),
-			6,
-			java.time.LocalDate.parse("2026-05-10"),
-			java.time.LocalDate.parse("2026-06-21"),
-			"Weekly backend interview prep"
-		);
 
 		@Override
 		public void saveCreatedGroup(StudyGroup group, GroupMember ownerMember) {
@@ -579,8 +618,45 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+			if (!"INVITE-0001".equals(inviteCode)) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ACTIVE, 6, "INVITE-0001"));
+		}
+
+		@Override
+		public java.util.Optional<UUID> findOwnerUserId(UUID groupId) {
+			return java.util.Optional.of(USER_ID);
+		}
+
+		@Override
+		public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+			return true;
+		}
+
+		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
-			return false;
+			return GROUP_ID.equals(groupId) && OTHER_USER_ID.equals(userId);
+		}
+
+		@Override
+		public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
+			if (!GROUP_ID.equals(groupId)) {
+				return List.of();
+			}
+			return List.of(
+				new GroupMemberSummary(
+					TestStudyGroupBeans.OWNER_MEMBER_ID, GROUP_ID, USER_ID,
+					GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
+					"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
+				),
+				new GroupMemberSummary(
+					TestStudyGroupBeans.JOINED_MEMBER_ID, GROUP_ID, OTHER_USER_ID,
+					GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING,
+					null, "minsu", "minsu@example.com", null
+				)
+			);
 		}
 
 		@Override
@@ -589,12 +665,31 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public java.util.Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(java.util.Collection<UUID> groupIds) {
+			java.util.Map<UUID, Integer> counts = new java.util.HashMap<>();
+			for (UUID id : groupIds) {
+				counts.put(id, 1);
+			}
+			return counts;
+		}
+
+		@Override
+		public java.util.Optional<com.studypot.aistudyleader.studygroup.domain.AiManagerView> findAiManager(UUID groupId) {
+			return java.util.Optional.of(new com.studypot.aistudyleader.studygroup.domain.AiManagerView(groupId, "", null, null));
+		}
+
+		@Override
+		public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, java.time.Instant updatedAt) {
+			return true;
+		}
+
+		@Override
 		public void saveJoinedMember(GroupMember member) {
 		}
 
 		@Override
 		public List<StudyGroup> findGroupsByMemberUserId(UUID userId) {
-			return group == null ? List.of() : List.of(group);
+			return List.of(testGroup());
 		}
 
 		@Override
@@ -612,66 +707,39 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+			return GROUP_ID.equals(groupId);
+		}
+
+		@Override
+		public boolean updateGroup(StudyGroup group) {
+			return GROUP_ID.equals(group.id());
+		}
+
+		@Override
 		public boolean existsStudyGroup(UUID groupId) {
-			return GROUP_ID.equals(groupId) && group != null;
+			return GROUP_ID.equals(groupId);
 		}
 
 		@Override
 		public java.util.Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
-			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
+			if (!GROUP_ID.equals(groupId) || !USER_ID.equals(userId)) {
 				return java.util.Optional.empty();
 			}
-			return java.util.Optional.of(group);
+			return java.util.Optional.of(testGroup());
 		}
 
-		@Override
-		public boolean updateStudyGroup(
-			UUID groupId,
-			UUID editorUserId,
-			String name,
-			String topic,
-			List<String> detailKeywords,
-			int maxMembers,
-			java.time.LocalDate startsAt,
-			java.time.LocalDate endsAt,
-			String description,
-			Instant updatedAt
-		) {
-			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(editorUserId)) {
-				return false;
-			}
-			group = testGroup(name, topic, detailKeywords, maxMembers, startsAt, endsAt, description);
-			return true;
-		}
-
-		@Override
-		public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
-			if (group == null || !GROUP_ID.equals(groupId) || !USER_ID.equals(ownerUserId)) {
-				return false;
-			}
-			group = null;
-			return true;
-		}
-
-		private static StudyGroup testGroup(
-			String name,
-			String topic,
-			List<String> detailKeywords,
-			int maxMembers,
-			java.time.LocalDate startsAt,
-			java.time.LocalDate endsAt,
-			String description
-		) {
+		private static StudyGroup testGroup() {
 			return StudyGroup.create(
 				GROUP_ID,
 				USER_ID,
-				name,
-				topic,
-				detailKeywords,
-				maxMembers,
-				startsAt,
-				endsAt,
-				description,
+				"Backend Interview Study",
+				"Spring Boot",
+				List.of("JPA", "Security"),
+				6,
+				java.time.LocalDate.parse("2026-05-10"),
+				java.time.LocalDate.parse("2026-06-21"),
+				"Weekly backend interview prep",
 				"INVITE-0001",
 				TestStudyGroupBeans.NOW
 			);

@@ -34,12 +34,23 @@ public class AiConversationService {
 	private static final Base64.Decoder CURSOR_DECODER = Base64.getUrlDecoder();
 	private static final Logger log = LoggerFactory.getLogger(AiConversationService.class);
 
+	private static final String RETROSPECTIVE_GREETING = """
+		안녕하세요, AI 팀장이에요. 이번 주 회고를 함께 정리해볼게요. 편하게 답해 주세요.
+		1) 이번 주는 전반적으로 어떠셨나요?
+		2) TODO에서 진행한 것들 중 가장 어려웠던 건 무엇이었나요?
+		3) 다음 주에는 무엇을, 어떻게 해보고 싶으세요?
+		답변을 주시면 그걸 바탕으로 다음 주 학습 내용을 함께 조정해드릴게요.""";
+
 	private final AiConversationRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
 	private final AiConversationAssistantResponseGenerator assistantResponseGenerator;
 	private final LlmUsageRecorder usageRecorder;
 	private final AiConversationStreamPublisher streamPublisher;
+	private final AiConversationBoardGateway boardGateway;
+	private final AiConversationQuestionRefiner questionRefiner;
+	private final AiConversationCurriculumGateway curriculumGateway;
+	private final AiAssistantJobDispatcher assistantJobDispatcher;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -63,12 +74,70 @@ public class AiConversationService {
 		LlmUsageRecorder usageRecorder,
 		AiConversationStreamPublisher streamPublisher
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway
+	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner
+	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, questionRefiner, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner,
+		AiConversationCurriculumGateway curriculumGateway
+	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, questionRefiner, curriculumGateway, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner,
+		AiConversationCurriculumGateway curriculumGateway,
+		AiAssistantJobDispatcher assistantJobDispatcher
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 		this.assistantResponseGenerator = assistantResponseGenerator;
 		this.usageRecorder = usageRecorder;
 		this.streamPublisher = Objects.requireNonNull(streamPublisher, "streamPublisher must not be null");
+		this.boardGateway = boardGateway;
+		this.questionRefiner = questionRefiner;
+		this.curriculumGateway = curriculumGateway;
+		this.assistantJobDispatcher = assistantJobDispatcher;
 	}
 
 	@Transactional
@@ -108,7 +177,23 @@ public class AiConversationService {
 		if (!repository.insertConversation(conversation)) {
 			throw new AiConversationMutationRejectedException("AI conversation could not be inserted.");
 		}
+		if (conversation.conversationType() == AiConversationType.RETROSPECTIVE) {
+			seedRetrospectiveGreeting(conversation, now);
+		}
 		return conversation;
+	}
+
+	private void seedRetrospectiveGreeting(AiConversation conversation, Instant now) {
+		AiConversationMessage greeting = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			conversation.id(),
+			RETROSPECTIVE_GREETING,
+			Map.of("seed", true, "kind", "retrospective_intro"),
+			now
+		);
+		if (repository.insertMessage(greeting)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(greeting), "retrospective-seed");
+		}
 	}
 
 	private static boolean isOrdinaryTeamLeadChat(OpenAiConversationCommand command, UUID effectiveWeekId) {
@@ -141,7 +226,265 @@ public class AiConversationService {
 		if (!assistantGenerationConfigured()) {
 			return message;
 		}
-		return generateAssistantMessage(command, context, message);
+		// 디스패처가 있으면 처리 방식(동기 in-process / 비동기 RabbitMQ)을 위임한다.
+		// 비동기일 때는 assistant 응답이 worker 에서 생성되어 SSE 로 전달되므로 여기서는 사용자 메시지를 반환한다.
+		// 디스패처가 없는 구성(테스트 등)에서는 기존처럼 현재 트랜잭션에서 동기로 생성한다.
+		if (assistantJobDispatcher == null) {
+			return generateAssistantMessage(command.authenticatedUserId(), context, message);
+		}
+		return assistantJobDispatcher
+			.dispatch(command.authenticatedUserId(), command.conversationId(), message.id())
+			.orElse(message);
+	}
+
+	/**
+	 * 저장된 사용자 메시지에 대한 AI 팀장 응답을 생성한다. 비동기(RabbitMQ) worker 또는 동기 in-process 디스패처가 호출한다.
+	 * 호출 시점에 컨텍스트와 사용자 메시지를 DB 에서 다시 로드하므로, 사용자 메시지 저장 트랜잭션이 커밋된 뒤 호출해도 안전하다.
+	 */
+	@Transactional(noRollbackFor = AiConversationResponseGenerationException.class)
+	public AiConversationMessage generateAssistantReply(UUID authenticatedUserId, UUID conversationId, UUID userMessageId) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(conversationId, "conversationId must not be null");
+		Objects.requireNonNull(userMessageId, "userMessageId must not be null");
+		if (!assistantGenerationConfigured()) {
+			throw new AiConversationServiceUnavailableException("AI conversation assistant generation is not configured.");
+		}
+		AiConversationMessageContext context = requireMessageContext(conversationId, authenticatedUserId);
+		AiConversationMessage userMessage = repository.findMessage(userMessageId)
+			.orElseThrow(() -> new AiConversationNotFoundException("AI conversation message was not found."));
+		return generateAssistantMessage(authenticatedUserId, context, userMessage);
+	}
+
+	/**
+	 * AI 팀장 메시지에 제안된 액션(현재 SHARE_QUESTION)을 사용자가 확인/거절한다(확인 후 실행 모델).
+	 * CONFIRM 이면 권한 검사 후 실제 실행(질문 게시판 등록)하고 결과를 메시지 metadata 에 기록한다.
+	 * 반환값은 액션 상태가 갱신된 원본 메시지(프론트 버튼 상태 갱신용).
+	 */
+	@Transactional
+	public AiConversationMessage decideMessageAction(DecideAiConversationMessageActionCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		AiConversationMessageContext context = requireMessageContext(command.conversationId(), command.authenticatedUserId());
+		if (!context.hasActiveMembership()) {
+			throw new AiConversationAccessDeniedException("active group membership is required to act on an AI conversation message.");
+		}
+		AiConversationMessage message = repository.findMessage(command.messageId())
+			.orElseThrow(() -> new AiConversationNotFoundException("AI conversation message was not found."));
+		if (!message.conversationId().equals(command.conversationId())) {
+			throw new AiConversationNotFoundException("AI conversation message was not found.");
+		}
+		Map<String, Object> metadata = new LinkedHashMap<>(message.metadata());
+		Map<String, Object> pendingAction = asStringMap(metadata.get("pendingAction"));
+		if (pendingAction.isEmpty()) {
+			throw new AiConversationMutationRejectedException("this message has no pending action to decide.");
+		}
+		if (!"PENDING".equals(pendingAction.get("status"))) {
+			throw new AiConversationMutationRejectedException("this action has already been decided.");
+		}
+		Instant now = clock.instant();
+		if (command.decision() == AiConversationMessageActionDecision.REJECT) {
+			pendingAction.put("status", "REJECTED");
+			metadata.put("pendingAction", pendingAction);
+			persistMessageMetadata(command.messageId(), metadata);
+			return message.withMetadata(metadata);
+		}
+		String type = String.valueOf(pendingAction.get("type"));
+		switch (type) {
+			case "SHARE_QUESTION" -> executeShareQuestion(context, command, pendingAction, now);
+			case "COMPLETE_TASK" -> executeCompleteTask(command, pendingAction, now);
+			case "ADD_TASK" -> executeAddTask(context, command, pendingAction, now);
+			case "EDIT_POST" -> executeEditPost(context, command, pendingAction, now);
+			case "DELETE_POST" -> executeDeletePost(context, command, pendingAction, now);
+			default -> throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
+		}
+		metadata.put("pendingAction", pendingAction);
+		persistMessageMetadata(command.messageId(), metadata);
+		return message.withMetadata(metadata);
+	}
+
+	private void executeCompleteTask(
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (curriculumGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation curriculum action is not configured.");
+		}
+		String taskId = stringValue(pendingAction.get("taskId"));
+		String completionStatus = stringValue(pendingAction.get("completionStatus"));
+		if (taskId.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed task action is incomplete.");
+		}
+		if (completionStatus.isBlank()) {
+			completionStatus = "DONE";
+		}
+		curriculumGateway.completeTask(command.authenticatedUserId(), UUID.fromString(taskId), completionStatus);
+		pendingAction.put("status", "EXECUTED");
+		String label = "DONE".equals(completionStatus) ? "완료" : "미완료";
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"과제를 " + label + " 처리했어. ✅",
+			Map.of("kind", "action_result", "action", "COMPLETE_TASK"),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeShareQuestion(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		Map<String, Object> question = asStringMap(pendingAction.get("question"));
+		String title = stringValue(question.get("title"));
+		String summary = stringValue(question.get("summary"));
+		if (title.isBlank() || summary.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed question to share is incomplete.");
+		}
+		// '기타' 직접 요청: 사용자가 지시를 줬고 재작성기가 있으면 지시대로 제목/본문을 다시 작성한다.
+		// 재작성 실패 시 원래 초안으로 등록(통째 실패보다 등록을 우선).
+		String postTitle = title;
+		String postContent = summary;
+		if (command.instruction() != null && questionRefiner != null) {
+			try {
+				RefinedQuestionPost refined = questionRefiner.refine(
+					command.authenticatedUserId(), context.groupId(), title, summary, command.instruction());
+				postTitle = refined.title();
+				postContent = refined.content();
+			} catch (RuntimeException exception) {
+				log.warn("question share refine failed; falling back to original draft");
+				log.debug("question share refine failure detail", exception);
+			}
+		}
+		UUID postId = boardGateway.shareQuestionToBoard(command.authenticatedUserId(), context.groupId(), postTitle, postContent);
+		pendingAction.put("status", "EXECUTED");
+		pendingAction.put("result", Map.of("postId", postId.toString(), "boardType", "QUESTION"));
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"질문을 '질문' 게시판에 올렸어. 다른 멤버들도 볼 수 있어. ✅",
+			Map.of("kind", "action_result", "action", "SHARE_QUESTION", "postId", postId.toString()),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeEditPost(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		String postId = stringValue(pendingAction.get("postId"));
+		String title = stringValue(pendingAction.get("title"));
+		String summary = stringValue(pendingAction.get("summary"));
+		if (postId.isBlank() || (title.isBlank() && summary.isBlank())) {
+			throw new AiConversationMutationRejectedException("the proposed post edit is incomplete.");
+		}
+		boardGateway.updatePostOnBoard(
+			command.authenticatedUserId(),
+			context.groupId(),
+			UUID.fromString(postId),
+			title.isBlank() ? null : title,
+			summary.isBlank() ? null : summary
+		);
+		pendingAction.put("status", "EXECUTED");
+		pendingAction.put("result", Map.of("postId", postId, "boardType", "QUESTION"));
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"게시글을 수정했어. ✅",
+			Map.of("kind", "action_result", "action", "EDIT_POST", "postId", postId),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeDeletePost(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		String postId = stringValue(pendingAction.get("postId"));
+		if (postId.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed post deletion is incomplete.");
+		}
+		boardGateway.deletePostOnBoard(command.authenticatedUserId(), context.groupId(), UUID.fromString(postId));
+		pendingAction.put("status", "EXECUTED");
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"게시글을 삭제했어. ✅",
+			Map.of("kind", "action_result", "action", "DELETE_POST"),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeAddTask(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (curriculumGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation curriculum action is not configured.");
+		}
+		String title = stringValue(pendingAction.get("title"));
+		String description = stringValue(pendingAction.get("description"));
+		if (title.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed task to add is incomplete.");
+		}
+		curriculumGateway.addTaskToCurrentWeek(
+			command.authenticatedUserId(), context.groupId(), title, description.isBlank() ? null : description);
+		pendingAction.put("status", "EXECUTED");
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"이번 주 과제에 추가했어. ✅",
+			Map.of("kind", "action_result", "action", "ADD_TASK"),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void persistMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+		if (!repository.updateMessageMetadata(messageId, metadata)) {
+			throw new AiConversationMutationRejectedException("AI conversation message metadata could not be updated.");
+		}
+	}
+
+	private static Map<String, Object> asStringMap(Object value) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		if (value instanceof Map<?, ?> map) {
+			map.forEach((key, entryValue) -> result.put(String.valueOf(key), entryValue));
+		}
+		return result;
+	}
+
+	private static String stringValue(Object value) {
+		return value == null ? "" : value.toString().strip();
 	}
 
 	@Transactional(readOnly = true)
@@ -190,7 +533,7 @@ public class AiConversationService {
 	}
 
 	private AiConversationMessage generateAssistantMessage(
-		SendAiConversationMessageCommand command,
+		UUID authenticatedUserId,
 		AiConversationMessageContext context,
 		AiConversationMessage userMessage
 	) {
@@ -200,13 +543,13 @@ public class AiConversationService {
 			"assistant-generation-started");
 		try {
 			response = assistantResponseGenerator.generate(new AiConversationAssistantRequest(
-				command.authenticatedUserId(),
+				authenticatedUserId,
 				context,
 				userMessage,
 				promptContext
 			));
 		} catch (AiConversationResponseGenerationException exception) {
-			recordFailureUsage(command, context, exception);
+			recordFailureUsage(authenticatedUserId, context, exception);
 			publishStreamEventSafely(
 				() -> streamPublisher.publishAssistantGenerationFailed(context.conversationId(), exception.failure().errorCode()),
 				"assistant-generation-failed"
@@ -218,7 +561,7 @@ public class AiConversationService {
 		UUID usageId = idGenerator.get();
 		usageRecorder.record(response.llmResponse().toUsage(
 			usageId,
-			command.authenticatedUserId(),
+			authenticatedUserId,
 			context.groupId(),
 			LlmUsagePurpose.TEAM_LEAD_CHAT,
 			now
@@ -249,13 +592,13 @@ public class AiConversationService {
 	}
 
 	private void recordFailureUsage(
-		SendAiConversationMessageCommand command,
+		UUID authenticatedUserId,
 		AiConversationMessageContext context,
 		AiConversationResponseGenerationException exception
 	) {
 		usageRecorder.record(exception.failure().toUsage(
 			idGenerator.get(),
-			command.authenticatedUserId(),
+			authenticatedUserId,
 			context.groupId(),
 			clock.instant()
 		));

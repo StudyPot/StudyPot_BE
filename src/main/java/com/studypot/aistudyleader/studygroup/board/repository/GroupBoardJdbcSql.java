@@ -63,9 +63,9 @@ final class GroupBoardJdbcSql {
 
 	static final String INSERT_POST = """
 		insert into group_board_post (
-		  id, group_id, board_id, author_member_id, title, content, is_pinned, status,
-		  created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
+		  id, group_id, board_id, author_member_id, author_display_name_override,
+		  title, content, is_pinned, status, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
 		""";
 
 	static final String SELECT_POSTS = """
@@ -74,7 +74,7 @@ final class GroupBoardJdbcSql {
 		       p.board_id,
 		       p.author_member_id,
 		       gm.user_id as author_user_id,
-		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
 		       p.title,
 		       case
 		         when char_length(p.content) > 160 then concat(left(p.content, 160), '...')
@@ -103,9 +103,46 @@ final class GroupBoardJdbcSql {
 		    or (p.is_pinned = ? and p.created_at < ?)
 		    or (p.is_pinned = ? and p.created_at = ? and p.id < ?)
 		  )
-		order by p.is_pinned desc, p.created_at desc, p.id desc
-		limit ?
 		""";
+	// ORDER BY 와 LIMIT 은 리포지토리에서 GroupBoardPostSort 기준으로 동적으로 붙인다.
+
+	// 그룹 전체 게시글(모든 게시판) 조회. board_id 조건만 빠지고 정렬/커서는 SELECT_POSTS 와 동일하다.
+	static final String SELECT_ALL_POSTS = """
+		select p.id,
+		       p.group_id,
+		       p.board_id,
+		       p.author_member_id,
+		       gm.user_id as author_user_id,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       p.title,
+		       case
+		         when char_length(p.content) > 160 then concat(left(p.content, 160), '...')
+		         else p.content
+		       end as content_preview,
+		       p.is_pinned,
+		       (
+		         select count(*)
+		         from group_board_comment c
+		         where c.post_id = p.id
+		           and c.deleted_at is null
+		           and c.status = 'PUBLISHED'
+		       ) as comment_count,
+		       p.created_at,
+		       p.updated_at
+		from group_board_post p
+		left join group_member gm on gm.id = p.author_member_id
+		left join users u on u.id = gm.user_id and u.deleted_at is null
+		where p.group_id = ?
+		  and p.deleted_at is null
+		  and p.status = 'PUBLISHED'
+		  and (
+		    ? is null
+		    or p.is_pinned < ?
+		    or (p.is_pinned = ? and p.created_at < ?)
+		    or (p.is_pinned = ? and p.created_at = ? and p.id < ?)
+		  )
+		""";
+	// ORDER BY 와 LIMIT 은 리포지토리에서 GroupBoardPostSort 기준으로 동적으로 붙인다.
 
 	static final String SELECT_POST = """
 		select p.id,
@@ -113,7 +150,7 @@ final class GroupBoardJdbcSql {
 		       p.board_id,
 		       p.author_member_id,
 		       gm.user_id as author_user_id,
-		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
+		       coalesce(p.author_display_name_override, nullif(gm.display_name, ''), u.nickname) as author_display_name,
 		       p.title,
 		       p.content,
 		       p.is_pinned,
@@ -164,15 +201,14 @@ final class GroupBoardJdbcSql {
 
 	static final String INSERT_COMMENT = """
 		insert into group_board_comment (
-		  id, group_id, post_id, parent_comment_id, author_member_id, content, status, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
+		  id, group_id, post_id, author_member_id, content, status, created_at, updated_at
+		) values (?, ?, ?, ?, ?, 'PUBLISHED', ?, ?)
 		""";
 
 	static final String SELECT_COMMENTS = """
 		select c.id,
 		       c.group_id,
 		       c.post_id,
-		       c.parent_comment_id,
 		       c.author_member_id,
 		       gm.user_id as author_user_id,
 		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
@@ -200,7 +236,6 @@ final class GroupBoardJdbcSql {
 		select c.id,
 		       c.group_id,
 		       c.post_id,
-		       c.parent_comment_id,
 		       c.author_member_id,
 		       gm.user_id as author_user_id,
 		       coalesce(nullif(gm.display_name, ''), u.nickname) as author_display_name,
@@ -237,13 +272,13 @@ final class GroupBoardJdbcSql {
 		  and status = 'PUBLISHED'
 		""";
 
-	static final String SOFT_DELETE_COMMENT_THREAD = """
+	static final String SOFT_DELETE_COMMENT = """
 		update group_board_comment
 		set status = 'DELETED',
 		    deleted_at = ?,
 		    updated_at = ?
 		where group_id = ?
-		  and (id = ? or parent_comment_id = ?)
+		  and id = ?
 		  and deleted_at is null
 		  and status = 'PUBLISHED'
 		""";

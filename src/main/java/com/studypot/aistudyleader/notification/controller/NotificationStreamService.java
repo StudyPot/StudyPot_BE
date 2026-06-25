@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -41,7 +42,12 @@ class NotificationStreamService implements NotificationStreamPublisher {
 		Objects.requireNonNull(connection, "connection must not be null");
 		Runnable cleanup = () -> remove(recipientUserId, connection);
 		connection.onCompletion(cleanup);
-		connection.onTimeout(cleanup);
+		// 타임아웃 시 emitter 를 명시적으로 complete 해 두지 않으면 MVC 비동기 계층에서
+		// AsyncRequestTimeoutException 이 매번 WARN 으로 올라온다. complete 후 정리한다.
+		connection.onTimeout(() -> {
+			connection.complete();
+			cleanup.run();
+		});
 		connection.onError(throwable -> cleanup.run());
 		connectionsByRecipient.compute(recipientUserId, (ignored, connections) -> {
 			Set<NotificationStreamConnection> activeConnections = connections == null
@@ -61,6 +67,28 @@ class NotificationStreamService implements NotificationStreamPublisher {
 	public void publishNotificationCreated(Notification notification) {
 		Objects.requireNonNull(notification, "notification must not be null");
 		publish(notification.recipientUserId(), NOTIFICATION_CREATED_EVENT_NAME, NotificationResponse.from(notification));
+	}
+
+	/**
+	 * 모든 활성 SSE 연결에 주기적으로 하트비트(SSE 코멘트)를 보낸다.
+	 * 리버스 프록시/NAT 의 유휴 연결 종료를 막고(keepalive), 이미 끊긴 죽은 연결을
+	 * 다음 알림 발행을 기다리지 않고 즉시 감지해 정리한다. 코멘트는 EventSource 가
+	 * 무시하므로 클라이언트 이벤트 핸들러를 깨우지 않는다.
+	 */
+	@Scheduled(fixedRateString = "${studypot.notification.stream.heartbeat-ms:20000}")
+	void sendHeartbeats() {
+		for (Map.Entry<UUID, Set<NotificationStreamConnection>> entry : connectionsByRecipient.entrySet()) {
+			UUID recipientUserId = entry.getKey();
+			for (NotificationStreamConnection connection : List.copyOf(entry.getValue())) {
+				try {
+					connection.sendHeartbeat();
+				} catch (IOException | RuntimeException exception) {
+					remove(recipientUserId, connection);
+					connection.completeWithError(exception);
+					log.debug("notification SSE heartbeat failed recipientUserId={}", recipientUserId, exception);
+				}
+			}
+		}
 	}
 
 	private void sendConnectedEvent(UUID recipientUserId, NotificationStreamConnection connection) {
@@ -114,6 +142,11 @@ class NotificationStreamService implements NotificationStreamPublisher {
 		}
 
 		@Override
+		public void sendHeartbeat() throws IOException {
+			emitter.send(SseEmitter.event().comment("heartbeat"));
+		}
+
+		@Override
 		public void onCompletion(Runnable callback) {
 			emitter.onCompletion(callback);
 		}
@@ -129,6 +162,11 @@ class NotificationStreamService implements NotificationStreamPublisher {
 		}
 
 		@Override
+		public void complete() {
+			emitter.complete();
+		}
+
+		@Override
 		public void completeWithError(Throwable throwable) {
 			emitter.completeWithError(throwable);
 		}
@@ -139,11 +177,15 @@ interface NotificationStreamConnection {
 
 	void send(String eventName, Object data) throws IOException;
 
+	void sendHeartbeat() throws IOException;
+
 	void onCompletion(Runnable callback);
 
 	void onTimeout(Runnable callback);
 
 	void onError(Consumer<Throwable> callback);
+
+	void complete();
 
 	void completeWithError(Throwable throwable);
 }

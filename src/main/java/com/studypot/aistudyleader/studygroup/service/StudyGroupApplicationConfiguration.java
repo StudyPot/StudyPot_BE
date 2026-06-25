@@ -20,6 +20,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration(proxyBeanMethods = false)
 class StudyGroupApplicationConfiguration {
@@ -59,6 +60,25 @@ class StudyGroupApplicationConfiguration {
 			provider,
 			objectMapper.getIfAvailable(() -> JsonMapper.builder().findAndAddModules().build()),
 			usageRecorder,
+			clock,
+			UuidV7::generate
+		);
+	}
+
+	@Bean
+	@ConditionalOnBean(StudyGroupRepository.class)
+	StudyRecommendationService studyRecommendationService(
+		JdbcTemplate jdbcTemplate,
+		ObjectProvider<LlmProviderClient> provider,
+		ObjectProvider<LlmUsageRecorder> usageRecorder,
+		ObjectProvider<ObjectMapper> objectMapper,
+		Clock clock
+	) {
+		return new StudyRecommendationService(
+			jdbcTemplate,
+			provider,
+			usageRecorder,
+			objectMapper.getIfAvailable(() -> JsonMapper.builder().findAndAddModules().build()),
 			clock,
 			UuidV7::generate
 		);

@@ -38,6 +38,24 @@ public record AiConversationMessage(
 		);
 	}
 
+	public static AiConversationMessage assistantSeedMessage(
+		UUID id,
+		UUID conversationId,
+		String content,
+		Map<String, Object> metadata,
+		Instant createdAt
+	) {
+		return new AiConversationMessage(
+			id,
+			conversationId,
+			null,
+			AiConversationMessageSenderType.ASSISTANT,
+			content,
+			metadata,
+			createdAt
+		);
+	}
+
 	public static AiConversationMessage assistantMessage(
 		UUID id,
 		UUID conversationId,
@@ -56,6 +74,10 @@ public record AiConversationMessage(
 			metadata,
 			createdAt
 		);
+	}
+
+	public AiConversationMessage withMetadata(Map<String, Object> metadata) {
+		return new AiConversationMessage(id, conversationId, llmUsageId, senderType, content, metadata, createdAt);
 	}
 
 	private static String requiredContent(String value) {

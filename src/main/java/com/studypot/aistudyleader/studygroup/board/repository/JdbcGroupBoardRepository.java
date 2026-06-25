@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardMembership;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPost;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostCursor;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSummary;
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
@@ -91,6 +92,7 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			uuid(post.groupId()),
 			uuid(post.boardId()),
 			uuid(post.authorMemberId()),
+			post.authorDisplayNameOverride(),
 			post.title(),
 			post.content(),
 			post.pinned(),
@@ -100,17 +102,44 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 	}
 
 	@Override
-	public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+	public List<GroupBoardPostSummary> findPosts(
+		UUID groupId, UUID boardId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(boardId, "boardId must not be null");
+		Objects.requireNonNull(sort, "sort must not be null");
 		Boolean cursorPinned = cursor == null ? null : cursor.pinned();
 		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
 		byte[] cursorId = cursor == null ? null : uuid(cursor.id());
+		String sql = GroupBoardJdbcSql.SELECT_POSTS + "\n" + sort.orderByClause() + "\nlimit ?";
 		return jdbcTemplate.query(
-			GroupBoardJdbcSql.SELECT_POSTS,
+			sql,
 			this::mapPostSummary,
 			uuid(groupId),
 			uuid(boardId),
+			cursorPinned,
+			cursorPinned,
+			cursorPinned,
+			cursorCreatedAt,
+			cursorPinned,
+			cursorCreatedAt,
+			cursorId,
+			limit
+		);
+	}
+
+	@Override
+	public List<GroupBoardPostSummary> findAllPosts(
+		UUID groupId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(sort, "sort must not be null");
+		Boolean cursorPinned = cursor == null ? null : cursor.pinned();
+		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
+		byte[] cursorId = cursor == null ? null : uuid(cursor.id());
+		String sql = GroupBoardJdbcSql.SELECT_ALL_POSTS + "\n" + sort.orderByClause() + "\nlimit ?";
+		return jdbcTemplate.query(
+			sql,
+			this::mapPostSummary,
+			uuid(groupId),
 			cursorPinned,
 			cursorPinned,
 			cursorPinned,
@@ -171,7 +200,6 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			uuid(comment.id()),
 			uuid(comment.groupId()),
 			uuid(comment.postId()),
-			uuidOrNull(comment.parentCommentId()),
 			uuid(comment.authorMemberId()),
 			comment.content(),
 			timestamp(comment.createdAt()),
@@ -229,11 +257,10 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 		Objects.requireNonNull(commentId, "commentId must not be null");
 		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
 		return jdbcTemplate.update(
-			GroupBoardJdbcSql.SOFT_DELETE_COMMENT_THREAD,
+			GroupBoardJdbcSql.SOFT_DELETE_COMMENT,
 			timestamp(deletedAt),
 			timestamp(deletedAt),
 			uuid(groupId),
-			uuid(commentId),
 			uuid(commentId)
 		) > 0;
 	}
@@ -289,6 +316,7 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			requiredUuid(resultSet, "author_member_id"),
 			uuid(resultSet.getBytes("author_user_id")),
 			resultSet.getString("author_display_name"),
+			null,
 			requiredString(resultSet, "title"),
 			requiredString(resultSet, "content"),
 			resultSet.getBoolean("is_pinned"),
@@ -303,7 +331,6 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 			requiredUuid(resultSet, "id"),
 			requiredUuid(resultSet, "group_id"),
 			requiredUuid(resultSet, "post_id"),
-			uuid(resultSet.getBytes("parent_comment_id")),
 			requiredUuid(resultSet, "author_member_id"),
 			uuid(resultSet.getBytes("author_user_id")),
 			resultSet.getString("author_display_name"),
@@ -321,10 +348,6 @@ class JdbcGroupBoardRepository implements GroupBoardRepository {
 
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
-	}
-
-	private static byte[] uuidOrNull(UUID uuid) {
-		return uuid == null ? null : UuidBinary.toBytes(uuid);
 	}
 
 	private static UUID uuid(byte[] bytes) {

@@ -9,6 +9,7 @@ import com.studypot.aistudyleader.ai.domain.AiConversationPromptContext;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +32,10 @@ public interface AiConversationRepository {
 	Optional<AiConversationMessageContext> findMessageContext(UUID conversationId, UUID userId);
 
 	boolean insertMessage(AiConversationMessage message);
+
+	Optional<AiConversationMessage> findMessage(UUID messageId);
+
+	boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata);
 
 	List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit);
 

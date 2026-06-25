@@ -37,7 +37,7 @@ import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
 class GoogleOAuth2LoginHandlerTest {
 
 	@Test
-	void successHandlerIssuesHttpOnlyTokenCookiesAndRedirectsWithoutTokenQueryValues() throws Exception {
+	void successHandlerIssuesTokenCookiesAndRedirectsWithTokenFragment() throws Exception {
 		AuthSessionService authSessionService = mock(AuthSessionService.class);
 		when(authSessionService.loginWithGoogleProfile(any(GoogleOAuthProfile.class), any(AuthSessionMetadata.class)))
 			.thenReturn(tokenResult());
@@ -65,11 +65,12 @@ class GoogleOAuth2LoginHandlerTest {
 			any(AuthSessionMetadata.class)
 		);
 		assertThat(response.getStatus()).isEqualTo(302);
+		// 쿠키를 못 쓰는 클라이언트를 위해 토큰을 fragment(#)로 전달한다(쿼리 아님 → 서버 로그/Referer 비노출).
 		assertThat(response.getHeader(HttpHeaders.LOCATION))
-			.isEqualTo("https://frontend.studypot.local/auth/success")
-			.doesNotContain("access")
-			.doesNotContain("refresh")
-			.doesNotContain("token");
+			.startsWith("https://frontend.studypot.local/auth/success#")
+			.contains("access_token=access-token")
+			.contains("refresh_token=refresh-token")
+			.contains("token_type=Bearer");
 		assertThat(response.getHeaders(HttpHeaders.SET_COOKIE))
 			.hasSize(2)
 			.anySatisfy(cookie -> assertThat(cookie)
@@ -170,7 +171,8 @@ class GoogleOAuth2LoginHandlerTest {
 			new AuthenticatedUser(
 				UUID.fromString("018f0000-0000-7000-8000-000000000201"),
 				"member@example.com",
-				"Study Member"
+				"Study Member",
+				null
 			)
 		);
 	}

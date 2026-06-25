@@ -1,8 +1,10 @@
 package com.studypot.aistudyleader.onboarding.service;
 
 import com.studypot.aistudyleader.global.domain.UuidV7;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.onboarding.repository.OnboardingRepository;
 import java.time.Clock;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +14,16 @@ class OnboardingApplicationConfiguration {
 
 	@Bean
 	@ConditionalOnBean(OnboardingRepository.class)
-	OnboardingService onboardingService(OnboardingRepository repository, Clock clock) {
-		return new OnboardingService(repository, clock, UuidV7::generate);
+	OnboardingService onboardingService(
+		OnboardingRepository repository,
+		Clock clock,
+		ObjectProvider<NotificationEventPublisher> notificationEvents
+	) {
+		return new OnboardingService(
+			repository,
+			clock,
+			UuidV7::generate,
+			notificationEvents.getIfAvailable(NotificationEventPublisher::noop)
+		);
 	}
 }

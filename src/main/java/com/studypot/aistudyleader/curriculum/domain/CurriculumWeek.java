@@ -13,6 +13,7 @@ public record CurriculumWeek(
 	String title,
 	String description,
 	String sprintGoal,
+	List<RetrospectiveQuestion> retrospectiveQuestions,
 	List<String> learningGoals,
 	List<Map<String, String>> resources,
 	CurriculumWeekStatus status,
@@ -32,6 +33,7 @@ public record CurriculumWeek(
 		title = requireText(title, "title");
 		description = description == null || description.isBlank() ? null : description.strip();
 		sprintGoal = sprintGoal == null || sprintGoal.isBlank() ? null : sprintGoal.strip();
+		retrospectiveQuestions = copyNonNullList(retrospectiveQuestions, "retrospectiveQuestions");
 		learningGoals = copyNonNullList(learningGoals, "learningGoals");
 		resources = copyNonNullList(resources, "resources");
 		Objects.requireNonNull(status, "status must not be null");

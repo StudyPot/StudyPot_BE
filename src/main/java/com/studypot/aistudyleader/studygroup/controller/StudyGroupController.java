@@ -3,9 +3,12 @@ package com.studypot.aistudyleader.studygroup.controller;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.curriculum.service.CurriculumService;
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
@@ -13,17 +16,23 @@ import com.studypot.aistudyleader.studygroup.service.CreateStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DeleteStudyGroupCommand;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestions;
 import com.studypot.aistudyleader.studygroup.service.DetailKeywordSuggestionService;
+import com.studypot.aistudyleader.studygroup.service.GetAiManagerQuery;
 import com.studypot.aistudyleader.studygroup.service.GetStudyGroupQuery;
 import com.studypot.aistudyleader.studygroup.service.GetMyGroupMemberProfileQuery;
+import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupByInviteCodeCommand;
 import com.studypot.aistudyleader.studygroup.service.JoinStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.ListGroupMembersQuery;
 import com.studypot.aistudyleader.studygroup.service.ListStudyGroupsQuery;
+import com.studypot.aistudyleader.studygroup.service.StudyRecommendations;
+import com.studypot.aistudyleader.studygroup.service.StudyRecommendationService;
 import com.studypot.aistudyleader.studygroup.service.SuggestDetailKeywordsCommand;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupCreationResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinResult;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupService;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
-import com.studypot.aistudyleader.studygroup.service.UpdateMyGroupMemberProfileCommand;
+import com.studypot.aistudyleader.studygroup.service.UpdateAiManagerCommand;
 import com.studypot.aistudyleader.studygroup.service.UpdateStudyGroupCommand;
+import com.studypot.aistudyleader.studygroup.service.UpdateMyGroupMemberProfileCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -53,10 +62,11 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "스터디 그룹", description = "스터디 그룹 CRUD, 내 그룹 목록 조회, 상세 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
+@Tag(name = "스터디 그룹", description = "스터디 그룹 생성, 내 그룹 목록 조회, 초대 코드 기반 참여를 제공하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class StudyGroupController {
@@ -65,6 +75,8 @@ class StudyGroupController {
 
 	private final ObjectProvider<StudyGroupService> studyGroupService;
 	private final ObjectProvider<DetailKeywordSuggestionService> detailKeywordSuggestionService;
+	private final ObjectProvider<CurriculumService> curriculumService;
+	private final ObjectProvider<StudyRecommendationService> studyRecommendationService;
 
 	@Operation(
 		summary = "내 스터디 그룹 목록 조회",
@@ -76,10 +88,31 @@ class StudyGroupController {
 		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
 	})
 	@GetMapping(ApiPaths.V1 + "/groups")
-	List<StudyGroupResponse> listGroups(Authentication authentication) {
-		return service().listMyGroups(new ListStudyGroupsQuery(authenticatedUserId(authentication)))
-			.stream()
-			.map(StudyGroupResponse::from)
+	List<StudyGroupResponse> listGroups(
+		Authentication authentication,
+		@Parameter(description = "그룹 이름/주제 검색어입니다.")
+		@RequestParam(name = "q", required = false) String query,
+		@Parameter(description = "그룹 상태 필터입니다. (ONBOARDING, READY_TO_START, ACTIVE, COMPLETED)")
+		@RequestParam(name = "status", required = false) String status,
+		@Parameter(description = "정렬 기준 필드입니다. (startsAt, endsAt, name)")
+		@RequestParam(name = "sort", required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc)")
+		@RequestParam(name = "order", required = false) String order
+	) {
+		ListStudyGroupsQuery listQuery = new ListStudyGroupsQuery(
+			authenticatedUserId(authentication),
+			ListStudyGroupsQuery.parseStatus(status),
+			query,
+			sort,
+			order
+		);
+		List<StudyGroup> groups = service().listMyGroups(listQuery);
+		List<UUID> groupIds = groups.stream().map(StudyGroup::id).toList();
+		java.util.Map<UUID, Integer> memberCounts = service().countActiveMembers(groupIds);
+		java.util.Map<UUID, Integer> progress = curriculumProgress(groupIds);
+		return groups.stream()
+			.map(group -> StudyGroupResponse.from(
+				group, memberCounts.getOrDefault(group.id(), 0), progress.get(group.id())))
 			.toList();
 	}
 
@@ -97,7 +130,53 @@ class StudyGroupController {
 	@ResponseStatus(HttpStatus.CREATED)
 	StudyGroupResponse createGroup(Authentication authentication, @Valid @RequestBody CreateGroupRequest request) {
 		StudyGroupCreationResult result = service().createGroup(request.toCommand(authenticatedUserId(authentication)));
-		return StudyGroupResponse.from(result.group());
+		return StudyGroupResponse.from(result.group(), service().countActiveMembers(result.group().id()), null);
+	}
+
+	@Operation(
+		summary = "스터디 그룹 수정",
+		description = "그룹 소유자(OWNER)가 그룹 이름, 주제, 세부 키워드, 모집 인원, 진행 기간, 소개를 수정합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "스터디 그룹 수정 후 반환"),
+		@ApiResponse(responseCode = "400", description = "필수 값이 비어 있거나 기간/인원 검증에 실패함"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아니거나 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "422", description = "모집 인원이 현재 인원보다 작거나 값 검증 실패"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}")
+	StudyGroupResponse updateGroup(
+		Authentication authentication,
+		@Parameter(description = "수정할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Valid @RequestBody UpdateGroupRequest request
+	) {
+		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
+		return StudyGroupResponse.from(
+			group, service().countActiveMembers(group.id()), curriculumProgress(java.util.List.of(group.id())).get(group.id()));
+	}
+
+	@Operation(
+		summary = "스터디 그룹 삭제",
+		description = "그룹 소유자(OWNER)가 스터디 그룹을 삭제합니다. 삭제된 그룹은 목록·조회에서 더 이상 노출되지 않습니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "204", description = "스터디 그룹이 삭제됨"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아니거나 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@DeleteMapping(ApiPaths.V1 + "/groups/{groupId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void deleteGroup(
+		Authentication authentication,
+		@Parameter(description = "삭제할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		service().deleteGroup(new DeleteStudyGroupCommand(authenticatedUserId(authentication), groupId));
 	}
 
 	@Operation(
@@ -118,51 +197,75 @@ class StudyGroupController {
 		@PathVariable UUID groupId
 	) {
 		StudyGroup group = service().getGroup(new GetStudyGroupQuery(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
+		return StudyGroupResponse.from(
+			group, service().countActiveMembers(group.id()), curriculumProgress(java.util.List.of(group.id())).get(group.id()));
 	}
 
 	@Operation(
-		summary = "스터디 그룹 수정",
-		description = "그룹 소유자가 이름, 주제, 세부 키워드, 모집 인원, 기간, 소개를 수정하고 갱신된 그룹을 조회합니다."
+		summary = "다음 스터디 추천 조회",
+		description = "완료한 스터디 주제를 기반으로 AI 맞춤 제안과 다른 공개 그룹의 인기 주제를 추천합니다. 멤버만 조회할 수 있습니다."
 	)
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "그룹 수정 후 반환"),
+		@ApiResponse(responseCode = "200", description = "추천 목록 반환"),
 		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
-		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아님"),
-		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
-		@ApiResponse(responseCode = "422", description = "필수 값이 비어 있거나 기간/인원 검증에 실패함"),
-		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+		@ApiResponse(responseCode = "403", description = "그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음")
 	})
-	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}")
-	StudyGroupResponse updateGroup(
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/recommendations")
+	StudyRecommendationsResponse getRecommendations(
 		Authentication authentication,
-		@Parameter(description = "수정하려는 스터디 그룹 UUID입니다.", required = true)
-		@PathVariable UUID groupId,
-		@Valid @RequestBody UpdateGroupRequest request
-	) {
-		StudyGroup group = service().updateGroup(request.toCommand(authenticatedUserId(authentication), groupId));
-		return StudyGroupResponse.from(group);
-	}
-
-	@Operation(
-		summary = "스터디 그룹 삭제",
-		description = "그룹 소유자가 스터디 그룹을 soft delete 처리합니다. 삭제 후 상세 조회는 404로 응답합니다."
-	)
-	@ApiResponses({
-		@ApiResponse(responseCode = "204", description = "그룹 삭제 성공"),
-		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
-		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아님"),
-		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
-		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
-	})
-	@DeleteMapping(ApiPaths.V1 + "/groups/{groupId}")
-	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void deleteGroup(
-		Authentication authentication,
-		@Parameter(description = "삭제하려는 스터디 그룹 UUID입니다.", required = true)
+		@Parameter(description = "추천 기준이 되는(완료한) 스터디 그룹 UUID입니다.", required = true)
 		@PathVariable UUID groupId
 	) {
-		service().deleteGroup(new DeleteStudyGroupCommand(authenticatedUserId(authentication), groupId));
+		UUID userId = authenticatedUserId(authentication);
+		StudyGroup group = service().getGroup(new GetStudyGroupQuery(userId, groupId));
+		StudyRecommendations recommendations = recommendationService()
+			.recommend(userId, group.id(), group.topic(), group.detailKeywords());
+		return StudyRecommendationsResponse.from(recommendations);
+	}
+
+	@Operation(
+		summary = "AI 팀장 퍼소나 조회",
+		description = "그룹 멤버가 AI 팀장의 성격(퍼소나)을 조회합니다. 미설정 시 persona 는 빈 문자열입니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "AI 팀장 퍼소나 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/ai-manager")
+	AiManagerResponse getAiManager(
+		Authentication authentication,
+		@Parameter(description = "조회하려는 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return AiManagerResponse.from(service().getAiManager(new GetAiManagerQuery(authenticatedUserId(authentication), groupId)));
+	}
+
+	@Operation(
+		summary = "AI 팀장 퍼소나 수정",
+		description = "그룹 소유자(OWNER)가 AI 팀장의 성격(퍼소나)을 설정/수정합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "수정된 AI 팀장 퍼소나 반환"),
+		@ApiResponse(responseCode = "400", description = "퍼소나 값 검증에 실패함"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "그룹 소유자가 아니거나 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PatchMapping(ApiPaths.V1 + "/groups/{groupId}/ai-manager")
+	AiManagerResponse updateAiManager(
+		Authentication authentication,
+		@Parameter(description = "수정할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Valid @RequestBody UpdateAiManagerRequest request
+	) {
+		return AiManagerResponse.from(service().updateAiManager(
+			new UpdateAiManagerCommand(authenticatedUserId(authentication), groupId, request.persona())
+		));
 	}
 
 	@Operation(
@@ -186,6 +289,29 @@ class StudyGroupController {
 			new GetMyGroupMemberProfileQuery(authenticatedUserId(authentication), groupId)
 		);
 		return StudyGroupMemberProfileResponse.from(profile);
+	}
+
+	@Operation(
+		summary = "스터디 그룹 팀원 목록 조회",
+		description = "인증된 그룹 멤버가 같은 그룹에 속한 팀원 목록과 각자의 권한, 상태, 온보딩 상태를 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "팀원 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "현재 그룹 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/members")
+	List<GroupMemberListItemResponse> listGroupMembers(
+		Authentication authentication,
+		@Parameter(description = "팀원 목록을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId
+	) {
+		return service().listGroupMembers(new ListGroupMembersQuery(authenticatedUserId(authentication), groupId))
+			.stream()
+			.map(GroupMemberListItemResponse::from)
+			.toList();
 	}
 
 	@Operation(
@@ -256,15 +382,55 @@ class StudyGroupController {
 		return GroupMemberResponse.from(result.member());
 	}
 
+	@Operation(
+		summary = "초대 코드만으로 그룹 참여",
+		description = "초대 코드만으로 해당 스터디 그룹을 찾아 인증된 사용자를 온보딩 대기 멤버로 추가합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "그룹 멤버십 생성 또는 기존 멤버십 반환"),
+		@ApiResponse(responseCode = "400", description = "초대 코드가 비어 있음"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "409", description = "초대 코드 불일치, 정원 초과 또는 중복 참여"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@PostMapping(ApiPaths.V1 + "/groups/join")
+	GroupMemberResponse joinGroupByInviteCode(
+		Authentication authentication,
+		@Valid @RequestBody JoinByInviteCodeRequest request
+	) {
+		StudyGroupJoinResult result = service().joinGroupByInviteCode(
+			new JoinStudyGroupByInviteCodeCommand(authenticatedUserId(authentication), request.inviteCode())
+		);
+		return GroupMemberResponse.from(result.member());
+	}
+
 	private StudyGroupService service() {
 		return studyGroupService.getIfAvailable(() -> {
 			throw new StudyGroupServiceUnavailableException("study group service is not configured.");
 		});
 	}
 
+	// 커리큘럼 진행도(%). 커리큘럼 서비스 미구성/주차 없음이면 빈 맵을 돌려 응답이 graceful 하게 비운다.
+	private java.util.Map<UUID, Integer> curriculumProgress(java.util.Collection<UUID> groupIds) {
+		if (groupIds.isEmpty()) {
+			return java.util.Map.of();
+		}
+		CurriculumService curriculum = curriculumService.getIfAvailable();
+		if (curriculum == null) {
+			return java.util.Map.of();
+		}
+		return curriculum.progressPercentByGroupIds(groupIds);
+	}
+
 	private DetailKeywordSuggestionService detailKeywordService() {
 		return detailKeywordSuggestionService.getIfAvailable(() -> {
 			throw new StudyGroupServiceUnavailableException("detail keyword suggestion service is not configured.");
+		});
+	}
+
+	private StudyRecommendationService recommendationService() {
+		return studyRecommendationService.getIfAvailable(() -> {
+			throw new StudyGroupServiceUnavailableException("study recommendation service is not configured.");
 		});
 	}
 
@@ -337,9 +503,9 @@ class StudyGroupController {
 		}
 	}
 
-	@Schema(description = "스터디 그룹 수정을 위한 요청입니다.")
+	@Schema(description = "스터디 그룹 수정 요청입니다.")
 	private record UpdateGroupRequest(
-		@Schema(description = "스터디 그룹 이름입니다. 화면과 목록에서 대표 이름으로 표시됩니다.", example = "백엔드 인터뷰 심화 스터디")
+		@Schema(description = "스터디 그룹 이름입니다.", example = "백엔드 인터뷰 스터디")
 		@NotBlank
 		@Size(max = 120)
 		String name,
@@ -347,20 +513,20 @@ class StudyGroupController {
 		@NotBlank
 		@Size(max = 120)
 		String topic,
-		@Schema(description = "스터디에서 집중할 세부 키워드 목록입니다.", example = "[\"Security\", \"Testing\"]")
+		@Schema(description = "스터디에서 집중할 세부 키워드 목록입니다.", example = "[\"JPA\", \"Security\"]")
 		@NotEmpty
 		List<@NotBlank String> detailKeywords,
-		@Schema(description = "그룹에 참여할 수 있는 최대 인원입니다.", example = "8")
+		@Schema(description = "그룹에 참여할 수 있는 최대 인원입니다.", example = "6")
 		@NotNull
 		@Min(1)
 		Integer maxMembers,
-		@Schema(description = "스터디 시작일입니다.", example = "2026-05-11")
+		@Schema(description = "스터디 시작일입니다.", example = "2026-05-18")
 		@NotNull
 		LocalDate startsAt,
-		@Schema(description = "스터디 종료일입니다. 시작일과 같거나 이후여야 합니다.", example = "2026-06-22")
+		@Schema(description = "스터디 종료일입니다. 시작일과 같거나 이후여야 합니다.", example = "2026-06-29")
 		@NotNull
 		LocalDate endsAt,
-		@Schema(description = "그룹 소개 또는 운영 메모입니다.", example = "소유자가 운영 방향과 세부 키워드를 갱신합니다.")
+		@Schema(description = "그룹 소개 또는 운영 메모입니다.", example = "매주 실습 과제와 코드 리뷰를 함께 진행합니다.")
 		String description
 	) {
 
@@ -420,10 +586,52 @@ class StudyGroupController {
 		}
 	}
 
+	@Schema(description = "다음 스터디 추천 응답입니다.")
+	private record StudyRecommendationsResponse(
+		@Schema(description = "완료한 스터디 주제 기반 AI 맞춤 제안입니다.")
+		List<AiSuggestionResponse> aiSuggestions,
+		@Schema(description = "다른 공개 그룹의 인기/최근 주제입니다.")
+		List<PopularTopicResponse> popularTopics
+	) {
+
+		private static StudyRecommendationsResponse from(StudyRecommendations recommendations) {
+			return new StudyRecommendationsResponse(
+				recommendations.aiSuggestions().stream()
+					.map(suggestion -> new AiSuggestionResponse(suggestion.title(), suggestion.reason()))
+					.toList(),
+				recommendations.popularTopics().stream()
+					.map(topic -> new PopularTopicResponse(topic.topic(), topic.memberCount(), topic.groupCount()))
+					.toList()
+			);
+		}
+
+		@Schema(description = "AI 맞춤 추천 항목입니다.")
+		private record AiSuggestionResponse(
+			@Schema(description = "추천 스터디 주제입니다.", example = "Spring Security 심화")
+			String title,
+			@Schema(description = "추천 이유입니다.")
+			String reason
+		) {
+		}
+
+		@Schema(description = "다른 그룹들의 인기 주제(익명 집계) 항목입니다.")
+		private record PopularTopicResponse(
+			@Schema(description = "스터디 주제입니다.", example = "Spring Boot")
+			String topic,
+			@Schema(description = "해당 주제를 학습 중인 멤버 수입니다.", example = "12")
+			int memberCount,
+			@Schema(description = "해당 주제로 진행 중인 그룹 수입니다.", example = "3")
+			int groupCount
+		) {
+		}
+	}
+
 	@Schema(description = "스터디 그룹의 공개/멤버용 요약 응답입니다.")
 	private record StudyGroupResponse(
 		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
 		UUID id,
+		@Schema(description = "그룹을 생성한(소유자) 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID createdBy,
 		@Schema(description = "스터디 그룹 이름입니다.", example = "백엔드 인터뷰 스터디")
 		String name,
 		@Schema(description = "스터디의 큰 주제입니다.", example = "Spring Boot")
@@ -439,12 +647,17 @@ class StudyGroupController {
 		@Schema(description = "스터디 시작일입니다.", example = "2026-05-18")
 		LocalDate startsAt,
 		@Schema(description = "스터디 종료일입니다.", example = "2026-06-29")
-		LocalDate endsAt
+		LocalDate endsAt,
+		@Schema(description = "현재 참여(활성/온보딩) 멤버 수입니다.", example = "5")
+		int memberCount,
+		@Schema(description = "커리큘럼 주차 진행도(%)입니다. 커리큘럼 미생성 시 null 입니다.", example = "42", nullable = true)
+		Integer progressPercent
 	) {
 
-		private static StudyGroupResponse from(StudyGroup group) {
+		private static StudyGroupResponse from(StudyGroup group, int memberCount, Integer progressPercent) {
 			return new StudyGroupResponse(
 				group.id(),
+				group.createdBy(),
 				group.name(),
 				group.topic(),
 				group.detailKeywords(),
@@ -452,8 +665,36 @@ class StudyGroupController {
 				group.maxMembers(),
 				group.inviteCode(),
 				group.startsAt(),
-				group.endsAt()
+				group.endsAt(),
+				memberCount,
+				progressPercent
 			);
+		}
+	}
+
+	@Schema(description = "AI 팀장 퍼소나 수정 요청입니다.")
+	private record UpdateAiManagerRequest(
+		@Schema(description = "AI 팀장의 성격(퍼소나) 설명입니다. 0자 이상 2000자 이하입니다.", example = "차분하고 꼼꼼하게 코드 리뷰를 챙기는 시니어 백엔드 팀장")
+		@NotNull
+		@Size(max = 2000)
+		String persona
+	) {
+	}
+
+	@Schema(description = "AI 팀장 퍼소나 응답입니다.")
+	private record AiManagerResponse(
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "AI 팀장의 성격(퍼소나)입니다. 미설정 시 빈 문자열입니다.", example = "차분하고 꼼꼼한 시니어 백엔드 팀장")
+		String persona,
+		@Schema(description = "퍼소나를 마지막으로 수정한 시각입니다. 미설정 시 null 입니다.", example = "2026-06-24T09:12:00Z")
+		Instant updatedAt,
+		@Schema(description = "퍼소나를 마지막으로 수정한 사용자 닉네임입니다. 미설정 시 null 입니다.", example = "현우")
+		String updatedByNickname
+	) {
+
+		private static AiManagerResponse from(AiManagerView view) {
+			return new AiManagerResponse(view.groupId(), view.persona(), view.updatedAt(), view.updatedByNickname());
 		}
 	}
 
@@ -506,6 +747,43 @@ class StudyGroupController {
 				CurrentWeekSummaryResponse.from(profile.currentWeek()),
 				TaskCompletionSummaryResponse.from(profile.taskCompletion()),
 				RetrospectiveSummaryResponse.from(profile.retrospective())
+			);
+		}
+	}
+
+	@Schema(description = "스터디 그룹 팀원 목록의 단일 멤버 응답입니다.")
+	private record GroupMemberListItemResponse(
+		@Schema(description = "그룹 멤버십 UUID입니다.", example = "018f6f55-75e9-78d2-9f5c-598945b93400")
+		UUID id,
+		@Schema(description = "스터디 그룹 UUID입니다.", example = "018f6f55-6fb1-7d62-a711-25f7c6d16a28")
+		UUID groupId,
+		@Schema(description = "멤버의 사용자 UUID입니다.", example = "018f6f55-6f42-7e11-b479-120c5f2e9d42")
+		UUID userId,
+		@Schema(description = "그룹 내 권한입니다.", example = "OWNER")
+		GroupMemberPermission permission,
+		@Schema(description = "그룹 참여/온보딩 상태입니다.", example = "ACTIVE")
+		GroupMemberStatus status,
+		@Schema(description = "그룹 안에서 표시할 이름입니다. 설정하지 않았으면 null입니다.", example = "현우")
+		String displayName,
+		@Schema(description = "사용자 닉네임입니다.", example = "hyunwoo")
+		String nickname,
+		@Schema(description = "사용자 이메일입니다.", example = "hyunwoo@example.com")
+		String email,
+		@Schema(description = "온보딩 상태입니다. 온보딩 응답이 없으면 null입니다.", example = "SUBMITTED")
+		String onboardingStatus
+	) {
+
+		private static GroupMemberListItemResponse from(GroupMemberSummary summary) {
+			return new GroupMemberListItemResponse(
+				summary.id(),
+				summary.groupId(),
+				summary.userId(),
+				summary.permission(),
+				summary.status(),
+				summary.displayName(),
+				summary.nickname(),
+				summary.email(),
+				summary.onboardingStatus()
 			);
 		}
 	}
@@ -599,6 +877,14 @@ class StudyGroupController {
 		JoinStudyGroupCommand toCommand(UUID authenticatedUserId, UUID groupId) {
 			return new JoinStudyGroupCommand(authenticatedUserId, groupId, inviteCode);
 		}
+	}
+
+	@Schema(description = "초대 코드만으로 스터디 그룹에 참여하기 위한 요청입니다.")
+	private record JoinByInviteCodeRequest(
+		@Schema(description = "그룹장이 공유한 초대 코드입니다.", example = "SPRING-AB12")
+		@NotBlank
+		String inviteCode
+	) {
 	}
 
 	@Schema(description = "스터디 그룹 멤버십 생성/조회 응답입니다.")

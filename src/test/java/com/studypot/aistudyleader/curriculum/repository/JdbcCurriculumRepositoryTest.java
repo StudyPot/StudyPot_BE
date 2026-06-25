@@ -125,7 +125,8 @@ class JdbcCurriculumRepositoryTest {
 			NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 
 		repository.saveStartedCurriculum(GROUP_ID, NOW, usage, curriculum);
@@ -182,7 +183,8 @@ class JdbcCurriculumRepositoryTest {
 					NOW,
 					CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 					List.of(WEEK_ID),
-					List.of(TASK_ID)
+					List.of(TASK_ID),
+					1
 				)
 			))
 			.isInstanceOf(CurriculumPersistenceException.class)
@@ -196,6 +198,18 @@ class JdbcCurriculumRepositoryTest {
 			.contains("cw.status = 'IN_PROGRESS'")
 			.contains("order by cw.week_number")
 			.contains("limit 1");
+	}
+
+	@Test
+	void groupActivityCountsSqlIncludesDoneTasksAndBoardPosts() {
+		// 활동 잔디 개수는 완료(DONE) todo 와 작성한 게시글을 함께 집계해야 한다.
+		assertThat(CurriculumJdbcSql.SELECT_GROUP_DONE_ACTIVITY_COUNTS)
+			.contains("from task_completion tc")
+			.contains("tc.status = 'DONE'")
+			.contains("union all")
+			.contains("from group_board_post p")
+			.contains("p.status = 'PUBLISHED'")
+			.contains("count(act.activity_id) as activity_count");
 	}
 
 	@Test
@@ -504,6 +518,7 @@ class JdbcCurriculumRepositoryTest {
 			"JPA 기초",
 			"핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -588,6 +603,7 @@ class JdbcCurriculumRepositoryTest {
 				1,
 				"JPA 기초",
 				"핵심 개념을 맞춥니다.",
+				java.util.List.of(),
 				List.of("Entity 매핑 이해"),
 				List.of(),
 				List.of(new CurriculumTaskPlan(WeeklyTaskType.READING, "JPA 읽기", null, true))

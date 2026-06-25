@@ -93,18 +93,13 @@ public class AuthSessionService {
 	}
 
 	@Transactional
-	public AuthenticatedUser updateCurrentUserProfile(UUID authenticatedUserId, UpdateCurrentUserProfileCommand command) {
-		Objects.requireNonNull(command, "command must not be null");
+	public AuthenticatedUser updateProfile(UUID authenticatedUserId, String nickname, String bio) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
 		AuthUser user = findActiveUser(authenticatedUserId);
-		AuthUser updated = user.updateProfile(
-			command.nickname(),
-			command.profileImage(),
-			command.bio(),
-			command.preferredTopics(),
-			command.skillLevel(),
-			clock.instant()
-		);
-		return AuthenticatedUser.from(authRepository.save(updated));
+		// 도메인 검증(닉네임 공백/길이, bio 길이)을 거친 뒤 부분 업데이트.
+		AuthUser updated = user.updateProfile(nickname, bio, clock.instant());
+		authRepository.updateProfile(updated.id(), updated.nickname(), updated.bio().orElse(null), updated.auditMetadata().updatedAt());
+		return AuthenticatedUser.from(updated);
 	}
 
 	private AuthTokenResult issueTokenPair(AuthUser user, AuthSessionMetadata metadata) {

@@ -8,6 +8,8 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStatus;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeekStatus;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
@@ -28,6 +30,8 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +51,9 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	};
 	private static final TypeReference<List<Map<String, String>>> RESOURCE_LIST = new TypeReference<>() {
 	};
+	private static final TypeReference<List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion>> QUESTION_LIST =
+		new TypeReference<>() {
+		};
 
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
@@ -138,6 +145,13 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(CurriculumJdbcSql.SELECT_VIEWABLE_CURRICULUM, this::mapCurriculumRow, uuid(groupId))
+			.map(row -> row.toCurriculum(findWeeks(row.id())));
+	}
+
+	@Override
 	public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		return queryOne(
@@ -146,6 +160,29 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 				CurriculumWeekRow row = mapWeekRow(resultSet, rowNumber);
 				return row.toWeek(findWeeklyTasksByWeekId(row.id()));
 			},
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public Optional<CurriculumWeek> findWeekById(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_WEEK_BY_ID,
+			(resultSet, rowNumber) -> {
+				CurriculumWeekRow row = mapWeekRow(resultSet, rowNumber);
+				return row.toWeek(findWeeklyTasksByWeekId(row.id()));
+			},
+			uuid(weekId)
+		);
+	}
+
+	@Override
+	public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEKS_BY_GROUP,
+			(resultSet, rowNumber) -> mapWeekRow(resultSet, rowNumber).toWeek(List.of()),
 			uuid(groupId)
 		);
 	}
@@ -177,6 +214,74 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	}
 
 	@Override
+	public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_NEXT_PENDING_WEEK,
+			(rs, rowNum) -> new com.studypot.aistudyleader.curriculum.domain.NextWeekTarget(
+				UuidBinary.fromBytes(rs.getBytes("id")),
+				rs.getInt("week_number"),
+				rs.getString("title"),
+				rs.getString("sprint_goal")
+			),
+			uuid(currentWeekId)
+		);
+	}
+
+	@Override
+	public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, Instant now) {
+		Objects.requireNonNull(currentWeekId, "currentWeekId must not be null");
+		Objects.requireNonNull(now, "now must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_NEXT_REGENERABLE_WEEK,
+			(rs, rowNum) -> new com.studypot.aistudyleader.curriculum.domain.NextWeekTarget(
+				UuidBinary.fromBytes(rs.getBytes("id")),
+				rs.getInt("week_number"),
+				rs.getString("title"),
+				rs.getString("sprint_goal")
+			),
+			uuid(currentWeekId),
+			timestamp(now)
+		);
+	}
+
+	@Override
+	public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_LATEST_WEEKLY_REPORT_BODY,
+			(rs, rowNum) -> rs.getString("content"),
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public CurriculumWeek replaceNextWeekTasks(
+		UUID weekId,
+		List<WeeklyTask> tasks,
+		List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions,
+		Instant now
+	) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(tasks, "tasks must not be null");
+		Objects.requireNonNull(retrospectiveQuestions, "retrospectiveQuestions must not be null");
+		Objects.requireNonNull(now, "now must not be null");
+		jdbcTemplate.update(CurriculumJdbcSql.SOFT_DELETE_WEEK_TASKS, timestamp(now), timestamp(now), uuid(weekId));
+		for (WeeklyTask task : tasks) {
+			insertTask(task);
+		}
+		jdbcTemplate.update(
+			CurriculumJdbcSql.UPDATE_WEEK_RETROSPECTIVE_QUESTIONS,
+			json(retrospectiveQuestions, "curriculum week retrospective questions"),
+			timestamp(now),
+			uuid(weekId)
+		);
+		CurriculumWeekRow row = queryOne(CurriculumJdbcSql.SELECT_WEEK_BY_ID, this::mapWeekRow, uuid(weekId))
+			.orElseThrow(() -> new CurriculumPersistenceException("curriculum week was not found after update."));
+		return row.toWeek(findWeeklyTasksByWeekId(weekId));
+	}
+
+	@Override
 	public boolean existsWeeklyTask(UUID taskId) {
 		Objects.requireNonNull(taskId, "taskId must not be null");
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(CurriculumJdbcSql.EXISTS_WEEKLY_TASK, Boolean.class, uuid(taskId)));
@@ -186,6 +291,16 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 	public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
 		Objects.requireNonNull(taskId, "taskId must not be null");
 		return queryOne(CurriculumJdbcSql.SELECT_WEEKLY_TASK_BY_ID, this::mapTask, uuid(taskId));
+	}
+
+	@Override
+	public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return queryOne(
+			CurriculumJdbcSql.SELECT_CURRICULUM_WEEK_STARTS_AT,
+			(resultSet, rowNumber) -> instant(resultSet.getTimestamp("starts_at")),
+			uuid(weekId)
+		);
 	}
 
 	@Override
@@ -254,6 +369,98 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			this::mapTaskCompletion,
 			uuid(weekId),
 			uuid(memberId)
+		);
+	}
+
+	@Override
+	public int countActiveOrOnboardingMembers(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Integer count = jdbcTemplate.queryForObject(
+			CurriculumJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS,
+			Integer.class,
+			uuid(groupId)
+		);
+		return count == null ? 0 : count;
+	}
+
+	@Override
+	public int countMemberDoneActivity(UUID userId, Instant fromInclusive, Instant toExclusive) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
+		Objects.requireNonNull(toExclusive, "toExclusive must not be null");
+		Integer count = jdbcTemplate.queryForObject(
+			CurriculumJdbcSql.COUNT_MEMBER_DONE_ACTIVITY,
+			Integer.class,
+			uuid(userId),
+			timestamp(fromInclusive),
+			timestamp(toExclusive)
+		);
+		return count == null ? 0 : count;
+	}
+
+	@Override
+	public List<GroupWeekProgress> findWeekProgressByGroupIds(Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		if (groupIds.isEmpty()) {
+			return List.of();
+		}
+		List<UUID> ids = List.copyOf(groupIds);
+		String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+		String sql = String.format(CurriculumJdbcSql.SELECT_WEEK_PROGRESS_BY_GROUPS, placeholders);
+		Object[] args = ids.stream().map(JdbcCurriculumRepository::uuid).toArray();
+		return jdbcTemplate.query(sql, (resultSet, rowNumber) -> new GroupWeekProgress(
+			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+			resultSet.getInt("completed_weeks"),
+			resultSet.getInt("in_progress_weeks"),
+			resultSet.getInt("total_weeks")
+		), args);
+	}
+
+	@Override
+	public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, Instant fromInclusive, Instant toExclusive) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(fromInclusive, "fromInclusive must not be null");
+		Objects.requireNonNull(toExclusive, "toExclusive must not be null");
+		Timestamp from = timestamp(fromInclusive);
+		Timestamp to = timestamp(toExclusive);
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_GROUP_DONE_ACTIVITY_COUNTS,
+			JdbcCurriculumRepository::mapGroupActivityCount,
+			from,
+			to,
+			from,
+			to,
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_RECENT_TASK_ACTIVITY,
+			(resultSet, rowNumber) -> new com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity(
+				UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+				resultSet.getString("member_nickname"),
+				resultSet.getString("task_title"),
+				resultSet.getTimestamp("completed_at").toInstant()
+			),
+			uuid(groupId),
+			limit
+		);
+	}
+
+	private static GroupActivityCount mapGroupActivityCount(ResultSet resultSet, int rowNumber) throws SQLException {
+		Date activityDate = resultSet.getDate("activity_date");
+		return new GroupActivityCount(
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			resultSet.getString("display_name"),
+			resultSet.getString("nickname"),
+			activityDate == null ? null : activityDate.toLocalDate(),
+			resultSet.getInt("activity_count"),
+			resultSet.getInt("todo_count"),
+			resultSet.getInt("post_count")
 		);
 	}
 
@@ -350,6 +557,59 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		);
 	}
 
+	@Override
+	public void insertNextWeek(CurriculumWeek week) {
+		Objects.requireNonNull(week, "week must not be null");
+		// total_weeks 는 시작 시점에 전체 계획 주차 수로 고정 저장되므로 여기서 증가시키지 않는다.
+		insertWeek(week);
+		for (WeeklyTask task : week.tasks()) {
+			insertTask(task);
+		}
+	}
+
+	@Override
+	public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEK_RETROSPECTIVE_SUMMARIES,
+			(resultSet, rowNumber) -> {
+				String memberName = resultSet.getString("member_name");
+				String answers = resultSet.getString("answers_summary");
+				return (memberName == null ? "익명" : memberName) + ": " + (answers == null ? "" : answers);
+			},
+			uuid(weekId)
+		);
+	}
+
+	@Override
+	public List<String> findCompletedRetrospectiveAdjustments(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_WEEK_RETROSPECTIVE_ADJUSTMENTS,
+			(resultSet, rowNumber) -> resultSet.getString("adjustment"),
+			uuid(weekId)
+		).stream().filter(JdbcCurriculumRepository::isMeaningfulJson).toList();
+	}
+
+	@Override
+	public List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(since, "since must not be null");
+		return jdbcTemplate.query(
+			CurriculumJdbcSql.SELECT_TEAM_LEAD_ADJUSTMENT_CANDIDATES,
+			(resultSet, rowNumber) -> resultSet.getString("candidate"),
+			uuid(groupId), timestamp(since)
+		).stream().filter(JdbcCurriculumRepository::isMeaningfulJson).toList();
+	}
+
+	private static boolean isMeaningfulJson(String value) {
+		if (value == null) {
+			return false;
+		}
+		String trimmed = value.strip();
+		return !trimmed.isEmpty() && !trimmed.equals("{}") && !trimmed.equalsIgnoreCase("null");
+	}
+
 	private void insertWeek(CurriculumWeek week) {
 		jdbcTemplate.update(
 			CurriculumJdbcSql.INSERT_CURRICULUM_WEEK,
@@ -359,6 +619,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			week.title(),
 			week.description(),
 			week.sprintGoal(),
+			json(week.retrospectiveQuestions(), "curriculum week retrospective questions"),
 			json(week.learningGoals(), "curriculum week learning goals"),
 			json(week.resources(), "curriculum week resources"),
 			week.status().name(),
@@ -367,6 +628,12 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			timestamp(week.createdAt()),
 			timestamp(week.updatedAt())
 		);
+	}
+
+	@Override
+	public void insertWeeklyTask(WeeklyTask task) {
+		Objects.requireNonNull(task, "task must not be null");
+		insertTask(task);
 	}
 
 	private void insertTask(WeeklyTask task) {
@@ -467,6 +734,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 			resultSet.getString("title"),
 			resultSet.getString("description"),
 			resultSet.getString("sprint_goal"),
+			readNullableQuestions(resultSet.getString("retrospective_questions"), "curriculum week retrospective questions"),
 			readNullableList(resultSet.getString("learning_goals"), "curriculum week learning goals"),
 			readNullableResources(resultSet.getString("resources"), "curriculum week resources"),
 			CurriculumWeekStatus.valueOf(resultSet.getString("status")),
@@ -562,6 +830,10 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		return value == null ? List.of() : read(value, RESOURCE_LIST, fieldName);
 	}
 
+	private List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> readNullableQuestions(String value, String fieldName) {
+		return value == null ? List.of() : read(value, QUESTION_LIST, fieldName);
+	}
+
 	private static byte[] uuid(UUID uuid) {
 		return UuidBinary.toBytes(uuid);
 	}
@@ -628,6 +900,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 		String title,
 		String description,
 		String sprintGoal,
+		List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions,
 		List<String> learningGoals,
 		List<Map<String, String>> resources,
 		CurriculumWeekStatus status,
@@ -645,6 +918,7 @@ class JdbcCurriculumRepository implements CurriculumRepository {
 				title,
 				description,
 				sprintGoal,
+				retrospectiveQuestions,
 				learningGoals,
 				resources,
 				status,

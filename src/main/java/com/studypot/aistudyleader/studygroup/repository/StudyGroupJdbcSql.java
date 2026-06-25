@@ -25,6 +25,35 @@ final class StudyGroupJdbcSql {
 		for update
 		""";
 
+	static final String REVERT_READY_TO_ONBOARDING = """
+		update study_group
+		set status = 'ONBOARDING',
+		    updated_at = ?
+		where id = ?
+		  and status = 'READY_TO_START'
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_OWNER_USER_ID = """
+		select gm.user_id
+		from group_member gm
+		join study_group sg on sg.id = gm.group_id
+		where gm.group_id = ?
+		  and gm.permission = 'OWNER'
+		  and gm.status <> 'LEFT'
+		  and gm.deleted_at is null
+		  and sg.deleted_at is null
+		limit 1
+		""";
+
+	static final String SELECT_STUDY_GROUP_JOIN_TARGET_BY_INVITE_CODE = """
+		select id, status, max_members, invite_code
+		from study_group
+		where invite_code = ?
+		  and deleted_at is null
+		for update
+		""";
+
 	static final String EXISTS_STUDY_GROUP = """
 		select exists (
 		  select 1
@@ -66,6 +95,36 @@ final class StudyGroupJdbcSql {
 		where group_id = ?
 		  and status in ('PENDING_ONBOARDING', 'ACTIVE')
 		  and deleted_at is null
+		""";
+
+	static final String SELECT_AI_MANAGER = """
+		select sg.id as group_id,
+		       sg.ai_persona as ai_persona,
+		       sg.ai_persona_updated_at as ai_persona_updated_at,
+		       u.nickname as updated_by_nickname
+		from study_group sg
+		left join users u on u.id = sg.ai_persona_updated_by
+		where sg.id = ?
+		  and sg.deleted_at is null
+		""";
+
+	static final String UPDATE_AI_MANAGER = """
+		update study_group
+		set ai_persona = ?,
+		    ai_persona_updated_by = ?,
+		    ai_persona_updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	// %s 는 group_id IN (?, ?, ...) 자리표시자로 동적 치환된다.
+	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS = """
+		select group_id, count(*) as member_count
+		from group_member
+		where group_id in (%s)
+		  and status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and deleted_at is null
+		group by group_id
 		""";
 
 	static final String SELECT_GROUPS_BY_MEMBER_USER_ID = """
@@ -175,33 +234,50 @@ final class StudyGroupJdbcSql {
 		""";
 
 	static final String UPDATE_STUDY_GROUP = """
-		update study_group sg
-		join group_member gm on gm.group_id = sg.id
-		set sg.name = ?,
-		    sg.description = ?,
-		    sg.topic = ?,
-		    sg.detail_keywords = ?,
-		    sg.max_members = ?,
-		    sg.starts_at = ?,
-		    sg.ends_at = ?,
-		    sg.updated_at = ?
-		where sg.id = ?
-		  and gm.user_id = ?
-		  and gm.permission = 'OWNER'
-		  and gm.deleted_at is null
-		  and sg.deleted_at is null
+		update study_group
+		set name = ?,
+		    topic = ?,
+		    detail_keywords = ?,
+		    max_members = ?,
+		    starts_at = ?,
+		    ends_at = ?,
+		    description = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
 		""";
 
-	static final String DELETE_STUDY_GROUP = """
-		update study_group sg
-		join group_member gm on gm.group_id = sg.id
-		set sg.deleted_at = ?,
-		    sg.updated_at = ?
-		where sg.id = ?
-		  and gm.user_id = ?
-		  and gm.permission = 'OWNER'
+	static final String SOFT_DELETE_GROUP = """
+		update study_group
+		set deleted_at = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	// 그룹 삭제 시 커리큘럼도 함께 soft-delete (스케줄러가 삭제된 그룹에 동작/알림하지 않도록).
+	static final String SOFT_DELETE_CURRICULUM_BY_GROUP = """
+		update curriculum
+		set deleted_at = ?,
+		    updated_at = ?
+		where group_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_GROUP_MEMBERS = """
+		select
+		  gm.id as member_id, gm.group_id, gm.user_id, gm.display_name,
+		  gm.permission, gm.status as member_status,
+		  u.nickname, u.email,
+		  gor.status as onboarding_status
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join group_onboarding_response gor
+		  on gor.member_id = gm.id
+		  and gor.deleted_at is null
+		where gm.group_id = ?
 		  and gm.deleted_at is null
-		  and sg.deleted_at is null
+		order by gm.joined_at asc, gm.id asc
 		""";
 
 	private StudyGroupJdbcSql() {

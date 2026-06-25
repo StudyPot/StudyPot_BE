@@ -148,6 +148,18 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 	}
 
 	@Test
+	void generatedMessageStripsLeakedProposedActionFieldName() {
+		provider.response = response("""
+			{"message":"영속성 컨텍스트는 1차 캐시예요. proposedAction 없이도 괜찮다면 말씀해주세요.","conversationSummary":"필드명 누출 방지 회귀 테스트입니다."}""");
+
+		AiConversationAssistantResponse result = generator.generate(request("영속성 컨텍스트가 뭐야?"));
+
+		assertThat(result.message())
+			.doesNotContain("proposedAction")
+			.contains("영속성 컨텍스트는 1차 캐시예요");
+	}
+
+	@Test
 	void generatedMessageRemovesInternalProvenanceLeadIns() {
 		provider.response = response("""
 			{"message":"내가 DB에서 확인한 바로는, 지금 바로 다음 액션 하나만 하자: Actuator health부터 확인해보자.","conversationSummary":"내부 근거 접두어 제거 회귀 테스트입니다."}""");
@@ -296,6 +308,147 @@ class ProviderBackedAiConversationAssistantResponseGeneratorTest {
 				assertThat(generationException.failure().status()).isEqualTo(LlmUsageStatus.FAILED);
 				assertThat(generationException.failure().errorCode()).isEqualTo("AI_CONVERSATION_RESPONSE_INVALID");
 			});
+	}
+
+	@Test
+	void parsesJsonWrappedInMarkdownCodeFences() {
+		provider.response = response("```json\n{\"message\":\"네, 도와드릴게요.\",\"conversationSummary\":\"코드펜스로 감싼 응답 회귀 테스트입니다.\"}\n```");
+
+		AiConversationAssistantResponse result = generator.generate(request("코드펜스 응답 테스트"));
+
+		assertThat(result.message()).isEqualTo("네, 도와드릴게요.");
+		assertThat(result.conversationSummaryPatch()).isEqualTo("코드펜스로 감싼 응답 회귀 테스트입니다.");
+	}
+
+	@Test
+	void salvagesPlainTextWhenProviderReturnsNonJson() {
+		provider.response = response("안녕하세요! 이번 주 학습은 어떻게 되어가고 있나요?");
+
+		AiConversationAssistantResponse result = generator.generate(request("비 JSON 응답 살리기 테스트"));
+
+		assertThat(result.message()).isEqualTo("안녕하세요! 이번 주 학습은 어떻게 되어가고 있나요?");
+		assertThat(result.conversationSummaryPatch()).isNull();
+	}
+
+	@Test
+	void proposesShowExistingPostWhenSimilarBoardPostExists() {
+		provider.response = response("""
+			{"message":"이 개념은 이미 게시판에 비슷한 글이 있어요.","conversationSummary":"기존 글 안내","proposedAction":{"type":"SHOW_EXISTING_POST","postId":"post-1"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"영속성 컨텍스트가 뭐야?",
+			contextWithQuestionPosts(List.of(Map.of("postId", "post-1", "title", "JPA 영속성 컨텍스트")))
+		));
+
+		assertThat(result.metadata()).containsKey("pendingAction");
+		Object pendingAction = result.metadata().get("pendingAction");
+		assertThat(pendingAction).isInstanceOf(Map.class);
+		Map<?, ?> action = (Map<?, ?>) pendingAction;
+		assertThat(action.get("type")).isEqualTo("SHOW_EXISTING_POST");
+		assertThat(action.get("postId")).isEqualTo("post-1");
+		assertThat(action.get("title")).isEqualTo("JPA 영속성 컨텍스트");
+	}
+
+	@Test
+	void dropsShowExistingPostWhenPostIdNotInContext() {
+		provider.response = response("""
+			{"message":"비슷한 글이 있을지도 몰라요.","conversationSummary":"환각 postId 차단","proposedAction":{"type":"SHOW_EXISTING_POST","postId":"ghost-id"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"질문이에요",
+			contextWithQuestionPosts(List.of(Map.of("postId", "post-1", "title", "제목")))
+		));
+
+		assertThat(result.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	@Test
+	void proposesCompleteTaskWhenMemberFinishedTaskInList() {
+		provider.response = response("""
+			{"message":"수고했어요! 완료로 표시할게요.","conversationSummary":"과제 완료","proposedAction":{"type":"COMPLETE_TASK","taskId":"task-1","completionStatus":"DONE"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"JPA 실습 다 했어",
+			contextWithTasks(List.of(Map.of("id", "task-1", "title", "JPA 실습", "completionStatus", "TODO")))
+		));
+
+		assertThat(result.metadata()).containsKey("pendingAction");
+		Map<?, ?> action = (Map<?, ?>) result.metadata().get("pendingAction");
+		assertThat(action.get("type")).isEqualTo("COMPLETE_TASK");
+		assertThat(action.get("taskId")).isEqualTo("task-1");
+		assertThat(action.get("title")).isEqualTo("JPA 실습");
+		assertThat(action.get("completionStatus")).isEqualTo("DONE");
+	}
+
+	@Test
+	void dropsCompleteTaskWhenTaskIdNotInContext() {
+		provider.response = response("""
+			{"message":"표시해볼게요.","conversationSummary":"환각 taskId 차단","proposedAction":{"type":"COMPLETE_TASK","taskId":"ghost"}}""");
+
+		AiConversationAssistantResponse result = generator.generate(request(
+			"다 했어",
+			contextWithTasks(List.of(Map.of("id", "task-1", "title", "제목", "completionStatus", "TODO")))
+		));
+
+		assertThat(result.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	@Test
+	void proposesAddTaskOnlyForOwner() {
+		provider.response = response("""
+			{"message":"이번 주에 추가할게요.","conversationSummary":"과제 추가","proposedAction":{"type":"ADD_TASK","task":{"title":"트랜잭션 실습","description":"예제 따라하기"}}}""");
+		AiConversationAssistantResponse asOwner = generator.generate(request("트랜잭션 실습 과제 추가해줘", contextWithOwner(true)));
+		assertThat(asOwner.metadata()).containsKey("pendingAction");
+		Map<?, ?> action = (Map<?, ?>) asOwner.metadata().get("pendingAction");
+		assertThat(action.get("type")).isEqualTo("ADD_TASK");
+		assertThat(action.get("title")).isEqualTo("트랜잭션 실습");
+
+		provider.response = response("""
+			{"message":"추가해볼게요.","conversationSummary":"비그룹장 차단","proposedAction":{"type":"ADD_TASK","task":{"title":"X"}}}""");
+		AiConversationAssistantResponse asMember = generator.generate(request("과제 추가해줘", contextWithOwner(false)));
+		assertThat(asMember.metadata()).doesNotContainKey("pendingAction");
+	}
+
+	private static AiConversationPromptContext contextWithOwner(boolean owner) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT", "memberIsOwner", owner),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			List.of(),
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			List.of()
+		);
+	}
+
+	private static AiConversationPromptContext contextWithTasks(List<Map<String, Object>> tasks) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT"),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			tasks,
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			List.of()
+		);
+	}
+
+	private static AiConversationPromptContext contextWithQuestionPosts(List<Map<String, Object>> posts) {
+		return new AiConversationPromptContext(
+			Map.of("status", "AVAILABLE", "topic", "Spring Boot"),
+			Map.of("status", "AVAILABLE"),
+			Map.of("conversationType", "TEAM_LEAD_CHAT"),
+			List.of(),
+			Map.of("status", "AVAILABLE"),
+			List.of(),
+			Map.of("status", "NOT_AVAILABLE"),
+			Map.of("status", "NOT_AVAILABLE"),
+			posts
+		);
 	}
 
 	private static AiConversationAssistantRequest request(String content) {

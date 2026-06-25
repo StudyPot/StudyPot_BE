@@ -8,12 +8,16 @@ import com.studypot.aistudyleader.curriculum.domain.CurriculumSprintWindow;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumStartContext;
 import com.studypot.aistudyleader.curriculum.domain.CurriculumWeek;
 import com.studypot.aistudyleader.curriculum.domain.CurrentLearningActivity;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityHeatmap;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
+import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
+import com.studypot.aistudyleader.curriculum.domain.WeeklyTaskType;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumPersistenceException;
 import com.studypot.aistudyleader.curriculum.repository.CurriculumRepository;
 import com.studypot.aistudyleader.llm.domain.LlmUsage;
@@ -22,6 +26,8 @@ import com.studypot.aistudyleader.notification.service.NotificationEventPublishe
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -39,6 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CurriculumService {
 
 	private static final Logger log = LoggerFactory.getLogger(CurriculumService.class);
+
+	// 혼자(1명) 스터디도 시작할 수 있어야 한다(솔로 스터디 허용). 멤버가 0명일 때만 막는다.
+	private static final int MIN_MEMBERS_TO_START = 1;
 
 	private final CurriculumRepository repository;
 	private final Supplier<CurriculumGenerator> generatorSupplier;
@@ -91,11 +100,17 @@ public class CurriculumService {
 		if (!context.hasActiveMembership()) {
 			throw new CurriculumStartRejectedException("owner onboarding must be submitted before starting the study.");
 		}
+		if (repository.countActiveOrOnboardingMembers(context.groupId()) < MIN_MEMBERS_TO_START) {
+			throw new CurriculumStartRejectedException("study group needs at least " + MIN_MEMBERS_TO_START + " members to start.");
+		}
 
 		Instant now = clock.instant();
 		List<SubmittedOnboardingResponse> submittedResponses = repository.findSubmittedOnboardingResponses(context.groupId());
 		Map<String, Object> onboardingSummary = onboardingSummary(submittedResponses, now);
-		List<CurriculumSprintWindow> sprintWindows = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
+		// 전체 기간 주차 계획(날짜/주차수)은 결정적으로 계산하되, 시작 시점에는 1주차만 생성·저장한다.
+		// 이후 주차는 직전 주차 리포트+회고(없으면 직전 주차 TODO)를 참고해 리포트 게시 시점에 점진 생성한다.
+		List<CurriculumSprintWindow> fullSprintPlan = CurriculumSprintPlanner.fixedWeeklyWindows(context.startsAt(), context.endsAt());
+		List<CurriculumSprintWindow> sprintWindows = List.of(fullSprintPlan.get(0));
 		CurriculumGenerator generator = generatorSupplier.get();
 		if (generator == null) {
 			throw new CurriculumGenerationException("curriculum generator is not configured.");
@@ -140,7 +155,10 @@ public class CurriculumService {
 			now,
 			sprintWindows,
 			weekIds,
-			taskIds
+			taskIds,
+			// total_weeks 는 전체 계획 주차 수(고정)로 저장한다. 시작 시점엔 1주차만 생성되지만
+			// FE 가 잠긴 미래 주차 슬롯을 그릴 수 있도록 전체 주차 수를 내려준다.
+			fullSprintPlan.size()
 		);
 		try {
 			repository.saveStartedCurriculum(context.groupId(), now, llmUsage, curriculum);
@@ -177,6 +195,31 @@ public class CurriculumService {
 	}
 
 	@Transactional(readOnly = true)
+	public int countMyWeeklyDoneActivity(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		Instant now = clock.instant();
+		return repository.countMemberDoneActivity(userId, now.minus(java.time.Duration.ofDays(7)), now);
+	}
+
+	/**
+	 * 그룹별 커리큘럼 주차 진행도(%)를 반환합니다. 커리큘럼이 없거나 주차가 0인 그룹은
+	 * 맵에서 제외돼 호출 측이 상태 기반 기본값으로 대체할 수 있습니다.
+	 */
+	@Transactional(readOnly = true)
+	public Map<UUID, Integer> progressPercentByGroupIds(java.util.Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		Map<UUID, Integer> result = new java.util.HashMap<>();
+		for (com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress progress
+				: repository.findWeekProgressByGroupIds(groupIds)) {
+			Integer percent = progress.progressPercent();
+			if (percent != null) {
+				result.put(progress.groupId(), percent);
+			}
+		}
+		return result;
+	}
+
+	@Transactional(readOnly = true)
 	public Curriculum getCurriculum(GetCurriculumQuery query) {
 		Objects.requireNonNull(query, "query must not be null");
 		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
@@ -189,8 +232,24 @@ public class CurriculumService {
 		if (!context.canReadCurriculum()) {
 			throw new CurriculumAccessDeniedException("active group membership is required to read the curriculum.");
 		}
-		return repository.findActiveCurriculumByGroupId(query.groupId())
+		return repository.findViewableCurriculumByGroupId(query.groupId())
 			.orElseThrow(() -> new CurriculumNotFoundException("active curriculum was not found."));
+	}
+
+	@Transactional(readOnly = true)
+	public List<CurriculumWeek> listCurriculumWeeks(GetCurrentWeekQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.canReadCurriculum()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read curriculum weeks.");
+		}
+		return repository.findWeeksByGroupId(query.groupId());
 	}
 
 	@Transactional(readOnly = true)
@@ -208,6 +267,23 @@ public class CurriculumService {
 		}
 		return repository.findCurrentWeekByGroupId(query.groupId())
 			.orElseThrow(() -> new CurriculumNotFoundException("current curriculum week was not found."));
+	}
+
+	@Transactional(readOnly = true)
+	public CurriculumWeek getWeek(GetWeekByIdQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContextByWeekId(query.weekId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsCurriculumWeek(query.weekId())) {
+					throw new CurriculumNotFoundException("curriculum week was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.canReadCurriculum()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read the week.");
+		}
+		return repository.findWeekById(query.weekId())
+			.orElseThrow(() -> new CurriculumNotFoundException("curriculum week was not found."));
 	}
 
 	@Transactional(readOnly = true)
@@ -253,6 +329,49 @@ public class CurriculumService {
 		Optional<MemberWeekProgress> progress = repository.findMemberWeekProgress(currentWeek.id(), context.memberId());
 		List<TaskCompletion> completions = repository.findTaskCompletionsByWeekIdAndMemberId(currentWeek.id(), context.memberId());
 		return CurrentLearningActivity.of(query.groupId(), currentWeek, progress, completions);
+	}
+
+	@Transactional(readOnly = true)
+	public GroupActivityHeatmap getGroupActivityHeatmap(GetGroupActivityHeatmapQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		CurriculumStartContext context = repository.findReadContext(query.groupId(), query.authenticatedUserId())
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(query.groupId())) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read group activity.");
+		}
+		// 활동 히트맵은 스터디 커리큘럼 기간(시작일~종료일) 전체를 보여준다.
+		// (이전엔 '오늘 기준 최근 N일'이라 커리큘럼 기간과 어긋났음)
+		LocalDate startDate = context.startsAt();
+		LocalDate endDate = context.endsAt();
+		Instant fromInclusive = startDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+		Instant toExclusive = endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+		List<GroupActivityCount> rows = repository.findGroupDoneActivityCounts(query.groupId(), fromInclusive, toExclusive);
+		return GroupActivityHeatmap.of(startDate, endDate, rows);
+	}
+
+	/** 그룹 홈 '최근 활동' 피드: 최근 완료된 과제(누가/무슨 과제/언제)를 최신순으로 N건 조회. */
+	@Transactional(readOnly = true)
+	public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> getRecentTaskActivity(
+		UUID authenticatedUserId, UUID groupId, int limit) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		CurriculumStartContext context = repository.findReadContext(groupId, authenticatedUserId)
+			.orElseGet(() -> {
+				if (!repository.existsStudyGroup(groupId)) {
+					throw new CurriculumGroupNotFoundException("study group was not found.");
+				}
+				throw new CurriculumAccessDeniedException("authenticated user is not a member of this study group.");
+			});
+		if (!context.hasActiveMembership()) {
+			throw new CurriculumAccessDeniedException("active group membership is required to read group activity.");
+		}
+		int safeLimit = Math.max(1, Math.min(limit, 50));
+		return repository.findRecentTaskActivity(groupId, safeLimit);
 	}
 
 	@Transactional(readOnly = true)
@@ -307,10 +426,61 @@ public class CurriculumService {
 		WeeklyTask task = repository.findWeeklyTaskById(command.taskId())
 			.orElseThrow(() -> new CurriculumNotFoundException("weekly task was not found."));
 		Instant now = clock.instant();
+		// 해당 주차가 시작되기 전에는 '완료(DONE)'로 표시할 수 없다. (미완료/스킵 등 다른 전환은 허용)
+		// 주차가 종료(ends_at 경과)된 뒤에도 완료를 막는다 — 종료 시 미완료가 확정되고 회고/리포트로 넘어가기 때문.
+		if (command.status() == TaskCompletionStatus.DONE) {
+			repository.findCurriculumWeekStartsAt(task.curriculumWeekId())
+				.filter(now::isBefore)
+				.ifPresent(weekStartsAt -> {
+					throw new TaskCompletionUpdateRejectedException("아직 시작되지 않은 주차의 과제는 완료할 수 없어요.");
+				});
+			repository.findWeekDueAt(task.curriculumWeekId())
+				.filter(weekEndsAt -> !now.isBefore(weekEndsAt))
+				.ifPresent(weekEndsAt -> {
+					throw new TaskCompletionUpdateRejectedException("이미 종료된 주차의 과제는 완료할 수 없어요.");
+				});
+		}
 		MemberWeekProgress progress = findOrCreateProgressForTaskCompletion(task.curriculumWeekId(), context.memberId(), now);
 		return repository.findTaskCompletion(command.taskId(), context.memberId())
 			.map(completion -> updateTaskCompletion(completion, command, now))
 			.orElseGet(() -> createTaskCompletion(command, task, progress, context.memberId(), now));
+	}
+
+	/**
+	 * 그룹장이 현재(진행 중) 주차에 단일 과제를 추가한다(AI 채팅 액션). 그룹 소유자만 허용.
+	 */
+	@Transactional
+	public WeeklyTask addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		CurriculumStartContext context = repository.findReadContext(groupId, authenticatedUserId)
+			.orElseThrow(() -> new CurriculumNotFoundException("study group was not found."));
+		if (!context.isOwner()) {
+			throw new CurriculumAccessDeniedException("only the study group owner can add a weekly task.");
+		}
+		CurriculumWeek currentWeek = repository.findCurrentWeekByGroupId(groupId)
+			.orElseThrow(() -> new CurriculumNotFoundException("no in-progress week is available to add a task."));
+		int nextOrder = repository.findWeeklyTasksByWeekId(currentWeek.id()).stream()
+			.mapToInt(WeeklyTask::displayOrder)
+			.max()
+			.orElse(0) + 1;
+		Instant now = clock.instant();
+		WeeklyTask task = new WeeklyTask(
+			idGenerator.get(),
+			currentWeek.id(),
+			nextOrder,
+			WeeklyTaskType.CUSTOM,
+			title,
+			description,
+			false,
+			null,
+			true,
+			Map.of("source", "AI_CHAT_ADD"),
+			now,
+			now
+		);
+		repository.insertWeeklyTask(task);
+		return task;
 	}
 
 	private MemberWeekProgress findOrCreateProgressForTaskCompletion(UUID weekId, UUID memberId, Instant now) {

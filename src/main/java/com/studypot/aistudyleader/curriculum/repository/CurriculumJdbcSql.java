@@ -123,9 +123,9 @@ final class CurriculumJdbcSql {
 
 	static final String INSERT_CURRICULUM_WEEK = """
 		insert into curriculum_week (
-		  id, curriculum_id, week_number, title, description, sprint_goal, learning_goals,
-		  resources, status, starts_at, ends_at, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		  id, curriculum_id, week_number, title, description, sprint_goal, retrospective_questions,
+		  learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		""";
 
 	static final String INSERT_WEEKLY_TASK = """
@@ -144,9 +144,21 @@ final class CurriculumJdbcSql {
 		  and deleted_at is null
 		""";
 
+	// 조회(표시) 전용: 완료된 스터디도 커리큘럼을 다시 볼 수 있도록 COMPLETED 도 포함한다.
+	static final String SELECT_VIEWABLE_CURRICULUM = """
+		select id, group_id, llm_usage_id, title, total_weeks, onboarding_summary,
+		       generated_by_ai, generation_prompt, status, created_at, updated_at
+		from curriculum
+		where group_id = ?
+		  and status in ('ACTIVE', 'COMPLETED')
+		  and deleted_at is null
+		order by case status when 'ACTIVE' then 0 else 1 end
+		limit 1
+		""";
+
 	static final String SELECT_CURRICULUM_WEEKS = """
-		select id, curriculum_id, week_number, title, description, sprint_goal, learning_goals,
-		       resources, status, starts_at, ends_at, created_at, updated_at
+		select id, curriculum_id, week_number, title, description, sprint_goal, retrospective_questions,
+		       learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
 		from curriculum_week
 		where curriculum_id = ?
 		  and deleted_at is null
@@ -167,7 +179,7 @@ final class CurriculumJdbcSql {
 
 	static final String SELECT_CURRENT_WEEK_BY_GROUP = """
 		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
-		       cw.sprint_goal, cw.learning_goals, cw.resources, cw.status,
+		       cw.sprint_goal, cw.retrospective_questions, cw.learning_goals, cw.resources, cw.status,
 		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
@@ -178,6 +190,81 @@ final class CurriculumJdbcSql {
 		  and cw.deleted_at is null
 		order by cw.week_number
 		limit 1
+		""";
+
+	// 완료된 스터디도 주차/커리큘럼을 다시 볼 수 있도록 COMPLETED 커리큘럼의 주차도 포함한다.
+	static final String SELECT_WEEKS_BY_GROUP = """
+		select cw.id, cw.curriculum_id, cw.week_number, cw.title, cw.description,
+		       cw.sprint_goal, cw.retrospective_questions, cw.learning_goals, cw.resources, cw.status,
+		       cw.starts_at, cw.ends_at, cw.created_at, cw.updated_at
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status in ('ACTIVE', 'COMPLETED')
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		""";
+
+	static final String SELECT_WEEK_BY_ID = """
+		select id, curriculum_id, week_number, title, description, sprint_goal, retrospective_questions,
+		       learning_goals, resources, status, starts_at, ends_at, created_at, updated_at
+		from curriculum_week
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_NEXT_PENDING_WEEK = """
+		select nw.id, nw.week_number, nw.title, nw.sprint_goal
+		from curriculum_week cw
+		join curriculum_week nw on nw.curriculum_id = cw.curriculum_id
+		  and nw.week_number = cw.week_number + 1
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and nw.deleted_at is null
+		  and nw.status = 'PENDING'
+		limit 1
+		""";
+
+	// 자동 재생성용: 다음 주차가 이미 IN_PROGRESS 로 전환됐어도(주차 전이 스케줄러와의 경합) 아직 마감 전이면 대상.
+	static final String SELECT_NEXT_REGENERABLE_WEEK = """
+		select nw.id, nw.week_number, nw.title, nw.sprint_goal
+		from curriculum_week cw
+		join curriculum_week nw on nw.curriculum_id = cw.curriculum_id
+		  and nw.week_number = cw.week_number + 1
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and nw.deleted_at is null
+		  and nw.status <> 'COMPLETED'
+		  and nw.ends_at > ?
+		limit 1
+		""";
+
+	static final String SELECT_LATEST_WEEKLY_REPORT_BODY = """
+		select content
+		from group_board_post
+		where group_id = ?
+		  and title like '%주차 학습 리포트'
+		  and status = 'PUBLISHED'
+		  and deleted_at is null
+		order by created_at desc, id desc
+		limit 1
+		""";
+
+	static final String SOFT_DELETE_WEEK_TASKS = """
+		update weekly_task
+		set deleted_at = ?,
+		    updated_at = ?
+		where curriculum_week_id = ?
+		  and deleted_at is null
+		""";
+
+	static final String UPDATE_WEEK_RETROSPECTIVE_QUESTIONS = """
+		update curriculum_week
+		set retrospective_questions = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
 		""";
 
 	static final String SELECT_WEEKLY_TASKS_BY_WEEK = """
@@ -194,6 +281,13 @@ final class CurriculumJdbcSql {
 		select id, curriculum_week_id, display_order, task_type, title, description,
 		       required, due_at, generated_by_ai, source_payload, created_at, updated_at
 		from weekly_task
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	static final String SELECT_CURRICULUM_WEEK_STARTS_AT = """
+		select starts_at
+		from curriculum_week
 		where id = ?
 		  and deleted_at is null
 		""";
@@ -270,6 +364,140 @@ final class CurriculumJdbcSql {
 		    reason_submitted_at = ?,
 		    updated_at = ?
 		where id = ?
+		""";
+
+	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS = """
+		select count(*)
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		""";
+
+	// 내가 기간 내 완료(DONE)한 todo 개수(모든 내 그룹 합산). 파라미터: (userId, from, to)
+	static final String COUNT_MEMBER_DONE_ACTIVITY = """
+		select count(*)
+		from task_completion tc
+		join group_member gm on gm.id = tc.member_id
+		where gm.user_id = ?
+		  and gm.deleted_at is null
+		  and tc.status = 'DONE'
+		  and tc.completed_at >= ?
+		  and tc.completed_at < ?
+		""";
+
+	// 그룹별 주차 진행 집계(완료/진행/전체 주차 수). %s 는 c.group_id IN (?, ?, ...) 동적 치환.
+	// 분모는 '생성된 주차 행 수'가 아니라 커리큘럼의 계획 전체 주차수(c.total_weeks)를 쓴다.
+	// (주차 점진 생성이라 생성된 행 수로 나누면 1주차 진행만으로도 진행률이 과장됨)
+	static final String SELECT_WEEK_PROGRESS_BY_GROUPS = """
+		select c.group_id as group_id,
+		       sum(case when cw.status = 'COMPLETED' then 1 else 0 end) as completed_weeks,
+		       sum(case when cw.status = 'IN_PROGRESS' then 1 else 0 end) as in_progress_weeks,
+		       max(c.total_weeks) as total_weeks
+		from curriculum c
+		join curriculum_week cw on cw.curriculum_id = c.id and cw.deleted_at is null
+		where c.group_id in (%s)
+		  and c.deleted_at is null
+		group by c.group_id
+		""";
+
+	// 다음 주차 생성 입력용: 해당 주차의 완료된 멤버 회고 답변 요약(멤버명 + answers JSON).
+	static final String SELECT_WEEK_RETROSPECTIVE_SUMMARIES = """
+		select coalesce(nullif(gm.display_name, ''), u.nickname) as member_name,
+		       json_extract(r.input_summary, '$.answers') as answers_summary
+		from retrospective r
+		join group_member gm on gm.id = r.member_id
+		join users u on u.id = gm.user_id
+		where r.curriculum_week_id = ?
+		  and r.status = 'COMPLETED'
+		order by r.requested_at, r.id
+		""";
+
+	// 다음 주차 생성 입력: 해당 주차 완료 회고의 구조화된 '다음 주차 조정 제안'(JSON) 원문을 조회한다.
+	static final String SELECT_WEEK_RETROSPECTIVE_ADJUSTMENTS = """
+		select r.next_week_adjustment as adjustment
+		from retrospective r
+		where r.curriculum_week_id = ?
+		  and r.status = 'COMPLETED'
+		  and r.next_week_adjustment is not null
+		order by r.requested_at, r.id
+		""";
+
+	// 다음 주차 생성 입력: 그룹의 팀장 대화(TEAM_LEAD_CHAT) AI 응답 metadata 에 담긴 '다음 주차 조정 후보'(JSON)를
+	// since(현재 주차 시작) 이후로 조회한다. 일반 팀장 채팅은 주차에 묶이지 않으므로 그룹+시간창으로 조인한다.
+	static final String SELECT_TEAM_LEAD_ADJUSTMENT_CANDIDATES = """
+		select json_extract(m.metadata, '$.nextWeekAdjustmentCandidate') as candidate
+		from ai_conversation_message m
+		join ai_conversation c on c.id = m.conversation_id
+		where c.group_id = ?
+		  and c.conversation_type = 'TEAM_LEAD_CHAT'
+		  and m.sender_type = 'ASSISTANT'
+		  and m.created_at >= ?
+		  and json_extract(m.metadata, '$.nextWeekAdjustmentCandidate') is not null
+		order by m.created_at, m.id
+		limit 30
+		""";
+
+	// 그룹 홈 '최근 활동' 피드: 최근 완료(DONE)된 과제를 멤버 닉네임/과제 제목과 함께 최신순으로 조회한다.
+	static final String SELECT_RECENT_TASK_ACTIVITY = """
+		select gm.id as member_id,
+		       coalesce(nullif(gm.display_name, ''), u.nickname) as member_nickname,
+		       wt.title as task_title,
+		       tc.completed_at as completed_at
+		from task_completion tc
+		join weekly_task wt on wt.id = tc.weekly_task_id and wt.deleted_at is null
+		join curriculum_week cw on cw.id = wt.curriculum_week_id and cw.deleted_at is null
+		join curriculum c on c.id = cw.curriculum_id and c.deleted_at is null
+		join group_member gm on gm.id = tc.member_id
+		join users u on u.id = gm.user_id
+		where c.group_id = ?
+		  and tc.status = 'DONE'
+		  and tc.completed_at is not null
+		  and gm.deleted_at is null
+		order by tc.completed_at desc, tc.id desc
+		limit ?
+		""";
+
+	// 활동 잔디 집계: 완료(DONE)한 todo + 작성한 게시글을 일자별로 합산해 멤버별 활동 개수를 낸다.
+	// 활동이 없는 멤버도 LEFT JOIN 으로 포함(date null, count 0). 파라미터: (from,to,from,to,groupId)
+	static final String SELECT_GROUP_DONE_ACTIVITY_COUNTS = """
+		select
+		  gm.id as member_id,
+		  gm.user_id,
+		  coalesce(nullif(gm.display_name, ''), u.nickname) as display_name,
+		  u.nickname,
+		  act.activity_date as activity_date,
+		  count(act.activity_id) as activity_count,
+		  sum(case when act.activity_type = 'todo' then 1 else 0 end) as todo_count,
+		  sum(case when act.activity_type = 'post' then 1 else 0 end) as post_count
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join (
+		  select tc.member_id as member_id,
+		         date(tc.completed_at) as activity_date,
+		         tc.id as activity_id,
+		         'todo' as activity_type
+		  from task_completion tc
+		  where tc.status = 'DONE'
+		    and tc.completed_at >= ?
+		    and tc.completed_at < ?
+		  union all
+		  select p.author_member_id as member_id,
+		         date(p.created_at) as activity_date,
+		         p.id as activity_id,
+		         'post' as activity_type
+		  from group_board_post p
+		  where p.deleted_at is null
+		    and p.status = 'PUBLISHED'
+		    and p.author_display_name_override is null
+		    and p.created_at >= ?
+		    and p.created_at < ?
+		) act on act.member_id = gm.id
+		where gm.group_id = ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		group by gm.id, gm.user_id, display_name, u.nickname, act.activity_date
+		order by gm.joined_at asc, gm.id asc
 		""";
 
 	private CurriculumJdbcSql() {

@@ -72,6 +72,15 @@ class GroupBoardControllerTest {
 	}
 
 	@Test
+	void listAllPostsReturnsCursorPage() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/posts").with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.items").isArray())
+			.andExpect(jsonPath("$.pageInfo.hasNext").value(false));
+	}
+
+	@Test
 	void createPostReturnsCreatedPost() throws Exception {
 		mockMvc.perform(post(POSTS_PATH)
 				.with(user(USER_ID.toString()))
@@ -111,20 +120,6 @@ class GroupBoardControllerTest {
 			.andExpect(jsonPath("$.content").value("저도 같은 부분이 궁금합니다."));
 	}
 
-	@Test
-	void createReplyCommentReturnsParentCommentId() throws Exception {
-		mockMvc.perform(post(COMMENTS_PATH)
-				.with(user(USER_ID.toString()))
-				.with(xsrf("board-xsrf"))
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"parentCommentId":"018f0000-0000-7000-8000-000000124006","content":"부모 댓글에 답변합니다."}
-					"""))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.parentCommentId").value(COMMENT_ID.toString()))
-			.andExpect(jsonPath("$.content").value("부모 댓글에 답변합니다."));
-	}
-
 	private static RequestPostProcessor xsrf(String token) {
 		return request -> {
 			request.addHeader("X-XSRF-TOKEN", token);
@@ -159,7 +154,6 @@ class GroupBoardControllerTest {
 
 		private GroupBoardPost lastInsertedPost;
 		private GroupBoardComment lastInsertedComment;
-		private final GroupBoardComment parentComment = GroupBoardComment.create(COMMENT_ID, GROUP_ID, POST_ID, MEMBER_ID, "부모 댓글", NOW);
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -197,7 +191,14 @@ class GroupBoardControllerTest {
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor,
+				com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort sort, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor,
+				com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort sort, int limit) {
 			return List.of();
 		}
 
@@ -236,9 +237,6 @@ class GroupBoardControllerTest {
 
 		@Override
 		public Optional<GroupBoardComment> findComment(UUID groupId, UUID commentId) {
-			if (COMMENT_ID.equals(commentId)) {
-				return Optional.of(parentComment);
-			}
 			return Optional.ofNullable(lastInsertedComment);
 		}
 

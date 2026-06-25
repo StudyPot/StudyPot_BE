@@ -23,6 +23,10 @@ public record AiConversationMembershipContext(
 	}
 
 	public boolean canOpenConversation() {
-		return groupStatus == StudyGroupStatus.ACTIVE && memberStatus == GroupMemberStatus.ACTIVE;
+		// 온보딩을 마친(ACTIVE) 멤버는 스터디 시작 전(ONBOARDING/READY_TO_START)에도
+		// AI 팀장과 대화할 수 있도록 허용한다. 종료/보관 상태에서만 막는다.
+		return memberStatus == GroupMemberStatus.ACTIVE
+			&& groupStatus != StudyGroupStatus.COMPLETED
+			&& groupStatus != StudyGroupStatus.ARCHIVED;
 	}
 }

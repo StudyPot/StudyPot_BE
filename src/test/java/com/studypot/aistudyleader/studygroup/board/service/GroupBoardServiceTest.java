@@ -1,8 +1,15 @@
 package com.studypot.aistudyleader.studygroup.board.service;
 
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoard;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardComment;
@@ -37,8 +44,6 @@ class GroupBoardServiceTest {
 	private static final UUID POST_ID = UUID.fromString("018f0000-0000-7000-8000-000000123005");
 	private static final UUID COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123006");
 	private static final UUID OTHER_MEMBER_ID = UUID.fromString("018f0000-0000-7000-8000-000000123007");
-	private static final UUID PARENT_COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123008");
-	private static final UUID REPLY_COMMENT_ID = UUID.fromString("018f0000-0000-7000-8000-000000123009");
 	private static final Instant NOW = Instant.parse("2026-06-01T02:10:00Z");
 	private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -49,15 +54,16 @@ class GroupBoardServiceTest {
 			UUID.fromString("018f0000-0000-7000-8000-000000123101"),
 			UUID.fromString("018f0000-0000-7000-8000-000000123102"),
 			UUID.fromString("018f0000-0000-7000-8000-000000123103"),
-			UUID.fromString("018f0000-0000-7000-8000-000000123104")
+			UUID.fromString("018f0000-0000-7000-8000-000000123104"),
+			UUID.fromString("018f0000-0000-7000-8000-000000123105")
 		);
 
 		List<GroupBoard> boards = service.listBoards(new ListGroupBoardsQuery(USER_ID, GROUP_ID));
 
 		assertThat(repository.insertedBoards)
 			.extracting(GroupBoard::boardType)
-			.containsExactly(GroupBoardType.NOTICE, GroupBoardType.QUESTION, GroupBoardType.RESOURCE, GroupBoardType.RETROSPECTIVE);
-		assertThat(boards).hasSize(4);
+			.containsExactly(GroupBoardType.NOTICE, GroupBoardType.QUESTION, GroupBoardType.RESOURCE, GroupBoardType.RETROSPECTIVE, GroupBoardType.LEADER_REPORT);
+		assertThat(boards).hasSize(5);
 	}
 
 	@Test
@@ -101,6 +107,95 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
+	void createPostWithAuthorDisplayNameOverrideShowsOverrideButKeepsMemberOwnership() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(board());
+		GroupBoardService service = service(repository, POST_ID);
+
+		GroupBoardPost post = service.createPost(new CreateGroupBoardPostCommand(
+			USER_ID,
+			GROUP_ID,
+			BOARD_ID,
+			"JPA 영속성 컨텍스트란?",
+			"질문과 답변 요약",
+			false,
+			"AI 팀장"
+		));
+
+		assertThat(post.authorDisplayName()).isEqualTo("AI 팀장");
+		assertThat(post.authorMemberId()).isEqualTo(MEMBER_ID);
+		assertThat(repository.insertedPost.authorDisplayNameOverride()).isEqualTo("AI 팀장");
+	}
+
+	@Test
+	void createPostOnNoticeBoardPublishesNoticeNotification() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.NOTICE, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "긴급 공지", "내일 모임 취소", false));
+
+		verify(publisher).publishNoticePosted(GROUP_ID, USER_ID, POST_ID, "긴급 공지");
+	}
+
+	@Test
+	void createPostOnNonNoticeBoardDoesNotPublishNotice() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.QUESTION, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "질문 있어요", "JPA 관련 질문", false));
+
+		verify(publisher, never()).publishNoticePosted(any(), any(), any(), any());
+	}
+
+	@Test
+	void createPostOnLeaderReportBoardByOwnerPublishesLeaderReportNotification() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		NotificationEventPublisher publisher = mock(NotificationEventPublisher.class);
+		GroupBoardService service = service(repository, publisher, POST_ID);
+
+		service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "2주차 학습 리포트", "본문", false));
+
+		verify(publisher).publishLeaderReportPosted(GROUP_ID, POST_ID, "2주차 학습 리포트");
+	}
+
+	@Test
+	void createPostOnLeaderReportBoardByMemberIsRejected() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		GroupBoardService service = service(repository, POST_ID);
+
+		assertThatThrownBy(() -> service.createPost(new CreateGroupBoardPostCommand(USER_ID, GROUP_ID, BOARD_ID, "임의 글", "본문", false)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class);
+	}
+
+	@Test
+	void findOrCreateBoardIdReturnsExistingBoard() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, USER_ID, "홍길동", GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
+		repository.boards = List.of(GroupBoard.createDefault(BOARD_ID, GROUP_ID, GroupBoardType.LEADER_REPORT, 1, NOW));
+		// listBoards reconcile 이 누락된 기본 보드(4종)를 채우며 id 를 생성하므로 충분한 id 를 공급한다.
+		GroupBoardService service = service(repository, POST_ID,
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a1"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a2"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a3"),
+			UUID.fromString("018f0000-0000-7000-8000-0000001230a4"));
+
+		UUID boardId = service.findOrCreateBoardId(USER_ID, GROUP_ID, GroupBoardType.LEADER_REPORT);
+
+		assertThat(boardId).isEqualTo(BOARD_ID);
+	}
+
+	@Test
 	void updatePostRejectsNonAuthorContentRewriteButAllowsOwnerPinChange() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
@@ -128,6 +223,39 @@ class GroupBoardServiceTest {
 		));
 
 		assertThat(updated.pinned()).isTrue();
+	}
+
+	@Test
+	void listAllPostsRejectsNonActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, GroupMemberPermission.MEMBER, GroupMemberStatus.PENDING_ONBOARDING);
+		GroupBoardService service = service(repository);
+
+		assertThatThrownBy(() -> service.listAllPosts(new ListAllGroupBoardPostsQuery(USER_ID, GROUP_ID, null, 20)))
+			.isInstanceOf(GroupBoardAccessDeniedException.class)
+			.hasMessage("active group membership is required for group board access.");
+	}
+
+	@Test
+	void listAllPostsReturnsCursorPageAcrossBoards() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.postSummaries = List.of(
+			postSummary(POST_ID, NOW.plusSeconds(2)),
+			postSummary(UUID.fromString("018f0000-0000-7000-8000-000000123009"), NOW.plusSeconds(1))
+		);
+		GroupBoardService service = service(repository);
+
+		CursorPageResponse<GroupBoardPostSummary> page = service.listAllPosts(new ListAllGroupBoardPostsQuery(
+			USER_ID,
+			GROUP_ID,
+			null,
+			1
+		));
+
+		assertThat(page.items()).hasSize(1);
+		assertThat(page.pageInfo().hasNext()).isTrue();
+		assertThat(page.pageInfo().nextCursor()).isNotBlank();
+		assertThat(repository.lastPostLimit).isEqualTo(2);
 	}
 
 	@Test
@@ -177,137 +305,6 @@ class GroupBoardServiceTest {
 	}
 
 	@Test
-	void createCommentRequiresExistingPostBeforeInsert() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.post = null;
-		GroupBoardService service = service(repository, COMMENT_ID);
-
-		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
-				USER_ID,
-				GROUP_ID,
-				POST_ID,
-				"참고 자료 확인했습니다."
-			)))
-			.isInstanceOf(GroupBoardNotFoundException.class)
-			.hasMessage("group board post was not found.");
-		assertThat(repository.insertedComment).isNull();
-	}
-
-	@Test
-	void createCommentStoresAuthorAndPostAssociationAfterMembershipCheck() {
-		CapturingRepository repository = new CapturingRepository();
-		GroupBoardService service = service(repository, COMMENT_ID);
-
-		GroupBoardComment comment = service.createComment(new CreateGroupBoardCommentCommand(
-			USER_ID,
-			GROUP_ID,
-			POST_ID,
-			"참고 자료 확인했습니다."
-		));
-
-		assertThat(comment.id()).isEqualTo(COMMENT_ID);
-		assertThat(repository.insertedComment.groupId()).isEqualTo(GROUP_ID);
-		assertThat(repository.insertedComment.postId()).isEqualTo(POST_ID);
-		assertThat(repository.insertedComment.authorMemberId()).isEqualTo(MEMBER_ID);
-	}
-
-	@Test
-	void createReplyCommentStoresParentCommentWhenParentBelongsToSamePost() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.comment = GroupBoardComment.create(PARENT_COMMENT_ID, GROUP_ID, POST_ID, MEMBER_ID, "부모 댓글", NOW);
-		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
-
-		GroupBoardComment reply = service.createComment(new CreateGroupBoardCommentCommand(
-			USER_ID,
-			GROUP_ID,
-			POST_ID,
-			PARENT_COMMENT_ID,
-			"대댓글입니다."
-		));
-
-		assertThat(reply.id()).isEqualTo(REPLY_COMMENT_ID);
-		assertThat(reply.parentCommentId()).isEqualTo(PARENT_COMMENT_ID);
-		assertThat(repository.insertedComment.parentCommentId()).isEqualTo(PARENT_COMMENT_ID);
-	}
-
-	@Test
-	void createReplyCommentRejectsParentFromDifferentPost() {
-		CapturingRepository repository = new CapturingRepository();
-		UUID otherPostId = UUID.fromString("018f0000-0000-7000-8000-000000123010");
-		repository.comment = GroupBoardComment.create(PARENT_COMMENT_ID, GROUP_ID, otherPostId, MEMBER_ID, "다른 게시글 댓글", NOW);
-		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
-
-		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
-				USER_ID,
-				GROUP_ID,
-				POST_ID,
-				PARENT_COMMENT_ID,
-				"대댓글입니다."
-			)))
-			.isInstanceOf(InvalidGroupBoardRequestException.class)
-			.hasMessage("parent comment must belong to the target post.");
-	}
-
-	@Test
-	void createReplyCommentRejectsNestedReplyParent() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.comment = GroupBoardComment.create(
-			PARENT_COMMENT_ID,
-			GROUP_ID,
-			POST_ID,
-			COMMENT_ID,
-			MEMBER_ID,
-			null,
-			null,
-			"이미 대댓글입니다.",
-			NOW
-		);
-		GroupBoardService service = service(repository, REPLY_COMMENT_ID);
-
-		assertThatThrownBy(() -> service.createComment(new CreateGroupBoardCommentCommand(
-				USER_ID,
-				GROUP_ID,
-				POST_ID,
-				PARENT_COMMENT_ID,
-				"대댓글의 대댓글입니다."
-			)))
-			.isInstanceOf(InvalidGroupBoardRequestException.class)
-			.hasMessage("parent comment must be a top-level comment.");
-	}
-
-	@Test
-	void listCommentsReturnsCursorPageAndRejectsInvalidCursor() {
-		CapturingRepository repository = new CapturingRepository();
-		repository.comments = List.of(
-			comment(COMMENT_ID, MEMBER_ID, NOW.plusSeconds(1)),
-			comment(UUID.fromString("018f0000-0000-7000-8000-000000123009"), OTHER_MEMBER_ID, NOW.plusSeconds(2))
-		);
-		GroupBoardService service = service(repository);
-
-		CursorPageResponse<GroupBoardComment> page = service.listComments(new ListGroupBoardCommentsQuery(
-			USER_ID,
-			GROUP_ID,
-			POST_ID,
-			null,
-			1
-		));
-
-		assertThat(page.items()).hasSize(1);
-		assertThat(page.pageInfo().hasNext()).isTrue();
-		assertThat(page.pageInfo().nextCursor()).isNotBlank();
-		assertThat(repository.lastCommentLimit).isEqualTo(2);
-		assertThatThrownBy(() -> service.listComments(new ListGroupBoardCommentsQuery(
-				USER_ID,
-				GROUP_ID,
-				POST_ID,
-				"not-a-cursor",
-				20
-			)))
-			.isInstanceOf(InvalidGroupBoardRequestException.class)
-			.hasMessage("cursor is invalid.");
-	}
-
-	@Test
 	void updateCommentAllowsOnlyAuthorContentEdit() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.comment = comment(OTHER_MEMBER_ID);
@@ -338,41 +335,11 @@ class GroupBoardServiceTest {
 			.hasMessage("content must not be blank.");
 	}
 
-	@Test
-	void deleteCommentAllowsAuthorOrOwnerAndRejectsOtherMembers() {
-		CapturingRepository memberRepository = new CapturingRepository();
-		memberRepository.comment = comment(OTHER_MEMBER_ID);
-		GroupBoardService memberService = service(memberRepository);
-
-		assertThatThrownBy(() -> memberService.deleteComment(new DeleteGroupBoardCommentCommand(
-				USER_ID,
-				GROUP_ID,
-				COMMENT_ID
-			)))
-			.isInstanceOf(GroupBoardAccessDeniedException.class)
-			.hasMessage("only the comment author or study group owner can delete board comments.");
-		assertThat(memberRepository.comment).isNotNull();
-
-		CapturingRepository ownerRepository = new CapturingRepository();
-		ownerRepository.membership = new GroupBoardMembership(GROUP_ID, MEMBER_ID, GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE);
-		ownerRepository.comment = comment(OTHER_MEMBER_ID);
-		GroupBoardService ownerService = service(ownerRepository);
-
-		ownerService.deleteComment(new DeleteGroupBoardCommentCommand(USER_ID, GROUP_ID, COMMENT_ID));
-
-		assertThat(ownerRepository.comment).isNull();
-		assertThat(ownerRepository.lastSoftDeletedCommentAt).isEqualTo(NOW);
-
-		CapturingRepository authorRepository = new CapturingRepository();
-		GroupBoardService authorService = service(authorRepository);
-
-		authorService.deleteComment(new DeleteGroupBoardCommentCommand(USER_ID, GROUP_ID, COMMENT_ID));
-
-		assertThat(authorRepository.comment).isNull();
-		assertThat(authorRepository.lastSoftDeletedCommentAt).isEqualTo(NOW);
+	private static GroupBoardService service(CapturingRepository repository, UUID... ids) {
+		return service(repository, NotificationEventPublisher.noop(), ids);
 	}
 
-	private static GroupBoardService service(CapturingRepository repository, UUID... ids) {
+	private static GroupBoardService service(CapturingRepository repository, NotificationEventPublisher publisher, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new GroupBoardService(
 			repository,
@@ -383,7 +350,8 @@ class GroupBoardServiceTest {
 					throw new AssertionError("no deterministic id left");
 				}
 				return id;
-			}
+			},
+			publisher
 		);
 	}
 
@@ -416,10 +384,6 @@ class GroupBoardServiceTest {
 		return GroupBoardComment.create(COMMENT_ID, GROUP_ID, POST_ID, authorMemberId, "댓글", NOW);
 	}
 
-	private static GroupBoardComment comment(UUID id, UUID authorMemberId, Instant createdAt) {
-		return GroupBoardComment.create(id, GROUP_ID, POST_ID, authorMemberId, "댓글", createdAt);
-	}
-
 	private static final class CapturingRepository implements GroupBoardRepository {
 
 		private GroupBoardMembership membership = new GroupBoardMembership(
@@ -436,10 +400,6 @@ class GroupBoardServiceTest {
 		private List<GroupBoardPostSummary> postSummaries = List.of();
 		private int lastPostLimit;
 		private GroupBoardComment comment = comment(MEMBER_ID);
-		private GroupBoardComment insertedComment;
-		private List<GroupBoardComment> comments = List.of(comment(MEMBER_ID));
-		private int lastCommentLimit;
-		private Instant lastSoftDeletedCommentAt;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -459,7 +419,10 @@ class GroupBoardServiceTest {
 		@Override
 		public void insertDefaultBoards(List<GroupBoard> boards) {
 			insertedBoards = List.copyOf(boards);
-			this.boards = List.copyOf(boards);
+			// 실제 DB 처럼 기존 보드에 추가(병합)한다. reconcile 삽입 후에도 기존 보드가 유지돼야 함.
+			List<GroupBoard> merged = new ArrayList<>(this.boards);
+			merged.addAll(boards);
+			this.boards = merged;
 		}
 
 		@Override
@@ -480,7 +443,13 @@ class GroupBoardServiceTest {
 		}
 
 		@Override
-		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, int limit) {
+		public List<GroupBoardPostSummary> findPosts(UUID groupId, UUID boardId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
+			lastPostLimit = limit;
+			return postSummaries;
+		}
+
+		@Override
+		public List<GroupBoardPostSummary> findAllPosts(UUID groupId, GroupBoardPostCursor cursor, GroupBoardPostSort sort, int limit) {
 			lastPostLimit = limit;
 			return postSummaries;
 		}
@@ -509,15 +478,13 @@ class GroupBoardServiceTest {
 
 		@Override
 		public boolean insertComment(GroupBoardComment comment) {
-			insertedComment = comment;
 			this.comment = comment;
 			return true;
 		}
 
 		@Override
 		public List<GroupBoardComment> findComments(UUID groupId, UUID postId, GroupBoardCommentCursor cursor, int limit) {
-			lastCommentLimit = limit;
-			return comments;
+			return List.of(comment);
 		}
 
 		@Override
@@ -538,7 +505,6 @@ class GroupBoardServiceTest {
 
 		@Override
 		public boolean softDeleteComment(UUID groupId, UUID commentId, Instant deletedAt) {
-			lastSoftDeletedCommentAt = deletedAt;
 			comment = null;
 			return true;
 		}

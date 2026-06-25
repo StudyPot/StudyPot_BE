@@ -1,4 +1,8 @@
 studypot.rumiclean.com {
-  encode gzip
+  # SSE(실시간 알림 스트림)는 gzip으로 압축하면 버퍼링되어 이벤트가 즉시 전달되지 않는다.
+  # 알림 스트림 경로만 압축에서 제외한다. (reverse_proxy는 text/event-stream을 자동으로 flush함)
+  @notsse not path /api/v1/users/me/notifications/stream
+  encode @notsse gzip
+
   reverse_proxy studypot-api:8080
 }

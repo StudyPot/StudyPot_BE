@@ -129,6 +129,22 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	}
 
 	@Override
+	public Optional<AiConversationMessage> findMessage(UUID messageId) {
+		Objects.requireNonNull(messageId, "messageId must not be null");
+		return queryOne(AiConversationJdbcSql.SELECT_MESSAGE_BY_ID, this::mapMessage, uuid(messageId));
+	}
+
+	@Override
+	public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+		Objects.requireNonNull(messageId, "messageId must not be null");
+		return jdbcTemplate.update(
+			AiConversationJdbcSql.UPDATE_MESSAGE_METADATA,
+			json(metadata, "AI conversation message metadata"),
+			uuid(messageId)
+		) == 1;
+	}
+
+	@Override
 	public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
 		Objects.requireNonNull(conversationId, "conversationId must not be null");
 		Timestamp cursorCreatedAt = cursor == null ? null : timestamp(cursor.createdAt());
@@ -172,8 +188,21 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 					uuid(resolvedWeek.weekId()),
 					uuid(context.memberId())
 				).orElse(Map.of("status", "NOT_AVAILABLE")),
-			findRetrospectivePromptContext(context, resolvedWeek.weekId())
+			findRetrospectivePromptContext(context, resolvedWeek.weekId()),
+			jdbcTemplate.query(
+				AiConversationJdbcSql.SELECT_QUESTION_BOARD_POSTS_FOR_PROMPT,
+				this::mapQuestionBoardPostForPrompt,
+				uuid(context.groupId())
+			)
 		);
+	}
+
+	private Map<String, Object> mapQuestionBoardPostForPrompt(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("postId", requiredUuid(resultSet, "id").toString());
+		result.put("title", requiredString(resultSet, "title"));
+		putText(result, "contentPreview", resultSet.getString("content_preview"));
+		return result;
 	}
 
 	@Override
@@ -340,7 +369,17 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		if (context.summary() != null && !context.summary().isBlank()) {
 			result.put("summary", context.summary());
 		}
+		result.put("memberIsOwner", isOwner(context.memberId()));
 		return result;
+	}
+
+	private boolean isOwner(UUID memberId) {
+		String permission = jdbcTemplate.query(
+			AiConversationJdbcSql.SELECT_MEMBER_PERMISSION,
+			(resultSet, rowNumber) -> resultSet.getString("permission"),
+			uuid(memberId)
+		).stream().findFirst().orElse("MEMBER");
+		return "OWNER".equals(permission);
 	}
 
 	private Map<String, Object> mapStudyGroupPromptContext(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -356,6 +395,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		putText(result, "startsAt", resultSet.getString("starts_at"));
 		putText(result, "endsAt", resultSet.getString("ends_at"));
 		putInstant(result, "startedAt", instant(resultSet.getTimestamp("started_at")));
+		putText(result, "aiPersona", resultSet.getString("ai_persona"));
 		return result;
 	}
 

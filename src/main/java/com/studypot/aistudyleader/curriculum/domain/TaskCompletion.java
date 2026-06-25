@@ -75,9 +75,6 @@ public record TaskCompletion(
 		if (requestedStatus == null) {
 			throw new IllegalArgumentException("status is required.");
 		}
-		if (requestedStatus == TaskCompletionStatus.TODO) {
-			throw new IllegalArgumentException("TODO is not a task completion action.");
-		}
 		if (!canTransitionTo(requestedStatus)) {
 			throw new IllegalArgumentException("task completion cannot transition from " + status + " to " + requestedStatus + ".");
 		}
@@ -86,20 +83,24 @@ public record TaskCompletion(
 		String nextIncompleteReason = normalizeNullableText(requestedIncompleteReason);
 		String nextEvidenceUrl = normalizeNullableText(requestedEvidenceUrl);
 		return switch (requestedStatus) {
-			case TODO -> throw new IllegalArgumentException("TODO is not a task completion action.");
+			// 체크 해제: 완료 기록을 비우고 초기(TODO) 상태로 되돌린다(완료 ↔ 미체크 토글).
+			case TODO -> todo(now);
 			case DONE -> done(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 			case INCOMPLETE -> incomplete(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 			case SKIPPED -> skipped(now, nextCompletionNote, nextIncompleteReason, nextEvidenceUrl);
 		};
 	}
 
+	private TaskCompletion todo(Instant now) {
+		// 모든 완료/미완료 부가정보를 비운다.
+		return copy(TaskCompletionStatus.TODO, null, null, null, null, null, now);
+	}
+
 	private TaskCompletion done(Instant now, String requestedCompletionNote, String requestedIncompleteReason, String requestedEvidenceUrl) {
 		if (requestedIncompleteReason != null) {
 			throw new IllegalArgumentException("incomplete reason is not allowed when status is DONE.");
 		}
-		if (completedAt == null && dueAt != null && now.isAfter(dueAt)) {
-			throw new IllegalArgumentException("task is overdue; submit incomplete reason.");
-		}
+		// 마감 경과 여부와 무관하게 완료를 허용한다(완료/미완료 자유 토글). 이미 완료된 경우 첫 완료 정보를 유지한다.
 		Instant nextCompletedAt = completedAt == null ? now : completedAt;
 		String nextCompletionNote = completedAt == null ? requestedCompletionNote : completionNote;
 		String nextEvidenceUrl = completedAt == null ? requestedEvidenceUrl : evidenceUrl;
@@ -113,18 +114,17 @@ public record TaskCompletion(
 		if (requestedEvidenceUrl != null) {
 			throw new IllegalArgumentException("evidence url is not allowed when status is INCOMPLETE.");
 		}
-		if (requestedIncompleteReason == null && incompleteReason == null) {
-			throw new IllegalArgumentException("incomplete reason is required when status is INCOMPLETE.");
-		}
-		// NOTE(temporary): 마감 전에도 미완료 처리를 허용한다. 추후 마감 경과 시 자동 미완료 전환
-		// 스케줄러를 도입하면 아래 overdue 가드를 다시 살려 사용자의 마감 전 미완료를 차단한다.
-		String nextIncompleteReason = reasonSubmittedAt == null ? requestedIncompleteReason : incompleteReason;
+		// 미완료 사유는 선택값이다. 마감 전/후, 완료 상태에서도 미완료로 자유롭게 전환할 수 있다.
+		String nextIncompleteReason = requestedIncompleteReason != null ? requestedIncompleteReason : incompleteReason;
+		Instant nextReasonSubmittedAt = nextIncompleteReason == null
+			? null
+			: (reasonSubmittedAt == null ? now : reasonSubmittedAt);
 		return copy(
 			TaskCompletionStatus.INCOMPLETE,
 			null,
 			null,
 			nextIncompleteReason,
-			reasonSubmittedAt == null ? now : reasonSubmittedAt,
+			nextReasonSubmittedAt,
 			null,
 			now
 		);
@@ -138,10 +138,8 @@ public record TaskCompletion(
 	}
 
 	private boolean canTransitionTo(TaskCompletionStatus nextStatus) {
-		if (status == nextStatus) {
-			return true;
-		}
-		return status == TaskCompletionStatus.TODO && nextStatus != TaskCompletionStatus.TODO;
+		// 완료/미완료/스킵/TODO(체크 해제) 사이를 자유롭게 전환할 수 있다.
+		return true;
 	}
 
 	private void requireNotBeforeExistingTimestamps(Instant now) {

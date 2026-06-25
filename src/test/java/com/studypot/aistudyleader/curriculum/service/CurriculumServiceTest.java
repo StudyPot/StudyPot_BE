@@ -20,6 +20,8 @@ import com.studypot.aistudyleader.llm.domain.LlmProvider;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityHeatmap;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedAvailabilitySlot;
@@ -92,16 +94,30 @@ class CurriculumServiceTest {
 			.containsEntry("generatedAt", NOW.toString());
 		assertThat(result.weeks()).hasSize(1);
 		assertThat(result.weeks().getFirst().id()).isEqualTo(WEEK_ID);
-		assertThat(result.weeks().getFirst().startsAt()).isEqualTo(Instant.parse("2026-05-11T00:00:00Z"));
-		assertThat(result.weeks().getFirst().endsAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
+		assertThat(result.weeks().getFirst().startsAt()).isEqualTo(Instant.parse("2026-05-10T15:00:00Z"));
+		assertThat(result.weeks().getFirst().endsAt()).isEqualTo(Instant.parse("2026-05-17T14:30:00Z"));
 		assertThat(result.weeks().getFirst().tasks()).hasSize(1);
 		assertThat(result.weeks().getFirst().tasks().getFirst().id()).isEqualTo(TASK_ID);
-		assertThat(result.weeks().getFirst().tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-05-18T00:00:00Z"));
+		assertThat(result.weeks().getFirst().tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-05-17T14:30:00Z"));
 		assertThat(repository.generationRequest.onboardingSummary())
 			.containsEntry("submittedResponseCount", 1);
 		assertThat(repository.generationRequest.sprintWindows())
 			.extracting(CurriculumSprintWindow::weekNumber)
 			.containsExactly(1);
+	}
+
+	@Test
+	void startStudyRejectsWhenNoMembers() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.startContext = ownerStartContext(StudyGroupStatus.READY_TO_START, GroupMemberStatus.ACTIVE);
+		repository.submittedResponses = List.of(submittedResponse());
+		repository.activeOrOnboardingMemberCount = 0;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumStartRejectedException.class)
+			.hasMessage("study group needs at least 1 members to start.");
+		assertThat(repository.savedCurriculum).isNull();
 	}
 
 	@Test
@@ -116,42 +132,32 @@ class CurriculumServiceTest {
 		repository.submittedResponses = List.of(submittedResponse());
 		CurriculumService service = service(
 			repository,
-			generationWithWeeks(3),
+			generationWithWeeks(1),
 			LLM_USAGE_ID,
 			CURRICULUM_ID,
 			WEEK_ID,
-			SECOND_WEEK_ID,
-			THIRD_WEEK_ID,
-			TASK_ID,
-			SECOND_WEEK_TASK_ID,
-			THIRD_WEEK_TASK_ID
+			TASK_ID
 		);
 
 		Curriculum result = service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID));
 
+		// 점진 생성: 시작 시점에는 1주차만 생성·저장되지만, total_weeks 는 전체 계획 주차 수(3주)로 저장된다
+		// (FE 가 잠긴 미래 주차 슬롯을 그릴 수 있도록).
 		assertThat(result.totalWeeks()).isEqualTo(3);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::weekNumber)
-			.containsExactly(1, 2, 3);
+			.containsExactly(1);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::status)
-			.containsExactly(CurriculumWeekStatus.IN_PROGRESS, CurriculumWeekStatus.PENDING, CurriculumWeekStatus.PENDING);
+			.containsExactly(CurriculumWeekStatus.IN_PROGRESS);
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::startsAt)
-			.containsExactly(
-				Instant.parse("2026-06-01T00:00:00Z"),
-				Instant.parse("2026-06-08T00:00:00Z"),
-				Instant.parse("2026-06-15T00:00:00Z")
-			);
+			.containsExactly(Instant.parse("2026-05-31T15:00:00Z"));
 		assertThat(result.weeks())
 			.extracting(CurriculumWeek::endsAt)
-			.containsExactly(
-				Instant.parse("2026-06-08T00:00:00Z"),
-				Instant.parse("2026-06-15T00:00:00Z"),
-				Instant.parse("2026-06-22T00:00:00Z")
-			);
-		assertThat(result.weeks().get(1).tasks().getFirst().dueAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
-		assertThat(repository.generationRequest.sprintWindows()).hasSize(3);
+			.containsExactly(Instant.parse("2026-06-07T14:30:00Z"));
+		// 생성기에는 1주차 window 만 전달된다(나머지 주차는 리포트 시점에 점진 생성).
+		assertThat(repository.generationRequest.sprintWindows()).hasSize(1);
 	}
 
 	@Test
@@ -164,7 +170,8 @@ class CurriculumServiceTest {
 			LocalDate.parse("2026-06-21")
 		);
 		repository.submittedResponses = List.of(submittedResponse());
-		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID);
+		// 시작 시점에는 1주차 window 만 전달되므로, 생성기가 2주차를 만들면 mismatch 로 거부된다.
+		CurriculumService service = service(repository, generationWithWeeks(2), LLM_USAGE_ID, CURRICULUM_ID);
 
 		assertThatThrownBy(() -> service.startStudy(new StartCurriculumCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumGenerationException.class)
@@ -192,6 +199,38 @@ class CurriculumServiceTest {
 
 		assertThat(notifications.weekStarts)
 			.containsExactly(new WeekStart(GROUP_ID, WEEK_ID, 1, "JPA 기초와 환경 구성"));
+	}
+
+	@Test
+	void countMyWeeklyDoneActivityUsesLast7DayWindowAndDelegates() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.memberDoneActivityCount = 12;
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		int result = service.countMyWeeklyDoneActivity(USER_ID);
+
+		assertThat(result).isEqualTo(12);
+		assertThat(repository.memberDoneActivityUserId).isEqualTo(USER_ID);
+		assertThat(repository.memberDoneActivityTo).isEqualTo(NOW);
+		assertThat(repository.memberDoneActivityFrom).isEqualTo(NOW.minus(java.time.Duration.ofDays(7)));
+	}
+
+	@Test
+	void progressPercentByGroupIdsComputesAndSkipsGroupsWithoutWeeks() {
+		CapturingRepository repository = new CapturingRepository();
+		UUID groupWithProgress = UUID.fromString("018f0000-0000-7000-8000-0000000040f1");
+		UUID groupWithoutWeeks = UUID.fromString("018f0000-0000-7000-8000-0000000040f2");
+		repository.weekProgress = List.of(
+			new com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress(groupWithProgress, 2, 1, 4),
+			new com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress(groupWithoutWeeks, 0, 0, 0)
+		);
+		CurriculumService service = new CurriculumService(repository, () -> null, CLOCK, () -> CURRICULUM_ID);
+
+		var result = service.progressPercentByGroupIds(List.of(groupWithProgress, groupWithoutWeeks));
+
+		// (2 + 1*0.5) / 4 = 0.625 -> 63
+		assertThat(result).containsEntry(groupWithProgress, 63);
+		assertThat(result).doesNotContainKey(groupWithoutWeeks);
 	}
 
 	@Test
@@ -348,7 +387,8 @@ class CurriculumServiceTest {
 			NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
 
@@ -415,6 +455,52 @@ class CurriculumServiceTest {
 		assertThatThrownBy(() -> service.getCurrentWeek(new GetCurrentWeekQuery(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumNotFoundException.class)
 			.hasMessage("current curriculum week was not found.");
+	}
+
+	@Test
+	void getWeekReturnsWeekForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.currentWeek = currentWeek();
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		CurriculumWeek result = service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID));
+
+		assertThat(result).isSameAs(repository.currentWeek);
+	}
+
+	@Test
+	void getWeekRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
+	void getWeekRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.weekExists = true;
+		repository.weekReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read the week.");
+	}
+
+	@Test
+	void getWeekRejectsWhenWeekNotFound() {
+		CapturingRepository repository = new CapturingRepository();
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getWeek(new GetWeekByIdQuery(USER_ID, WEEK_ID)))
+			.isInstanceOf(CurriculumNotFoundException.class)
+			.hasMessage("curriculum week was not found.");
 	}
 
 	@Test
@@ -495,6 +581,7 @@ class CurriculumServiceTest {
 			"JPA 기초와 환경 구성",
 			"공통 환경을 만들고 핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -567,6 +654,77 @@ class CurriculumServiceTest {
 		assertThatThrownBy(() -> service.getCurrentLearningActivity(new GetLearningActivityQuery(USER_ID, GROUP_ID)))
 			.isInstanceOf(CurriculumAccessDeniedException.class)
 			.hasMessage("active group membership is required to read current learning activity.");
+	}
+
+	@Test
+	void getGroupActivityHeatmapBuildsDailyCountsPerMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		UUID idleMemberId = UUID.fromString("018f0000-0000-7000-8000-0000000040aa");
+		UUID idleUserId = UUID.fromString("018f0000-0000-7000-8000-0000000040bb");
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(OWNER_MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1),
+			new GroupActivityCount(idleMemberId, idleUserId, null, "minsu", null, 0)
+		);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		GroupActivityHeatmap result = service.getGroupActivityHeatmap(new GetGroupActivityHeatmapQuery(USER_ID, GROUP_ID, 28));
+
+		// 히트맵 범위는 커리큘럼 기간(context.startsAt~endsAt = 2026-05-11~2026-05-17, 7일)이다.
+		assertThat(result.startDate()).isEqualTo(LocalDate.parse("2026-05-11"));
+		assertThat(result.endDate()).isEqualTo(LocalDate.parse("2026-05-17"));
+		assertThat(result.days()).hasSize(7);
+		assertThat(result.members()).hasSize(2);
+		GroupActivityHeatmap.MemberActivity owner = result.members().get(0);
+		assertThat(owner.userId()).isEqualTo(USER_ID);
+		assertThat(owner.counts()).hasSize(7);
+		assertThat(owner.counts().get(0)).isEqualTo(3);
+		assertThat(owner.counts().get(1)).isEqualTo(1);
+		assertThat(owner.counts().stream().mapToInt(Integer::intValue).sum()).isEqualTo(4);
+		GroupActivityHeatmap.MemberActivity idle = result.members().get(1);
+		assertThat(idle.userId()).isEqualTo(idleUserId);
+		assertThat(idle.counts().stream().mapToInt(Integer::intValue).sum()).isZero();
+		assertThat(repository.activityRequestedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.activityFrom).isEqualTo(LocalDate.parse("2026-05-11").atStartOfDay(ZoneOffset.UTC).toInstant());
+		assertThat(repository.activityTo).isEqualTo(LocalDate.parse("2026-05-18").atStartOfDay(ZoneOffset.UTC).toInstant());
+	}
+
+	@Test
+	void getGroupActivityHeatmapRejectsPendingMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.PENDING_ONBOARDING);
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.getGroupActivityHeatmap(new GetGroupActivityHeatmapQuery(USER_ID, GROUP_ID, 28)))
+			.isInstanceOf(CurriculumAccessDeniedException.class)
+			.hasMessage("active group membership is required to read group activity.");
+	}
+
+	@Test
+	void listCurriculumWeeksReturnsAllWeeksForActiveMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		repository.readContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeksByGroup = List.of(currentWeek());
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		List<CurriculumWeek> result = service.listCurriculumWeeks(new GetCurrentWeekQuery(USER_ID, GROUP_ID));
+
+		assertThat(result).hasSize(1);
+		assertThat(result.getFirst().id()).isEqualTo(WEEK_ID);
+	}
+
+	@Test
+	void listCurriculumWeeksRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.groupExists = true;
+		CurriculumService service = service(repository, generation(), LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID);
+
+		assertThatThrownBy(() -> service.listCurriculumWeeks(new GetCurrentWeekQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(CurriculumAccessDeniedException.class);
 	}
 
 	@Test
@@ -830,6 +988,47 @@ class CurriculumServiceTest {
 	}
 
 	@Test
+	void completeMyTaskRejectsDoneBeforeWeekStarts() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.weekStartsAt = NOW.plusSeconds(86_400);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"미리 완료",
+			null,
+			null
+		))).isInstanceOf(TaskCompletionUpdateRejectedException.class);
+	}
+
+	@Test
+	void completeMyTaskAllowsIncompleteBeforeWeekStarts() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.taskExists = true;
+		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.READING, NOW.plusSeconds(3600));
+		repository.weekStartsAt = NOW.plusSeconds(86_400);
+		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(60), null, null, null, null);
+		CurriculumService service = service(repository, generation(), COMPLETION_ID);
+
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			"아직 시작 전",
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+	}
+
+	@Test
 	void completeMyTaskStoresIncompleteReasonAfterDueAt() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
@@ -902,7 +1101,7 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void completeMyTaskRejectsChangingTerminalStatus() {
+	void completeMyTaskAllowsTogglingDoneToIncomplete() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -911,16 +1110,19 @@ class CurriculumServiceTest {
 		repository.existingTaskCompletion = completion(TaskCompletionStatus.DONE, NOW.minusSeconds(120), "완료", null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.INCOMPLETE,
-				null,
-				"늦었습니다.",
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("task completion cannot transition from DONE to INCOMPLETE.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			"늦었습니다.",
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+		assertThat(result.incompleteReason()).isEqualTo("늦었습니다.");
+		assertThat(result.completedAt()).isNull();
+		assertThat(repository.updatedTaskCompletion).isSameAs(result);
 	}
 
 	@Test
@@ -959,7 +1161,7 @@ class CurriculumServiceTest {
 	}
 
 	@Test
-	void completeMyTaskRejectsDoneAfterDueAt() {
+	void completeMyTaskAllowsDoneAfterDueAt() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -967,20 +1169,21 @@ class CurriculumServiceTest {
 		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.DONE,
-				"늦은 완료",
-				null,
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("task is overdue; submit incomplete reason.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.DONE,
+			"늦은 완료",
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.DONE);
+		assertThat(result.completedAt()).isEqualTo(NOW);
 	}
 
 	@Test
-	void completeMyTaskRejectsIncompleteWithoutReason() {
+	void completeMyTaskAllowsIncompleteWithoutReason() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.taskExists = true;
 		repository.taskReadContext = memberStartContext(StudyGroupStatus.ACTIVE, GroupMemberStatus.ACTIVE);
@@ -988,16 +1191,17 @@ class CurriculumServiceTest {
 		repository.existingProgress = progress(MemberWeekProgressStatus.IN_PROGRESS, NOW.minusSeconds(3600), null, null, null, null);
 		CurriculumService service = service(repository, generation(), COMPLETION_ID);
 
-		assertThatThrownBy(() -> service.completeMyTask(new CompleteTaskCommand(
-				USER_ID,
-				TASK_ID,
-				TaskCompletionStatus.INCOMPLETE,
-				null,
-				null,
-				null
-			)))
-			.isInstanceOf(InvalidTaskCompletionRequestException.class)
-			.hasMessage("incomplete reason is required when status is INCOMPLETE.");
+		TaskCompletion result = service.completeMyTask(new CompleteTaskCommand(
+			USER_ID,
+			TASK_ID,
+			TaskCompletionStatus.INCOMPLETE,
+			null,
+			null,
+			null
+		));
+
+		assertThat(result.status()).isEqualTo(TaskCompletionStatus.INCOMPLETE);
+		assertThat(result.incompleteReason()).isNull();
 	}
 
 	@Test
@@ -1179,6 +1383,7 @@ class CurriculumServiceTest {
 			"JPA 기초와 환경 구성",
 			"공통 환경을 만들고 핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(Map.of("title", "공식 문서", "url", "https://spring.io/projects/spring-boot")),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -1297,6 +1502,7 @@ class CurriculumServiceTest {
 				weekNumber,
 				weekNumber == 1 ? "JPA 기초와 환경 구성" : "JPA 심화 " + weekNumber + "주차",
 				weekNumber == 1 ? "공통 환경을 만들고 핵심 개념을 맞춥니다." : "주차별 목표를 완성합니다.",
+				java.util.List.of(),
 				List.of("Entity 매핑 이해"),
 				List.of(Map.of("title", "공식 문서", "url", "https://spring.io/projects/spring-boot")),
 				List.of(new CurriculumTaskPlan(
@@ -1341,6 +1547,12 @@ class CurriculumServiceTest {
 		private TaskCompletion existingTaskCompletion;
 		private TaskCompletion raceTaskCompletion;
 		private List<TaskCompletion> taskCompletions = List.of();
+		private List<GroupActivityCount> groupActivityCounts = List.of();
+		private int activeOrOnboardingMemberCount = 2;
+		private List<CurriculumWeek> weeksByGroup = List.of();
+		private UUID activityRequestedGroupId;
+		private java.time.Instant activityFrom;
+		private java.time.Instant activityTo;
 		private Instant weekDueAt = WEEK_DUE_AT;
 		private boolean insertSucceeds = true;
 		private boolean insertTaskCompletionSucceeds = true;
@@ -1400,7 +1612,17 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId) {
+			return Optional.ofNullable(activeCurriculum);
+		}
+
+		@Override
 		public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
+			return Optional.ofNullable(currentWeek);
+		}
+
+		@Override
+		public Optional<CurriculumWeek> findWeekById(UUID weekId) {
 			return Optional.ofNullable(currentWeek);
 		}
 
@@ -1414,6 +1636,34 @@ class CurriculumServiceTest {
 			return Optional.ofNullable(weekReadContext);
 		}
 
+		private com.studypot.aistudyleader.curriculum.domain.NextWeekTarget nextWeekTarget;
+		private String latestWeeklyReportBody;
+		private CurriculumWeek replacedWeek;
+		private List<WeeklyTask> replacedTasks;
+		private java.util.List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> replacedQuestions;
+
+		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+			return Optional.ofNullable(nextWeekTarget);
+		}
+
+		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, java.time.Instant now) {
+			return Optional.ofNullable(nextWeekTarget);
+		}
+
+		@Override
+		public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+			return Optional.ofNullable(latestWeeklyReportBody);
+		}
+
+		@Override
+		public CurriculumWeek replaceNextWeekTasks(UUID weekId, List<WeeklyTask> tasks, java.util.List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions, Instant now) {
+			this.replacedTasks = tasks;
+			this.replacedQuestions = retrospectiveQuestions;
+			return replacedWeek;
+		}
+
 		@Override
 		public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
 			return Optional.ofNullable(taskReadContext);
@@ -1425,6 +1675,32 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public void insertNextWeek(com.studypot.aistudyleader.curriculum.domain.CurriculumWeek week) {
+		}
+
+		private WeeklyTask insertedWeeklyTask;
+
+		@Override
+		public void insertWeeklyTask(WeeklyTask task) {
+			insertedWeeklyTask = task;
+		}
+
+		@Override
+		public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
+			return List.of();
+		}
+
+		@Override
+		public List<String> findCompletedRetrospectiveAdjustments(UUID weekId) {
+			return List.of();
+		}
+
+		@Override
+		public List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since) {
+			return List.of();
+		}
+
+		@Override
 		public boolean existsWeeklyTask(UUID taskId) {
 			return taskExists;
 		}
@@ -1432,6 +1708,13 @@ class CurriculumServiceTest {
 		@Override
 		public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
 			return Optional.ofNullable(weeklyTask);
+		}
+
+		private Instant weekStartsAt;
+
+		@Override
+		public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+			return Optional.ofNullable(weekStartsAt);
 		}
 
 		@Override
@@ -1473,6 +1756,50 @@ class CurriculumServiceTest {
 		}
 
 		@Override
+		public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			this.activityRequestedGroupId = groupId;
+			this.activityFrom = fromInclusive;
+			this.activityTo = toExclusive;
+			return groupActivityCounts;
+		}
+
+		@Override
+		public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public int countActiveOrOnboardingMembers(UUID groupId) {
+			return activeOrOnboardingMemberCount;
+		}
+
+		private int memberDoneActivityCount;
+		private UUID memberDoneActivityUserId;
+		private java.time.Instant memberDoneActivityFrom;
+		private java.time.Instant memberDoneActivityTo;
+
+		@Override
+		public int countMemberDoneActivity(UUID userId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			this.memberDoneActivityUserId = userId;
+			this.memberDoneActivityFrom = fromInclusive;
+			this.memberDoneActivityTo = toExclusive;
+			return memberDoneActivityCount;
+		}
+
+		private java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> weekProgress = java.util.List.of();
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> findWeekProgressByGroupIds(
+			java.util.Collection<UUID> groupIds) {
+			return weekProgress;
+		}
+
+		@Override
+		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+			return weeksByGroup;
+		}
+
+		@Override
 		public boolean insertTaskCompletion(TaskCompletion completion) {
 			if (!insertTaskCompletionSucceeds) {
 				existingTaskCompletion = raceTaskCompletion;
@@ -1497,6 +1824,42 @@ class CurriculumServiceTest {
 	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
 
 		private final List<WeekStart> weekStarts = new ArrayList<>();
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
 
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {

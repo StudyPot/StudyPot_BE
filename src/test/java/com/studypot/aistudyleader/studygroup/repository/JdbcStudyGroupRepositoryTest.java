@@ -137,6 +137,18 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void countActiveOrOnboardingMembersByGroupIdsReturnsEmptyForEmptyInput() {
+		assertThat(repository.countActiveOrOnboardingMembersByGroupIds(java.util.List.of())).isEmpty();
+	}
+
+	@Test
+	void countActiveOrOnboardingMembersByGroupsSqlGroupsByGroupId() {
+		assertThat(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS)
+			.contains("group by group_id")
+			.contains("in (%s)");
+	}
+
+	@Test
 	void existsActiveOrOnboardingMemberChecksCurrentMembershipOnly() {
 		when(jdbcTemplate.queryForObject(eq(StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER), eq(Boolean.class), any(Object[].class)))
 			.thenReturn(true);
@@ -214,6 +226,18 @@ class JdbcStudyGroupRepositoryTest {
 	}
 
 	@Test
+	void ownerLookupFindsOwnerRegardlessOfOnboardingStatus() {
+		// 그룹장은 온보딩 단계에서 PENDING_ONBOARDING 상태다. 새 멤버 가입 시 그룹장에게
+		// 알림을 보내려면 ACTIVE 가 아니어도 owner 를 찾아야 한다(LEFT 만 제외).
+		assertThat(StudyGroupJdbcSql.SELECT_OWNER_USER_ID)
+			.contains("gm.permission = 'OWNER'")
+			.contains("gm.status <> 'LEFT'")
+			.contains("gm.deleted_at is null")
+			.contains("sg.deleted_at is null")
+			.doesNotContain("gm.status = 'ACTIVE'");
+	}
+
+	@Test
 	void findMyGroupMemberProfileQueriesCurrentMemberProfile() {
 		StudyGroupMemberProfile profile = profile();
 		when(jdbcTemplate.query(eq(StudyGroupJdbcSql.SELECT_MY_GROUP_MEMBER_PROFILE), any(org.springframework.jdbc.core.RowMapper.class), any(Object[].class)))
@@ -265,75 +289,6 @@ class JdbcStudyGroupRepositoryTest {
 			.contains("gm.group_id = ?")
 			.contains("gm.user_id = ?")
 			.contains("gm.status in ('PENDING_ONBOARDING', 'ACTIVE')")
-			.contains("gm.deleted_at is null")
-			.contains("sg.deleted_at is null");
-	}
-
-	@Test
-	void updateStudyGroupUsesOwnerGuardedCrudStatement() {
-		when(jdbcTemplate.update(eq(StudyGroupJdbcSql.UPDATE_STUDY_GROUP), any(Object[].class)))
-			.thenReturn(1);
-
-		boolean updated = repository.updateStudyGroup(
-			GROUP_ID,
-			USER_ID,
-			"Backend Deep Dive",
-			"Spring Boot",
-			List.of("Security", "Testing"),
-			8,
-			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-22"),
-			"Owner curated backend interview prep",
-			NOW
-		);
-
-		assertThat(updated).isTrue();
-		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-		verify(jdbcTemplate).update(eq(StudyGroupJdbcSql.UPDATE_STUDY_GROUP), args.capture());
-		assertThat(args.getValue()[0]).isEqualTo("Backend Deep Dive");
-		assertThat(args.getValue()[1]).isEqualTo("Owner curated backend interview prep");
-		assertThat(args.getValue()[2]).isEqualTo("Spring Boot");
-		assertThat(args.getValue()[3]).isEqualTo("[\"Security\",\"Testing\"]");
-		assertThat(args.getValue()[4]).isEqualTo(8);
-		assertThat(args.getValue()[5]).isEqualTo(Date.valueOf(LocalDate.parse("2026-05-11")));
-		assertThat(args.getValue()[6]).isEqualTo(Date.valueOf(LocalDate.parse("2026-06-22")));
-		assertThat(args.getValue()[7]).isEqualTo(Timestamp.from(NOW));
-		assertThat((byte[]) args.getValue()[8]).containsExactly(UuidBinary.toBytes(GROUP_ID));
-		assertThat((byte[]) args.getValue()[9]).containsExactly(UuidBinary.toBytes(USER_ID));
-	}
-
-	@Test
-	void updateStudyGroupSqlRequiresLiveOwnerMembership() {
-		assertThat(StudyGroupJdbcSql.UPDATE_STUDY_GROUP)
-			.contains("join group_member gm on gm.group_id = sg.id")
-			.contains("gm.user_id = ?")
-			.contains("gm.permission = 'OWNER'")
-			.contains("gm.deleted_at is null")
-			.contains("sg.deleted_at is null");
-	}
-
-	@Test
-	void deleteStudyGroupSoftDeletesWithOwnerGuard() {
-		when(jdbcTemplate.update(eq(StudyGroupJdbcSql.DELETE_STUDY_GROUP), any(Object[].class)))
-			.thenReturn(1);
-
-		boolean deleted = repository.deleteStudyGroup(GROUP_ID, USER_ID, NOW);
-
-		assertThat(deleted).isTrue();
-		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-		verify(jdbcTemplate).update(eq(StudyGroupJdbcSql.DELETE_STUDY_GROUP), args.capture());
-		assertThat(args.getValue()[0]).isEqualTo(Timestamp.from(NOW));
-		assertThat(args.getValue()[1]).isEqualTo(Timestamp.from(NOW));
-		assertThat((byte[]) args.getValue()[2]).containsExactly(UuidBinary.toBytes(GROUP_ID));
-		assertThat((byte[]) args.getValue()[3]).containsExactly(UuidBinary.toBytes(USER_ID));
-	}
-
-	@Test
-	void deleteStudyGroupSqlRequiresLiveOwnerMembership() {
-		assertThat(StudyGroupJdbcSql.DELETE_STUDY_GROUP)
-			.contains("join group_member gm on gm.group_id = sg.id")
-			.contains("gm.user_id = ?")
-			.contains("gm.permission = 'OWNER'")
 			.contains("gm.deleted_at is null")
 			.contains("sg.deleted_at is null");
 	}

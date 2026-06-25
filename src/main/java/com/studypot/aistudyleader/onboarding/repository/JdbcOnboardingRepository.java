@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
@@ -120,16 +121,81 @@ class JdbcOnboardingRepository implements OnboardingRepository {
 	}
 
 	@Override
-	public boolean markStudyGroupReadyToStartIfOwnerOnboardingComplete(UUID groupId, UUID memberId, Instant readyAt) {
+	public boolean markStudyGroupReadyToStart(UUID groupId, Instant readyAt) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
-		Objects.requireNonNull(memberId, "memberId must not be null");
 		Objects.requireNonNull(readyAt, "readyAt must not be null");
 		return jdbcTemplate.update(
 			OnboardingJdbcSql.MARK_STUDY_GROUP_READY_TO_START,
 			timestamp(readyAt),
-			uuid(groupId),
-			uuid(memberId)
+			uuid(groupId)
 		) > 0;
+	}
+
+	@Override
+	public List<GroupMemberOnboarding> findGroupOnboardings(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		List<GroupMemberOnboarding> rows = jdbcTemplate.query(
+			OnboardingJdbcSql.SELECT_RESPONSES_BY_GROUP,
+			(resultSet, rowNumber) -> {
+				GroupOnboardingResponse response = resultSet.getBytes("id") == null ? null : mapResponse(resultSet, rowNumber);
+				java.sql.Timestamp joinedAt = resultSet.getTimestamp("member_joined_at");
+				return new GroupMemberOnboarding(
+					UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+					resultSet.getString("member_nickname"),
+					GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+					com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission.valueOf(resultSet.getString("member_permission")),
+					joinedAt == null ? null : joinedAt.toInstant(),
+					response
+				);
+			},
+			uuid(groupId)
+		);
+		return rows.stream()
+			.map(row -> row.response() == null
+				? row
+				: new GroupMemberOnboarding(
+					row.memberId(),
+					row.memberNickname(),
+					row.memberStatus(),
+					row.permission(),
+					row.joinedAt(),
+					row.response().withAvailabilitySlots(findAvailabilitySlots(row.response().id()))
+				))
+			.toList();
+	}
+
+	@Override
+	public List<UUID> findOtherMemberUserIds(UUID groupId, UUID excludeMemberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(excludeMemberId, "excludeMemberId must not be null");
+		return jdbcTemplate.query(
+			OnboardingJdbcSql.SELECT_OTHER_MEMBER_USER_IDS,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			uuid(groupId),
+			uuid(excludeMemberId)
+		);
+	}
+
+	@Override
+	public Optional<UUID> findOwnerUserId(UUID groupId, UUID excludeMemberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(excludeMemberId, "excludeMemberId must not be null");
+		return queryOne(
+			OnboardingJdbcSql.SELECT_OWNER_USER_ID_EXCLUDING_MEMBER,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			uuid(groupId),
+			uuid(excludeMemberId)
+		);
+	}
+
+	@Override
+	public Optional<UUID> findOwnerUserIdWhenAllOnboarded(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(
+			OnboardingJdbcSql.SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			uuid(groupId)
+		);
 	}
 
 	private OnboardingMemberContext mapMemberContext(ResultSet resultSet, int rowNumber) throws SQLException {

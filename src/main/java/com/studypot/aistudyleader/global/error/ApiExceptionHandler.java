@@ -2,6 +2,9 @@ package com.studypot.aistudyleader.global.error;
 
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
 import com.studypot.aistudyleader.auth.service.AuthServiceUnavailableException;
+import com.studypot.aistudyleader.bookmark.repository.BookmarkPersistenceException;
+import com.studypot.aistudyleader.bookmark.service.BookmarkGroupNotFoundException;
+import com.studypot.aistudyleader.bookmark.service.BookmarkServiceUnavailableException;
 import com.studypot.aistudyleader.auth.service.InvalidAuthRequestException;
 import com.studypot.aistudyleader.auth.service.OAuthLoginRejectedException;
 import com.studypot.aistudyleader.auth.service.RefreshTokenRejectedException;
@@ -39,14 +42,17 @@ import com.studypot.aistudyleader.onboarding.service.OnboardingMembershipRequire
 import com.studypot.aistudyleader.onboarding.service.OnboardingResponseNotFoundException;
 import com.studypot.aistudyleader.onboarding.service.OnboardingServiceUnavailableException;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitExceededException;
+import com.studypot.aistudyleader.review.repository.ReviewPersistenceException;
+import com.studypot.aistudyleader.review.service.InvalidReviewRequestException;
+import com.studypot.aistudyleader.review.service.ReviewAccessDeniedException;
+import com.studypot.aistudyleader.review.service.ReviewMutationRejectedException;
+import com.studypot.aistudyleader.review.service.ReviewNotFoundException;
+import com.studypot.aistudyleader.review.service.ReviewServiceUnavailableException;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectivePersistenceException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveAccessDeniedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveMutationRejectedException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveNotFoundException;
 import com.studypot.aistudyleader.retrospective.service.RetrospectiveServiceUnavailableException;
-import com.studypot.aistudyleader.review.DuplicateReviewException;
-import com.studypot.aistudyleader.review.ReviewAuthorMismatchException;
-import com.studypot.aistudyleader.review.ReviewNotFoundException;
 import com.studypot.aistudyleader.studygroup.service.InvalidStudyGroupMemberProfileRequestException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
@@ -130,6 +136,15 @@ public class ApiExceptionHandler {
 			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
 
+	@ExceptionHandler(com.studypot.aistudyleader.retrospective.service.InvalidRetrospectiveAnswerException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidRetrospectiveAnswer(
+		com.studypot.aistudyleader.retrospective.service.InvalidRetrospectiveAnswerException exception
+	) {
+		var fieldErrors = List.of(new FieldErrorResponse("answers", messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
 	@ExceptionHandler(RefreshTokenRejectedException.class)
 	public ResponseEntity<ProblemDetail> handleRefreshTokenRejected(RefreshTokenRejectedException exception) {
 		ProblemDetail problemDetail = problemDetailFactory.unauthorized(messageOrDefault(exception.getMessage()));
@@ -189,7 +204,13 @@ public class ApiExceptionHandler {
 		LlmUsageServiceUnavailableException.class,
 		LlmUsagePersistenceException.class,
 		NotificationServiceUnavailableException.class,
-		NotificationPersistenceException.class
+		NotificationPersistenceException.class,
+		ReviewServiceUnavailableException.class,
+		ReviewPersistenceException.class,
+		BookmarkServiceUnavailableException.class,
+		BookmarkPersistenceException.class,
+		com.studypot.aistudyleader.follow.service.FollowServiceUnavailableException.class,
+		com.studypot.aistudyleader.follow.repository.FollowPersistenceException.class
 	})
 	public ResponseEntity<ProblemDetail> handleRetrospectiveAndAiServiceUnavailable(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -206,15 +227,24 @@ public class ApiExceptionHandler {
 		GroupRuleGroupNotFoundException.class,
 		GroupRuleNotFoundException.class,
 		RetrospectiveNotFoundException.class,
-		ReviewNotFoundException.class,
 		AiConversationNotFoundException.class,
 		LlmUsageGroupNotFoundException.class,
 		NotificationGroupNotFoundException.class,
-		NotificationNotFoundException.class
+		NotificationNotFoundException.class,
+		ReviewNotFoundException.class,
+		BookmarkGroupNotFoundException.class,
+		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 			.body(problemDetailFactory.notFound(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(com.studypot.aistudyleader.follow.service.FollowSelfNotAllowedException.class)
+	public ResponseEntity<ProblemDetail> handleFollowSelfNotAllowed(RuntimeException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse("userId", messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
 	}
 
 	@ExceptionHandler({
@@ -224,10 +254,10 @@ public class ApiExceptionHandler {
 		GroupBoardAccessDeniedException.class,
 		GroupRuleAccessDeniedException.class,
 		RetrospectiveAccessDeniedException.class,
-		ReviewAuthorMismatchException.class,
 		AiConversationAccessDeniedException.class,
 		LlmUsageAccessDeniedException.class,
-		NotificationAccessDeniedException.class
+		NotificationAccessDeniedException.class,
+		ReviewAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -243,9 +273,9 @@ public class ApiExceptionHandler {
 		GroupRuleMutationRejectedException.class,
 		OnboardingAlreadySubmittedException.class,
 		RetrospectiveMutationRejectedException.class,
-		DuplicateReviewException.class,
 		AiConversationMutationRejectedException.class,
-		NotificationMutationRejectedException.class
+		NotificationMutationRejectedException.class,
+		ReviewMutationRejectedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -306,6 +336,13 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(InvalidAiConversationRequestException.class)
 	public ResponseEntity<ProblemDetail> handleInvalidAiConversationRequest(InvalidAiConversationRequestException exception) {
+		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+			.body(problemDetailFactory.validationProblem(fieldErrors));
+	}
+
+	@ExceptionHandler(InvalidReviewRequestException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidReviewRequest(InvalidReviewRequestException exception) {
 		var fieldErrors = List.of(new FieldErrorResponse(exception.field(), messageOrDefault(exception.getMessage())));
 		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
 			.body(problemDetailFactory.validationProblem(fieldErrors));

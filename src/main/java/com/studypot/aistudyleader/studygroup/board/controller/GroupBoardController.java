@@ -16,6 +16,7 @@ import com.studypot.aistudyleader.studygroup.board.service.GetGroupBoardPostQuer
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardService;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.board.service.ListGroupBoardCommentsQuery;
+import com.studypot.aistudyleader.studygroup.board.service.ListAllGroupBoardPostsQuery;
 import com.studypot.aistudyleader.studygroup.board.service.ListGroupBoardPostsQuery;
 import com.studypot.aistudyleader.studygroup.board.service.ListGroupBoardsQuery;
 import com.studypot.aistudyleader.studygroup.board.service.UpdateGroupBoardCommentCommand;
@@ -47,7 +48,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "그룹 게시판", description = "스터디 그룹별 게시판, 게시글, 댓글 CRUD와 목록·상세 조회를 관리하는 API입니다.")
+@Tag(name = "그룹 게시판", description = "스터디 그룹별 기본 게시판, 게시글, 댓글을 관리하는 API입니다.")
 @RestController
 @RequiredArgsConstructor
 class GroupBoardController {
@@ -98,11 +99,50 @@ class GroupBoardController {
 		@PathVariable UUID boardId,
 		@Parameter(description = "다음 페이지 조회용 커서입니다.")
 		@RequestParam(required = false) String cursor,
+		@Parameter(description = "정렬 기준입니다. (createdAt, commentCount) 기본 createdAt.")
+		@RequestParam(required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc) 기본 desc.")
+		@RequestParam(required = false) String order,
 		@Parameter(description = "조회할 게시글 수입니다. 1부터 100까지 허용됩니다.")
 		@RequestParam(defaultValue = "20") int pageSize
 	) {
 		CursorPageResponse<GroupBoardPostSummary> page = service().listPosts(
-			new ListGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, boardId, cursor, pageSize)
+			new ListGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, boardId, cursor, sort, order, pageSize)
+		);
+		return new CursorPageResponse<>(
+			page.items().stream().map(GroupBoardPostSummaryResponse::from).toList(),
+			page.pageInfo()
+		);
+	}
+
+	@Operation(
+		summary = "그룹 게시판 전체 글 조회",
+		description = "활성 그룹 멤버가 그룹의 모든 게시판 글을 고정글 우선, 최신순 커서 페이지로 한 번에 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "그룹 전체 게시글 목록 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "403", description = "대상 그룹의 활성 멤버가 아님"),
+		@ApiResponse(responseCode = "404", description = "대상 그룹을 찾을 수 없음"),
+		@ApiResponse(responseCode = "422", description = "커서 또는 페이지 크기가 올바르지 않음"),
+		@ApiResponse(responseCode = "503", description = "그룹 게시판 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/groups/{groupId}/posts")
+	CursorPageResponse<GroupBoardPostSummaryResponse> listAllPosts(
+		Authentication authentication,
+		@Parameter(description = "게시글을 조회할 스터디 그룹 UUID입니다.", required = true)
+		@PathVariable UUID groupId,
+		@Parameter(description = "다음 페이지 조회용 커서입니다.")
+		@RequestParam(required = false) String cursor,
+		@Parameter(description = "정렬 기준입니다. (createdAt, commentCount) 기본 createdAt.")
+		@RequestParam(required = false) String sort,
+		@Parameter(description = "정렬 방향입니다. (asc, desc) 기본 desc.")
+		@RequestParam(required = false) String order,
+		@Parameter(description = "조회할 게시글 수입니다. 1부터 100까지 허용됩니다.")
+		@RequestParam(defaultValue = "20") int pageSize
+	) {
+		CursorPageResponse<GroupBoardPostSummary> page = service().listAllPosts(
+			new ListAllGroupBoardPostsQuery(authenticatedUserId(authentication), groupId, cursor, sort, order, pageSize)
 		);
 		return new CursorPageResponse<>(
 			page.items().stream().map(GroupBoardPostSummaryResponse::from).toList(),
@@ -380,7 +420,6 @@ class GroupBoardController {
 
 	@Schema(description = "그룹 게시글 댓글 생성 요청입니다.")
 	private record CreateCommentRequest(
-		UUID parentCommentId,
 		@Schema(description = "댓글 내용입니다.", example = "저도 같은 부분이 궁금합니다.")
 		@NotBlank
 		@Size(max = 3000)
@@ -388,7 +427,7 @@ class GroupBoardController {
 	) {
 
 		CreateGroupBoardCommentCommand toCommand(UUID authenticatedUserId, UUID groupId, UUID postId) {
-			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, parentCommentId, content);
+			return new CreateGroupBoardCommentCommand(authenticatedUserId, groupId, postId, content);
 		}
 	}
 
@@ -542,7 +581,6 @@ class GroupBoardController {
 		UUID groupId,
 		@Schema(description = "댓글이 속한 게시글 UUID입니다.")
 		UUID postId,
-		UUID parentCommentId,
 		@Schema(description = "작성자 정보입니다.")
 		GroupBoardAuthorResponse author,
 		@Schema(description = "댓글 내용입니다.")
@@ -558,7 +596,6 @@ class GroupBoardController {
 				comment.id(),
 				comment.groupId(),
 				comment.postId(),
-				comment.parentCommentId(),
 				GroupBoardAuthorResponse.from(comment.authorMemberId(), comment.authorUserId(), comment.authorDisplayName()),
 				comment.content(),
 				comment.createdAt(),

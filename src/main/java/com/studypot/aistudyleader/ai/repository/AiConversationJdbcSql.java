@@ -96,6 +96,18 @@ final class AiConversationJdbcSql {
 		) values (?, ?, ?, ?, ?, ?, ?)
 		""";
 
+	static final String SELECT_MESSAGE_BY_ID = """
+		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
+		from ai_conversation_message m
+		where m.id = ?
+		""";
+
+	static final String UPDATE_MESSAGE_METADATA = """
+		update ai_conversation_message
+		set metadata = ?
+		where id = ?
+		""";
+
 	static final String SELECT_MESSAGES = """
 		select m.id, m.conversation_id, m.llm_usage_id, m.sender_type, m.content, m.metadata, m.created_at
 		from ai_conversation_message m
@@ -113,9 +125,33 @@ final class AiConversationJdbcSql {
 		limit ?
 		""";
 
+	// 3단계: 과제 추가(그룹장 전용) 제안 게이팅용 — 멤버의 그룹 권한 조회.
+	static final String SELECT_MEMBER_PERMISSION = """
+		select permission
+		from group_member
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	// 4단계: 기존 유사 질문 안내용 — 그룹 QUESTION 게시판의 최근 글(제목/본문요약)을 컨텍스트로 제공.
+	static final String SELECT_QUESTION_BOARD_POSTS_FOR_PROMPT = """
+		select p.id, p.title,
+		       case
+		         when char_length(p.content) > 200 then concat(left(p.content, 200), '...')
+		         else p.content
+		       end as content_preview
+		from group_board_post p
+		join group_board b on b.id = p.board_id and b.board_type = 'QUESTION' and b.deleted_at is null
+		where p.group_id = ?
+		  and p.deleted_at is null
+		  and p.status = 'PUBLISHED'
+		order by p.created_at desc, p.id desc
+		limit 30
+		""";
+
 	static final String SELECT_STUDY_GROUP_PROMPT_CONTEXT = """
 		select sg.id, sg.name, sg.description, sg.topic, sg.detail_keywords, sg.level,
-		       sg.status, sg.starts_at, sg.ends_at, sg.started_at
+		       sg.status, sg.starts_at, sg.ends_at, sg.started_at, sg.ai_persona
 		from study_group sg
 		where sg.id = ?
 		  and sg.deleted_at is null

@@ -10,7 +10,13 @@ import com.studypot.aistudyleader.retrospective.domain.RetrospectiveAiContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveMembershipContext;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveProgress;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTaskSummary;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTriggerType;
+import com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
+import com.studypot.aistudyleader.report.service.WeeklyReportTrigger;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +41,8 @@ public class RetrospectiveService {
 	private final RetrospectiveFeedbackGenerator feedbackGenerator;
 	private final LlmUsageRecorder usageRecorder;
 	private final NotificationEventPublisher notificationEvents;
+	// 전원 회고 완료 시 즉시 주차 리포트를 만드는 트리거(선택적 주입). 미설정 시 동작하지 않는다.
+	private ObjectProvider<WeeklyReportTrigger> weeklyReportTrigger;
 
 	public RetrospectiveService(RetrospectiveRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null, NotificationEventPublisher.noop());
@@ -76,6 +84,11 @@ public class RetrospectiveService {
 		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
+	/** 전원 회고 완료 시 즉시 주차 리포트를 만드는 트리거를 주입한다(설정에서 호출). */
+	public void setWeeklyReportTrigger(ObjectProvider<WeeklyReportTrigger> weeklyReportTrigger) {
+		this.weeklyReportTrigger = weeklyReportTrigger;
+	}
+
 	@Transactional
 	public Retrospective requestMyRetrospective(RequestRetrospectiveCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
@@ -100,6 +113,112 @@ public class RetrospectiveService {
 		return repository.findRetrospective(progress.id(), query.weekId(), context.memberId())
 			.orElseThrow(() -> new RetrospectiveNotFoundException("retrospective was not found."));
 	}
+
+	@Transactional(readOnly = true)
+	public List<Retrospective> listMyRetrospectives(ListMyRetrospectivesQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		RetrospectiveMembershipContext context = repository.findMembershipByGroupId(query.groupId(), query.authenticatedUserId())
+			.orElseThrow(() -> new RetrospectiveAccessDeniedException("authenticated user is not a member of this study group."));
+		if (!context.hasActiveMembership()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to read retrospectives.");
+		}
+		return repository.findMyRetrospectivesByGroup(query.groupId(), context.memberId());
+	}
+
+	@Transactional(readOnly = true)
+	public List<RetrospectiveWeekOverview> getRetrospectiveOverview(GetRetrospectiveOverviewQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		RetrospectiveMembershipContext context = repository.findMembershipByGroupId(query.groupId(), query.authenticatedUserId())
+			.orElseThrow(() -> new RetrospectiveAccessDeniedException("authenticated user is not a member of this study group."));
+		if (!context.hasActiveMembership()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to read retrospectives.");
+		}
+		return repository.findRetrospectiveOverview(query.groupId(), context.memberId());
+	}
+
+	/**
+	 * 멤버가 회고 설문에 답한 결과를 저장한다(AI 피드백 없음). 그 주차 필수 TODO 를 모두 완료해야만 가능(잠금).
+	 */
+	@Transactional
+	public Retrospective submitMyRetrospective(SubmitRetrospectiveCommand command) {
+		Objects.requireNonNull(command, "command must not be null");
+		RetrospectiveMembershipContext context = requireMembership(command.weekId(), command.authenticatedUserId());
+		if (!context.canRequestRetrospective()) {
+			throw new RetrospectiveAccessDeniedException("active group membership is required to submit retrospective.");
+		}
+		RetrospectiveProgress progress = requireProgress(command.weekId(), context.memberId());
+		// 작성 가능 = 리포트 미게시 AND (주차 종료 OR 필수 TODO 전부 완료). 리포트 게시 후에는 닫힌다.
+		if (!repository.isRetrospectiveWritable(command.weekId(), context.memberId())) {
+			throw new RetrospectiveMutationRejectedException("retrospective is locked: complete required tasks, or the week has not ended, or the weekly report is already posted.");
+		}
+		Instant now = clock.instant();
+		Map<String, Object> inputSummary = Map.of(
+			"answers", command.answers(),
+			"submittedAt", now.toString()
+		);
+		Retrospective result = repository.findRetrospective(progress.id(), command.weekId(), context.memberId())
+			.map(existing -> {
+				Retrospective updated = existing.withAnswers(inputSummary, now);
+				if (!repository.updateRetrospectiveAnswers(updated)) {
+					throw new RetrospectiveMutationRejectedException("retrospective answers could not be updated.");
+				}
+				return updated;
+			})
+			.orElseGet(() -> {
+				Retrospective created = Retrospective.answered(
+					idGenerator.get(),
+					progress.id(),
+					command.weekId(),
+					context.memberId(),
+					RetrospectiveTriggerType.MANUAL,
+					inputSummary,
+					now
+				);
+				if (!repository.insertRetrospective(created)) {
+					throw new RetrospectiveMutationRejectedException("retrospective answers could not be saved.");
+				}
+				return created;
+			});
+		// 전원(활성 멤버 전부)이 이 주차 회고를 마쳤으면, 주차가 끝나지 않았어도 즉시 주차 리포트를 만든다(다음 주차는 생성하지 않음).
+		triggerWeeklyReportIfAllRetrospectivesDone(command.weekId());
+		return result;
+	}
+
+	private void triggerWeeklyReportIfAllRetrospectivesDone(UUID weekId) {
+		WeeklyReportTrigger trigger = weeklyReportTrigger == null ? null : weeklyReportTrigger.getIfAvailable();
+		if (trigger == null) {
+			return;
+		}
+		try {
+			if (!repository.areAllActiveMembersRetrospectiveCompleted(weekId)) {
+				return;
+			}
+			// 리포트 생성(LLM)은 회고 제출 응답을 막지 않도록 트랜잭션 커밋 후 비동기(@Async)로 실행한다.
+			// 커밋 후 실행해야 방금 제출한 회고까지 리포트에 반영된다.
+			if (TransactionSynchronizationManager.isSynchronizationActive()) {
+				TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+					@Override
+					public void afterCommit() {
+						runWeeklyReport(trigger, weekId);
+					}
+				});
+			} else {
+				runWeeklyReport(trigger, weekId);
+			}
+		} catch (RuntimeException exception) {
+			// 리포트 생성은 부가 동작이므로 회고 제출 자체를 실패시키지 않는다.
+			log.warn("immediate weekly report trigger failed weekId={}", weekId, exception);
+		}
+	}
+
+	private void runWeeklyReport(WeeklyReportTrigger trigger, UUID weekId) {
+		try {
+			trigger.generateForWeekImmediately(weekId);
+		} catch (RuntimeException exception) {
+			log.warn("immediate weekly report generation failed weekId={}", weekId, exception);
+		}
+	}
+
 
 	@Transactional
 	Retrospective applyFeedback(ApplyRetrospectiveFeedbackCommand command) {

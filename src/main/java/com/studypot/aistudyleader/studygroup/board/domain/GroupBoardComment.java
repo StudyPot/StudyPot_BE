@@ -8,7 +8,6 @@ public record GroupBoardComment(
 	UUID id,
 	UUID groupId,
 	UUID postId,
-	UUID parentCommentId,
 	UUID authorMemberId,
 	UUID authorUserId,
 	String authorDisplayName,
@@ -32,14 +31,13 @@ public record GroupBoardComment(
 	}
 
 	public static GroupBoardComment create(UUID id, UUID groupId, UUID postId, UUID authorMemberId, String content, Instant now) {
-		return create(id, groupId, postId, null, authorMemberId, null, null, content, now);
+		return create(id, groupId, postId, authorMemberId, null, null, content, now);
 	}
 
 	public static GroupBoardComment create(
 		UUID id,
 		UUID groupId,
 		UUID postId,
-		UUID parentCommentId,
 		UUID authorMemberId,
 		UUID authorUserId,
 		String authorDisplayName,
@@ -50,7 +48,6 @@ public record GroupBoardComment(
 			id,
 			groupId,
 			postId,
-			parentCommentId,
 			authorMemberId,
 			authorUserId,
 			authorDisplayName,
@@ -66,7 +63,6 @@ public record GroupBoardComment(
 			id,
 			groupId,
 			postId,
-			parentCommentId,
 			authorMemberId,
 			authorUserId,
 			authorDisplayName,

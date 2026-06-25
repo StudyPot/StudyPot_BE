@@ -33,6 +33,23 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 
 	private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {
 	};
+	private static final TypeReference<List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion>> QUESTION_LIST =
+		new TypeReference<>() {
+		};
+	// 회고 질문이 비어 있는 주차(기능 추가 이전 생성된 기존 커리큘럼 등)에 제공하는 기본 질문셋.
+	private static final List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> DEFAULT_QUESTIONS = List.of(
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-1", "이번 주 목표한 학습을 충분히 달성했나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-2", "이번 주 학습 난이도는 적절했나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-likert-3", "다음 주에도 현재 학습 페이스를 유지할 수 있을 것 같나요?",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.LIKERT_5),
+		new com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion(
+			"default-text-1", "이번 주 학습에서 가장 도움이 된 점과 아쉬운 점을 자유롭게 적어주세요.",
+			com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestionType.TEXT));
 	private static final int PRIOR_RETROSPECTIVES_LIMIT = 3;
 
 	private final JdbcTemplate jdbcTemplate;
@@ -54,6 +71,20 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 		Objects.requireNonNull(weekId, "weekId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");
 		return queryOne(RetrospectiveJdbcSql.SELECT_WEEK_MEMBERSHIP, this::mapMembership, uuid(weekId), uuid(userId));
+	}
+
+	@Override
+	public Optional<RetrospectiveMembershipContext> findMembershipByGroupId(UUID groupId, UUID userId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(userId, "userId must not be null");
+		return queryOne(RetrospectiveJdbcSql.SELECT_GROUP_MEMBERSHIP, this::mapMembership, uuid(groupId), uuid(userId));
+	}
+
+	@Override
+	public List<Retrospective> findMyRetrospectivesByGroup(UUID groupId, UUID memberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return jdbcTemplate.query(RetrospectiveJdbcSql.SELECT_MY_RETROSPECTIVES_BY_GROUP, this::mapRetrospective, uuid(groupId), uuid(memberId));
 	}
 
 	@Override
@@ -148,6 +179,93 @@ class JdbcRetrospectiveRepository implements RetrospectiveRepository {
 			timestamp(retrospective.updatedAt()),
 			uuid(retrospective.id())
 		) == 1;
+	}
+
+	@Override
+	public boolean updateRetrospectiveAnswers(Retrospective retrospective) {
+		Objects.requireNonNull(retrospective, "retrospective must not be null");
+		return jdbcTemplate.update(
+			RetrospectiveJdbcSql.UPDATE_RETROSPECTIVE_ANSWERS,
+			json(retrospective.inputSummary(), "retrospective input summary"),
+			retrospective.status().name(),
+			timestamp(retrospective.completedAt()),
+			timestamp(retrospective.updatedAt()),
+			uuid(retrospective.id())
+		) == 1;
+	}
+
+	@Override
+	public List<com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview> findRetrospectiveOverview(UUID groupId, UUID memberId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		return jdbcTemplate.query(
+			RetrospectiveJdbcSql.SELECT_RETROSPECTIVE_OVERVIEW,
+			this::mapWeekOverview,
+			uuid(memberId),
+			uuid(memberId),
+			uuid(groupId)
+		);
+	}
+
+	@Override
+	public boolean isRetrospectiveWritable(UUID weekId, UUID memberId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		Objects.requireNonNull(memberId, "memberId must not be null");
+		List<Boolean> result = jdbcTemplate.query(
+			RetrospectiveJdbcSql.SELECT_WEEK_WRITABILITY,
+			(resultSet, rowNumber) -> com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview.unlocked(
+				resultSet.getString("status"),
+				resultSet.getLong("total_tasks"),
+				resultSet.getLong("done_tasks"),
+				resultSet.getBoolean("report_posted")
+			),
+			uuid(memberId),
+			uuid(weekId)
+		);
+		return !result.isEmpty() && Boolean.TRUE.equals(result.get(0));
+	}
+
+	@Override
+	public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+		Objects.requireNonNull(weekId, "weekId must not be null");
+		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+			RetrospectiveJdbcSql.ALL_ACTIVE_MEMBERS_RETROSPECTIVE_COMPLETED,
+			Boolean.class,
+			uuid(weekId),
+			uuid(weekId)
+		));
+	}
+
+	private com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview mapWeekOverview(ResultSet resultSet, int rowNumber)
+		throws SQLException {
+		long totalTasks = resultSet.getLong("total_tasks");
+		long doneTasks = resultSet.getLong("done_tasks");
+		String status = resultSet.getString("status");
+		boolean reportPosted = resultSet.getBoolean("report_posted");
+		boolean unlocked = com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview
+			.unlocked(status, totalTasks, doneTasks, reportPosted);
+		return new com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview(
+			UuidBinary.fromBytes(resultSet.getBytes("week_id")),
+			resultSet.getInt("week_number"),
+			status,
+			unlocked,
+			resultSet.getLong("answered_count") > 0,
+			reportPosted,
+			readQuestions(resultSet.getString("retrospective_questions"))
+		);
+	}
+
+	private List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> readQuestions(String value) {
+		if (value == null || value.isBlank()) {
+			// 질문 미생성 주차는 기본 질문셋으로 대체(기존 그룹도 회고 작성 가능).
+			return DEFAULT_QUESTIONS;
+		}
+		try {
+			List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> parsed = objectMapper.readValue(value, QUESTION_LIST);
+			return parsed.isEmpty() ? DEFAULT_QUESTIONS : parsed;
+		} catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+			throw new RetrospectivePersistenceException("failed to read retrospective questions.", exception);
+		}
 	}
 
 	private RetrospectiveMembershipContext mapMembership(ResultSet resultSet, int rowNumber) throws SQLException {

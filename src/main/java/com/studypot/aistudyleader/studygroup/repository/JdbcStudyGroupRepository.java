@@ -5,7 +5,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.global.persistence.UuidBinary;
+import com.studypot.aistudyleader.studygroup.domain.AiManagerView;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupJoinTarget;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroupMemberProfile;
@@ -16,8 +20,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -116,6 +124,26 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+		Objects.requireNonNull(inviteCode, "inviteCode must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_STUDY_GROUP_JOIN_TARGET_BY_INVITE_CODE, JdbcStudyGroupRepository::mapJoinTarget, inviteCode);
+	}
+
+	@Override
+	public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(StudyGroupJdbcSql.REVERT_READY_TO_ONBOARDING, timestamp(updatedAt), uuid(groupId)) == 1;
+	}
+
+	@Override
+	public Optional<UUID> findOwnerUserId(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_OWNER_USER_ID,
+			(resultSet, rowNumber) -> UuidBinary.fromBytes(resultSet.getBytes("user_id")), uuid(groupId));
+	}
+
+	@Override
 	public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
 			StudyGroupJdbcSql.EXISTS_ACTIVE_OR_ONBOARDING_MEMBER,
@@ -133,6 +161,52 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 			uuid(groupId)
 		);
 		return count == null ? 0 : count;
+	}
+
+	@Override
+	public Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(Collection<UUID> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds must not be null");
+		if (groupIds.isEmpty()) {
+			return Map.of();
+		}
+		List<UUID> ids = List.copyOf(groupIds);
+		String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+		String sql = String.format(StudyGroupJdbcSql.COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS, placeholders);
+		Object[] args = ids.stream().map(JdbcStudyGroupRepository::uuid).toArray();
+		Map<UUID, Integer> counts = new HashMap<>();
+		jdbcTemplate.query(sql, resultSet -> {
+			counts.put(UuidBinary.fromBytes(resultSet.getBytes("group_id")), resultSet.getInt("member_count"));
+		}, args);
+		return counts;
+	}
+
+	@Override
+	public Optional<AiManagerView> findAiManager(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return queryOne(StudyGroupJdbcSql.SELECT_AI_MANAGER, (resultSet, rowNumber) -> {
+			String persona = resultSet.getString("ai_persona");
+			return new AiManagerView(
+				UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+				persona == null ? "" : persona,
+				instant(resultSet.getTimestamp("ai_persona_updated_at")),
+				resultSet.getString("updated_by_nickname")
+			);
+		}, uuid(groupId));
+	}
+
+	@Override
+	public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(persona, "persona must not be null");
+		Objects.requireNonNull(updatedBy, "updatedBy must not be null");
+		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_AI_MANAGER,
+			persona,
+			uuid(updatedBy),
+			timestamp(updatedAt),
+			uuid(groupId)
+		) == 1;
 	}
 
 	@Override
@@ -174,6 +248,43 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public boolean updateGroup(StudyGroup group) {
+		Objects.requireNonNull(group, "group must not be null");
+		return jdbcTemplate.update(
+			StudyGroupJdbcSql.UPDATE_STUDY_GROUP,
+			group.name(),
+			group.topic(),
+			detailKeywordsJson(group),
+			group.maxMembers(),
+			date(group.startsAt()),
+			date(group.endsAt()),
+			group.description().orElse(null),
+			timestamp(group.auditMetadata().updatedAt()),
+			uuid(group.id())
+		) == 1;
+	}
+
+	@Override
+	public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
+		Timestamp now = timestamp(deletedAt);
+		boolean deleted = jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_GROUP, now, now, uuid(groupId)) == 1;
+		if (deleted) {
+			// 그룹 삭제 시 커리큘럼도 함께 soft-delete 한다. 그렇지 않으면 커리큘럼이 ACTIVE 로 남아
+			// 주차 활성화/리포트/리마인더 스케줄러가 삭제된 그룹에도 계속 동작(알림 발송)한다.
+			jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_CURRICULUM_BY_GROUP, now, now, uuid(groupId));
+		}
+		return deleted;
+	}
+
+	@Override
+	public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		return jdbcTemplate.query(StudyGroupJdbcSql.SELECT_GROUP_MEMBERS, JdbcStudyGroupRepository::mapGroupMemberSummary, uuid(groupId));
+	}
+
+	@Override
 	public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");
@@ -185,56 +296,6 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 			timestamp(updatedAt),
 			uuid(groupId),
 			uuid(userId)
-		) == 1;
-	}
-
-	@Override
-	public boolean updateStudyGroup(
-		UUID groupId,
-		UUID editorUserId,
-		String name,
-		String topic,
-		List<String> detailKeywords,
-		int maxMembers,
-		LocalDate startsAt,
-		LocalDate endsAt,
-		String description,
-		Instant updatedAt
-	) {
-		Objects.requireNonNull(groupId, "groupId must not be null");
-		Objects.requireNonNull(editorUserId, "editorUserId must not be null");
-		Objects.requireNonNull(name, "name must not be null");
-		Objects.requireNonNull(topic, "topic must not be null");
-		Objects.requireNonNull(detailKeywords, "detailKeywords must not be null");
-		Objects.requireNonNull(startsAt, "startsAt must not be null");
-		Objects.requireNonNull(endsAt, "endsAt must not be null");
-		Objects.requireNonNull(updatedAt, "updatedAt must not be null");
-		return jdbcTemplate.update(
-			StudyGroupJdbcSql.UPDATE_STUDY_GROUP,
-			name,
-			description,
-			topic,
-			detailKeywordsJson(detailKeywords),
-			maxMembers,
-			date(startsAt),
-			date(endsAt),
-			timestamp(updatedAt),
-			uuid(groupId),
-			uuid(editorUserId)
-		) == 1;
-	}
-
-	@Override
-	public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
-		Objects.requireNonNull(groupId, "groupId must not be null");
-		Objects.requireNonNull(ownerUserId, "ownerUserId must not be null");
-		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
-		return jdbcTemplate.update(
-			StudyGroupJdbcSql.DELETE_STUDY_GROUP,
-			timestamp(deletedAt),
-			timestamp(deletedAt),
-			uuid(groupId),
-			uuid(ownerUserId)
 		) == 1;
 	}
 
@@ -307,18 +368,28 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		);
 	}
 
+	private static GroupMemberSummary mapGroupMemberSummary(ResultSet resultSet, int rowNumber) throws SQLException {
+		return new GroupMemberSummary(
+			UuidBinary.fromBytes(resultSet.getBytes("member_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("group_id")),
+			UuidBinary.fromBytes(resultSet.getBytes("user_id")),
+			GroupMemberPermission.valueOf(resultSet.getString("permission")),
+			GroupMemberStatus.valueOf(resultSet.getString("member_status")),
+			resultSet.getString("display_name"),
+			resultSet.getString("nickname"),
+			resultSet.getString("email"),
+			resultSet.getString("onboarding_status")
+		);
+	}
+
 	private <T> Optional<T> queryOne(String sql, ThrowingRowMapper<T> mapper, Object... args) {
 		List<T> results = jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapper.map(resultSet, rowNumber), args);
 		return results.stream().findFirst();
 	}
 
 	private String detailKeywordsJson(StudyGroup group) {
-		return detailKeywordsJson(group.detailKeywords());
-	}
-
-	private String detailKeywordsJson(List<String> detailKeywords) {
 		try {
-			return objectMapper.writeValueAsString(detailKeywords);
+			return objectMapper.writeValueAsString(group.detailKeywords());
 		} catch (JsonProcessingException exception) {
 			throw new StudyGroupPersistenceException("study group detail keywords could not be serialized.", exception);
 		}

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.studygroup.domain.GroupMember;
+import com.studypot.aistudyleader.studygroup.domain.GroupMemberSummary;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberPermission;
 import com.studypot.aistudyleader.studygroup.domain.GroupMemberStatus;
 import com.studypot.aistudyleader.studygroup.domain.StudyGroup;
@@ -114,6 +115,30 @@ class StudyGroupServiceTest {
 			.isInstanceOf(StudyGroupServiceUnavailableException.class)
 			.hasMessage("could not allocate a unique invite code.");
 		assertThat(repository.attempts()).isEqualTo(3);
+	}
+
+	@Test
+	void joinGroupRevertsReadyToStartGroupToOnboarding() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.READY_TO_START, 6, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(repository.revertedToOnboardingGroupId).isEqualTo(GROUP_ID);
+	}
+
+	@Test
+	void joinGroupDoesNotRevertOnboardingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.joinTarget = new StudyGroupJoinTarget(GROUP_ID, StudyGroupStatus.ONBOARDING, 6, "INVITE-0001");
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), JOINED_MEMBER_ID);
+
+		service.joinGroup(new JoinStudyGroupCommand(JOINER_ID, GROUP_ID, "INVITE-0001"));
+
+		assertThat(repository.revertedToOnboardingGroupId).isNull();
 	}
 
 	@Test
@@ -269,6 +294,16 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void countMyGroupsReturnsNumberOfCurrentUserGroups() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.listedGroups = List.of(group(), group());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThat(service.countMyGroups(USER_ID)).isEqualTo(2);
+		assertThat(repository.listRequestedUserId).isEqualTo(USER_ID);
+	}
+
+	@Test
 	void listMyGroupsReturnsEmptyListWhenUserHasNoCurrentMemberships() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
@@ -277,6 +312,36 @@ class StudyGroupServiceTest {
 
 		assertThat(repository.listRequestedUserId).isEqualTo(USER_ID);
 		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void listMyGroupsFiltersByStatus() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup onboarding = groupWithStatus("온보딩 그룹", StudyGroupStatus.ONBOARDING);
+		StudyGroup active = groupWithStatus("진행중 그룹", StudyGroupStatus.ACTIVE);
+		repository.listedGroups = List.of(onboarding, active);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(
+			new ListStudyGroupsQuery(USER_ID, StudyGroupStatus.ACTIVE, null, null, null)
+		);
+
+		assertThat(result).containsExactly(active);
+	}
+
+	@Test
+	void listMyGroupsSortsByNameDescending() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroup alpha = groupWithStatus("AAA", StudyGroupStatus.ACTIVE);
+		StudyGroup zeta = groupWithStatus("ZZZ", StudyGroupStatus.ACTIVE);
+		repository.listedGroups = List.of(alpha, zeta);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<StudyGroup> result = service.listMyGroups(
+			new ListStudyGroupsQuery(USER_ID, null, null, "name", "desc")
+		);
+
+		assertThat(result).containsExactly(zeta, alpha);
 	}
 
 	@Test
@@ -318,99 +383,195 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
-	void updateGroupAllowsOwnerAndReturnsRefreshedGroup() {
+	void getAiManagerReturnsPersonaForMember() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
-		repository.updateGroupSucceeds = true;
-		repository.readGroup = updatedGroup();
+		repository.existingActiveOrOnboardingMember = true;
+		repository.aiManagerView = new com.studypot.aistudyleader.studygroup.domain.AiManagerView(
+			GROUP_ID, "차분하고 꼼꼼한 팀장", NOW, "현우");
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
 
-		StudyGroup result = service.updateGroup(new UpdateStudyGroupCommand(
-			USER_ID,
-			GROUP_ID,
-			"Backend Deep Dive",
-			"Spring Boot",
-			List.of("Security", "Testing"),
-			8,
-			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-22"),
-			"Owner curated backend interview prep"
-		));
+		var result = service.getAiManager(new GetAiManagerQuery(USER_ID, GROUP_ID));
 
-		assertThat(repository.updatedGroupId).isEqualTo(GROUP_ID);
-		assertThat(repository.updatedGroupEditorUserId).isEqualTo(USER_ID);
-		assertThat(repository.updatedGroupName).isEqualTo("Backend Deep Dive");
-		assertThat(repository.updatedGroupTopic).isEqualTo("Spring Boot");
-		assertThat(repository.updatedGroupDetailKeywords).containsExactly("Security", "Testing");
-		assertThat(repository.updatedGroupMaxMembers).isEqualTo(8);
-		assertThat(repository.updatedGroupUpdatedAt).isEqualTo(NOW);
-		assertThat(repository.getRequestedUserId).isEqualTo(USER_ID);
-		assertThat(result.name()).isEqualTo("Backend Deep Dive");
+		assertThat(result.persona()).isEqualTo("차분하고 꼼꼼한 팀장");
+		assertThat(result.updatedByNickname()).isEqualTo("현우");
 	}
 
 	@Test
-	void updateGroupRejectsExistingGroupWhenRequesterIsNotOwner() {
+	void getAiManagerRejectsNonMember() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		repository.groupExists = true;
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
 
-		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
-				JOINER_ID,
-				GROUP_ID,
-				"Backend Deep Dive",
-				"Spring Boot",
-				List.of("Security", "Testing"),
-				8,
-				LocalDate.parse("2026-05-11"),
-				LocalDate.parse("2026-06-22"),
-				"Owner curated backend interview prep"
-			)))
+		assertThatThrownBy(() -> service.getAiManager(new GetAiManagerQuery(JOINER_ID, GROUP_ID)))
 			.isInstanceOf(StudyGroupAccessDeniedException.class)
-			.hasMessage("only the study group owner can update this study group.");
-
-		assertThat(repository.updatedGroupEditorUserId).isEqualTo(JOINER_ID);
-		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
+			.hasMessage("authenticated user is not a member of this study group.");
 	}
 
 	@Test
-	void deleteGroupAllowsOwnerToSoftDelete() {
+	void getAiManagerRejectsMissingGroup() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
-		repository.deleteGroupSucceeds = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.getAiManager(new GetAiManagerQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
+	}
+
+	@Test
+	void updateAiManagerUpdatesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.existingActiveOrOnboardingMember = true;
+		repository.aiManagerView = new com.studypot.aistudyleader.studygroup.domain.AiManagerView(
+			GROUP_ID, "꼼꼼한 시니어 팀장", NOW, "현우");
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		var result = service.updateAiManager(new UpdateAiManagerCommand(USER_ID, GROUP_ID, "꼼꼼한 시니어 팀장"));
+
+		assertThat(repository.capturedAiPersona).isEqualTo("꼼꼼한 시니어 팀장");
+		assertThat(repository.capturedAiUpdatedBy).isEqualTo(USER_ID);
+		assertThat(result.persona()).isEqualTo("꼼꼼한 시니어 팀장");
+	}
+
+	@Test
+	void updateAiManagerRejectsNonOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateAiManager(new UpdateAiManagerCommand(JOINER_ID, GROUP_ID, "내맘대로")))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can update the AI manager persona.");
+		assertThat(repository.capturedAiPersona).isNull();
+	}
+
+	@Test
+	void updateAiManagerRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateAiManager(new UpdateAiManagerCommand(JOINER_ID, GROUP_ID, "꼼꼼")))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
+	void deleteGroupSoftDeletesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
 
 		service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID));
 
-		assertThat(repository.deletedGroupId).isEqualTo(GROUP_ID);
-		assertThat(repository.deletedGroupOwnerUserId).isEqualTo(USER_ID);
-		assertThat(repository.deletedGroupAt).isEqualTo(NOW);
+		assertThat(repository.softDeletedGroupId).isEqualTo(GROUP_ID);
+		assertThat(repository.softDeletedAt).isEqualTo(NOW);
 	}
 
 	@Test
-	void deleteGroupRejectsMissingGroup() {
+	void deleteGroupNotifiesOtherMembers() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		GroupMemberSummary owner = new GroupMemberSummary(
+			OWNER_MEMBER_ID, GROUP_ID, USER_ID,
+			GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
+			"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
+		);
+		GroupMemberSummary joiner = new GroupMemberSummary(
+			JOINED_MEMBER_ID, GROUP_ID, JOINER_ID,
+			GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE,
+			"민수", "minsu", "minsu@example.com", "SUBMITTED"
+		);
+		repository.groupMembers = List.of(owner, joiner);
+		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
+		StudyGroupService service = service(repository, List.of("UNUSED"), notifications, GROUP_ID, OWNER_MEMBER_ID);
+
+		service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID));
+
+		// 그룹장(USER_ID) 은 제외하고 다른 멤버(JOINER_ID) 에게만 삭제 알림이 간다.
+		assertThat(notifications.groupDeletedRecipients).containsExactly(JOINER_ID);
+	}
+
+	@Test
+	void deleteGroupRejectsNonOwnerMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can delete the study group.");
+		assertThat(repository.softDeletedGroupId).isNull();
+	}
+
+	@Test
+	void deleteGroupRejectsNonMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+		assertThat(repository.softDeletedGroupId).isNull();
+	}
+
+	@Test
+	void deleteGroupReturnsNotFoundWhenGroupMissing() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
 
 		assertThatThrownBy(() -> service.deleteGroup(new DeleteStudyGroupCommand(USER_ID, GROUP_ID)))
 			.isInstanceOf(StudyGroupNotFoundException.class)
 			.hasMessage("study group was not found.");
-
-		assertThat(repository.existsRequestedGroupId).isEqualTo(GROUP_ID);
 	}
 
 	@Test
-	void updateCommandRejectsEndDateBeforeStartDate() {
-		assertThatThrownBy(() -> new UpdateStudyGroupCommand(
-				USER_ID,
-				GROUP_ID,
-				"Backend Deep Dive",
-				"Spring Boot",
-				List.of("Security"),
-				8,
-				LocalDate.parse("2026-06-22"),
-				LocalDate.parse("2026-05-11"),
-				null
-			))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("endsAt must be on or after startsAt");
+	void updateGroupUpdatesForOwner() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.currentMemberCount = 1;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroup result = service.updateGroup(new UpdateStudyGroupCommand(
+			USER_ID, GROUP_ID, "새 스터디 이름", "Spring", List.of("JPA", "Security"),
+			6, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), "수정된 소개"
+		));
+
+		assertThat(result.name()).isEqualTo("새 스터디 이름");
+		assertThat(result.detailKeywords()).containsExactly("JPA", "Security");
+		assertThat(repository.updatedGroup).isNotNull();
+		assertThat(repository.updatedGroup.name()).isEqualTo("새 스터디 이름");
+	}
+
+	@Test
+	void updateGroupRejectsNonOwnerMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
+			JOINER_ID, GROUP_ID, "이름", "Spring", List.of("JPA"),
+			6, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), null
+		)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("only the study group owner can update the study group.");
+		assertThat(repository.updatedGroup).isNull();
+	}
+
+	@Test
+	void updateGroupRejectsMaxMembersBelowCurrentCount() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.readGroup = group();
+		repository.currentMemberCount = 5;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.updateGroup(new UpdateStudyGroupCommand(
+			USER_ID, GROUP_ID, "이름", "Spring", List.of("JPA"),
+			2, LocalDate.parse("2026-05-10"), LocalDate.parse("2026-06-21"), null
+		)))
+			.isInstanceOf(InvalidStudyGroupMemberProfileRequestException.class);
+		assertThat(repository.updatedGroup).isNull();
 	}
 
 	@Test
@@ -468,6 +629,45 @@ class StudyGroupServiceTest {
 		assertThat(repository.updatedDisplayName).isEqualTo("현우2");
 		assertThat(repository.updatedAt).isEqualTo(NOW);
 		assertThat(result.displayName()).isEqualTo("현우2");
+	}
+
+	@Test
+	void listGroupMembersReturnsMembersForActiveMember() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.existingActiveOrOnboardingMember = true;
+		GroupMemberSummary owner = new GroupMemberSummary(
+			OWNER_MEMBER_ID, GROUP_ID, USER_ID,
+			GroupMemberPermission.OWNER, GroupMemberStatus.ACTIVE,
+			"현우", "hyunwoo", "hyunwoo@example.com", "SUBMITTED"
+		);
+		repository.groupMembers = List.of(owner);
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		List<GroupMemberSummary> result = service.listGroupMembers(new ListGroupMembersQuery(USER_ID, GROUP_ID));
+
+		assertThat(repository.membersRequestedGroupId).isEqualTo(GROUP_ID);
+		assertThat(result).containsExactly(owner);
+	}
+
+	@Test
+	void listGroupMembersRejectsNonMemberOfExistingGroup() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.groupExists = true;
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.listGroupMembers(new ListGroupMembersQuery(JOINER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupAccessDeniedException.class)
+			.hasMessage("authenticated user is not a member of this study group.");
+	}
+
+	@Test
+	void listGroupMembersReturnsNotFoundWhenGroupMissing() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		StudyGroupService service = service(repository, List.of("UNUSED"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.listGroupMembers(new ListGroupMembersQuery(USER_ID, GROUP_ID)))
+			.isInstanceOf(StudyGroupNotFoundException.class)
+			.hasMessage("study group was not found.");
 	}
 
 	@Test
@@ -581,6 +781,27 @@ class StudyGroupServiceTest {
 		);
 	}
 
+	private static StudyGroup groupWithStatus(String name, StudyGroupStatus status) {
+		return StudyGroup.rehydrate(
+			UUID.randomUUID(),
+			USER_ID,
+			name,
+			"Spring Boot",
+			List.of("JPA"),
+			status,
+			6,
+			false,
+			"INVITE-" + name,
+			LocalDate.parse("2026-05-10"),
+			LocalDate.parse("2026-06-21"),
+			null,
+			NOW,
+			status == StudyGroupStatus.ACTIVE ? NOW : null,
+			NOW,
+			NOW
+		);
+	}
+
 	private static StudyGroup group() {
 		return StudyGroup.create(
 			GROUP_ID,
@@ -593,27 +814,6 @@ class StudyGroupServiceTest {
 			LocalDate.parse("2026-06-21"),
 			"Weekly backend interview prep",
 			"INVITE-0001",
-			NOW
-		);
-	}
-
-	private static StudyGroup updatedGroup() {
-		return StudyGroup.rehydrate(
-			GROUP_ID,
-			USER_ID,
-			"Backend Deep Dive",
-			"Spring Boot",
-			List.of("Security", "Testing"),
-			StudyGroupStatus.ONBOARDING,
-			8,
-			false,
-			"INVITE-0001",
-			LocalDate.parse("2026-05-11"),
-			LocalDate.parse("2026-06-22"),
-			"Owner curated backend interview prep",
-			NOW,
-			null,
-			NOW.minusSeconds(3600),
 			NOW
 		);
 	}
@@ -647,6 +847,8 @@ class StudyGroupServiceTest {
 		private StudyGroupJoinTarget joinTarget;
 		private int currentMemberCount;
 		private boolean existingActiveOrOnboardingMember;
+		private UUID ownerUserId;
+		private UUID revertedToOnboardingGroupId;
 		private boolean throwDuplicateMembershipOnJoin;
 		private boolean groupExists;
 		private UUID getRequestedGroupId;
@@ -659,28 +861,24 @@ class StudyGroupServiceTest {
 		private UUID updatedProfileUserId;
 		private String updatedDisplayName;
 		private Instant updatedAt;
-		private UUID updatedGroupId;
-		private UUID updatedGroupEditorUserId;
-		private String updatedGroupName;
-		private String updatedGroupTopic;
-		private List<String> updatedGroupDetailKeywords = List.of();
-		private int updatedGroupMaxMembers;
-		private LocalDate updatedGroupStartsAt;
-		private LocalDate updatedGroupEndsAt;
-		private String updatedGroupDescription;
-		private Instant updatedGroupUpdatedAt;
-		private UUID deletedGroupId;
-		private UUID deletedGroupOwnerUserId;
-		private Instant deletedGroupAt;
 		private StudyGroup readGroup;
+		private com.studypot.aistudyleader.studygroup.domain.AiManagerView aiManagerView;
+		private boolean aiManagerUpdateResult = true;
+		private String capturedAiPersona;
+		private UUID capturedAiUpdatedBy;
 		private StudyGroupMemberProfile profile;
+		private UUID membersRequestedGroupId;
+		private List<GroupMemberSummary> groupMembers = List.of();
 		private List<StudyGroup> listedGroups = List.of();
 		private StudyGroup savedGroup;
 		private GroupMember savedOwnerMember;
 		private GroupMember savedJoinedMember;
 		private boolean updateProfileSucceeds;
-		private boolean updateGroupSucceeds;
-		private boolean deleteGroupSucceeds;
+		private boolean softDeleteSucceeds = true;
+		private UUID softDeletedGroupId;
+		private Instant softDeletedAt;
+		private boolean updateGroupSucceeds = true;
+		private StudyGroup updatedGroup;
 
 		private CapturingRepository(Set<String> collidingCodes) {
 			this.collidingCodes = collidingCodes;
@@ -718,6 +916,22 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public java.util.Optional<StudyGroupJoinTarget> findJoinTargetByInviteCode(String inviteCode) {
+			return java.util.Optional.ofNullable(joinTarget);
+		}
+
+		@Override
+		public java.util.Optional<UUID> findOwnerUserId(UUID groupId) {
+			return java.util.Optional.ofNullable(ownerUserId);
+		}
+
+		@Override
+		public boolean revertReadyToStartToOnboarding(UUID groupId, Instant updatedAt) {
+			this.revertedToOnboardingGroupId = groupId;
+			return true;
+		}
+
+		@Override
 		public boolean existsActiveOrOnboardingMember(UUID groupId, UUID userId) {
 			return existingActiveOrOnboardingMember;
 		}
@@ -725,6 +939,27 @@ class StudyGroupServiceTest {
 		@Override
 		public int countActiveOrOnboardingMembers(UUID groupId) {
 			return currentMemberCount;
+		}
+
+		@Override
+		public java.util.Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(java.util.Collection<UUID> groupIds) {
+			java.util.Map<UUID, Integer> counts = new java.util.HashMap<>();
+			for (UUID id : groupIds) {
+				counts.put(id, currentMemberCount);
+			}
+			return counts;
+		}
+
+		@Override
+		public java.util.Optional<com.studypot.aistudyleader.studygroup.domain.AiManagerView> findAiManager(UUID groupId) {
+			return java.util.Optional.ofNullable(aiManagerView);
+		}
+
+		@Override
+		public boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt) {
+			this.capturedAiPersona = persona;
+			this.capturedAiUpdatedBy = updatedBy;
+			return aiManagerUpdateResult;
 		}
 
 		@Override
@@ -749,6 +984,12 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
+		public List<GroupMemberSummary> findGroupMembers(UUID groupId) {
+			this.membersRequestedGroupId = groupId;
+			return groupMembers;
+		}
+
+		@Override
 		public boolean updateMyGroupMemberDisplayName(UUID groupId, UUID userId, String displayName, Instant updatedAt) {
 			this.updatedProfileGroupId = groupId;
 			this.updatedProfileUserId = userId;
@@ -758,37 +999,16 @@ class StudyGroupServiceTest {
 		}
 
 		@Override
-		public boolean updateStudyGroup(
-			UUID groupId,
-			UUID editorUserId,
-			String name,
-			String topic,
-			List<String> detailKeywords,
-			int maxMembers,
-			LocalDate startsAt,
-			LocalDate endsAt,
-			String description,
-			Instant updatedAt
-		) {
-			this.updatedGroupId = groupId;
-			this.updatedGroupEditorUserId = editorUserId;
-			this.updatedGroupName = name;
-			this.updatedGroupTopic = topic;
-			this.updatedGroupDetailKeywords = List.copyOf(detailKeywords);
-			this.updatedGroupMaxMembers = maxMembers;
-			this.updatedGroupStartsAt = startsAt;
-			this.updatedGroupEndsAt = endsAt;
-			this.updatedGroupDescription = description;
-			this.updatedGroupUpdatedAt = updatedAt;
-			return updateGroupSucceeds;
+		public boolean softDeleteGroup(UUID groupId, Instant deletedAt) {
+			this.softDeletedGroupId = groupId;
+			this.softDeletedAt = deletedAt;
+			return softDeleteSucceeds;
 		}
 
 		@Override
-		public boolean deleteStudyGroup(UUID groupId, UUID ownerUserId, Instant deletedAt) {
-			this.deletedGroupId = groupId;
-			this.deletedGroupOwnerUserId = ownerUserId;
-			this.deletedGroupAt = deletedAt;
-			return deleteGroupSucceeds;
+		public boolean updateGroup(StudyGroup group) {
+			this.updatedGroup = group;
+			return updateGroupSucceeds;
 		}
 
 		int attempts() {
@@ -814,6 +1034,46 @@ class StudyGroupServiceTest {
 	private static final class CapturingNotificationPublisher implements NotificationEventPublisher {
 
 		private final List<OnboardingRequest> onboardingRequests = new ArrayList<>();
+		private final List<UUID> memberJoinedRecipients = new ArrayList<>();
+		private final List<UUID> groupDeletedRecipients = new ArrayList<>();
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+			groupDeletedRecipients.add(recipientUserId);
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+			memberJoinedRecipients.add(ownerUserId);
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
 
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
@@ -857,6 +1117,43 @@ class StudyGroupServiceTest {
 		@Override
 		public void publishOnboardingRequested(UUID groupId, UUID recipientUserId) {
 			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		}
+
+		@Override
+		public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		}
+
+		@Override
+		public void publishStudyCompleted(UUID groupId, String groupName) {
+		}
+
+		@Override
+		public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		}
+
+		@Override
+		public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+			throw new IllegalStateException("notification backend unavailable");
+		}
+
+		@Override
+		public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		}
+
+		@Override
+		public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		}
+
+		@Override
+		public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
 		}
 
 		@Override

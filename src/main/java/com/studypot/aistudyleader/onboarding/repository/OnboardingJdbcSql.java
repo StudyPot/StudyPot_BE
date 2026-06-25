@@ -75,16 +75,11 @@ final class OnboardingJdbcSql {
 
 	static final String MARK_STUDY_GROUP_READY_TO_START = """
 		update study_group sg
-		join group_member gm on gm.group_id = sg.id
 		set sg.status = 'READY_TO_START',
 		    sg.updated_at = ?
 		where sg.id = ?
-		  and gm.id = ?
 		  and sg.status = 'ONBOARDING'
-		  and gm.permission = 'OWNER'
-		  and gm.status = 'ACTIVE'
 		  and sg.deleted_at is null
-		  and gm.deleted_at is null
 		""";
 
 	static final String SOFT_DELETE_AVAILABILITY_SLOTS_BY_RESPONSE = """
@@ -100,6 +95,63 @@ final class OnboardingJdbcSql {
 		  id, onboarding_response_id, member_id, day_of_week, start_time,
 		  end_time, timezone, created_at, updated_at
 		) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		""";
+
+	static final String SELECT_RESPONSES_BY_GROUP = """
+		select gor.id, gm.group_id, gm.id as member_id, gor.keyword_skill_levels, gor.task_preferences,
+		       gor.additional_note, gor.status, gor.submitted_at, gor.created_at, gor.updated_at,
+		       u.nickname as member_nickname, gm.status as member_status,
+		       gm.permission as member_permission, gm.joined_at as member_joined_at
+		from group_member gm
+		join users u on u.id = gm.user_id
+		left join group_onboarding_response gor
+		  on gor.member_id = gm.id and gor.deleted_at is null
+		where gm.group_id = ?
+		  and gm.deleted_at is null
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		order by gm.joined_at asc, gm.id asc
+		""";
+
+	static final String SELECT_OTHER_MEMBER_USER_IDS = """
+		select gm.user_id
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.id <> ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		""";
+
+	// 온보딩 제출 알림은 방장에게만. 방장이 제출자 본인이면(gm.id = excludeMemberId) 제외돼 빈 결과.
+	static final String SELECT_OWNER_USER_ID_EXCLUDING_MEMBER = """
+		select gm.user_id
+		from group_member gm
+		where gm.group_id = ?
+		  and gm.permission = 'OWNER'
+		  and gm.id <> ?
+		  and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		  and gm.deleted_at is null
+		limit 1
+		""";
+
+	static final String SELECT_OWNER_USER_ID_WHEN_ALL_ONBOARDED = """
+		select owner.user_id
+		from group_member owner
+		join study_group sg on sg.id = owner.group_id
+		where owner.group_id = ?
+		  and owner.permission = 'OWNER'
+		  and owner.status = 'ACTIVE'
+		  and owner.deleted_at is null
+		  and sg.deleted_at is null
+		  and not exists (
+		    select 1
+		    from group_member gm
+		    left join group_onboarding_response gor
+		      on gor.member_id = gm.id and gor.deleted_at is null
+		    where gm.group_id = owner.group_id
+		      and gm.status in ('PENDING_ONBOARDING', 'ACTIVE')
+		      and gm.deleted_at is null
+		      and (gor.id is null or gor.status <> 'SUBMITTED')
+		  )
 		""";
 
 	private OnboardingJdbcSql() {

@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -138,7 +139,8 @@ class AiConversationServiceTest {
 	void openRetrospectiveConversationLinksSameMemberRetrospectiveAndInfersWeek() {
 		CapturingRepository repository = new CapturingRepository();
 		repository.retrospectiveReference = new AiRetrospectiveReference(GROUP_ID, MEMBER_ID, WEEK_ID);
-		AiConversationService service = service(repository, CONVERSATION_ID);
+		UUID seedMessageId = UUID.fromString("018f0000-0000-7000-8000-000000009201");
+		AiConversationService service = service(repository, CONVERSATION_ID, seedMessageId);
 
 		AiConversation result = service.openConversation(new OpenAiConversationCommand(
 			USER_ID,
@@ -152,6 +154,10 @@ class AiConversationServiceTest {
 		assertThat(result.curriculumWeekId()).isEqualTo(WEEK_ID);
 		assertThat(result.retrospectiveId()).isEqualTo(RETROSPECTIVE_ID);
 		assertThat(repository.insertedConversation).isSameAs(result);
+		assertThat(repository.insertedMessage).isNotNull();
+		assertThat(repository.insertedMessage.senderType())
+			.isEqualTo(com.studypot.aistudyleader.ai.domain.AiConversationMessageSenderType.ASSISTANT);
+		assertThat(repository.insertedMessage.content()).contains("회고");
 	}
 
 	@Test
@@ -665,6 +671,346 @@ class AiConversationServiceTest {
 		assertThat(repository.lastMessageLimit).isZero();
 	}
 
+	@Test
+	void confirmShareQuestionPostsToBoardAndMarksExecuted() {
+		UUID postId = UUID.fromString("018f0000-0000-7000-8000-0000000091aa");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "JPA 영속성 컨텍스트란?", "summary", "질문과 답변 요약입니다."));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 이 질문은 다른 분들께도 도움이 될 것 같아요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(postId);
+		AiConversationService service = serviceWithBoard(repository, gateway, MESSAGE_ID);
+
+		AiConversationMessage result = service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.calls).hasSize(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastGroupId).isEqualTo(GROUP_ID);
+		assertThat(gateway.lastTitle).isEqualTo("JPA 영속성 컨텍스트란?");
+		assertThat(gateway.lastContent).isEqualTo("질문과 답변 요약입니다.");
+		assertThat(repository.updatedMetadataMessageId).isEqualTo(ASSISTANT_MESSAGE_ID);
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+		assertThat(repository.insertedMessages).hasSize(1);
+		assertThat(repository.insertedMessages.getFirst().content()).contains("게시판에 올렸어");
+		assertThat(actionStatus(result.metadata())).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void confirmShareQuestionWithInstructionPostsRefinedDraft() {
+		UUID postId = UUID.fromString("018f0000-0000-7000-8000-0000000091bb");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "원래 제목", "summary", "원래 요약"));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(postId);
+		RecordingQuestionRefiner refiner = new RecordingQuestionRefiner(new RefinedQuestionPost("다듬은 제목", "다듬은 본문"));
+		AiConversationService service = serviceWithBoardAndRefiner(repository, gateway, refiner, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM,
+			"예시 코드 포함해서 더 짧게"
+		));
+
+		assertThat(refiner.lastInstruction).isEqualTo("예시 코드 포함해서 더 짧게");
+		assertThat(gateway.lastTitle).isEqualTo("다듬은 제목");
+		assertThat(gateway.lastContent).isEqualTo("다듬은 본문");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void confirmCompleteTaskInvokesCurriculumGateway() {
+		UUID taskId = UUID.fromString("018f0000-0000-7000-8000-0000000091cc");
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "COMPLETE_TASK");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("taskId", taskId.toString());
+		pendingAction.put("title", "JPA 실습");
+		pendingAction.put("completionStatus", "DONE");
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"이 과제를 완료로 표시할까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingCurriculumGateway gateway = new RecordingCurriculumGateway();
+		AiConversationService service = serviceWithCurriculum(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.calls).isEqualTo(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastTaskId).isEqualTo(taskId);
+		assertThat(gateway.lastStatus).isEqualTo("DONE");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void confirmAddTaskInvokesCurriculumGateway() {
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "ADD_TASK");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("title", "트랜잭션 실습");
+		pendingAction.put("description", "선언적 트랜잭션 예제 따라하기");
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"이번 주에 추가할까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingCurriculumGateway gateway = new RecordingCurriculumGateway();
+		AiConversationService service = serviceWithCurriculum(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.CONFIRM
+		));
+
+		assertThat(gateway.addCalls).isEqualTo(1);
+		assertThat(gateway.lastUserId).isEqualTo(USER_ID);
+		assertThat(gateway.lastAddGroupId).isEqualTo(GROUP_ID);
+		assertThat(gateway.lastAddTitle).isEqualTo("트랜잭션 실습");
+		assertThat(gateway.lastAddDescription).isEqualTo("선언적 트랜잭션 예제 따라하기");
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("EXECUTED");
+	}
+
+	@Test
+	void rejectShareQuestionMarksRejectedWithoutPosting() {
+		CapturingRepository repository = new CapturingRepository();
+		Map<String, Object> pendingAction = new LinkedHashMap<>();
+		pendingAction.put("type", "SHARE_QUESTION");
+		pendingAction.put("status", "PENDING");
+		pendingAction.put("question", Map.of("title", "t", "summary", "s"));
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"답변이에요. 게시판에 올려둘까요?",
+			Map.of("pendingAction", pendingAction),
+			NOW
+		);
+		RecordingBoardGateway gateway = new RecordingBoardGateway(UUID.randomUUID());
+		AiConversationService service = serviceWithBoard(repository, gateway, MESSAGE_ID);
+
+		service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+			USER_ID,
+			CONVERSATION_ID,
+			ASSISTANT_MESSAGE_ID,
+			AiConversationMessageActionDecision.REJECT
+		));
+
+		assertThat(gateway.calls).isEmpty();
+		assertThat(repository.insertedMessages).isEmpty();
+		assertThat(actionStatus(repository.updatedMetadata)).isEqualTo("REJECTED");
+	}
+
+	@Test
+	void decideRejectsWhenMessageHasNoPendingAction() {
+		CapturingRepository repository = new CapturingRepository();
+		repository.messageForAction = AiConversationMessage.assistantSeedMessage(
+			ASSISTANT_MESSAGE_ID,
+			CONVERSATION_ID,
+			"그냥 답변입니다.",
+			Map.of(),
+			NOW
+		);
+		AiConversationService service = serviceWithBoard(repository, new RecordingBoardGateway(UUID.randomUUID()), MESSAGE_ID);
+
+		assertThatThrownBy(() -> service.decideMessageAction(new DecideAiConversationMessageActionCommand(
+				USER_ID,
+				CONVERSATION_ID,
+				ASSISTANT_MESSAGE_ID,
+				AiConversationMessageActionDecision.CONFIRM
+			)))
+			.isInstanceOf(AiConversationMutationRejectedException.class);
+	}
+
+	private static String actionStatus(Map<String, Object> metadata) {
+		Object pendingAction = metadata.get("pendingAction");
+		assertThat(pendingAction).isInstanceOf(Map.class);
+		return String.valueOf(((Map<?, ?>) pendingAction).get("status"));
+	}
+
+	private static AiConversationService serviceWithBoard(
+		CapturingRepository repository,
+		AiConversationBoardGateway boardGateway,
+		UUID... ids
+	) {
+		return serviceWithBoardAndRefiner(repository, boardGateway, null, ids);
+	}
+
+	private static AiConversationService serviceWithBoardAndRefiner(
+		CapturingRepository repository,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner refiner,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			null,
+			null,
+			AiConversationStreamPublisher.noop(),
+			boardGateway,
+			refiner
+		);
+	}
+
+	private static AiConversationService serviceWithCurriculum(
+		CapturingRepository repository,
+		AiConversationCurriculumGateway curriculumGateway,
+		UUID... ids
+	) {
+		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
+		return new AiConversationService(
+			repository,
+			CLOCK,
+			() -> {
+				UUID id = idQueue.poll();
+				if (id == null) {
+					throw new AssertionError("no deterministic id left");
+				}
+				return id;
+			},
+			null,
+			null,
+			AiConversationStreamPublisher.noop(),
+			null,
+			null,
+			curriculumGateway
+		);
+	}
+
+	private static final class RecordingCurriculumGateway implements AiConversationCurriculumGateway {
+
+		private int calls;
+		private UUID lastUserId;
+		private UUID lastTaskId;
+		private String lastStatus;
+
+		private int addCalls;
+		private UUID lastAddGroupId;
+		private String lastAddTitle;
+		private String lastAddDescription;
+
+		@Override
+		public void completeTask(UUID authenticatedUserId, UUID taskId, String completionStatus) {
+			calls++;
+			lastUserId = authenticatedUserId;
+			lastTaskId = taskId;
+			lastStatus = completionStatus;
+		}
+
+		@Override
+		public void addTaskToCurrentWeek(UUID authenticatedUserId, UUID groupId, String title, String description) {
+			addCalls++;
+			lastUserId = authenticatedUserId;
+			lastAddGroupId = groupId;
+			lastAddTitle = title;
+			lastAddDescription = description;
+		}
+	}
+
+	private static final class RecordingQuestionRefiner implements AiConversationQuestionRefiner {
+
+		private final RefinedQuestionPost refined;
+		private String lastInstruction;
+
+		private RecordingQuestionRefiner(RefinedQuestionPost refined) {
+			this.refined = refined;
+		}
+
+		@Override
+		public RefinedQuestionPost refine(UUID authenticatedUserId, UUID groupId, String originalTitle, String originalSummary, String instruction) {
+			lastInstruction = instruction;
+			return refined;
+		}
+	}
+
+	private static final class RecordingBoardGateway implements AiConversationBoardGateway {
+
+		private final UUID postId;
+		private final List<UUID> calls = new ArrayList<>();
+		private UUID lastUserId;
+		private UUID lastGroupId;
+		private String lastTitle;
+		private String lastContent;
+
+		private RecordingBoardGateway(UUID postId) {
+			this.postId = postId;
+		}
+
+		@Override
+		public UUID shareQuestionToBoard(UUID authenticatedUserId, UUID groupId, String title, String content) {
+			calls.add(groupId);
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastTitle = title;
+			lastContent = content;
+			return postId;
+		}
+
+		private UUID lastUpdatedPostId;
+		private UUID lastDeletedPostId;
+
+		@Override
+		public void updatePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId, String title, String content) {
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastUpdatedPostId = postId;
+			lastTitle = title;
+			lastContent = content;
+		}
+
+		@Override
+		public void deletePostOnBoard(UUID authenticatedUserId, UUID groupId, UUID postId) {
+			lastUserId = authenticatedUserId;
+			lastGroupId = groupId;
+			lastDeletedPostId = postId;
+		}
+	}
+
 	private static AiConversationService service(CapturingRepository repository, UUID... ids) {
 		Queue<UUID> idQueue = new ArrayDeque<>(List.of(ids));
 		return new AiConversationService(
@@ -794,6 +1140,9 @@ class AiConversationServiceTest {
 		private final List<AiConversationMessage> insertedMessages = new ArrayList<>();
 		private int lastMessageLimit;
 		private String updatedSummary;
+		private AiConversationMessage messageForAction;
+		private UUID updatedMetadataMessageId;
+		private Map<String, Object> updatedMetadata;
 
 		@Override
 		public boolean existsStudyGroup(UUID groupId) {
@@ -840,6 +1189,21 @@ class AiConversationServiceTest {
 		public boolean insertMessage(AiConversationMessage message) {
 			insertedMessage = message;
 			insertedMessages.add(message);
+			return true;
+		}
+
+		@Override
+		public Optional<AiConversationMessage> findMessage(UUID messageId) {
+			if (messageForAction != null && messageForAction.id().equals(messageId)) {
+				return Optional.of(messageForAction);
+			}
+			return insertedMessages.stream().filter(message -> message.id().equals(messageId)).findFirst();
+		}
+
+		@Override
+		public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+			updatedMetadataMessageId = messageId;
+			updatedMetadata = metadata;
 			return true;
 		}
 

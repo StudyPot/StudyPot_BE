@@ -24,15 +24,17 @@ class RetrospectiveApplicationConfiguration {
 		Clock clock,
 		ObjectProvider<RetrospectiveFeedbackGenerator> feedbackGenerator,
 		ObjectProvider<LlmUsageRecorder> usageRecorder,
-		ObjectProvider<NotificationEventPublisher> notificationEvents
+		ObjectProvider<NotificationEventPublisher> notificationEvents,
+		ObjectProvider<com.studypot.aistudyleader.report.service.WeeklyReportTrigger> weeklyReportTrigger
 	) {
 		RetrospectiveFeedbackGenerator generator = feedbackGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
 		NotificationEventPublisher publisher = notificationEvents.getIfAvailable(NotificationEventPublisher::noop);
-		if (generator == null || recorder == null) {
-			return new RetrospectiveService(repository, clock, UuidV7::generate, null, null, publisher);
-		}
-		return new RetrospectiveService(repository, clock, UuidV7::generate, generator, recorder, publisher);
+		RetrospectiveService service = (generator == null || recorder == null)
+			? new RetrospectiveService(repository, clock, UuidV7::generate, null, null, publisher)
+			: new RetrospectiveService(repository, clock, UuidV7::generate, generator, recorder, publisher);
+		service.setWeeklyReportTrigger(weeklyReportTrigger);
+		return service;
 	}
 
 	@Bean

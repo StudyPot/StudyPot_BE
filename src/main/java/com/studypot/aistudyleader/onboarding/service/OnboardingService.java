@@ -1,5 +1,6 @@
 package com.studypot.aistudyleader.onboarding.service;
 
+import com.studypot.aistudyleader.onboarding.domain.GroupMemberOnboarding;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingResponse;
 import com.studypot.aistudyleader.onboarding.domain.GroupOnboardingStatus;
 import com.studypot.aistudyleader.onboarding.domain.MemberAvailabilitySlot;
@@ -19,14 +20,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class OnboardingService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OnboardingService.class);
+
 	private final OnboardingRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final com.studypot.aistudyleader.notification.service.NotificationEventPublisher notificationEvents;
 
 	public OnboardingService(OnboardingRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator,
+			com.studypot.aistudyleader.notification.service.NotificationEventPublisher.noop());
+	}
+
+	public OnboardingService(
+		OnboardingRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		com.studypot.aistudyleader.notification.service.NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -59,8 +74,40 @@ public class OnboardingService {
 			&& !repository.activatePendingMember(context.memberId(), now)) {
 			throw new OnboardingMembershipRequiredException("current group membership is required.");
 		}
-		repository.markStudyGroupReadyToStartIfOwnerOnboardingComplete(context.groupId(), context.memberId(), now);
+		notifyOwnerOfSubmission(context.groupId(), context.memberId());
+		markReadyAndNotifyIfAllOnboarded(context.groupId(), now);
 		return submitted;
+	}
+
+	// 온보딩 제출 알림은 방장(OWNER)에게만 보낸다. (제출자가 방장 본인이면 수신자 없음)
+	private void notifyOwnerOfSubmission(UUID groupId, UUID submitterMemberId) {
+		try {
+			repository.findOwnerUserId(groupId, submitterMemberId).ifPresent(ownerUserId ->
+				notificationEvents.publishOnboardingSubmitted(groupId, ownerUserId, submitterMemberId));
+		} catch (RuntimeException exception) {
+			log.warn("onboarding submitted notification publish failed groupId={}", groupId, exception);
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public List<GroupMemberOnboarding> listGroupOnboardings(GetGroupOnboardingsQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		requireMemberContext(query.authenticatedUserId(), query.groupId());
+		return repository.findGroupOnboardings(query.groupId());
+	}
+
+	private void markReadyAndNotifyIfAllOnboarded(UUID groupId, Instant now) {
+		// 모든 활성 멤버가 온보딩을 마쳤을 때에만 그룹을 READY_TO_START 로 전환하고
+		// 소유자에게 시작 안내 알림을 보낸다. (소유자 한 명만 온보딩해도 시작 가능하던 문제 수정)
+		repository.findOwnerUserIdWhenAllOnboarded(groupId).ifPresent(ownerUserId -> {
+			repository.markStudyGroupReadyToStart(groupId, now);
+			try {
+				notificationEvents.publishOnboardingCompleted(groupId, ownerUserId);
+			} catch (RuntimeException exception) {
+				// 알림 발행 실패가 온보딩 제출 트랜잭션을 롤백하지 않도록 한다.
+				log.warn("onboarding completed notification publish failed groupId={}", groupId, exception);
+			}
+		});
 	}
 
 	@Transactional(readOnly = true)

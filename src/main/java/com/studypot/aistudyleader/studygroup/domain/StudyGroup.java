@@ -139,6 +139,36 @@ public final class StudyGroup extends AggregateRoot<UUID> {
 		);
 	}
 
+	public StudyGroup update(
+		String name,
+		String topic,
+		List<String> detailKeywords,
+		int maxMembers,
+		LocalDate startsAt,
+		LocalDate endsAt,
+		String description,
+		Instant now
+	) {
+		Objects.requireNonNull(now, "now must not be null");
+		return new StudyGroup(
+			id(),
+			createdBy,
+			name,
+			topic,
+			detailKeywords,
+			status,
+			maxMembers,
+			isPublic,
+			inviteCode,
+			startsAt,
+			endsAt,
+			description,
+			onboardingStartedAt,
+			startedAt,
+			auditMetadata.touch(now)
+		);
+	}
+
 	public UUID createdBy() {
 		return createdBy;
 	}

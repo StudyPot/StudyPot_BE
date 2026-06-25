@@ -1,5 +1,7 @@
 package com.studypot.aistudyleader.studygroup.board.service;
 
+import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSort;
+
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoard;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardComment;
@@ -10,11 +12,13 @@ import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostCursor;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardPostSummary;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardRepository;
+import com.studypot.aistudyleader.notification.service.NotificationEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,11 +33,22 @@ public class GroupBoardService {
 	private final GroupBoardRepository repository;
 	private final Clock clock;
 	private final Supplier<UUID> idGenerator;
+	private final NotificationEventPublisher notificationEvents;
 
 	public GroupBoardService(GroupBoardRepository repository, Clock clock, Supplier<UUID> idGenerator) {
+		this(repository, clock, idGenerator, NotificationEventPublisher.noop());
+	}
+
+	public GroupBoardService(
+		GroupBoardRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		NotificationEventPublisher notificationEvents
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
 	}
 
 	@Transactional
@@ -41,13 +56,19 @@ public class GroupBoardService {
 		Objects.requireNonNull(query, "query must not be null");
 		requireActiveMembership(query.groupId(), query.authenticatedUserId());
 		List<GroupBoard> boards = repository.findBoardsByGroupId(query.groupId());
-		if (!boards.isEmpty()) {
+		// 누락된 기본 보드 타입(나중에 추가된 LEADER_REPORT 등)을 채워 넣는다. self-heal·멱등 →
+		// 기능 추가 이전에 생성된 기존 그룹도 다음 진입 시 새 기본 보드(예: AI 팀장 탭)가 자동 노출된다.
+		EnumSet<GroupBoardType> existingTypes = EnumSet.noneOf(GroupBoardType.class);
+		boards.forEach(board -> existingTypes.add(board.boardType()));
+		List<GroupBoard> missing = defaultBoards(query.groupId()).stream()
+			.filter(board -> !existingTypes.contains(board.boardType()))
+			.toList();
+		if (missing.isEmpty()) {
 			return boards;
 		}
-		List<GroupBoard> defaults = defaultBoards(query.groupId());
-		repository.insertDefaultBoards(defaults);
+		repository.insertDefaultBoards(missing);
 		List<GroupBoard> reloaded = repository.findBoardsByGroupId(query.groupId());
-		return reloaded.isEmpty() ? defaults : reloaded;
+		return reloaded.isEmpty() ? missing : reloaded;
 	}
 
 	@Transactional(readOnly = true)
@@ -55,24 +76,48 @@ public class GroupBoardService {
 		Objects.requireNonNull(query, "query must not be null");
 		requireActiveMembership(query.groupId(), query.authenticatedUserId());
 		requireBoard(query.groupId(), query.boardId());
-		GroupBoardPostCursor cursor = decodePostCursor(query.cursor());
-		List<GroupBoardPostSummary> fetched = repository.findPosts(query.groupId(), query.boardId(), cursor, query.pageSize() + 1);
+		GroupBoardPostSort sort = query.sortOrder();
+		// keyset 커서는 기본 정렬(createdAt desc)에서만 안정적. 그 외 정렬은 커서 무시 + 단일 페이지.
+		GroupBoardPostCursor cursor = sort.keysetCursorSupported() ? decodePostCursor(query.cursor()) : null;
+		List<GroupBoardPostSummary> fetched = repository.findPosts(query.groupId(), query.boardId(), cursor, sort, query.pageSize() + 1);
 		if (fetched.size() <= query.pageSize()) {
 			return CursorPageResponse.firstPage(fetched, null);
 		}
 		List<GroupBoardPostSummary> items = List.copyOf(fetched.subList(0, query.pageSize()));
-		return CursorPageResponse.firstPage(items, encodePostCursor(items.getLast()));
+		String nextCursor = sort.keysetCursorSupported() ? encodePostCursor(items.getLast()) : null;
+		return CursorPageResponse.firstPage(items, nextCursor);
+	}
+
+	@Transactional(readOnly = true)
+	public CursorPageResponse<GroupBoardPostSummary> listAllPosts(ListAllGroupBoardPostsQuery query) {
+		Objects.requireNonNull(query, "query must not be null");
+		requireActiveMembership(query.groupId(), query.authenticatedUserId());
+		GroupBoardPostSort sort = query.sortOrder();
+		GroupBoardPostCursor cursor = sort.keysetCursorSupported() ? decodePostCursor(query.cursor()) : null;
+		List<GroupBoardPostSummary> fetched = repository.findAllPosts(query.groupId(), cursor, sort, query.pageSize() + 1);
+		if (fetched.size() <= query.pageSize()) {
+			return CursorPageResponse.firstPage(fetched, null);
+		}
+		List<GroupBoardPostSummary> items = List.copyOf(fetched.subList(0, query.pageSize()));
+		String nextCursor = sort.keysetCursorSupported() ? encodePostCursor(items.getLast()) : null;
+		return CursorPageResponse.firstPage(items, nextCursor);
 	}
 
 	@Transactional
 	public GroupBoardPost createPost(CreateGroupBoardPostCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
-		requireBoard(command.groupId(), command.boardId());
+		GroupBoard board = requireBoard(command.groupId(), command.boardId());
 		if (command.pinned() && !membership.owner()) {
 			throw new GroupBoardAccessDeniedException("only the study group owner can pin board posts.");
 		}
+		if (board.boardType() == GroupBoardType.LEADER_REPORT && !membership.owner()) {
+			throw new GroupBoardAccessDeniedException("only the study group owner can post to the leader report board.");
+		}
 		Instant now = clock.instant();
+		String overrideName = command.authorDisplayNameOverride();
+		boolean hasOverride = overrideName != null && !overrideName.isBlank();
+		String displayName = hasOverride ? overrideName : membership.displayName();
 		GroupBoardPost post;
 		try {
 			post = GroupBoardPost.create(
@@ -81,19 +126,43 @@ public class GroupBoardService {
 				command.boardId(),
 				membership.memberId(),
 				membership.userId(),
-				membership.displayName(),
+				displayName,
 				command.title(),
 				command.content(),
 				command.pinned(),
 				now
-			);
+			).withAuthorDisplayNameOverride(hasOverride ? overrideName : null);
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(fieldFromMessage(exception.getMessage()), exception);
 		}
 		if (!repository.insertPost(post)) {
 			throw new GroupBoardMutationRejectedException("group board post could not be inserted.");
 		}
+		if (board.boardType() == GroupBoardType.NOTICE) {
+			notificationEvents.publishNoticePosted(command.groupId(), membership.userId(), post.id(), post.title());
+		} else if (board.boardType() == GroupBoardType.LEADER_REPORT) {
+			notificationEvents.publishLeaderReportPosted(command.groupId(), post.id(), post.title());
+		}
 		return post;
+	}
+
+	/**
+	 * 지정한 보드 타입의 보드 id 를 찾고, 없으면(기존 그룹) 새로 만들어 반환한다.
+	 * 스케줄러가 팀장 리포트 보드(LEADER_REPORT)에 게시할 때 사용한다.
+	 */
+	@Transactional
+	public UUID findOrCreateBoardId(UUID authenticatedUserId, UUID groupId, GroupBoardType boardType) {
+		Objects.requireNonNull(boardType, "boardType must not be null");
+		List<GroupBoard> boards = listBoards(new ListGroupBoardsQuery(authenticatedUserId, groupId));
+		return boards.stream()
+			.filter(board -> board.boardType() == boardType)
+			.map(GroupBoard::id)
+			.findFirst()
+			.orElseGet(() -> {
+				GroupBoard board = GroupBoard.createDefault(idGenerator.get(), groupId, boardType, boards.size() + 1, clock.instant());
+				repository.insertDefaultBoards(List.of(board));
+				return board.id();
+			});
 	}
 
 	@Transactional(readOnly = true)
@@ -117,6 +186,11 @@ public class GroupBoardService {
 		GroupBoardPost updated;
 		try {
 			updated = post.update(command.title(), command.content(), command.pinned(), clock.instant());
+			// AI 팀장 명의(author_display_name_override)로 올라간 글을 사람이 제목/본문 수정하면,
+			// 그 사람(작성자)의 글로 전환되도록 표시명 override 를 제거한다.
+			if (command.changesContent() && post.authorDisplayNameOverride() != null) {
+				updated = updated.withAuthorDisplayNameOverride(null);
+			}
 		} catch (IllegalArgumentException exception) {
 			throw invalidRequest(fieldFromMessage(exception.getMessage()), exception);
 		}
@@ -158,7 +232,6 @@ public class GroupBoardService {
 		Objects.requireNonNull(command, "command must not be null");
 		GroupBoardMembership membership = requireActiveMembership(command.groupId(), command.authenticatedUserId());
 		requirePost(command.groupId(), command.postId());
-		validateParentComment(command.groupId(), command.postId(), command.parentCommentId());
 		Instant now = clock.instant();
 		GroupBoardComment comment;
 		try {
@@ -166,7 +239,6 @@ public class GroupBoardService {
 				idGenerator.get(),
 				command.groupId(),
 				command.postId(),
-				command.parentCommentId(),
 				membership.memberId(),
 				membership.userId(),
 				membership.displayName(),
@@ -212,19 +284,6 @@ public class GroupBoardService {
 		}
 		if (!repository.softDeleteComment(command.groupId(), command.commentId(), clock.instant())) {
 			throw new GroupBoardMutationRejectedException("group board comment could not be deleted.");
-		}
-	}
-
-	private void validateParentComment(UUID groupId, UUID postId, UUID parentCommentId) {
-		if (parentCommentId == null) {
-			return;
-		}
-		GroupBoardComment parent = requireComment(groupId, parentCommentId);
-		if (!parent.postId().equals(postId)) {
-			throw new InvalidGroupBoardRequestException("parentCommentId", "parent comment must belong to the target post.");
-		}
-		if (parent.parentCommentId() != null) {
-			throw new InvalidGroupBoardRequestException("parentCommentId", "parent comment must be a top-level comment.");
 		}
 	}
 

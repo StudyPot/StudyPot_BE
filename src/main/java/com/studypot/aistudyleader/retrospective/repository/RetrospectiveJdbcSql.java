@@ -26,6 +26,32 @@ final class RetrospectiveJdbcSql {
 		  and gm.deleted_at is null
 		""";
 
+	static final String SELECT_GROUP_MEMBERSHIP = """
+		select sg.id as group_id, gm.id as member_id, sg.status as group_status,
+		       gm.permission, gm.status as member_status
+		from study_group sg
+		join group_member gm on gm.group_id = sg.id
+		where sg.id = ?
+		  and gm.user_id = ?
+		  and sg.deleted_at is null
+		  and gm.deleted_at is null
+		""";
+
+	// 내(멤버)가 작성한 그룹 내 모든 주차의 회고를 최신 주차 순으로 조회한다. (리뷰=회고 조회)
+	static final String SELECT_MY_RETROSPECTIVES_BY_GROUP = """
+		select r.id, r.progress_id, r.curriculum_week_id, r.member_id, r.llm_usage_id, r.trigger_type,
+		       r.input_summary, r.ai_feedback, r.next_week_adjustment, r.status, r.requested_at,
+		       r.completed_at, r.created_at, r.updated_at
+		from retrospective r
+		join curriculum_week cw on cw.id = r.curriculum_week_id
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and r.member_id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
+		order by cw.week_number desc, r.requested_at desc, r.id desc
+		""";
+
 	static final String SELECT_PROGRESS = """
 		select id, curriculum_week_id, member_id, status, started_at, due_at, completed_at,
 		       completion_note, incomplete_reason, reason_submitted_at
@@ -138,6 +164,80 @@ final class RetrospectiveJdbcSql {
 		    completed_at = ?,
 		    updated_at = ?
 		where id = ?
+		""";
+
+	static final String UPDATE_RETROSPECTIVE_ANSWERS = """
+		update retrospective
+		set input_summary = ?,
+		    status = ?,
+		    completed_at = ?,
+		    updated_at = ?
+		where id = ?
+		""";
+
+	// 그룹의 (활성 또는 완료된) 커리큘럼 주차별: 회고 질문 + 내 TODO 완료 여부(unlocked) + 내 회고 작성 여부(answered).
+	// 완료된 스터디도 과거 회고를 다시 볼 수 있도록 COMPLETED 커리큘럼도 포함한다.
+	// AI 생성 과제는 required 플래그가 항상 false 라, 잠금 기준을 '전체 TODO 처리(DONE/SKIPPED)'로 본다.
+	static final String SELECT_RETROSPECTIVE_OVERVIEW = """
+		select cw.id as week_id, cw.week_number, cw.status, cw.retrospective_questions,
+		       (select count(*) from weekly_task wt
+		          where wt.curriculum_week_id = cw.id and wt.deleted_at is null) as total_tasks,
+		       (select count(*) from task_completion tc
+		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
+		          where wt2.curriculum_week_id = cw.id and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status in ('DONE', 'SKIPPED')) as done_tasks,
+		       (select count(*) from retrospective r
+		          where r.curriculum_week_id = cw.id and r.member_id = ? and r.status = 'COMPLETED') as answered_count,
+		       exists (select 1 from group_board_post gbp
+		          where gbp.group_id = c.group_id
+		            and gbp.title = concat(cw.week_number, '주차 학습 리포트')
+		            and gbp.deleted_at is null) as report_posted
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where c.group_id = ?
+		  and c.status in ('ACTIVE', 'COMPLETED')
+		  and c.deleted_at is null
+		  and cw.deleted_at is null
+		order by cw.week_number
+		""";
+
+	// 한 주차의 회고 작성 가능 여부 산정에 필요한 값(상태/전체TODO 처리/리포트 게시 여부)을 weekId 기준으로 조회.
+	static final String SELECT_WEEK_WRITABILITY = """
+		select cw.status,
+		       (select count(*) from weekly_task wt
+		          where wt.curriculum_week_id = cw.id and wt.deleted_at is null) as total_tasks,
+		       (select count(*) from task_completion tc
+		          join weekly_task wt2 on wt2.id = tc.weekly_task_id
+		          where wt2.curriculum_week_id = cw.id and wt2.deleted_at is null
+		            and tc.member_id = ? and tc.status in ('DONE', 'SKIPPED')) as done_tasks,
+		       exists (select 1 from group_board_post gbp
+		          where gbp.group_id = c.group_id
+		            and gbp.title = concat(cw.week_number, '주차 학습 리포트')
+		            and gbp.deleted_at is null) as report_posted
+		from curriculum_week cw
+		join curriculum c on c.id = cw.curriculum_id
+		where cw.id = ?
+		  and cw.deleted_at is null
+		  and c.deleted_at is null
+		""";
+
+	// 해당 주차에 대해 그룹의 모든 활성 멤버가 회고를 COMPLETED 로 제출했는지(미제출 활성 멤버가 0명인지).
+	static final String ALL_ACTIVE_MEMBERS_RETROSPECTIVE_COMPLETED = """
+		select count(*) = 0
+		from group_member gm
+		where gm.group_id = (
+		        select c.group_id from curriculum_week cw
+		        join curriculum c on c.id = cw.curriculum_id
+		        where cw.id = ?
+		      )
+		  and gm.status = 'ACTIVE'
+		  and gm.deleted_at is null
+		  and not exists (
+		    select 1 from retrospective r
+		    where r.curriculum_week_id = ?
+		      and r.member_id = gm.id
+		      and r.status = 'COMPLETED'
+		  )
 		""";
 
 	private RetrospectiveJdbcSql() {

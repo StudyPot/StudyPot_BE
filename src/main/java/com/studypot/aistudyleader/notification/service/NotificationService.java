@@ -86,12 +86,22 @@ public class NotificationService implements NotificationEventPublisher {
 	@Transactional
 	public Notification createNotification(CreateNotificationCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
+		PersistedNotification persisted = persistNotification(command);
+		if (persisted.newlyCreated()) {
+			// 워커(RabbitMQ) 경로: 이 메서드는 프록시를 통해 자체 트랜잭션에서 실행되므로
+			// 트랜잭션 커밋 후 SSE 를 푸시하도록 afterCommit 으로 등록한다.
+			publishAfterCommit(() -> streamPublisher.publishNotificationCreated(persisted.notification()));
+		}
+		return persisted.notification();
+	}
+
+	private PersistedNotification persistNotification(CreateNotificationCommand command) {
 		Notification candidate = command.toDeliveredNotification(idGenerator.get(), clock.instant());
 		Notification savedNotification = repository.saveNotification(candidate);
-		if (savedNotification.id().equals(candidate.id())) {
-			publishAfterCommit(() -> streamPublisher.publishNotificationCreated(savedNotification));
-		}
-		return savedNotification;
+		return new PersistedNotification(savedNotification, savedNotification.id().equals(candidate.id()));
+	}
+
+	private record PersistedNotification(Notification notification, boolean newlyCreated) {
 	}
 
 	@Transactional
@@ -138,6 +148,48 @@ public class NotificationService implements NotificationEventPublisher {
 			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
 			for (UUID recipientUserId : recipients) {
 				createNotificationSafely(NotificationCommandFactory.weekStarted(groupId, recipientUserId, weekId, weekNumber, safeWeekTitle));
+			}
+		});
+	}
+
+	@Override
+	public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(actorUserId, "actorUserId must not be null");
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				if (recipientUserId.equals(actorUserId)) {
+					continue;
+				}
+				createNotificationSafely(NotificationCommandFactory.noticePosted(groupId, recipientUserId, postId, safeTitle));
+			}
+		});
+	}
+
+	@Override
+	public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				createNotificationSafely(NotificationCommandFactory.leaderReportPosted(groupId, recipientUserId, postId, safeTitle));
+			}
+		});
+	}
+
+	@Override
+	public void publishStudyCompleted(UUID groupId, String groupName) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		String safeName = requireText(groupName, "groupName");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				createNotificationSafely(NotificationCommandFactory.studyCompleted(groupId, recipientUserId, safeName));
 			}
 		});
 	}
@@ -220,6 +272,48 @@ public class NotificationService implements NotificationEventPublisher {
 		));
 	}
 
+	@Override
+	public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingCompleted(groupId, ownerUserId));
+	}
+
+	@Override
+	public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		publishAfterCommit(NotificationCommandFactory.memberJoined(groupId, ownerUserId, joinedUserId));
+	}
+
+	@Override
+	public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingSubmitted(groupId, recipientUserId, submitterMemberId));
+	}
+
+	@Override
+	public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		publishAfterCommit(NotificationCommandFactory.groupDeleted(groupId, recipientUserId, groupName));
+	}
+
+	@Override
+	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"이번 주 회고를 작성해 주세요",
+			"이번 주차 마감이 한 시간 남았어요. AI 팀장과 함께 회고를 시작해 보세요."
+		));
+	}
+
+	@Override
+	public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveFinalReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"회고 마감이 곧 끝나요",
+			"잠시 후 이번 주차 리포트가 만들어져요. 그 전에 아직 작성하지 않은 회고를 마무리해 주세요."
+		));
+	}
+
 	private NotificationAccessContext requireAccessContext(UUID groupId, UUID userId) {
 		return repository.findAccessContext(groupId, userId)
 			.orElseGet(() -> {
@@ -250,7 +344,14 @@ public class NotificationService implements NotificationEventPublisher {
 
 	private void createNotificationSafely(CreateNotificationCommand command) {
 		try {
-			createNotification(command);
+			PersistedNotification persisted = persistNotification(command);
+			if (persisted.newlyCreated()) {
+				// in-process 발행 경로: 이 메서드는 업무 트랜잭션의 afterCommit 단계에서 실행된다.
+				// 여기서 SSE 푸시를 다시 afterCommit 으로 등록하면, 이미 진행 중인 afterCommit 콜백
+				// 순회에 잡히지 않아 푸시가 유실된다(=실시간 알림이 안 가고 30초 폴링으로만 옴).
+				// 이미 커밋이 끝난 시점이므로 저장 직후 즉시 푸시한다.
+				streamPublisher.publishNotificationCreated(persisted.notification());
+			}
 		} catch (RuntimeException exception) {
 			log.warn("in-app notification creation failed type={} idempotencyKey={}",
 				command.notificationType(), command.idempotencyKey());

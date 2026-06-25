@@ -43,6 +43,48 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 	}
 
 	@Override
+	public void publishNoticePosted(UUID groupId, UUID actorUserId, UUID postId, String title) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(actorUserId, "actorUserId must not be null");
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				if (recipientUserId.equals(actorUserId)) {
+					continue;
+				}
+				publishSafely(NotificationCommandFactory.noticePosted(groupId, recipientUserId, postId, safeTitle));
+			}
+		});
+	}
+
+	@Override
+	public void publishLeaderReportPosted(UUID groupId, UUID postId, String title) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		Objects.requireNonNull(postId, "postId must not be null");
+		String safeTitle = requireText(title, "title");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				publishSafely(NotificationCommandFactory.leaderReportPosted(groupId, recipientUserId, postId, safeTitle));
+			}
+		});
+	}
+
+	@Override
+	public void publishStudyCompleted(UUID groupId, String groupName) {
+		Objects.requireNonNull(groupId, "groupId must not be null");
+		String safeName = requireText(groupName, "groupName");
+		publishAfterCommit(() -> {
+			List<UUID> recipients = repository.findActiveGroupRecipientUserIds(groupId);
+			for (UUID recipientUserId : recipients) {
+				publishSafely(NotificationCommandFactory.studyCompleted(groupId, recipientUserId, safeName));
+			}
+		});
+	}
+
+	@Override
 	public void publishTaskDueReminder(
 		UUID groupId,
 		UUID recipientUserId,
@@ -117,6 +159,48 @@ public class QueuedNotificationEventPublisher implements NotificationEventPublis
 			weekId,
 			"다음 주 조정안이 준비됐어요",
 			"AI 팀장이 제안한 다음 주 학습 조정안을 확인해 주세요."
+		));
+	}
+
+	@Override
+	public void publishOnboardingCompleted(UUID groupId, UUID ownerUserId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingCompleted(groupId, ownerUserId));
+	}
+
+	@Override
+	public void publishMemberJoined(UUID groupId, UUID ownerUserId, UUID joinedUserId) {
+		publishAfterCommit(NotificationCommandFactory.memberJoined(groupId, ownerUserId, joinedUserId));
+	}
+
+	@Override
+	public void publishOnboardingSubmitted(UUID groupId, UUID recipientUserId, UUID submitterMemberId) {
+		publishAfterCommit(NotificationCommandFactory.onboardingSubmitted(groupId, recipientUserId, submitterMemberId));
+	}
+
+	@Override
+	public void publishGroupDeleted(UUID groupId, UUID recipientUserId, String groupName) {
+		publishAfterCommit(NotificationCommandFactory.groupDeleted(groupId, recipientUserId, groupName));
+	}
+
+	@Override
+	public void publishRetrospectiveReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"이번 주 회고를 작성해 주세요",
+			"이번 주차 마감이 한 시간 남았어요. AI 팀장과 함께 회고를 시작해 보세요."
+		));
+	}
+
+	@Override
+	public void publishRetrospectiveFinalReminder(UUID groupId, UUID recipientUserId, UUID weekId) {
+		publishAfterCommit(NotificationCommandFactory.retrospectiveFinalReminder(
+			groupId,
+			recipientUserId,
+			weekId,
+			"회고 마감이 곧 끝나요",
+			"잠시 후 이번 주차 리포트가 만들어져요. 그 전에 아직 작성하지 않은 회고를 마무리해 주세요."
 		));
 	}
 

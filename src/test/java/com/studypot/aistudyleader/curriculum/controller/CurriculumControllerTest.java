@@ -23,6 +23,7 @@ import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgress;
 import com.studypot.aistudyleader.curriculum.domain.MemberWeekProgressStatus;
 import com.studypot.aistudyleader.curriculum.domain.SubmittedOnboardingResponse;
+import com.studypot.aistudyleader.curriculum.domain.GroupActivityCount;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletion;
 import com.studypot.aistudyleader.curriculum.domain.TaskCompletionStatus;
 import com.studypot.aistudyleader.curriculum.domain.WeeklyTask;
@@ -168,7 +169,8 @@ class CurriculumControllerTest {
 			TestCurriculumBeans.NOW,
 			CurriculumSprintPlanner.fixedWeeklyWindows(LocalDate.parse("2026-05-11"), LocalDate.parse("2026-05-17")),
 			List.of(WEEK_ID),
-			List.of(TASK_ID)
+			List.of(TASK_ID),
+			1
 		);
 
 		mockMvc.perform(get(CURRICULUM_PATH)
@@ -204,6 +206,18 @@ class CurriculumControllerTest {
 			.andExpect(jsonPath("$.status").value("IN_PROGRESS"))
 			.andExpect(jsonPath("$.startsAt").value("2026-05-11T02:20:00Z"))
 			.andExpect(jsonPath("$.endsAt").value("2026-05-18T02:20:00Z"));
+	}
+
+	@Test
+	void listCurriculumWeeksReturnsWeeks() throws Exception {
+		repository.currentWeek = currentWeek();
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/weeks")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].id").value(WEEK_ID.toString()))
+			.andExpect(jsonPath("$[0].weekNumber").value(1));
 	}
 
 	@Test
@@ -291,6 +305,54 @@ class CurriculumControllerTest {
 	}
 
 	@Test
+	void getActivityHeatmapRequiresAuthentication() throws Exception {
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/activity-heatmap"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void getActivityHeatmapReturnsMemberDailyCounts() throws Exception {
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1)
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/activity-heatmap")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.startDate").value("2026-05-11"))
+			.andExpect(jsonPath("$.endDate").value("2026-05-17"))
+			.andExpect(jsonPath("$.days.length()").value(7))
+			.andExpect(jsonPath("$.members[0].userId").value(USER_ID.toString()))
+			.andExpect(jsonPath("$.members[0].displayName").value("현우"))
+			.andExpect(jsonPath("$.members[0].nickname").value("hyunwoo"))
+			.andExpect(jsonPath("$.members[0].counts.length()").value(7))
+			.andExpect(jsonPath("$.members[0].counts[0]").value(3))
+			.andExpect(jsonPath("$.members[0].counts[1]").value(1));
+	}
+
+	@Test
+	void getGroupMembersActivityReturnsDailyActivityRows() throws Exception {
+		repository.groupActivityCounts = List.of(
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-11"), 3),
+			new GroupActivityCount(MEMBER_ID, USER_ID, "현우", "hyunwoo", LocalDate.parse("2026-05-12"), 1)
+		);
+
+		mockMvc.perform(get(ApiPaths.V1 + "/groups/" + GROUP_ID + "/learning-activity")
+				.with(user(USER_ID.toString())))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$[0].memberId").value(MEMBER_ID.toString()))
+			.andExpect(jsonPath("$[0].memberNickname").value("hyunwoo"))
+			.andExpect(jsonPath("$[0].dailyActivity.length()").value(7))
+			.andExpect(jsonPath("$[0].dailyActivity[0].date").value("2026-05-11"))
+			.andExpect(jsonPath("$[0].dailyActivity[0].count").value(3))
+			.andExpect(jsonPath("$[0].dailyActivity[1].count").value(1));
+	}
+
+	@Test
 	void getLearningActivityReturnsCurrentWeekTasksAndMyCompletionState() throws Exception {
 		repository.currentWeek = new CurriculumWeek(
 			WEEK_ID,
@@ -299,6 +361,7 @@ class CurriculumControllerTest {
 			"JPA 기초와 환경 구성",
 			"핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -616,14 +679,20 @@ class CurriculumControllerTest {
 	}
 
 	@Test
-	void completeTaskIncompleteActionReturnsValidationProblemWhenReasonIsMissing() throws Exception {
+	void completeTaskIncompleteActionAllowsMissingReason() throws Exception {
+		repository.taskExists = true;
+		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
+		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, true, TestCurriculumBeans.NOW.minusSeconds(60));
+		repository.progress = progress(MemberWeekProgressStatus.IN_PROGRESS, TestCurriculumBeans.NOW.minusSeconds(3600), null, null, null, null);
+		repository.nextIds = new ArrayDeque<>(List.of(COMPLETION_ID));
+
 		mockMvc.perform(post(TASK_INCOMPLETE_PATH)
 				.with(user(USER_ID.toString()))
 				.with(xsrf("task-xsrf"))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{}"))
-			.andExpect(status().isUnprocessableEntity())
-			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("INCOMPLETE"));
 	}
 
 	@Test
@@ -685,7 +754,7 @@ class CurriculumControllerTest {
 	}
 
 	@Test
-	void completeTaskReturnsValidationProblemWhenIncompleteReasonIsMissing() throws Exception {
+	void completeTaskAllowsIncompleteWithoutReason() throws Exception {
 		repository.taskExists = true;
 		repository.taskReadContext = context(StudyGroupStatus.ACTIVE, GroupMemberPermission.MEMBER, GroupMemberStatus.ACTIVE);
 		repository.weeklyTask = task(TASK_ID, 1, WeeklyTaskType.ASSIGNMENT, true, TestCurriculumBeans.NOW.minusSeconds(60));
@@ -699,10 +768,8 @@ class CurriculumControllerTest {
 				.content("""
 					{"status":"INCOMPLETE"}
 					"""))
-			.andExpect(status().isUnprocessableEntity())
-			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-			.andExpect(jsonPath("$.fieldErrors[0].field").value("incompleteReason"))
-			.andExpect(jsonPath("$.fieldErrors[0].message").value("incomplete reason is required when status is INCOMPLETE."));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("INCOMPLETE"));
 	}
 
 	@Test
@@ -778,6 +845,7 @@ class CurriculumControllerTest {
 				1,
 				"JPA 기초와 환경 구성",
 				"핵심 개념을 맞춥니다.",
+				java.util.List.of(),
 				List.of("Entity 매핑 이해"),
 				List.of(),
 				List.of(new CurriculumTaskPlan(WeeklyTaskType.READING, "JPA 읽기", null, true))
@@ -804,6 +872,7 @@ class CurriculumControllerTest {
 			"JPA 기초와 환경 구성",
 			"핵심 개념을 맞춥니다.",
 			"Entity 매핑 이해",
+			java.util.List.of(),
 			List.of("Entity 매핑 이해"),
 			List.of(),
 			CurriculumWeekStatus.IN_PROGRESS,
@@ -925,6 +994,7 @@ class CurriculumControllerTest {
 		private MemberWeekProgress progress;
 		private TaskCompletion taskCompletion;
 		private List<TaskCompletion> taskCompletions;
+		private List<GroupActivityCount> groupActivityCounts;
 		private Instant weekDueAt;
 		private Queue<UUID> nextIds;
 
@@ -942,6 +1012,7 @@ class CurriculumControllerTest {
 			progress = null;
 			taskCompletion = null;
 			taskCompletions = List.of();
+			groupActivityCounts = List.of();
 			weekDueAt = TestCurriculumBeans.NOW.plusSeconds(604800);
 			nextIds = new ArrayDeque<>(List.of(LLM_USAGE_ID, CURRICULUM_ID, WEEK_ID, TASK_ID));
 		}
@@ -997,7 +1068,17 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<Curriculum> findViewableCurriculumByGroupId(UUID groupId) {
+			return Optional.ofNullable(activeCurriculum);
+		}
+
+		@Override
 		public Optional<CurriculumWeek> findCurrentWeekByGroupId(UUID groupId) {
+			return Optional.ofNullable(currentWeek);
+		}
+
+		@Override
+		public Optional<CurriculumWeek> findWeekById(UUID weekId) {
 			return Optional.ofNullable(currentWeek);
 		}
 
@@ -1012,6 +1093,26 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextPendingWeek(UUID currentWeekId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public Optional<com.studypot.aistudyleader.curriculum.domain.NextWeekTarget> findNextRegenerableWeek(UUID currentWeekId, java.time.Instant now) {
+			return Optional.empty();
+		}
+
+		@Override
+		public Optional<String> findLatestWeeklyReportBody(UUID groupId) {
+			return Optional.empty();
+		}
+
+		@Override
+		public com.studypot.aistudyleader.curriculum.domain.CurriculumWeek replaceNextWeekTasks(UUID weekId, java.util.List<com.studypot.aistudyleader.curriculum.domain.WeeklyTask> tasks, java.util.List<com.studypot.aistudyleader.curriculum.domain.RetrospectiveQuestion> retrospectiveQuestions, java.time.Instant now) {
+			return null;
+		}
+
+		@Override
 		public Optional<CurriculumStartContext> findReadContextByTaskId(UUID taskId, UUID userId) {
 			return Optional.ofNullable(taskReadContext);
 		}
@@ -1022,6 +1123,29 @@ class CurriculumControllerTest {
 		}
 
 		@Override
+		public void insertNextWeek(com.studypot.aistudyleader.curriculum.domain.CurriculumWeek week) {
+		}
+
+		@Override
+		public void insertWeeklyTask(com.studypot.aistudyleader.curriculum.domain.WeeklyTask task) {
+		}
+
+		@Override
+		public List<String> findCompletedRetrospectiveSummaries(UUID weekId) {
+			return List.of();
+		}
+
+		@Override
+		public List<String> findCompletedRetrospectiveAdjustments(UUID weekId) {
+			return List.of();
+		}
+
+		@Override
+		public List<String> findTeamLeadAdjustmentCandidates(UUID groupId, Instant since) {
+			return List.of();
+		}
+
+		@Override
 		public boolean existsWeeklyTask(UUID taskId) {
 			return taskExists;
 		}
@@ -1029,6 +1153,11 @@ class CurriculumControllerTest {
 		@Override
 		public Optional<WeeklyTask> findWeeklyTaskById(UUID taskId) {
 			return Optional.ofNullable(weeklyTask);
+		}
+
+		@Override
+		public Optional<Instant> findCurriculumWeekStartsAt(UUID weekId) {
+			return Optional.empty();
 		}
 
 		@Override
@@ -1061,6 +1190,37 @@ class CurriculumControllerTest {
 		@Override
 		public List<TaskCompletion> findTaskCompletionsByWeekIdAndMemberId(UUID weekId, UUID memberId) {
 			return taskCompletions;
+		}
+
+		@Override
+		public List<GroupActivityCount> findGroupDoneActivityCounts(UUID groupId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			return groupActivityCounts;
+		}
+
+		@Override
+		public List<com.studypot.aistudyleader.curriculum.domain.RecentTaskActivity> findRecentTaskActivity(UUID groupId, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public int countActiveOrOnboardingMembers(UUID groupId) {
+			return 2;
+		}
+
+		@Override
+		public int countMemberDoneActivity(UUID userId, java.time.Instant fromInclusive, java.time.Instant toExclusive) {
+			return 0;
+		}
+
+		@Override
+		public java.util.List<com.studypot.aistudyleader.curriculum.domain.GroupWeekProgress> findWeekProgressByGroupIds(
+			java.util.Collection<UUID> groupIds) {
+			return java.util.List.of();
+		}
+
+		@Override
+		public List<CurriculumWeek> findWeeksByGroupId(UUID groupId) {
+			return currentWeek == null ? List.of() : List.of(currentWeek);
 		}
 
 		@Override

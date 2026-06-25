@@ -185,6 +185,16 @@ class AiConversationQaConfiguration {
 		}
 
 		@Override
+		public Optional<AiConversationMessage> findMessage(UUID messageId) {
+			return messages.stream().filter(message -> message.id().equals(messageId)).findFirst();
+		}
+
+		@Override
+		public boolean updateMessageMetadata(UUID messageId, Map<String, Object> metadata) {
+			return messages.stream().anyMatch(message -> message.id().equals(messageId));
+		}
+
+		@Override
 		public List<AiConversationMessage> findMessages(UUID conversationId, AiConversationMessageCursor cursor, int limit) {
 			if (!conversations.containsKey(conversationId)) {
 				return List.of();
