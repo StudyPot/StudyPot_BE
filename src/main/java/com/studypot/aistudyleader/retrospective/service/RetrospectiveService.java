@@ -15,6 +15,8 @@ import com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview
 import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
 import com.studypot.aistudyleader.report.service.WeeklyReportTrigger;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -188,12 +190,32 @@ public class RetrospectiveService {
 			return;
 		}
 		try {
-			if (repository.areAllActiveMembersRetrospectiveCompleted(weekId)) {
-				trigger.generateForWeekImmediately(weekId);
+			if (!repository.areAllActiveMembersRetrospectiveCompleted(weekId)) {
+				return;
+			}
+			// 리포트 생성(LLM)은 회고 제출 응답을 막지 않도록 트랜잭션 커밋 후 비동기(@Async)로 실행한다.
+			// 커밋 후 실행해야 방금 제출한 회고까지 리포트에 반영된다.
+			if (TransactionSynchronizationManager.isSynchronizationActive()) {
+				TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+					@Override
+					public void afterCommit() {
+						runWeeklyReport(trigger, weekId);
+					}
+				});
+			} else {
+				runWeeklyReport(trigger, weekId);
 			}
 		} catch (RuntimeException exception) {
 			// 리포트 생성은 부가 동작이므로 회고 제출 자체를 실패시키지 않는다.
 			log.warn("immediate weekly report trigger failed weekId={}", weekId, exception);
+		}
+	}
+
+	private void runWeeklyReport(WeeklyReportTrigger trigger, UUID weekId) {
+		try {
+			trigger.generateForWeekImmediately(weekId);
+		} catch (RuntimeException exception) {
+			log.warn("immediate weekly report generation failed weekId={}", weekId, exception);
 		}
 	}
 

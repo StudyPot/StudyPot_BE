@@ -27,6 +27,7 @@ class ProviderBackedAiConversationQuestionRefiner implements AiConversationQuest
 		userInstruction 을 최대한 반영해 한국어로 게시판 글을 다시 작성하라.
 		- title: 간결한 한 줄 제목.
 		- content: 질문 맥락과 핵심을 담은 본문(마크다운 허용). 답변까지 포함해도 좋다.
+		본문은 그 자체로 완결돼야 한다. "원하면 다음 글에서는 …해줄게/맞춰줄게", "다음 편에서…" 같이 다음 글을 예고/약속하는 문장은 절대 넣지 마라.
 		스터디 학습 범위를 벗어나지 말고, 비밀키·자격증명류 값은 포함하지 마라.
 		제공된 JSON 스키마(title, content)에 맞는 JSON 만 반환하라.
 		""";

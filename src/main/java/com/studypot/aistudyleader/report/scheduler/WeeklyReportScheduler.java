@@ -426,6 +426,7 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 	 * 주차 리포트만 게시하고 다음 주차는 만들지 않는다. 멱등(제목 'N주차 학습 리포트').
 	 */
 	@Override
+	@org.springframework.scheduling.annotation.Async
 	public void generateForWeekImmediately(UUID weekId) {
 		WeeklyReportGenerator generator = reportGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
