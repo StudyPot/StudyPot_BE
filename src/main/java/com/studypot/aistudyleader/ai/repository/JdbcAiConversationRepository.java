@@ -308,6 +308,7 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 
 	private Map<String, Object> findRetrospectivePromptContext(AiConversationMessageContext context, UUID resolvedWeekId) {
 		if (context.retrospectiveId() != null) {
+			// 명시적 회고 대화: 회고 피드백·다음주 조정까지 포함한 전체 맥락을 제공한다.
 			return queryOne(
 				AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT,
 				this::mapRetrospectivePromptContext,
@@ -318,9 +319,12 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 		if (resolvedWeekId == null) {
 			return Map.of("status", "NOT_AVAILABLE");
 		}
+		// 일반 팀장 채팅: 회고의 존재/상태만 가볍게 제공한다.
+		// aiFeedback·nextWeekAdjustment 같은 회고 요약/다음주 계획 본문은 주입하지 않는다.
+		// (잡담 응답에 "다 끝난 주였고… 다음 주 점검 포인트" 같은 회고 마무리 톤이 새어 나오는 것을 막는다.)
 		return queryOne(
 			AiConversationJdbcSql.SELECT_RETROSPECTIVE_PROMPT_CONTEXT_BY_WEEK,
-			this::mapRetrospectivePromptContext,
+			this::mapRetrospectiveStatusContext,
 			uuid(resolvedWeekId),
 			uuid(context.memberId())
 		).orElse(Map.of("status", "NOT_AVAILABLE"));
@@ -481,6 +485,21 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 			"nextWeekAdjustment",
 			readNullableMap(resultSet.getString("next_week_adjustment"), "retrospective next week adjustment")
 		);
+		putInstant(result, "requestedAt", instant(resultSet.getTimestamp("requested_at")));
+		putInstant(result, "completedAt", instant(resultSet.getTimestamp("completed_at")));
+		return result;
+	}
+
+	/**
+	 * 일반 팀장 채팅용 경량 회고 맥락: 회고 존재/상태와 시각만 담고,
+	 * aiFeedback·nextWeekAdjustment 같은 요약/다음주 계획 본문은 의도적으로 제외한다.
+	 * (잡담 응답에 회고 마무리/다음주 점검 톤이 새는 것을 방지)
+	 */
+	private Map<String, Object> mapRetrospectiveStatusContext(ResultSet resultSet, int rowNumber) throws SQLException {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("status", "AVAILABLE");
+		result.put("id", requiredUuid(resultSet, "id").toString());
+		result.put("retrospectiveStatus", requiredString(resultSet, "status"));
 		putInstant(result, "requestedAt", instant(resultSet.getTimestamp("requested_at")));
 		putInstant(result, "completedAt", instant(resultSet.getTimestamp("completed_at")));
 		return result;
