@@ -16,6 +16,7 @@ import com.studypot.aistudyleader.report.service.WeeklyReportGeneration;
 import com.studypot.aistudyleader.report.service.WeeklyReportGenerator;
 import com.studypot.aistudyleader.studygroup.board.domain.GroupBoardType;
 import com.studypot.aistudyleader.studygroup.board.service.CreateGroupBoardPostCommand;
+import com.studypot.aistudyleader.studygroup.board.service.GroupBoardNotFoundException;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardService;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -52,13 +53,17 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 	// (마감 임박/직후에 회고를 마저 쓰는 멤버를 위한 유예. 이 유예 동안 마감 10분 전 리마인더가 미제출자에게 한 번 더 간다)
 	private static final Duration REPORT_DELAY = Duration.ofMinutes(30);
 
-	private static final String SELECT_DUE_REPORT_WEEKS = """
+	// 삭제된 그룹(sg.deleted_at)은 제외한다. 포함하면 게시 단계에서 GroupBoardNotFoundException 으로
+	// 매 주기 WARN 노이즈가 발생한다. 즉시 트리거(SELECT_WEEK_FOR_REPORT_BY_ID)와 동일한 살아있는-그룹 조건.
+	static final String SELECT_DUE_REPORT_WEEKS = """
 		select c.group_id, cw.id as week_id, cw.week_number, cw.title as week_title
 		from curriculum_week cw
 		join curriculum c on c.id = cw.curriculum_id
+		join study_group sg on sg.id = c.group_id
 		where c.status = 'ACTIVE'
 		  and c.deleted_at is null
 		  and cw.deleted_at is null
+		  and sg.deleted_at is null
 		  and cw.ends_at <= ?
 		  and cw.ends_at > ?
 		order by cw.ends_at
@@ -246,6 +251,9 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 		for (DueWeek week : weeks) {
 			try {
 				generateForWeek(week, generator, recorder);
+			} catch (GroupBoardNotFoundException exception) {
+				// 대상 선정 후 그룹이 삭제되는 레이스. 해당 그룹만 건너뛰고 나머지는 계속 처리한다.
+				log.debug("weekly report skipped for missing/deleted group groupId={} weekId={}", week.groupId(), week.weekId());
 			} catch (RuntimeException exception) {
 				log.warn("weekly report generation failed groupId={} weekId={}", week.groupId(), week.weekId(), exception);
 			}
@@ -277,6 +285,8 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 		for (CompletedGroup group : groups) {
 			try {
 				generateCompletionReport(group, generator, recorder);
+			} catch (GroupBoardNotFoundException exception) {
+				log.debug("completion report skipped for missing/deleted group groupId={}", group.groupId());
 			} catch (RuntimeException exception) {
 				log.warn("study completion report failed groupId={}", group.groupId(), exception);
 			}
@@ -312,6 +322,8 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 		}
 		try {
 			generateCompletionReport(groups.get(0), generator, recorder);
+		} catch (GroupBoardNotFoundException exception) {
+			log.debug("immediate completion report skipped for missing/deleted group groupId={}", groupId);
 		} catch (RuntimeException exception) {
 			log.warn("immediate study completion report failed groupId={}", groupId, exception);
 		}
@@ -454,6 +466,8 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 		}
 		try {
 			postWeeklyReport(weeks.get(0), generator, recorder); // 다음 주차 생성은 하지 않음
+		} catch (GroupBoardNotFoundException exception) {
+			log.debug("immediate weekly report skipped for missing/deleted group weekId={}", weekId);
 		} catch (RuntimeException exception) {
 			log.warn("immediate weekly report failed weekId={}", weekId, exception);
 		}
@@ -497,7 +511,7 @@ class WeeklyReportScheduler implements StudyCompletionReportTrigger, WeeklyRepor
 		return owners.isEmpty() ? Optional.empty() : Optional.of(owners.get(0));
 	}
 
-	private record DueWeek(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
+	record DueWeek(UUID groupId, UUID weekId, int weekNumber, String weekTitle) {
 	}
 
 	private record CompletedGroup(UUID groupId, String groupName, UUID curriculumId, int totalWeeks) {
