@@ -96,6 +96,14 @@ studypot:
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:4096}
       reasoning-efforts:
         detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_REASONING_EFFORT_DETAIL_KEYWORD_SUGGEST:minimal}
+    conversation:
+      # AI 팀장 응답 생성을 RabbitMQ 로 비동기 처리한다(사용자 메시지 저장 후 큐에 작업 발행 → worker 가 생성 → SSE 전달).
+      # false 면 같은 트랜잭션에서 동기 생성하는 폴백 경로로 동작한다(브로커 없는 로컬/테스트용).
+      rabbitmq:
+        enabled: ${STUDYPOT_AI_CONVERSATION_RABBITMQ_ENABLED:true}
+        exchange: ${STUDYPOT_AI_CONVERSATION_RABBITMQ_EXCHANGE:studypot.ai.conversation.events}
+        queue: ${STUDYPOT_AI_CONVERSATION_RABBITMQ_QUEUE:studypot.ai.conversation.jobs}
+        routing-key: ${STUDYPOT_AI_CONVERSATION_RABBITMQ_ROUTING_KEY:ai.conversation.generate}
   rate-limit:
     enabled: ${STUDYPOT_RATE_LIMIT_ENABLED:false}
     fail-closed: ${STUDYPOT_RATE_LIMIT_FAIL_CLOSED:true}

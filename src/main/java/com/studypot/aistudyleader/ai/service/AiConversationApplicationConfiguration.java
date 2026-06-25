@@ -31,6 +31,15 @@ class AiConversationApplicationConfiguration {
 		return new CurriculumServiceBackedAiConversationCurriculumGateway(curriculumService);
 	}
 
+	/**
+	 * 기본(동기) 디스패처. RabbitMQ 가 활성화되면 RabbitAiAssistantConfiguration 이 @Primary 디스패처를 등록해 이를 대체한다.
+	 * AiConversationService 와 순환 의존을 피하기 위해 ObjectProvider 로 지연 주입한다.
+	 */
+	@Bean
+	AiAssistantJobDispatcher inProcessAiAssistantJobDispatcher(ObjectProvider<AiConversationService> conversationService) {
+		return new InProcessAiAssistantJobDispatcher(conversationService);
+	}
+
 	@Bean
 	@Conditional(LlmProviderConfiguredCondition.class)
 	@ConditionalOnMissingBean(AiConversationQuestionRefiner.class)
@@ -54,7 +63,8 @@ class AiConversationApplicationConfiguration {
 		ObjectProvider<AiConversationStreamPublisher> streamPublisher,
 		ObjectProvider<AiConversationBoardGateway> boardGateway,
 		ObjectProvider<AiConversationQuestionRefiner> questionRefiner,
-		ObjectProvider<AiConversationCurriculumGateway> curriculumGateway
+		ObjectProvider<AiConversationCurriculumGateway> curriculumGateway,
+		ObjectProvider<AiAssistantJobDispatcher> assistantJobDispatcher
 	) {
 		AiConversationAssistantResponseGenerator generator = assistantResponseGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
@@ -62,10 +72,11 @@ class AiConversationApplicationConfiguration {
 		AiConversationBoardGateway gateway = boardGateway.getIfAvailable();
 		AiConversationQuestionRefiner refiner = questionRefiner.getIfAvailable();
 		AiConversationCurriculumGateway curriculum = curriculumGateway.getIfAvailable();
+		AiAssistantJobDispatcher dispatcher = assistantJobDispatcher.getIfAvailable();
 		if (generator == null || recorder == null) {
-			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner, curriculum);
+			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner, curriculum, dispatcher);
 		}
-		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner, curriculum);
+		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner, curriculum, dispatcher);
 	}
 
 	@Bean

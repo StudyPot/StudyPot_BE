@@ -50,6 +50,7 @@ public class AiConversationService {
 	private final AiConversationBoardGateway boardGateway;
 	private final AiConversationQuestionRefiner questionRefiner;
 	private final AiConversationCurriculumGateway curriculumGateway;
+	private final AiAssistantJobDispatcher assistantJobDispatcher;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -112,6 +113,21 @@ public class AiConversationService {
 		AiConversationQuestionRefiner questionRefiner,
 		AiConversationCurriculumGateway curriculumGateway
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher, boardGateway, questionRefiner, curriculumGateway, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner,
+		AiConversationCurriculumGateway curriculumGateway,
+		AiAssistantJobDispatcher assistantJobDispatcher
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -121,6 +137,7 @@ public class AiConversationService {
 		this.boardGateway = boardGateway;
 		this.questionRefiner = questionRefiner;
 		this.curriculumGateway = curriculumGateway;
+		this.assistantJobDispatcher = assistantJobDispatcher;
 	}
 
 	@Transactional
@@ -209,7 +226,33 @@ public class AiConversationService {
 		if (!assistantGenerationConfigured()) {
 			return message;
 		}
-		return generateAssistantMessage(command, context, message);
+		// 디스패처가 있으면 처리 방식(동기 in-process / 비동기 RabbitMQ)을 위임한다.
+		// 비동기일 때는 assistant 응답이 worker 에서 생성되어 SSE 로 전달되므로 여기서는 사용자 메시지를 반환한다.
+		// 디스패처가 없는 구성(테스트 등)에서는 기존처럼 현재 트랜잭션에서 동기로 생성한다.
+		if (assistantJobDispatcher == null) {
+			return generateAssistantMessage(command.authenticatedUserId(), context, message);
+		}
+		return assistantJobDispatcher
+			.dispatch(command.authenticatedUserId(), command.conversationId(), message.id())
+			.orElse(message);
+	}
+
+	/**
+	 * 저장된 사용자 메시지에 대한 AI 팀장 응답을 생성한다. 비동기(RabbitMQ) worker 또는 동기 in-process 디스패처가 호출한다.
+	 * 호출 시점에 컨텍스트와 사용자 메시지를 DB 에서 다시 로드하므로, 사용자 메시지 저장 트랜잭션이 커밋된 뒤 호출해도 안전하다.
+	 */
+	@Transactional(noRollbackFor = AiConversationResponseGenerationException.class)
+	public AiConversationMessage generateAssistantReply(UUID authenticatedUserId, UUID conversationId, UUID userMessageId) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		Objects.requireNonNull(conversationId, "conversationId must not be null");
+		Objects.requireNonNull(userMessageId, "userMessageId must not be null");
+		if (!assistantGenerationConfigured()) {
+			throw new AiConversationServiceUnavailableException("AI conversation assistant generation is not configured.");
+		}
+		AiConversationMessageContext context = requireMessageContext(conversationId, authenticatedUserId);
+		AiConversationMessage userMessage = repository.findMessage(userMessageId)
+			.orElseThrow(() -> new AiConversationNotFoundException("AI conversation message was not found."));
+		return generateAssistantMessage(authenticatedUserId, context, userMessage);
 	}
 
 	/**
@@ -490,7 +533,7 @@ public class AiConversationService {
 	}
 
 	private AiConversationMessage generateAssistantMessage(
-		SendAiConversationMessageCommand command,
+		UUID authenticatedUserId,
 		AiConversationMessageContext context,
 		AiConversationMessage userMessage
 	) {
@@ -500,13 +543,13 @@ public class AiConversationService {
 			"assistant-generation-started");
 		try {
 			response = assistantResponseGenerator.generate(new AiConversationAssistantRequest(
-				command.authenticatedUserId(),
+				authenticatedUserId,
 				context,
 				userMessage,
 				promptContext
 			));
 		} catch (AiConversationResponseGenerationException exception) {
-			recordFailureUsage(command, context, exception);
+			recordFailureUsage(authenticatedUserId, context, exception);
 			publishStreamEventSafely(
 				() -> streamPublisher.publishAssistantGenerationFailed(context.conversationId(), exception.failure().errorCode()),
 				"assistant-generation-failed"
@@ -518,7 +561,7 @@ public class AiConversationService {
 		UUID usageId = idGenerator.get();
 		usageRecorder.record(response.llmResponse().toUsage(
 			usageId,
-			command.authenticatedUserId(),
+			authenticatedUserId,
 			context.groupId(),
 			LlmUsagePurpose.TEAM_LEAD_CHAT,
 			now
@@ -549,13 +592,13 @@ public class AiConversationService {
 	}
 
 	private void recordFailureUsage(
-		SendAiConversationMessageCommand command,
+		UUID authenticatedUserId,
 		AiConversationMessageContext context,
 		AiConversationResponseGenerationException exception
 	) {
 		usageRecorder.record(exception.failure().toUsage(
 			idGenerator.get(),
-			command.authenticatedUserId(),
+			authenticatedUserId,
 			context.groupId(),
 			clock.instant()
 		));
