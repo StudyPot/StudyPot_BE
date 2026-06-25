@@ -249,6 +249,8 @@ public class AiConversationService {
 			case "SHARE_QUESTION" -> executeShareQuestion(context, command, pendingAction, now);
 			case "COMPLETE_TASK" -> executeCompleteTask(command, pendingAction, now);
 			case "ADD_TASK" -> executeAddTask(context, command, pendingAction, now);
+			case "EDIT_POST" -> executeEditPost(context, command, pendingAction, now);
+			case "DELETE_POST" -> executeDeletePost(context, command, pendingAction, now);
 			default -> throw new AiConversationMutationRejectedException("unsupported AI conversation action type: " + type + ".");
 		}
 		metadata.put("pendingAction", pendingAction);
@@ -325,6 +327,69 @@ public class AiConversationService {
 			command.conversationId(),
 			"질문을 '질문' 게시판에 올렸어요. 다른 멤버들도 확인할 수 있어요. ✅",
 			Map.of("kind", "action_result", "action", "SHARE_QUESTION", "postId", postId.toString()),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeEditPost(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		String postId = stringValue(pendingAction.get("postId"));
+		String title = stringValue(pendingAction.get("title"));
+		String summary = stringValue(pendingAction.get("summary"));
+		if (postId.isBlank() || (title.isBlank() && summary.isBlank())) {
+			throw new AiConversationMutationRejectedException("the proposed post edit is incomplete.");
+		}
+		boardGateway.updatePostOnBoard(
+			command.authenticatedUserId(),
+			context.groupId(),
+			UUID.fromString(postId),
+			title.isBlank() ? null : title,
+			summary.isBlank() ? null : summary
+		);
+		pendingAction.put("status", "EXECUTED");
+		pendingAction.put("result", Map.of("postId", postId, "boardType", "QUESTION"));
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"게시글을 수정했어. ✅",
+			Map.of("kind", "action_result", "action", "EDIT_POST", "postId", postId),
+			now
+		);
+		if (repository.insertMessage(confirmation)) {
+			publishStreamEventSafely(() -> streamPublisher.publishAssistantMessageCreated(confirmation), "assistant-message-created");
+		}
+	}
+
+	private void executeDeletePost(
+		AiConversationMessageContext context,
+		DecideAiConversationMessageActionCommand command,
+		Map<String, Object> pendingAction,
+		Instant now
+	) {
+		if (boardGateway == null) {
+			throw new AiConversationServiceUnavailableException("AI conversation board action is not configured.");
+		}
+		String postId = stringValue(pendingAction.get("postId"));
+		if (postId.isBlank()) {
+			throw new AiConversationMutationRejectedException("the proposed post deletion is incomplete.");
+		}
+		boardGateway.deletePostOnBoard(command.authenticatedUserId(), context.groupId(), UUID.fromString(postId));
+		pendingAction.put("status", "EXECUTED");
+		AiConversationMessage confirmation = AiConversationMessage.assistantSeedMessage(
+			idGenerator.get(),
+			command.conversationId(),
+			"게시글을 삭제했어. ✅",
+			Map.of("kind", "action_result", "action", "DELETE_POST"),
 			now
 		);
 		if (repository.insertMessage(confirmation)) {

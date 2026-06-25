@@ -269,7 +269,13 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(deletedAt, "deletedAt must not be null");
 		Timestamp now = timestamp(deletedAt);
-		return jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_GROUP, now, now, uuid(groupId)) == 1;
+		boolean deleted = jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_GROUP, now, now, uuid(groupId)) == 1;
+		if (deleted) {
+			// 그룹 삭제 시 커리큘럼도 함께 soft-delete 한다. 그렇지 않으면 커리큘럼이 ACTIVE 로 남아
+			// 주차 활성화/리포트/리마인더 스케줄러가 삭제된 그룹에도 계속 동작(알림 발송)한다.
+			jdbcTemplate.update(StudyGroupJdbcSql.SOFT_DELETE_CURRICULUM_BY_GROUP, now, now, uuid(groupId));
+		}
+		return deleted;
 	}
 
 	@Override

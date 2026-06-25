@@ -795,6 +795,11 @@ class RetrospectiveServiceTest {
 			return writable;
 		}
 
+		@Override
+		public boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId) {
+			return false;
+		}
+
 		private List<RetrospectiveStatus> updatedStatuses() {
 			return updatedRetrospectives.stream()
 				.map(Retrospective::status)

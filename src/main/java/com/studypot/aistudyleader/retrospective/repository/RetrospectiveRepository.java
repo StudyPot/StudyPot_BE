@@ -39,4 +39,7 @@ public interface RetrospectiveRepository {
 
 	/** 해당 주차에 지금 회고를 작성/제출할 수 있는지(unlock 규칙 + 리포트 게시 여부 반영). */
 	boolean isRetrospectiveWritable(UUID weekId, UUID memberId);
+
+	/** 해당 주차에 대해 그룹의 모든 활성 멤버가 회고를 COMPLETED 로 제출했는지. (전원 완료 시 즉시 리포트 트리거용) */
+	boolean areAllActiveMembersRetrospectiveCompleted(UUID weekId);
 }

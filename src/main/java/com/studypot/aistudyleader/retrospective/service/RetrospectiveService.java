@@ -13,6 +13,8 @@ import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTaskSummary;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveTriggerType;
 import com.studypot.aistudyleader.retrospective.domain.RetrospectiveWeekOverview;
 import com.studypot.aistudyleader.retrospective.repository.RetrospectiveRepository;
+import com.studypot.aistudyleader.report.service.WeeklyReportTrigger;
+import org.springframework.beans.factory.ObjectProvider;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,6 +39,8 @@ public class RetrospectiveService {
 	private final RetrospectiveFeedbackGenerator feedbackGenerator;
 	private final LlmUsageRecorder usageRecorder;
 	private final NotificationEventPublisher notificationEvents;
+	// 전원 회고 완료 시 즉시 주차 리포트를 만드는 트리거(선택적 주입). 미설정 시 동작하지 않는다.
+	private ObjectProvider<WeeklyReportTrigger> weeklyReportTrigger;
 
 	public RetrospectiveService(RetrospectiveRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null, NotificationEventPublisher.noop());
@@ -76,6 +80,11 @@ public class RetrospectiveService {
 		this.feedbackGenerator = feedbackGenerator;
 		this.usageRecorder = usageRecorder;
 		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
+	}
+
+	/** 전원 회고 완료 시 즉시 주차 리포트를 만드는 트리거를 주입한다(설정에서 호출). */
+	public void setWeeklyReportTrigger(ObjectProvider<WeeklyReportTrigger> weeklyReportTrigger) {
+		this.weeklyReportTrigger = weeklyReportTrigger;
 	}
 
 	@Transactional
@@ -145,7 +154,7 @@ public class RetrospectiveService {
 			"answers", command.answers(),
 			"submittedAt", now.toString()
 		);
-		return repository.findRetrospective(progress.id(), command.weekId(), context.memberId())
+		Retrospective result = repository.findRetrospective(progress.id(), command.weekId(), context.memberId())
 			.map(existing -> {
 				Retrospective updated = existing.withAnswers(inputSummary, now);
 				if (!repository.updateRetrospectiveAnswers(updated)) {
@@ -168,6 +177,24 @@ public class RetrospectiveService {
 				}
 				return created;
 			});
+		// 전원(활성 멤버 전부)이 이 주차 회고를 마쳤으면, 주차가 끝나지 않았어도 즉시 주차 리포트를 만든다(다음 주차는 생성하지 않음).
+		triggerWeeklyReportIfAllRetrospectivesDone(command.weekId());
+		return result;
+	}
+
+	private void triggerWeeklyReportIfAllRetrospectivesDone(UUID weekId) {
+		WeeklyReportTrigger trigger = weeklyReportTrigger == null ? null : weeklyReportTrigger.getIfAvailable();
+		if (trigger == null) {
+			return;
+		}
+		try {
+			if (repository.areAllActiveMembersRetrospectiveCompleted(weekId)) {
+				trigger.generateForWeekImmediately(weekId);
+			}
+		} catch (RuntimeException exception) {
+			// 리포트 생성은 부가 동작이므로 회고 제출 자체를 실패시키지 않는다.
+			log.warn("immediate weekly report trigger failed weekId={}", weekId, exception);
+		}
 	}
 
 
