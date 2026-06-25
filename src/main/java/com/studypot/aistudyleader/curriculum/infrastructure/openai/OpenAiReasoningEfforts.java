@@ -20,9 +20,9 @@ record OpenAiReasoningEfforts(
 		return switch (purpose) {
 			case DETAIL_KEYWORD_SUGGEST -> detailKeywordSuggest;
 			case STUDY_RECOMMENDATION -> studyRecommendation;
-			// 주차 리포트는 요약 작업이라 깊은 추론이 불필요하다. 추론(gpt-5 계열) 모델이 출력 토큰 예산을
-			// 추론에 모두 소모해 message content 가 비는 문제(리포트 미생성)를 막기 위해 minimal 로 고정한다.
-			case WEEKLY_REPORT -> OpenAiReasoningEffort.MINIMAL;
+			// 주차 리포트는 품질을 위해 약간의 추론을 유지하되(low), 출력 토큰 예산을 넉넉히(weeklyReport=8192)
+			// 줘서 추론이 예산을 소모해도 본문이 잘리지 않게 한다. (minimal 대비 요약 품질 ↑)
+			case WEEKLY_REPORT -> OpenAiReasoningEffort.LOW;
 			default -> null;
 		};
 	}

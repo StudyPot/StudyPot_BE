@@ -103,6 +103,8 @@ studypot:
         retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:4096}
         study-recommendation: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_STUDY_RECOMMENDATION:2048}
+        # 주차 리포트는 전원 회고를 종합해 입력이 크다. 추론(low) 토큰까지 감안해 본문이 잘리지 않게 넉넉히.
+        weekly-report: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_WEEKLY_REPORT:8192}
       reasoning-efforts:
         detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_REASONING_EFFORT_DETAIL_KEYWORD_SUGGEST:minimal}
         # 비우면 모델 기본 추론을 사용. 추천은 다양성/구체성 위해 low 이상을 권장한다.

@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test;
 class OpenAiReasoningEffortsTest {
 
 	@Test
-	void weeklyReportIsPinnedToMinimalReasoning() {
-		// 주차 리포트는 추론 모델이 토큰 예산을 추론에 소진해 content 가 비는 문제를 막기 위해 minimal 로 고정한다.
+	void weeklyReportUsesLowReasoning() {
+		// 주차 리포트는 품질을 위해 약간의 추론(low)을 유지하고, 넉넉한 출력 토큰 예산으로 본문 잘림을 막는다.
 		OpenAiReasoningEfforts efforts = OpenAiReasoningEfforts.defaults();
 
-		assertThat(efforts.forPurpose(LlmUsagePurpose.WEEKLY_REPORT)).isEqualTo(OpenAiReasoningEffort.MINIMAL);
+		assertThat(efforts.forPurpose(LlmUsagePurpose.WEEKLY_REPORT)).isEqualTo(OpenAiReasoningEffort.LOW);
 	}
 
 	@Test
