@@ -25,6 +25,7 @@ class LlmUsageTest {
 		assertThat(Arrays.stream(LlmUsagePurpose.values()).map(Enum::name))
 			.containsExactly(
 				"DETAIL_KEYWORD_SUGGEST",
+				"STUDY_RECOMMENDATION",
 				"CURRICULUM_GENERATE",
 				"CURRICULUM_REGENERATE_WEEK",
 				"TEAM_LEAD_CHAT",

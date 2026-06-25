@@ -92,6 +92,8 @@ studypot:
         curriculum-generate: ${STUDYPOT_AI_OPENAI_MODEL_CURRICULUM_GENERATE:gpt-5-mini}
         retrospective-feedback: ${STUDYPOT_AI_OPENAI_MODEL_RETROSPECTIVE_FEEDBACK:}
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MODEL_TEAM_LEAD_CHAT:}
+        # 다음 스터디 추천은 그룹당 1회만 생성/캐시되므로, 품질 위해 한 단계 위 모델을 쓴다.
+        study-recommendation: ${STUDYPOT_AI_OPENAI_MODEL_STUDY_RECOMMENDATION:gpt-5-mini}
       api-mode: ${STUDYPOT_AI_OPENAI_API_MODE:responses}
       connect-timeout: ${STUDYPOT_AI_OPENAI_CONNECT_TIMEOUT:5s}
       read-timeout: ${STUDYPOT_AI_OPENAI_READ_TIMEOUT:120s}
@@ -100,8 +102,11 @@ studypot:
         curriculum-generate: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_CURRICULUM_GENERATE:16384}
         retrospective-feedback: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_RETROSPECTIVE_FEEDBACK:2048}
         team-lead-chat: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_TEAM_LEAD_CHAT:4096}
+        study-recommendation: ${STUDYPOT_AI_OPENAI_MAX_OUTPUT_TOKENS_STUDY_RECOMMENDATION:2048}
       reasoning-efforts:
         detail-keyword-suggest: ${STUDYPOT_AI_OPENAI_REASONING_EFFORT_DETAIL_KEYWORD_SUGGEST:minimal}
+        # 비우면 모델 기본 추론을 사용. 추천은 다양성/구체성 위해 low 이상을 권장한다.
+        study-recommendation: ${STUDYPOT_AI_OPENAI_REASONING_EFFORT_STUDY_RECOMMENDATION:low}
     conversation:
       # AI 팀장 응답 생성을 RabbitMQ 로 비동기 처리한다(사용자 메시지 저장 후 큐에 작업 발행 → worker 가 생성 → SSE 전달).
       # false 면 같은 트랜잭션에서 동기 생성하는 폴백 경로로 동작한다(브로커 없는 로컬/테스트용).

@@ -2,6 +2,7 @@ package com.studypot.aistudyleader.llm.domain;
 
 public enum LlmUsagePurpose {
 	DETAIL_KEYWORD_SUGGEST,
+	STUDY_RECOMMENDATION,
 	CURRICULUM_GENERATE,
 	CURRICULUM_REGENERATE_WEEK,
 	TEAM_LEAD_CHAT,

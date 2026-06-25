@@ -125,7 +125,7 @@ class OpenAiLlmProviderTest {
 			JsonMapper.builder().findAndAddModules().build(),
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
-			new OpenAiOutputTokenLimits(111, 222, 333, 444)
+			new OpenAiOutputTokenLimits(111, 222, 333, 444, 555)
 		);
 
 		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(
@@ -156,7 +156,7 @@ class OpenAiLlmProviderTest {
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
 			OpenAiOutputTokenLimits.defaults(),
-			new OpenAiPurposeModels("gpt-5-nano", null, null, null)
+			new OpenAiPurposeModels("gpt-5-nano", null, null, null, null)
 		);
 
 		LlmStructuredResponse detailResult = provider.requestStructured(new LlmStructuredRequest(
@@ -198,7 +198,7 @@ class OpenAiLlmProviderTest {
 			"gpt-5.2",
 			OpenAiApiMode.CHAT_COMPLETIONS,
 			OpenAiOutputTokenLimits.defaults(),
-			new OpenAiPurposeModels("gpt-5-nano", null, null, null)
+			new OpenAiPurposeModels("gpt-5-nano", null, null, null, null)
 		);
 
 		LlmStructuredResponse result = provider.requestStructured(new LlmStructuredRequest(

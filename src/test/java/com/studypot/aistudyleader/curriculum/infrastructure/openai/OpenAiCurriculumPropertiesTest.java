@@ -35,6 +35,8 @@ class OpenAiCurriculumPropertiesTest {
 			assertThat(limits.curriculumGenerate()).isEqualTo(16_384);
 			assertThat(limits.retrospectiveFeedback()).isEqualTo(2048);
 			assertThat(limits.teamLeadChat()).isEqualTo(4096);
+			assertThat(limits.studyRecommendation()).isEqualTo(2048);
+			assertThat(limits.forPurpose(LlmUsagePurpose.STUDY_RECOMMENDATION)).isEqualTo(2048);
 		});
 	}
 
@@ -46,6 +48,8 @@ class OpenAiCurriculumPropertiesTest {
 			assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST))
 				.isEqualTo(OpenAiReasoningEffort.MINIMAL);
 			assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.CURRICULUM_GENERATE)).isNull();
+			// 추천은 비워두면 모델 기본 추론(null)을 사용한다(minimal 로 고정하지 않음).
+			assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.STUDY_RECOMMENDATION)).isNull();
 		});
 	}
 
@@ -64,7 +68,8 @@ class OpenAiCurriculumPropertiesTest {
 				"studypot.ai.openai.output-token-limits.detail-keyword-suggest=101",
 				"studypot.ai.openai.output-token-limits.curriculum-generate=202",
 				"studypot.ai.openai.output-token-limits.retrospective-feedback=303",
-				"studypot.ai.openai.output-token-limits.team-lead-chat=404"
+				"studypot.ai.openai.output-token-limits.team-lead-chat=404",
+				"studypot.ai.openai.output-token-limits.study-recommendation=505"
 			)
 			.run(context -> {
 				OpenAiOutputTokenLimits limits = context.getBean(OpenAiCurriculumProperties.class).outputTokenLimits();
@@ -73,6 +78,7 @@ class OpenAiCurriculumPropertiesTest {
 				assertThat(limits.curriculumGenerate()).isEqualTo(202);
 				assertThat(limits.retrospectiveFeedback()).isEqualTo(303);
 				assertThat(limits.teamLeadChat()).isEqualTo(404);
+				assertThat(limits.studyRecommendation()).isEqualTo(505);
 			});
 	}
 
@@ -81,13 +87,16 @@ class OpenAiCurriculumPropertiesTest {
 		contextRunner
 			.withPropertyValues(
 				"studypot.ai.openai.model=gpt-5.2",
-				"studypot.ai.openai.models.detail-keyword-suggest=gpt-5-nano"
+				"studypot.ai.openai.models.detail-keyword-suggest=gpt-5-nano",
+				"studypot.ai.openai.models.study-recommendation=gpt-5-mini"
 			)
 			.run(context -> {
 				OpenAiCurriculumProperties properties = context.getBean(OpenAiCurriculumProperties.class);
 
 				assertThat(properties.models().modelFor(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST, properties.model()))
 					.isEqualTo("gpt-5-nano");
+				assertThat(properties.models().modelFor(LlmUsagePurpose.STUDY_RECOMMENDATION, properties.model()))
+					.isEqualTo("gpt-5-mini");
 				assertThat(properties.models().modelFor(LlmUsagePurpose.CURRICULUM_GENERATE, properties.model()))
 					.isEqualTo("gpt-5.2");
 			});
@@ -96,11 +105,19 @@ class OpenAiCurriculumPropertiesTest {
 	@Test
 	void bindsReasoningEffortsFromKebabCaseProperties() {
 		contextRunner
-			.withPropertyValues("studypot.ai.openai.reasoning-efforts.detail-keyword-suggest=low")
-			.run(context -> assertThat(context.getBean(OpenAiCurriculumProperties.class)
-					.reasoningEfforts()
-					.forPurpose(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST))
-				.isEqualTo(OpenAiReasoningEffort.LOW));
+			.withPropertyValues(
+				"studypot.ai.openai.reasoning-efforts.detail-keyword-suggest=low",
+				"studypot.ai.openai.reasoning-efforts.study-recommendation=medium"
+			)
+			.run(context -> {
+				OpenAiReasoningEfforts reasoningEfforts =
+					context.getBean(OpenAiCurriculumProperties.class).reasoningEfforts();
+
+				assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST))
+					.isEqualTo(OpenAiReasoningEffort.LOW);
+				assertThat(reasoningEfforts.forPurpose(LlmUsagePurpose.STUDY_RECOMMENDATION))
+					.isEqualTo(OpenAiReasoningEffort.MEDIUM);
+			});
 	}
 
 	@Configuration(proxyBeanMethods = false)
