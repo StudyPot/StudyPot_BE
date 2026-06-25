@@ -37,8 +37,13 @@ public class StudyRecommendationService {
 	private static final String INSTRUCTIONS = """
 		당신은 스터디 그룹의 AI 팀장입니다. 방금 한 스터디를 완료한 팀에게
 		'다음에 이어서 하면 좋은 스터디 주제'를 한국어로 추천하세요.
-		- 완료한 스터디 주제(topic)와 키워드(keywords)를 바탕으로, 자연스러운 다음 단계/심화/연계 주제를 제안합니다.
-		- 각 제안은 title(스터디 주제, 짧고 구체적으로)과 reason(왜 추천하는지 한두 문장)으로 구성합니다.
+		- 반드시 완료한 스터디 주제(topic)와 키워드(keywords)에 '구체적으로' 근거해야 합니다.
+		  일반론('알고리즘 공부', '프로젝트 해보기')이 아니라, 이 팀이 방금 다룬 내용에서 자연스럽게
+		  이어지는 다음 단계/심화/연계 주제를 제시하세요.
+		- 3개의 제안은 서로 '뚜렷이 다른 방향'이어야 합니다(예: 심화 1, 인접 응용 1, 실전/프로젝트 1).
+		  서로 겹치거나 표현만 바꾼 중복 제안은 금지합니다.
+		- title 은 그 주제를 모르는 사람도 무엇을 공부할지 알 수 있게 짧고 구체적으로 적습니다.
+		- reason 은 '완료한 topic/keywords의 무엇 때문에' 이 주제를 권하는지 한두 문장으로 연결지어 설명합니다.
 		- 비밀키, 자격증명류는 절대 포함하지 마세요.
 		- 반드시 제공된 JSON 스키마(suggestions 배열)에 맞는 JSON 만 반환하세요.
 		""";
@@ -193,7 +198,7 @@ public class StudyRecommendationService {
 		Instant now = clock.instant();
 		try {
 			LlmStructuredResponse response = client.requestStructured(new LlmStructuredRequest(
-				LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST,
+				LlmUsagePurpose.STUDY_RECOMMENDATION,
 				INSTRUCTIONS,
 				Map.of(
 					"topic", topic == null ? "" : topic,
@@ -219,7 +224,7 @@ public class StudyRecommendationService {
 			return;
 		}
 		try {
-			recorder.record(response.toUsage(idGenerator.get(), userId, null, LlmUsagePurpose.DETAIL_KEYWORD_SUGGEST, now));
+			recorder.record(response.toUsage(idGenerator.get(), userId, null, LlmUsagePurpose.STUDY_RECOMMENDATION, now));
 		} catch (RuntimeException exception) {
 			log.warn("study recommendation usage record failed", exception);
 		}

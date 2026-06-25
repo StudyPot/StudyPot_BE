@@ -10,7 +10,8 @@ record OpenAiPurposeModels(
 	String detailKeywordSuggest,
 	String curriculumGenerate,
 	String retrospectiveFeedback,
-	String teamLeadChat
+	String teamLeadChat,
+	String studyRecommendation
 ) {
 
 	OpenAiPurposeModels {
@@ -18,15 +19,17 @@ record OpenAiPurposeModels(
 		curriculumGenerate = blankToNull(curriculumGenerate);
 		retrospectiveFeedback = blankToNull(retrospectiveFeedback);
 		teamLeadChat = blankToNull(teamLeadChat);
+		studyRecommendation = blankToNull(studyRecommendation);
 	}
 
 	static OpenAiPurposeModels none() {
-		return new OpenAiPurposeModels(null, null, null, null);
+		return new OpenAiPurposeModels(null, null, null, null, null);
 	}
 
 	String modelFor(LlmUsagePurpose purpose, String defaultModel) {
 		String configured = switch (purpose) {
 			case DETAIL_KEYWORD_SUGGEST -> detailKeywordSuggest;
+			case STUDY_RECOMMENDATION -> studyRecommendation;
 			case CURRICULUM_GENERATE, CURRICULUM_REGENERATE_WEEK -> curriculumGenerate;
 			case RETROSPECTIVE_ANALYZE, RETROSPECTIVE_FEEDBACK, NEXT_WEEK_ADJUST, WEEKLY_REPORT -> retrospectiveFeedback;
 			case TEAM_LEAD_CHAT -> teamLeadChat;
