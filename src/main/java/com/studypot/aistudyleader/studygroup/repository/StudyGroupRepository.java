@@ -35,6 +35,12 @@ public interface StudyGroupRepository {
 
 	Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(Collection<UUID> groupIds);
 
+	/** 호스트(created_by)로서 동시에 운영 중(미완료)인 스터디 개수. */
+	int countActiveHostedGroups(UUID hostUserId);
+
+	/** 사용자 플랜('FREE'/'PREMIUM'). 행이 없으면 'FREE'. */
+	String findUserPlan(UUID userId);
+
 	Optional<AiManagerView> findAiManager(UUID groupId);
 
 	boolean updateAiManager(UUID groupId, String persona, UUID updatedBy, Instant updatedAt);

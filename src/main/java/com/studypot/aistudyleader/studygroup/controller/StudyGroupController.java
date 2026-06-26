@@ -134,6 +134,30 @@ class StudyGroupController {
 	}
 
 	@Operation(
+		summary = "내 호스트 스터디 쿼터 조회",
+		description = "현재 플랜과, 호스트로 운영 중(미완료)인 스터디 개수·한도·추가 생성 가능 여부를 반환합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "쿼터 현황 반환"),
+		@ApiResponse(responseCode = "401", description = "인증된 사용자 정보를 확인할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "스터디 그룹 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/users/me/study-quota")
+	HostStudyQuotaResponse myStudyQuota(Authentication authentication) {
+		StudyGroupService.HostStudyQuota quota = service().getHostStudyQuota(authenticatedUserId(authentication));
+		return new HostStudyQuotaResponse(quota.plan(), quota.hostedActiveCount(), quota.limit(), quota.canCreate());
+	}
+
+	@Schema(description = "호스트 스터디 개수 쿼터 응답입니다.")
+	record HostStudyQuotaResponse(
+		@Schema(description = "현재 플랜(FREE/PREMIUM).", example = "FREE") String plan,
+		@Schema(description = "호스트로 운영 중(미완료)인 스터디 개수.", example = "2") int hostedActiveCount,
+		@Schema(description = "플랜별 최대 호스트 스터디 개수.", example = "3") int limit,
+		@Schema(description = "추가로 스터디를 만들 수 있는지 여부.", example = "true") boolean canCreate
+	) {
+	}
+
+	@Operation(
 		summary = "스터디 그룹 수정",
 		description = "그룹 소유자(OWNER)가 그룹 이름, 주제, 세부 키워드, 모집 인원, 진행 기간, 소개를 수정합니다."
 	)

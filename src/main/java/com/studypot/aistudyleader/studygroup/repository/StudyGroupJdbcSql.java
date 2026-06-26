@@ -117,6 +117,23 @@ final class StudyGroupJdbcSql {
 		  and deleted_at is null
 		""";
 
+	// 호스트(created_by)로서 "동시에 운영 중"인 스터디 개수. 완료/보관/삭제는 제외(쿼터 계산용).
+	static final String COUNT_ACTIVE_HOSTED_GROUPS = """
+		select count(*)
+		from study_group
+		where created_by = ?
+		  and deleted_at is null
+		  and status not in ('COMPLETED', 'ARCHIVED')
+		""";
+
+	// 사용자 플랜(FREE/PREMIUM) 조회. 쿼터 한도 판정에 사용한다.
+	static final String SELECT_USER_PLAN = """
+		select plan
+		from users
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	// %s 는 group_id IN (?, ?, ...) 자리표시자로 동적 치환된다.
 	static final String COUNT_ACTIVE_OR_ONBOARDING_MEMBERS_BY_GROUPS = """
 		select group_id, count(*) as member_count

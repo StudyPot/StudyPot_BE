@@ -665,6 +665,16 @@ class StudyGroupControllerTest {
 		}
 
 		@Override
+		public int countActiveHostedGroups(UUID hostUserId) {
+			return 0;
+		}
+
+		@Override
+		public String findUserPlan(UUID userId) {
+			return "FREE";
+		}
+
+		@Override
 		public java.util.Map<UUID, Integer> countActiveOrOnboardingMembersByGroupIds(java.util.Collection<UUID> groupIds) {
 			java.util.Map<UUID, Integer> counts = new java.util.HashMap<>();
 			for (UUID id : groupIds) {

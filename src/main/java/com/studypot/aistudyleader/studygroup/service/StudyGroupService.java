@@ -31,6 +31,7 @@ public class StudyGroupService {
 	private final Supplier<String> inviteCodeGenerator;
 	private final int inviteCodeMaxAttempts;
 	private final NotificationEventPublisher notificationEvents;
+	private final StudyGroupQuotaProperties quotaProperties;
 
 	public StudyGroupService(
 		StudyGroupRepository repository,
@@ -57,6 +58,26 @@ public class StudyGroupService {
 		int inviteCodeMaxAttempts,
 		NotificationEventPublisher notificationEvents
 	) {
+		this(
+			repository,
+			clock,
+			idGenerator,
+			inviteCodeGenerator,
+			inviteCodeMaxAttempts,
+			notificationEvents,
+			new StudyGroupQuotaProperties(null, null)
+		);
+	}
+
+	public StudyGroupService(
+		StudyGroupRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		Supplier<String> inviteCodeGenerator,
+		int inviteCodeMaxAttempts,
+		NotificationEventPublisher notificationEvents,
+		StudyGroupQuotaProperties quotaProperties
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -66,11 +87,13 @@ public class StudyGroupService {
 		}
 		this.inviteCodeMaxAttempts = inviteCodeMaxAttempts;
 		this.notificationEvents = Objects.requireNonNull(notificationEvents, "notificationEvents must not be null");
+		this.quotaProperties = Objects.requireNonNull(quotaProperties, "quotaProperties must not be null");
 	}
 
 	@Transactional
 	public StudyGroupCreationResult createGroup(CreateStudyGroupCommand command) {
 		Objects.requireNonNull(command, "command must not be null");
+		enforceHostQuota(command.authenticatedUserId());
 		for (int attempt = 0; attempt < inviteCodeMaxAttempts; attempt++) {
 			StudyGroupCreationResult result = createCandidate(command);
 			try {
@@ -85,6 +108,29 @@ public class StudyGroupService {
 			}
 		}
 		throw new StudyGroupServiceUnavailableException("could not allocate a unique invite code.");
+	}
+
+	/** 호스트 스터디 개수 한도를 초과하면 생성을 막는다(완료/보관/삭제 스터디는 제외). */
+	private void enforceHostQuota(UUID hostUserId) {
+		String plan = repository.findUserPlan(hostUserId);
+		int limit = quotaProperties.limitForPlan(plan);
+		int current = repository.countActiveHostedGroups(hostUserId);
+		if (current >= limit) {
+			throw new StudyGroupQuotaExceededException(plan, limit, current);
+		}
+	}
+
+	/** 호스트(생성자) 관점의 스터디 개수 쿼터 현황. 클라이언트의 사전 안내/버튼 게이팅에 사용한다. */
+	@Transactional(readOnly = true)
+	public HostStudyQuota getHostStudyQuota(UUID hostUserId) {
+		Objects.requireNonNull(hostUserId, "hostUserId must not be null");
+		String plan = repository.findUserPlan(hostUserId);
+		int limit = quotaProperties.limitForPlan(plan);
+		int current = repository.countActiveHostedGroups(hostUserId);
+		return new HostStudyQuota(plan, current, limit, current < limit);
+	}
+
+	public record HostStudyQuota(String plan, int hostedActiveCount, int limit, boolean canCreate) {
 	}
 
 	@Transactional

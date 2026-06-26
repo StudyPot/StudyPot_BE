@@ -57,6 +57,7 @@ import com.studypot.aistudyleader.studygroup.service.InvalidStudyGroupMemberProf
 import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupQuotaExceededException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardPersistenceException;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardAccessDeniedException;
@@ -280,6 +281,16 @@ public class ApiExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupQuotaExceededException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupQuotaExceeded(StudyGroupQuotaExceededException exception) {
+		ProblemDetail problemDetail = problemDetailFactory.conflict(messageOrDefault(exception.getMessage()));
+		problemDetail.setProperty("code", "STUDY_GROUP_QUOTA_EXCEEDED");
+		problemDetail.setProperty("plan", exception.plan());
+		problemDetail.setProperty("limit", exception.limit());
+		problemDetail.setProperty("current", exception.current());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
 	}
 
 	@ExceptionHandler(RateLimitExceededException.class)

@@ -66,6 +66,60 @@ class StudyGroupServiceTest {
 	}
 
 	@Test
+	void createGroupRejectsWhenFreePlanReachedHostQuota() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.userPlan = "FREE";
+		repository.activeHostedGroups = 3; // 무료 기본 한도(3) 도달
+		StudyGroupService service = service(repository, List.of("INVITE-0001"), GROUP_ID, OWNER_MEMBER_ID);
+
+		assertThatThrownBy(() -> service.createGroup(command()))
+			.isInstanceOf(StudyGroupQuotaExceededException.class);
+		assertThat(repository.attempts()).isZero();
+		assertThat(repository.savedGroup()).isNull();
+	}
+
+	@Test
+	void createGroupAllowedForPremiumPlanBeyondFreeLimit() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.userPlan = "PREMIUM";
+		repository.activeHostedGroups = 5; // 무료 한도(3) 초과지만 프리미엄 한도(20) 이내
+		StudyGroupService service = service(repository, List.of("INVITE-0001"), GROUP_ID, OWNER_MEMBER_ID);
+
+		StudyGroupCreationResult result = service.createGroup(command());
+
+		assertThat(repository.attempts()).isEqualTo(1);
+		assertThat(result.group().createdBy()).isEqualTo(USER_ID);
+	}
+
+	@Test
+	void getHostStudyQuotaReportsFreePlanAvailability() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.userPlan = "FREE";
+		repository.activeHostedGroups = 2;
+		StudyGroupService service = service(repository, List.of(), GROUP_ID);
+
+		StudyGroupService.HostStudyQuota quota = service.getHostStudyQuota(USER_ID);
+
+		assertThat(quota.plan()).isEqualTo("FREE");
+		assertThat(quota.hostedActiveCount()).isEqualTo(2);
+		assertThat(quota.limit()).isEqualTo(3);
+		assertThat(quota.canCreate()).isTrue();
+	}
+
+	@Test
+	void getHostStudyQuotaMarksCannotCreateAtFreeLimit() {
+		CapturingRepository repository = new CapturingRepository(Set.of());
+		repository.userPlan = "FREE";
+		repository.activeHostedGroups = 3;
+		StudyGroupService service = service(repository, List.of(), GROUP_ID);
+
+		StudyGroupService.HostStudyQuota quota = service.getHostStudyQuota(USER_ID);
+
+		assertThat(quota.limit()).isEqualTo(3);
+		assertThat(quota.canCreate()).isFalse();
+	}
+
+	@Test
 	void createGroupPublishesOnboardingNotificationForOwner() {
 		CapturingRepository repository = new CapturingRepository(Set.of());
 		CapturingNotificationPublisher notifications = new CapturingNotificationPublisher();
@@ -846,6 +900,8 @@ class StudyGroupServiceTest {
 		private final AtomicInteger attempts = new AtomicInteger();
 		private StudyGroupJoinTarget joinTarget;
 		private int currentMemberCount;
+		private int activeHostedGroups;
+		private String userPlan = "FREE";
 		private boolean existingActiveOrOnboardingMember;
 		private UUID ownerUserId;
 		private UUID revertedToOnboardingGroupId;
@@ -898,6 +954,16 @@ class StudyGroupServiceTest {
 		public boolean existsStudyGroup(UUID groupId) {
 			this.existsRequestedGroupId = groupId;
 			return groupExists;
+		}
+
+		@Override
+		public int countActiveHostedGroups(UUID hostUserId) {
+			return activeHostedGroups;
+		}
+
+		@Override
+		public String findUserPlan(UUID userId) {
+			return userPlan;
 		}
 
 		@Override

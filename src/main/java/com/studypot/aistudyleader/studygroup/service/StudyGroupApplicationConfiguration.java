@@ -17,12 +17,14 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(StudyGroupQuotaProperties.class)
 class StudyGroupApplicationConfiguration {
 
 	private static final int INVITE_CODE_RANDOM_BYTES = 12;
@@ -35,7 +37,8 @@ class StudyGroupApplicationConfiguration {
 		Clock clock,
 		@Qualifier("studyGroupUuidGenerator") Supplier<UUID> idGenerator,
 		@Qualifier("studyGroupInviteCodeGenerator") Supplier<String> inviteCodeGenerator,
-		ObjectProvider<NotificationEventPublisher> notificationEvents
+		ObjectProvider<NotificationEventPublisher> notificationEvents,
+		StudyGroupQuotaProperties quotaProperties
 	) {
 		return new StudyGroupService(
 			repository,
@@ -43,7 +46,8 @@ class StudyGroupApplicationConfiguration {
 			idGenerator,
 			inviteCodeGenerator,
 			INVITE_CODE_MAX_ATTEMPTS,
-			notificationEvents.getIfAvailable(NotificationEventPublisher::noop)
+			notificationEvents.getIfAvailable(NotificationEventPublisher::noop),
+			quotaProperties
 		);
 	}
 

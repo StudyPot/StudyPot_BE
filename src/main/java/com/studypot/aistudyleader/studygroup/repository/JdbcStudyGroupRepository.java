@@ -112,6 +112,30 @@ class JdbcStudyGroupRepository implements StudyGroupRepository {
 	}
 
 	@Override
+	public int countActiveHostedGroups(UUID hostUserId) {
+		Objects.requireNonNull(hostUserId, "hostUserId must not be null");
+		Integer count = jdbcTemplate.queryForObject(
+			StudyGroupJdbcSql.COUNT_ACTIVE_HOSTED_GROUPS,
+			Integer.class,
+			uuid(hostUserId)
+		);
+		return count == null ? 0 : count;
+	}
+
+	@Override
+	public String findUserPlan(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		return jdbcTemplate.query(
+				StudyGroupJdbcSql.SELECT_USER_PLAN,
+				(resultSet, rowNumber) -> resultSet.getString("plan"),
+				uuid(userId)
+			).stream()
+			.filter(plan -> plan != null && !plan.isBlank())
+			.findFirst()
+			.orElse("FREE");
+	}
+
+	@Override
 	public Optional<StudyGroup> findGroupByIdForMemberUserId(UUID groupId, UUID userId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");
