@@ -57,4 +57,22 @@ final class RedisRateLimiter implements RateLimiter {
 
 		return RateLimitDecision.rejected(currentCount, limit, Duration.ofMillis(ttlMillis));
 	}
+
+	@Override
+	public RateLimitSnapshot peek(String key) {
+		Objects.requireNonNull(key, "key must not be null");
+		String raw = redisTemplate.opsForValue().get(key);
+		if (raw == null) {
+			return new RateLimitSnapshot(0, Duration.ZERO);
+		}
+		long count;
+		try {
+			count = Long.parseLong(raw.trim());
+		} catch (NumberFormatException exception) {
+			count = 0;
+		}
+		Long ttlMillis = redisTemplate.getExpire(key, TimeUnit.MILLISECONDS);
+		Duration reset = ttlMillis == null || ttlMillis <= 0 ? Duration.ZERO : Duration.ofMillis(ttlMillis);
+		return new RateLimitSnapshot(count, reset);
+	}
 }

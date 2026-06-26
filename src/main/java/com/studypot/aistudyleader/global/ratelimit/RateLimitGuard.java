@@ -59,6 +59,30 @@ public class RateLimitGuard {
 		enforce(RateLimitKeyFactory.aiConversationDaily(userId, daily.window()), daily, AI_CONVERSATION_DAILY_MESSAGE);
 	}
 
+	/**
+	 * AI 팀장 채팅 일일 한도의 현재 사용 현황을 (증가 없이) 조회한다. FE 잔여 횟수 표시용.
+	 * rate limit 이 꺼져 있거나 백엔드 오류 시에는 사용량 0(=잔여 = 한도)으로 본다.
+	 */
+	public AiConversationQuotaView aiConversationQuota(UUID userId, String plan) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		RateLimitProperties.Policy daily = properties.aiConversationDailyFor(plan);
+		long limit = daily.limit();
+		if (!properties.enabled()) {
+			return new AiConversationQuotaView(limit, 0, limit, 0);
+		}
+		String key = RateLimitKeyFactory.aiConversationDaily(userId, daily.window());
+		RateLimitSnapshot snapshot;
+		try {
+			snapshot = rateLimiter.peek(key);
+		} catch (RuntimeException exception) {
+			log.warn("Rate limit peek failed: key={}", key, exception);
+			snapshot = new RateLimitSnapshot(0, java.time.Duration.ZERO);
+		}
+		long used = Math.min(snapshot.count(), limit);
+		long remaining = Math.max(0, limit - snapshot.count());
+		return new AiConversationQuotaView(limit, used, remaining, snapshot.timeToReset().toSeconds());
+	}
+
 	private void enforce(String key, RateLimitProperties.Policy policy, String message) {
 		RateLimitDecision decision = check(key, policy);
 		if (!decision.allowed()) {
