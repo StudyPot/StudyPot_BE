@@ -9,7 +9,8 @@ public record LlmStructuredRequest(
 	String instructions,
 	Map<String, Object> input,
 	Map<String, Object> textFormat,
-	Map<String, Object> requestPayload
+	Map<String, Object> requestPayload,
+	String userPlan
 ) {
 
 	public LlmStructuredRequest {
@@ -18,6 +19,18 @@ public record LlmStructuredRequest(
 		input = copyMap(input, "input");
 		textFormat = copyMap(textFormat, "textFormat");
 		requestPayload = copyMap(requestPayload, "requestPayload");
+		userPlan = userPlan == null || userPlan.isBlank() ? null : userPlan.strip();
+	}
+
+	/** 기존 호출부 호환용: 플랜 정보가 없는(또는 불필요한) 호출은 userPlan 을 null 로 둔다. */
+	public LlmStructuredRequest(
+		LlmUsagePurpose purpose,
+		String instructions,
+		Map<String, Object> input,
+		Map<String, Object> textFormat,
+		Map<String, Object> requestPayload
+	) {
+		this(purpose, instructions, input, textFormat, requestPayload, null);
 	}
 
 	private static Map<String, Object> copyMap(Map<String, Object> value, String fieldName) {

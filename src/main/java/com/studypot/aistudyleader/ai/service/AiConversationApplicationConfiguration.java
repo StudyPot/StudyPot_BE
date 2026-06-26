@@ -3,6 +3,7 @@ package com.studypot.aistudyleader.ai.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
 import com.studypot.aistudyleader.global.domain.UuidV7;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitGuard;
 import com.studypot.aistudyleader.llm.service.LlmProviderConfiguredCondition;
 import com.studypot.aistudyleader.llm.service.LlmProviderClient;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
@@ -64,7 +65,8 @@ class AiConversationApplicationConfiguration {
 		ObjectProvider<AiConversationBoardGateway> boardGateway,
 		ObjectProvider<AiConversationQuestionRefiner> questionRefiner,
 		ObjectProvider<AiConversationCurriculumGateway> curriculumGateway,
-		ObjectProvider<AiAssistantJobDispatcher> assistantJobDispatcher
+		ObjectProvider<AiAssistantJobDispatcher> assistantJobDispatcher,
+		ObjectProvider<RateLimitGuard> rateLimitGuard
 	) {
 		AiConversationAssistantResponseGenerator generator = assistantResponseGenerator.getIfAvailable();
 		LlmUsageRecorder recorder = usageRecorder.getIfAvailable();
@@ -73,10 +75,11 @@ class AiConversationApplicationConfiguration {
 		AiConversationQuestionRefiner refiner = questionRefiner.getIfAvailable();
 		AiConversationCurriculumGateway curriculum = curriculumGateway.getIfAvailable();
 		AiAssistantJobDispatcher dispatcher = assistantJobDispatcher.getIfAvailable();
+		RateLimitGuard guard = rateLimitGuard.getIfAvailable();
 		if (generator == null || recorder == null) {
-			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner, curriculum, dispatcher);
+			return new AiConversationService(repository, clock, UuidV7::generate, null, null, publisher, gateway, refiner, curriculum, dispatcher, guard);
 		}
-		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner, curriculum, dispatcher);
+		return new AiConversationService(repository, clock, UuidV7::generate, generator, recorder, publisher, gateway, refiner, curriculum, dispatcher, guard);
 	}
 
 	@Bean

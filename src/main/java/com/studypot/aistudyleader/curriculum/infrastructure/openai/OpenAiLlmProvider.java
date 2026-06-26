@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studypot.aistudyleader.llm.domain.LlmModelPricing;
 import com.studypot.aistudyleader.llm.domain.LlmProvider;
+import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.domain.LlmUsageStatus;
 import com.studypot.aistudyleader.llm.service.LlmCallFailure;
 import com.studypot.aistudyleader.llm.service.LlmProviderCallException;
@@ -326,7 +327,16 @@ class OpenAiLlmProvider implements LlmProviderClient {
 	}
 
 	private String modelFor(LlmStructuredRequest request) {
+		// AI 팀장 채팅은 PREMIUM 플랜만 상위(per-purpose) 모델을 쓰고,
+		// 그 외(FREE/미지정)는 기본 모델(저가)로 내려 비용을 통제한다. 다른 용도는 플랜과 무관.
+		if (request.purpose() == LlmUsagePurpose.TEAM_LEAD_CHAT && !isPremiumPlan(request.userPlan())) {
+			return defaultModel;
+		}
 		return purposeModels.modelFor(request.purpose(), defaultModel);
+	}
+
+	private static boolean isPremiumPlan(String plan) {
+		return plan != null && "PREMIUM".equalsIgnoreCase(plan.strip());
 	}
 
 	private OpenAiReasoningEffort reasoningEffortFor(LlmStructuredRequest request, String requestModel) {

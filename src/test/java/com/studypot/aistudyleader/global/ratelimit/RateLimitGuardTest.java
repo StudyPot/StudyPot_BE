@@ -78,8 +78,44 @@ class RateLimitGuardTest {
 			.isEqualTo(Duration.ofSeconds(60));
 	}
 
+	@Test
+	void checkAiConversationUsesFreeDailyLimitByDefault() {
+		RecordingRateLimiter limiter = new RecordingRateLimiter(RateLimitDecision.allowed(1, 15));
+		RateLimitGuard guard = new RateLimitGuard(limiter, properties(true, false));
+
+		guard.checkAiConversation(USER_ID, "FREE");
+
+		// 마지막 호출은 일일 한도(FREE=15, 24h).
+		assertThat(limiter.key).isEqualTo("rate:ai-conversation-daily:user:" + USER_ID + ":86400s");
+		assertThat(limiter.limit).isEqualTo(15);
+		assertThat(limiter.window).isEqualTo(Duration.ofDays(1));
+	}
+
+	@Test
+	void checkAiConversationUsesPremiumDailyLimit() {
+		RecordingRateLimiter limiter = new RecordingRateLimiter(RateLimitDecision.allowed(1, 200));
+		RateLimitGuard guard = new RateLimitGuard(limiter, properties(true, false));
+
+		guard.checkAiConversation(USER_ID, "premium");
+
+		assertThat(limiter.limit).isEqualTo(200);
+	}
+
+	@Test
+	void rejectsWhenDailyQuotaExceeded() {
+		// 버스트(분당)는 통과시키고 일일(24h)만 거절하는 한도기로 일일 한도 초과 경로를 검증한다.
+		RateLimiter limiter = (key, limit, window) -> window.toDays() >= 1
+			? RateLimitDecision.rejected(limit + 1, limit, Duration.ofHours(3))
+			: RateLimitDecision.allowed(1, limit);
+		RateLimitGuard guard = new RateLimitGuard(limiter, properties(true, false));
+
+		assertThatThrownBy(() -> guard.checkAiConversation(USER_ID, "FREE"))
+			.isInstanceOf(RateLimitExceededException.class)
+			.hasMessageContaining("AI 팀장 대화 횟수");
+	}
+
 	private static RateLimitProperties properties(boolean enabled, boolean failClosed) {
-		return new RateLimitProperties(enabled, failClosed, USERS_ME_POLICY, null, null, null);
+		return new RateLimitProperties(enabled, failClosed, USERS_ME_POLICY, null, null, null, null, null);
 	}
 
 	private static final class RecordingRateLimiter implements RateLimiter {

@@ -1145,6 +1145,11 @@ class AiConversationServiceTest {
 		private Map<String, Object> updatedMetadata;
 
 		@Override
+		public String findUserPlan(UUID userId) {
+			return "FREE";
+		}
+
+		@Override
 		public boolean existsStudyGroup(UUID groupId) {
 			return groupExists;
 		}

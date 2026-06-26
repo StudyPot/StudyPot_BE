@@ -453,6 +453,11 @@ class AiConversationControllerTest {
 		}
 
 		@Override
+		public String findUserPlan(UUID userId) {
+			return "FREE";
+		}
+
+		@Override
 		public Optional<AiConversationMembershipContext> findMembership(UUID groupId, UUID userId) {
 			return Optional.ofNullable(membership);
 		}

@@ -17,6 +17,9 @@ public interface AiConversationRepository {
 
 	boolean existsStudyGroup(UUID groupId);
 
+	/** 사용자 플랜('FREE'/'PREMIUM')을 조회한다. 없으면 'FREE'. */
+	String findUserPlan(UUID userId);
+
 	Optional<AiConversationMembershipContext> findMembership(UUID groupId, UUID userId);
 
 	Optional<UUID> findWeekGroupId(UUID weekId);
