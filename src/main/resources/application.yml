@@ -132,9 +132,17 @@ studypot:
     users-me:
       limit: ${STUDYPOT_RATE_LIMIT_USERS_ME_LIMIT:60}
       window: ${STUDYPOT_RATE_LIMIT_USERS_ME_WINDOW:PT60S}
+    # AI 팀장 채팅 버스트(분당) — 플랜 무관 스팸 방지.
     ai-conversation:
-      limit: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_LIMIT:5}
+      limit: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_LIMIT:10}
       window: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_WINDOW:PT60S}
+    # AI 팀장 채팅 일일(롤링 24h) 한도 — 플랜별. 무료 사용자 비용 통제의 핵심 레버.
+    ai-conversation-daily-free:
+      limit: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_DAILY_FREE_LIMIT:15}
+      window: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_DAILY_FREE_WINDOW:PT24H}
+    ai-conversation-daily-premium:
+      limit: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_DAILY_PREMIUM_LIMIT:200}
+      window: ${STUDYPOT_RATE_LIMIT_AI_CONVERSATION_DAILY_PREMIUM_WINDOW:PT24H}
     curriculum-generation:
       limit: ${STUDYPOT_RATE_LIMIT_CURRICULUM_GENERATION_LIMIT:3}
       window: ${STUDYPOT_RATE_LIMIT_CURRICULUM_GENERATION_WINDOW:PT10M}

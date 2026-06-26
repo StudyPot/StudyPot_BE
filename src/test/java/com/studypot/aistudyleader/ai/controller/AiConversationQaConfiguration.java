@@ -112,6 +112,11 @@ class AiConversationQaConfiguration {
 		}
 
 		@Override
+		public String findUserPlan(UUID userId) {
+			return "FREE";
+		}
+
+		@Override
 		public Optional<AiConversationMembershipContext> findMembership(UUID groupId, UUID userId) {
 			if ((!GROUP_ID.equals(groupId) && !MISSING_CONTEXT_GROUP_ID.equals(groupId)) || !USER_ID.equals(userId)) {
 				return Optional.empty();

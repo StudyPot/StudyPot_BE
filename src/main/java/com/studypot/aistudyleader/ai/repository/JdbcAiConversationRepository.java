@@ -51,6 +51,19 @@ class JdbcAiConversationRepository implements AiConversationRepository {
 	}
 
 	@Override
+	public String findUserPlan(UUID userId) {
+		Objects.requireNonNull(userId, "userId must not be null");
+		return jdbcTemplate.query(
+				AiConversationJdbcSql.SELECT_USER_PLAN,
+				(resultSet, rowNumber) -> resultSet.getString("plan"),
+				uuid(userId)
+			).stream()
+			.filter(plan -> plan != null && !plan.isBlank())
+			.findFirst()
+			.orElse("FREE");
+	}
+
+	@Override
 	public Optional<AiConversationMembershipContext> findMembership(UUID groupId, UUID userId) {
 		Objects.requireNonNull(groupId, "groupId must not be null");
 		Objects.requireNonNull(userId, "userId must not be null");

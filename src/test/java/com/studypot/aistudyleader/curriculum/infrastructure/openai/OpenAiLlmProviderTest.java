@@ -272,6 +272,48 @@ class OpenAiLlmProviderTest {
 				});
 	}
 
+	@Test
+	void teamLeadChatModelDependsOnUserPlan() {
+		CapturingTransport transport = new CapturingTransport("""
+			{
+			  "choices": [
+			    {"message": {"role": "assistant", "content": "{\\"ok\\":true}"}}
+			  ],
+			  "usage": {"prompt_tokens": 11, "completion_tokens": 6}
+			}
+			""");
+		OpenAiLlmProvider provider = new OpenAiLlmProvider(
+			transport,
+			JsonMapper.builder().findAndAddModules().build(),
+			"gpt-5-nano",
+			OpenAiApiMode.CHAT_COMPLETIONS,
+			OpenAiOutputTokenLimits.defaults(),
+			new OpenAiPurposeModels(null, null, null, "gpt-5-mini", null)
+		);
+
+		// FREE(또는 미지정) 채팅 → 기본 모델(nano).
+		provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "TEAM_LEAD_CHAT"),
+			"FREE"
+		));
+		assertThat(transport.request).containsEntry("model", "gpt-5-nano");
+
+		// PREMIUM 채팅 → 용도별 상위 모델(mini).
+		provider.requestStructured(new LlmStructuredRequest(
+			LlmUsagePurpose.TEAM_LEAD_CHAT,
+			"Return JSON only.",
+			Map.of("topic", "Spring Boot"),
+			Map.of("type", "json_schema", "name", "sample", "schema", Map.of("type", "object")),
+			Map.of("purpose", "TEAM_LEAD_CHAT"),
+			"PREMIUM"
+		));
+		assertThat(transport.request).containsEntry("model", "gpt-5-mini");
+	}
+
 	private static final class CapturingTransport implements OpenAiResponsesTransport {
 
 		private final String response;

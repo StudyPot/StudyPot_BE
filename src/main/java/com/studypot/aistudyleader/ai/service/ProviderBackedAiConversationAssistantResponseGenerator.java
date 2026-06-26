@@ -94,7 +94,8 @@ class ProviderBackedAiConversationAssistantResponseGenerator implements AiConver
 				INSTRUCTIONS,
 				input(request),
 				schemaFormat(),
-				requestPayload(request)
+				requestPayload(request),
+				request.userPlan()
 			));
 		} catch (LlmProviderCallException exception) {
 			throw new AiConversationResponseGenerationException(

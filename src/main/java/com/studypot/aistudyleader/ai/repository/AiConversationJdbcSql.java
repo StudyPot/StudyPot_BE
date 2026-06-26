@@ -237,6 +237,13 @@ final class AiConversationJdbcSql {
 		where id = ?
 		""";
 
+	static final String SELECT_USER_PLAN = """
+		select plan
+		from users
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	private AiConversationJdbcSql() {
 	}
 }

@@ -10,6 +10,7 @@ import com.studypot.aistudyleader.ai.domain.AiConversationType;
 import com.studypot.aistudyleader.ai.domain.AiRetrospectiveReference;
 import com.studypot.aistudyleader.ai.repository.AiConversationRepository;
 import com.studypot.aistudyleader.global.api.CursorPageResponse;
+import com.studypot.aistudyleader.global.ratelimit.RateLimitGuard;
 import com.studypot.aistudyleader.llm.domain.LlmUsagePurpose;
 import com.studypot.aistudyleader.llm.service.LlmUsageRecorder;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +52,7 @@ public class AiConversationService {
 	private final AiConversationQuestionRefiner questionRefiner;
 	private final AiConversationCurriculumGateway curriculumGateway;
 	private final AiAssistantJobDispatcher assistantJobDispatcher;
+	private final RateLimitGuard rateLimitGuard;
 
 	public AiConversationService(AiConversationRepository repository, Clock clock, Supplier<UUID> idGenerator) {
 		this(repository, clock, idGenerator, null, null);
@@ -128,6 +130,23 @@ public class AiConversationService {
 		AiConversationCurriculumGateway curriculumGateway,
 		AiAssistantJobDispatcher assistantJobDispatcher
 	) {
+		this(repository, clock, idGenerator, assistantResponseGenerator, usageRecorder, streamPublisher,
+			boardGateway, questionRefiner, curriculumGateway, assistantJobDispatcher, null);
+	}
+
+	public AiConversationService(
+		AiConversationRepository repository,
+		Clock clock,
+		Supplier<UUID> idGenerator,
+		AiConversationAssistantResponseGenerator assistantResponseGenerator,
+		LlmUsageRecorder usageRecorder,
+		AiConversationStreamPublisher streamPublisher,
+		AiConversationBoardGateway boardGateway,
+		AiConversationQuestionRefiner questionRefiner,
+		AiConversationCurriculumGateway curriculumGateway,
+		AiAssistantJobDispatcher assistantJobDispatcher,
+		RateLimitGuard rateLimitGuard
+	) {
 		this.repository = Objects.requireNonNull(repository, "repository must not be null");
 		this.clock = Objects.requireNonNull(clock, "clock must not be null");
 		this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
@@ -138,6 +157,7 @@ public class AiConversationService {
 		this.questionRefiner = questionRefiner;
 		this.curriculumGateway = curriculumGateway;
 		this.assistantJobDispatcher = assistantJobDispatcher;
+		this.rateLimitGuard = rateLimitGuard;
 	}
 
 	@Transactional
@@ -211,6 +231,10 @@ public class AiConversationService {
 		}
 		if (!context.isOpen()) {
 			throw new AiConversationMutationRejectedException("AI conversation is closed.");
+		}
+		// 플랜별 한도(버스트 분당 + 일일) 검사 — 사용자 메시지를 저장하기 전에 막아 고아 메시지를 만들지 않는다.
+		if (rateLimitGuard != null) {
+			rateLimitGuard.checkAiConversation(command.authenticatedUserId(), repository.findUserPlan(command.authenticatedUserId()));
 		}
 
 		AiConversationMessage message = AiConversationMessage.userMessage(
@@ -546,7 +570,8 @@ public class AiConversationService {
 				authenticatedUserId,
 				context,
 				userMessage,
-				promptContext
+				promptContext,
+				repository.findUserPlan(authenticatedUserId)
 			));
 		} catch (AiConversationResponseGenerationException exception) {
 			recordFailureUsage(authenticatedUserId, context, exception);
