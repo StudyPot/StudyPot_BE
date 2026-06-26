@@ -114,6 +114,29 @@ class RateLimitGuardTest {
 			.hasMessageContaining("AI 팀장 대화 횟수");
 	}
 
+	@Test
+	void aiConversationQuotaReportsUsageWithoutIncrementing() {
+		RateLimiter limiter = new RateLimiter() {
+			@Override
+			public RateLimitDecision check(String key, long limit, Duration window) {
+				return RateLimitDecision.allowed(1, limit);
+			}
+
+			@Override
+			public RateLimitSnapshot peek(String key) {
+				return new RateLimitSnapshot(3, Duration.ofHours(5));
+			}
+		};
+		RateLimitGuard guard = new RateLimitGuard(limiter, properties(true, false));
+
+		AiConversationQuotaView view = guard.aiConversationQuota(USER_ID, "FREE");
+
+		assertThat(view.dailyLimit()).isEqualTo(15);
+		assertThat(view.used()).isEqualTo(3);
+		assertThat(view.remaining()).isEqualTo(12);
+		assertThat(view.resetSeconds()).isEqualTo(Duration.ofHours(5).toSeconds());
+	}
+
 	private static RateLimitProperties properties(boolean enabled, boolean failClosed) {
 		return new RateLimitProperties(enabled, failClosed, USERS_ME_POLICY, null, null, null, null, null);
 	}

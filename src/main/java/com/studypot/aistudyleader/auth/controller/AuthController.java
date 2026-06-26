@@ -1,6 +1,7 @@
 package com.studypot.aistudyleader.auth.controller;
 
 import com.studypot.aistudyleader.global.api.ApiPaths;
+import com.studypot.aistudyleader.global.ratelimit.AiConversationQuotaView;
 import com.studypot.aistudyleader.global.ratelimit.RateLimitGuard;
 import com.studypot.aistudyleader.auth.service.AuthSessionMetadata;
 import com.studypot.aistudyleader.auth.service.AuthSessionRejectedException;
@@ -162,6 +163,28 @@ class AuthController {
 		return UserResponse.from(updated, service.currentPlan(userId));
 	}
 
+	@Operation(
+		summary = "AI 팀장 대화 일일 잔여 횟수 조회",
+		description = "인증된 사용자의 요금제 기준 AI 팀장 채팅 일일 한도와 현재 사용량/잔여 횟수, 리셋까지 남은 시간을 조회합니다."
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "일일 한도/사용량/잔여 횟수 반환"),
+		@ApiResponse(responseCode = "401", description = "인증 정보가 없거나 사용자 식별자를 해석할 수 없음"),
+		@ApiResponse(responseCode = "503", description = "인증 서비스가 아직 구성되지 않음")
+	})
+	@GetMapping(ApiPaths.V1 + "/users/me/ai-quota")
+	AiQuotaResponse aiQuota(@AuthenticationPrincipal Jwt jwt) {
+		UUID userId = authenticatedUserId(jwt);
+		String plan = authSessionService().currentPlan(userId);
+		RateLimitGuard guard = rateLimitGuard.getIfAvailable();
+		if (guard == null) {
+			// 한도 미적용(레이트리밋 비구성) — 사실상 무제한으로 본다.
+			return new AiQuotaResponse(plan, -1, 0, -1, 0);
+		}
+		AiConversationQuotaView quota = guard.aiConversationQuota(userId, plan);
+		return new AiQuotaResponse(plan, quota.dailyLimit(), quota.used(), quota.remaining(), quota.resetSeconds());
+	}
+
 	private AuthSessionService authSessionService() {
 		return authSessionService.getIfAvailable(() -> {
 			throw new AuthServiceUnavailableException("auth service is not configured.");
@@ -241,6 +264,21 @@ class AuthController {
 				UserResponse.from(result.user(), plan)
 			);
 		}
+	}
+
+	@Schema(description = "AI 팀장 대화 일일 잔여 횟수 응답입니다.")
+	private record AiQuotaResponse(
+		@Schema(description = "사용자 요금제입니다. FREE 또는 PREMIUM.", example = "FREE")
+		String plan,
+		@Schema(description = "일일 한도입니다. 한도 미적용 시 -1.", example = "15")
+		long dailyLimit,
+		@Schema(description = "현재 윈도우에서 사용한 횟수입니다.", example = "3")
+		long used,
+		@Schema(description = "남은 횟수입니다. 한도 미적용 시 -1.", example = "12")
+		long remaining,
+		@Schema(description = "일일 한도가 리셋되기까지 남은 초입니다.", example = "43200")
+		long resetSeconds
+	) {
 	}
 
 	@Schema(description = "인증된 사용자의 기본 프로필 응답입니다.")
