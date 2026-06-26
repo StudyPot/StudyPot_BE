@@ -80,7 +80,7 @@ class AuthController {
 			String refreshToken = requireRefreshToken(servletRequest, requestBody);
 			AuthTokenResult result = service.refresh(refreshToken, metadata(servletRequest));
 			tokenCookiePort.ifAvailable(port -> port.addTokenCookies(servletResponse, result));
-			return AuthSessionResponse.from(result);
+			return AuthSessionResponse.from(result, service.currentPlan(result.user().id()));
 		} catch (RefreshTokenRejectedException exception) {
 			tokenCookiePort.ifAvailable(port -> port.clearTokenCookies(servletResponse));
 			throw exception;
@@ -136,7 +136,8 @@ class AuthController {
 	UserResponse currentUser(@AuthenticationPrincipal Jwt jwt) {
 		UUID userId = authenticatedUserId(jwt);
 		rateLimitGuard.ifAvailable(guard -> guard.checkUsersMe(userId));
-		return UserResponse.from(authSessionService().currentUser(userId));
+		AuthSessionService service = authSessionService();
+		return UserResponse.from(service.currentUser(userId), service.currentPlan(userId));
 	}
 
 	@Operation(
@@ -156,7 +157,9 @@ class AuthController {
 	) {
 		UUID userId = authenticatedUserId(jwt);
 		rateLimitGuard.ifAvailable(guard -> guard.checkUsersMe(userId));
-		return UserResponse.from(authSessionService().updateProfile(userId, request.nickname(), request.bio()));
+		AuthSessionService service = authSessionService();
+		AuthenticatedUser updated = service.updateProfile(userId, request.nickname(), request.bio());
+		return UserResponse.from(updated, service.currentPlan(userId));
 	}
 
 	private AuthSessionService authSessionService() {
@@ -229,13 +232,13 @@ class AuthController {
 		UserResponse user
 	) {
 
-		private static AuthSessionResponse from(AuthTokenResult result) {
+		private static AuthSessionResponse from(AuthTokenResult result, String plan) {
 			return new AuthSessionResponse(
 				result.tokenType(),
 				result.expiresIn(),
 				result.accessToken(),
 				result.refreshToken(),
-				UserResponse.from(result.user())
+				UserResponse.from(result.user(), plan)
 			);
 		}
 	}
@@ -249,11 +252,13 @@ class AuthController {
 		@Schema(description = "서비스에서 표시할 사용자 닉네임입니다.", example = "현우")
 		String nickname,
 		@Schema(description = "자기소개입니다. 없으면 null.", example = "백엔드 공부 중입니다.", nullable = true)
-		String bio
+		String bio,
+		@Schema(description = "사용자 요금제입니다. FREE 또는 PREMIUM.", example = "FREE")
+		String plan
 	) {
 
-		private static UserResponse from(AuthenticatedUser user) {
-			return new UserResponse(user.id(), user.email(), user.nickname(), user.bio());
+		private static UserResponse from(AuthenticatedUser user, String plan) {
+			return new UserResponse(user.id(), user.email(), user.nickname(), user.bio(), plan);
 		}
 	}
 

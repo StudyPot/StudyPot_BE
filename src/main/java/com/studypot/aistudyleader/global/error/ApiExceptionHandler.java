@@ -57,6 +57,7 @@ import com.studypot.aistudyleader.studygroup.service.InvalidStudyGroupMemberProf
 import com.studypot.aistudyleader.studygroup.service.StudyGroupAccessDeniedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupJoinRejectedException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupNotFoundException;
+import com.studypot.aistudyleader.studygroup.service.StudyGroupQuotaExceededException;
 import com.studypot.aistudyleader.studygroup.service.StudyGroupServiceUnavailableException;
 import com.studypot.aistudyleader.studygroup.board.repository.GroupBoardPersistenceException;
 import com.studypot.aistudyleader.studygroup.board.service.GroupBoardAccessDeniedException;
@@ -233,7 +234,8 @@ public class ApiExceptionHandler {
 		NotificationNotFoundException.class,
 		ReviewNotFoundException.class,
 		BookmarkGroupNotFoundException.class,
-		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class
+		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class,
+		com.studypot.aistudyleader.auth.admin.AdminUserNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -257,7 +259,8 @@ public class ApiExceptionHandler {
 		AiConversationAccessDeniedException.class,
 		LlmUsageAccessDeniedException.class,
 		NotificationAccessDeniedException.class,
-		ReviewAccessDeniedException.class
+		ReviewAccessDeniedException.class,
+		com.studypot.aistudyleader.auth.admin.AdminUserAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -280,6 +283,16 @@ public class ApiExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(problemDetailFactory.conflict(messageOrDefault(exception.getMessage())));
+	}
+
+	@ExceptionHandler(StudyGroupQuotaExceededException.class)
+	public ResponseEntity<ProblemDetail> handleStudyGroupQuotaExceeded(StudyGroupQuotaExceededException exception) {
+		ProblemDetail problemDetail = problemDetailFactory.conflict(messageOrDefault(exception.getMessage()));
+		problemDetail.setProperty("code", "STUDY_GROUP_QUOTA_EXCEEDED");
+		problemDetail.setProperty("plan", exception.plan());
+		problemDetail.setProperty("limit", exception.limit());
+		problemDetail.setProperty("current", exception.current());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
 	}
 
 	@ExceptionHandler(RateLimitExceededException.class)

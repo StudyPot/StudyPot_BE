@@ -261,6 +261,16 @@ class GoogleOAuthLoginServiceTest {
 		}
 
 		@Override
+		public Optional<String> findPlan(java.util.UUID userId) {
+			return usersById.containsKey(userId) ? Optional.of("FREE") : Optional.empty();
+		}
+
+		@Override
+		public boolean updatePlan(java.util.UUID userId, String plan, java.time.Instant updatedAt) {
+			return usersById.containsKey(userId);
+		}
+
+		@Override
 		public OAuthAccount save(OAuthAccount account) {
 			if (conflictOnNextAccountSave) {
 				conflictOnNextAccountSave = false;

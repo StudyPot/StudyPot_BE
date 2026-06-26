@@ -83,6 +83,11 @@ studypot:
     # 운영자(LLM 사용 기록 열람) 이메일 허용목록. 쉼표로 구분합니다. 예: a@x.com,b@y.com
     # 환경변수 STUDYPOT_ADMIN_EMAILS로 덮어쓸 수 있으며, 미설정 시 아래 기본값을 사용합니다.
     emails: ${STUDYPOT_ADMIN_EMAILS:hw62459930@gmail.com}
+  studygroup:
+    quota:
+      # 플랜별 "호스트로 동시에 운영 중인 스터디" 최대 개수. 완료/보관/삭제 스터디는 제외.
+      free-max-hosted-groups: ${STUDYPOT_STUDYGROUP_QUOTA_FREE_MAX:3}
+      premium-max-hosted-groups: ${STUDYPOT_STUDYGROUP_QUOTA_PREMIUM_MAX:20}
   ai:
     openai:
       api-key: ${STUDYPOT_AI_OPENAI_API_KEY:}

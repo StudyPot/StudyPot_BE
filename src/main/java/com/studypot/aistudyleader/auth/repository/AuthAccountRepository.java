@@ -21,4 +21,10 @@ public interface AuthAccountRepository {
 
 	/** 프로필(닉네임/자기소개) 부분 수정. 대상 활성 사용자가 없으면 false. */
 	boolean updateProfile(UUID userId, String nickname, String bio, java.time.Instant updatedAt);
+
+	/** 활성 사용자의 플랜(FREE/PREMIUM) 조회. 대상이 없으면 empty. */
+	Optional<String> findPlan(UUID userId);
+
+	/** 플랜(FREE/PREMIUM) 변경. 대상 활성 사용자가 없으면 false. */
+	boolean updatePlan(UUID userId, String plan, java.time.Instant updatedAt);
 }
