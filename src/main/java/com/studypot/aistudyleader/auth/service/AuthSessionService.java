@@ -92,6 +92,13 @@ public class AuthSessionService {
 		return AuthenticatedUser.from(findActiveUser(authenticatedUserId));
 	}
 
+	/** 현재 사용자의 플랜(FREE/PREMIUM). 미설정/미존재 시 FREE로 간주. */
+	@Transactional(readOnly = true)
+	public String currentPlan(UUID authenticatedUserId) {
+		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");
+		return authRepository.findPlan(authenticatedUserId).orElse("FREE");
+	}
+
 	@Transactional
 	public AuthenticatedUser updateProfile(UUID authenticatedUserId, String nickname, String bio) {
 		Objects.requireNonNull(authenticatedUserId, "authenticatedUserId must not be null");

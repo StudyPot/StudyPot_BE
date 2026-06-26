@@ -40,7 +40,9 @@
 - 카운트 정의: `created_by=? AND deleted_at IS NULL AND status NOT IN ('COMPLETED','ARCHIVED')` (완료/보관/삭제는 슬롯 차지 안 함).
 - 조회 API: `GET /api/v1/users/me/study-quota` → `{plan, hostedActiveCount, limit, canCreate}` (FE 사전 안내/버튼 게이팅).
 - 에러 매핑: `ApiExceptionHandler` → 409 + `code=STUDY_GROUP_QUOTA_EXCEEDED`, plan/limit/current property.
-- 유료 전환(v1): 관리자 수동(직접 SQL `update users set plan='PREMIUM'`). 관리자 HTTP API와 /users/me 플랜 노출은 후속 PR로 분리.
+- 유료 전환(v1): 관리자 수동. 본 PR에서 SQL 대신 **운영자 HTTP API**로 승급 가능하게 한다(아래).
+- 관리자 API(auth/admin, llm.admin 구조 미러링): `GET /api/v1/admin/users?email=` 조회, `PATCH /api/v1/admin/users/{userId}/plan`(body `{plan: FREE|PREMIUM}`) 변경. 인가는 `AdminProperties.isAdmin(email)`(이메일 허용목록) 재사용, 비관리자 403/대상없음 404. 운영자 HTML 페이지 `static/admin/users.html`(llm-usage.html 패턴).
+- `/users/me` 플랜 노출: `AuthSessionService.currentPlan` + `UserResponse.plan`(도메인/로그인 흐름 불변, 경량 `findPlan` 조회).
 
 ## Step Plan
 1. V15 마이그레이션 + `StudyGroupQuotaProperties` + `StudyGroupQuotaExceededException` 추가.
@@ -50,10 +52,14 @@
 5. 예외 핸들러 409 매핑(구조화 property).
 6. 설정 등록(@EnableConfigurationProperties) + application.yml 한도값.
 7. 테스트: 한도 도달 차단 / 프리미엄 초과 허용 / 쿼터 조회 / 프로퍼티 기본값·검증.
-8. `./gradlew check build` 통과 후 PR → develop.
+8. (후속 통합) 저장소 `findPlan`/`updatePlan`(인터페이스+JDBC+SQL, 모든 fake 반영) + `AuthSessionService.currentPlan` + `UserResponse.plan`.
+9. (후속 통합) `auth/admin`: `AdminUserService`/`AdminUserView`/`AdminUserPlan`/예외 + `AdminUserController`(GET/PATCH) + `AdminUserConfiguration` + `ApiExceptionHandler` 403/404 매핑 + `static/admin/users.html` + `AdminUserServiceTest`.
+10. `./gradlew check build` 통과 후 PR → develop.
 
 ## Done Criteria
 - `./gradlew check build` 통과.
 - 무료 3개째 생성 차단(409, 구조화 에러), 프리미엄은 한도 내 허용, 완료/삭제 스터디는 카운트 제외.
 - `GET /users/me/study-quota`가 plan/현재개수/한도/생성가능 여부 반환.
+- `/users/me` 응답에 `plan` 포함.
+- 운영자가 `GET/PATCH /api/v1/admin/users...`로 이메일 조회·요금제 승급 가능(비관리자 403), HTML 페이지로도 가능.
 - 기존 계약/엔드포인트 비파괴(가산적).

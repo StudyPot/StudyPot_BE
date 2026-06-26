@@ -88,6 +88,23 @@ class JdbcAuthAccountRepository implements AuthAccountRepository {
 	}
 
 	@Override
+	public Optional<String> findPlan(UUID userId) {
+		return queryOne(AuthJdbcSql.FIND_USER_PLAN, (resultSet, rowNumber) -> resultSet.getString("plan"),
+			UuidBinary.toBytes(userId));
+	}
+
+	@Override
+	public boolean updatePlan(UUID userId, String plan, java.time.Instant updatedAt) {
+		int updated = jdbcTemplate.update(
+			AuthJdbcSql.UPDATE_USER_PLAN,
+			plan,
+			timestamp(updatedAt),
+			UuidBinary.toBytes(userId)
+		);
+		return updated > 0;
+	}
+
+	@Override
 	public OAuthAccount save(OAuthAccount account) {
 		try {
 			int updatedRows = jdbcTemplate.update(

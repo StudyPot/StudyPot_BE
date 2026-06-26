@@ -234,7 +234,8 @@ public class ApiExceptionHandler {
 		NotificationNotFoundException.class,
 		ReviewNotFoundException.class,
 		BookmarkGroupNotFoundException.class,
-		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class
+		com.studypot.aistudyleader.follow.service.FollowTargetNotFoundException.class,
+		com.studypot.aistudyleader.auth.admin.AdminUserNotFoundException.class
 	})
 	public ResponseEntity<ProblemDetail> handleResourceNotFound(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -258,7 +259,8 @@ public class ApiExceptionHandler {
 		AiConversationAccessDeniedException.class,
 		LlmUsageAccessDeniedException.class,
 		NotificationAccessDeniedException.class,
-		ReviewAccessDeniedException.class
+		ReviewAccessDeniedException.class,
+		com.studypot.aistudyleader.auth.admin.AdminUserAccessDeniedException.class
 	})
 	public ResponseEntity<ProblemDetail> handleForbidden(RuntimeException exception) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)

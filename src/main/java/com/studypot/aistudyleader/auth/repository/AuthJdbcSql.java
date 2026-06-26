@@ -25,6 +25,21 @@ final class AuthJdbcSql {
 		  and deleted_at is null
 		""";
 
+	static final String FIND_USER_PLAN = """
+		select plan
+		from users
+		where id = ?
+		  and deleted_at is null
+		""";
+
+	static final String UPDATE_USER_PLAN = """
+		update users
+		set plan = ?,
+		    updated_at = ?
+		where id = ?
+		  and deleted_at is null
+		""";
+
 	static final String FIND_ACTIVE_OAUTH_ACCOUNT = """
 		select id, user_id, provider, provider_user_id, email, token_expires_at, scope,
 		       connected_at, last_synced_at, deleted_at
