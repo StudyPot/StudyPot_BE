@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Spring Boot — green spiral leaf on transparent background -->
+  <path d="M214 40
+           C158 44 96 74 72 134
+           C54 178 78 218 126 220
+           C108 198 112 160 142 144
+           C120 168 118 200 146 214
+           C194 198 230 146 224 88
+           C222 72 218 54 214 40 Z"
+        fill="#6DB33F"/>
+  <!-- stem -->
+  <path d="M158 56 C184 48 204 50 218 62"
+        fill="none" stroke="#5A9433" stroke-width="8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1000" viewBox="0 0 1700 1000" font-family="Helvetica,Arial,sans-serif">
+<rect width="1700" height="1000" fill="#ffffff"/>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 3.5 L0 7 Z" fill="#5f6368"/></marker><marker id="ad" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 3.5 L0 7 Z" fill="#993556"/></marker></defs>
+<text x="1660" y="86" font-size="12" fill="#b00" text-anchor="end">preview only — real AWS icons render in draw.io</text>
+<path d="M 148 189 H 199 V 267 H 250" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="199" y="224" font-size="11" fill="#5f6368" text-anchor="middle">DNS</text>
+<path d="M 148 344 H 199 V 267 H 250" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 328 267 H 374 V 359 H 420" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="374" y="309" font-size="11" fill="#5f6368" text-anchor="middle">HTTPS 443</text>
+<path d="M 498 359 H 544 V 361 H 590" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="544" y="356" font-size="11" fill="#5f6368" text-anchor="middle">:8080</text>
+<path d="M 590 361 H 549 V 539 H 508" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="549" y="446" font-size="11" fill="#5f6368" text-anchor="middle">JDBC</text>
+<path d="M 690 407 H 684 V 500 H 679" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 790 361 H 820 V 539 H 850" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="820" y="446" font-size="11" fill="#5f6368" text-anchor="middle">AMQP</text>
+<path d="M 790 361 H 1086 V 230 H 1382" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="1086" y="292" font-size="11" fill="#5f6368" text-anchor="middle">OAuth</text>
+<path d="M 790 361 H 1086 V 326 H 1382" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="1086" y="340" font-size="11" fill="#5f6368" text-anchor="middle">HTTPS</text>
+<path d="M 320 802 H 338 V 802 H 356" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 636 802 H 654 V 802 H 672" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 952 802 H 970 V 802 H 988" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 1268 802 H 1286 V 802 H 1304" fill="none" stroke="#5f6368" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M 1304 802 H 1212 V 410 H 1120" fill="none" stroke="#993556" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ad)"/>
+<text x="1212" y="602" font-size="11" fill="#993556" text-anchor="middle">deploy</text>
+<text x="40" y="38" font-size="21" font-weight="bold" fill="#1a1a1a">StudyPot — Backend Infrastructure (AWS)</text>
+<text x="40" y="63" font-size="12" fill="#5f6368">Spring Boot 4 / Java 21 · Docker Compose on a single EC2 · Route 53 DNS · MySQL/Redis/RabbitMQ run as containers (not managed services)</text>
+<rect x="360" y="110" width="760" height="600" rx="3" fill="none" stroke="#232F3E" stroke-width="2"/>
+<text x="390" y="130" font-size="13" font-weight="bold" fill="#232F3E">AWS Cloud · ap-northeast-2</text>
+<rect x="366" y="116" width="18" height="18" rx="3" fill="#232F3E"/>
+<rect x="79" y="150" width="60" height="60" rx="9" fill="#232F3E"/>
+<text x="109" y="184" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">Web</text>
+<text x="109" y="223" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">Web Client</text>
+<text x="109" y="238" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">React SPA (Netlify)</text>
+<rect x="79" y="305" width="60" height="60" rx="9" fill="#232F3E"/>
+<text x="109" y="339" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">Mob</text>
+<text x="109" y="378" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">Mobile Browser</text>
+<text x="109" y="393" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">iOS Safari · JWT</text>
+<rect x="259" y="228" width="60" height="60" rx="9" fill="#8C4FFF"/>
+<text x="289" y="262" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">R53</text>
+<text x="289" y="301" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">Route 53</text>
+<text x="289" y="316" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">DNS · A record</text>
+<rect x="401" y="150" width="60" height="60" rx="9" fill="#ED7100"/>
+<text x="431" y="184" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">EC2</text>
+<text x="431" y="223" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">EC2 instance</text>
+<text x="431" y="238" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">Docker host</text>
+<rect x="388" y="270" width="708" height="410" rx="6" fill="none" stroke="#1BA1E2" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="398" y="288" font-size="12" font-weight="bold" fill="#1BA1E2">Docker Compose · deploy/rumiclean</text>
+<rect x="429" y="320" width="60" height="60" rx="9" fill="#8C4FFF"/>
+<text x="459" y="354" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">Proxy</text>
+<text x="459" y="393" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">Caddy</text>
+<text x="459" y="408" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">reverse proxy · TLS</text>
+<rect x="590" y="315" width="200" height="92" rx="9" fill="#D5E8D4" stroke="#82B366" stroke-width="1.6"/>
+<text x="690" y="350" font-size="13" font-weight="bold" fill="#1E4620" text-anchor="middle">Spring Boot · studypot-api</text>
+<text x="690" y="368" font-size="11" fill="#1E4620" text-anchor="middle">:8080 · REST + SSE</text>
+<text x="690" y="384" font-size="11" fill="#1E4620" text-anchor="middle">OAuth2 · JWT · JDBC · Flyway</text>
+<rect x="439" y="500" width="60" height="60" rx="9" fill="#527FFF"/>
+<text x="469" y="534" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">SQL</text>
+<text x="469" y="573" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">MySQL 8.0</text>
+<text x="469" y="588" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">(container)</text>
+<rect x="649" y="500" width="60" height="60" rx="9" fill="#527FFF"/>
+<text x="679" y="534" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">Redis</text>
+<text x="679" y="573" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">Redis 7</text>
+<text x="679" y="588" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">cache (container)</text>
+<rect x="859" y="500" width="60" height="60" rx="9" fill="#E7157B"/>
+<text x="889" y="534" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">MQ</text>
+<text x="889" y="573" font-size="10.5" font-weight="bold" fill="#232F3E" text-anchor="middle">RabbitMQ 4</text>
+<text x="889" y="588" font-size="10.5" font-weight="normal" fill="#232F3E" text-anchor="middle">queue (container)</text>
+<rect x="1360" y="150" width="300" height="230" rx="6" fill="none" stroke="#D6B656" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="1370" y="168" font-size="12" font-weight="bold" fill="#D6B656">External APIs</text>
+<rect x="1382" y="196" width="256" height="68" rx="9" fill="#FFF2CC" stroke="#D6B656" stroke-width="1.6"/>
+<text x="1510" y="227" font-size="13" font-weight="bold" fill="#5A4A00" text-anchor="middle">Google OAuth 2.0</text>
+<text x="1510" y="245" font-size="11" fill="#5A4A00" text-anchor="middle">openid · email · profile</text>
+<rect x="1382" y="292" width="256" height="68" rx="9" fill="#FFF2CC" stroke="#D6B656" stroke-width="1.6"/>
+<text x="1510" y="323" font-size="13" font-weight="bold" fill="#5A4A00" text-anchor="middle">OpenAI API</text>
+<text x="1510" y="341" font-size="11" fill="#5A4A00" text-anchor="middle">gpt-4o-mini · curriculum/retro/chat</text>
+<text x="40" y="757" font-size="12" fill="#5f6368">CI / CD · deploy pipeline</text>
+<rect x="40" y="770" width="280" height="64" rx="9" fill="#F5F5F5" stroke="#666666" stroke-width="1.6"/>
+<text x="180" y="799" font-size="13" font-weight="bold" fill="#333333" text-anchor="middle">Push / PR</text>
+<text x="180" y="817" font-size="11" fill="#333333" text-anchor="middle">GitHub repo</text>
+<rect x="356" y="770" width="280" height="64" rx="9" fill="#F5F5F5" stroke="#666666" stroke-width="1.6"/>
+<text x="496" y="799" font-size="13" font-weight="bold" fill="#333333" text-anchor="middle">GitHub Actions</text>
+<text x="496" y="817" font-size="11" fill="#333333" text-anchor="middle">gradlew check · bootJar</text>
+<rect x="672" y="770" width="280" height="64" rx="9" fill="#F5F5F5" stroke="#666666" stroke-width="1.6"/>
+<text x="812" y="799" font-size="13" font-weight="bold" fill="#333333" text-anchor="middle">Build image</text>
+<text x="812" y="817" font-size="11" fill="#333333" text-anchor="middle">Docker multi-stage</text>
+<rect x="988" y="770" width="280" height="64" rx="9" fill="#F5F5F5" stroke="#666666" stroke-width="1.6"/>
+<text x="1128" y="799" font-size="13" font-weight="bold" fill="#333333" text-anchor="middle">GHCR</text>
+<text x="1128" y="817" font-size="11" fill="#333333" text-anchor="middle">container registry</text>
+<rect x="1304" y="770" width="280" height="64" rx="9" fill="#F5F5F5" stroke="#666666" stroke-width="1.6"/>
+<text x="1444" y="799" font-size="13" font-weight="bold" fill="#333333" text-anchor="middle">SSH deploy</text>
+<text x="1444" y="817" font-size="11" fill="#333333" text-anchor="middle">EC2 · compose up -d</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Spring Boot — green badge with white spiral leaf -->
+  <circle cx="128" cy="128" r="120" fill="#6DB33F"/>
+  <!-- leaf body -->
+  <path d="M196 58
+           C150 60 100 84 80 134
+           C66 168 84 200 122 202
+           C108 184 110 154 134 140
+           C118 158 116 184 138 196
+           C176 184 206 142 202 96
+           C201 84 199 70 196 58 Z"
+        fill="#ffffff"/>
+  <!-- stem highlight -->
+  <path d="M150 70 C172 64 188 66 200 76"
+        fill="none" stroke="#6DB33F" stroke-width="7" stroke-linecap="round"/>
+</svg>

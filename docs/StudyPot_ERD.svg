@@ -1,0 +1,500 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2672" height="1163" viewBox="0 0 2672 1163" font-family="Helvetica,Arial,sans-serif">
+<rect x="0" y="0" width="2672" height="1163" fill="#ffffff"/>
+<text x="40" y="40" font-size="26" font-weight="bold" fill="#1a1a1a">StudyPot ERD &#8212; AI Study Leader</text>
+<path d="M 308 414 C 201 414, 147 172, 40 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="308" cy="414" r="3.2" fill="#5f6368"/>
+<path d="M 308 676 C 201 676, 147 172, 40 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="308" cy="676" r="3.2" fill="#5f6368"/>
+<path d="M 372 130 C 332 130, 348 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="372" cy="130" r="3.2" fill="#5f6368"/>
+<path d="M 372 130 C 332 130, 348 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="372" cy="130" r="3.2" fill="#5f6368"/>
+<path d="M 372 392 C 332 392, 348 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="372" cy="392" r="3.2" fill="#5f6368"/>
+<path d="M 640 392 C 680 392, 664 183, 704 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="640" cy="392" r="3.2" fill="#5f6368"/>
+<path d="M 640 686 C 680 686, 664 183, 704 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="640" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 640 686 C 680 686, 664 424, 704 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="640" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 372 686 C 332 686, 348 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="372" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 704 183 C 546 183, 466 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="704" cy="183" r="3.2" fill="#5f6368"/>
+<path d="M 972 424 C 865 424, 811 183, 704 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="972" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 704 424 C 546 424, 466 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="704" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 972 686 C 865 686, 811 183, 704 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="972" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 704 686 C 546 686, 466 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="704" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 1036 162 C 996 162, 1012 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1036" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 1036 162 C 996 162, 1012 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1036" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 1304 414 C 1197 414, 1143 162, 1036 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1304" cy="414" r="3.2" fill="#5f6368"/>
+<path d="M 1036 414 C 996 414, 1012 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1036" cy="414" r="3.2" fill="#5f6368"/>
+<path d="M 1036 676 C 996 676, 1012 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1036" cy="676" r="3.2" fill="#5f6368"/>
+<path d="M 1368 162 C 1328 162, 1344 676, 1304 676" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1368" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 1368 162 C 1210 162, 1130 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1368" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 1636 424 C 1529 424, 1475 162, 1368 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1636" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 1368 424 C 1210 424, 1130 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1368" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 1368 686 C 1210 686, 1130 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1368" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 1636 686 C 1794 686, 1874 707, 2032 707" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1636" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 1700 162 C 1660 162, 1676 686, 1636 686" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1700" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 1968 424 C 1861 424, 1807 162, 1700 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1968" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 1968 686 C 1861 686, 1807 162, 1700 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1968" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 1700 686 C 1409 686, 1263 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="1700" cy="686" r="3.2" fill="#5f6368"/>
+<path d="M 2032 162 C 1992 162, 2008 686, 1968 686" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 2032 162 C 1992 162, 2008 424, 1968 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 2032 162 C 1608 162, 1396 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="162" r="3.2" fill="#5f6368"/>
+<path d="M 2032 424 C 1608 424, 1396 686, 972 686" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 2032 424 C 1608 424, 1396 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 2300 424 C 2193 424, 2139 162, 2032 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2300" cy="424" r="3.2" fill="#5f6368"/>
+<path d="M 2032 707 C 1342 707, 998 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="707" r="3.2" fill="#5f6368"/>
+<path d="M 2032 707 C 1608 707, 1396 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2032" cy="707" r="3.2" fill="#5f6368"/>
+<path d="M 2364 183 C 2206 183, 2126 686, 1968 686" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="183" r="3.2" fill="#5f6368"/>
+<path d="M 2364 183 C 2206 183, 2126 162, 1968 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="183" r="3.2" fill="#5f6368"/>
+<path d="M 2364 183 C 1807 183, 1529 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="183" r="3.2" fill="#5f6368"/>
+<path d="M 2364 183 C 2324 183, 2340 707, 2300 707" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="183" r="3.2" fill="#5f6368"/>
+<path d="M 2364 434 C 1807 434, 1529 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="434" r="3.2" fill="#5f6368"/>
+<path d="M 2364 434 C 1807 434, 1529 424, 972 424" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="434" r="3.2" fill="#5f6368"/>
+<path d="M 2364 434 C 2206 434, 2126 162, 1968 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="434" r="3.2" fill="#5f6368"/>
+<path d="M 2632 434 C 2525 434, 2471 183, 2364 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2632" cy="434" r="3.2" fill="#5f6368"/>
+<path d="M 2632 676 C 2525 676, 2471 434, 2364 434" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2632" cy="676" r="3.2" fill="#5f6368"/>
+<path d="M 2364 676 C 2324 676, 2340 707, 2300 707" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="676" r="3.2" fill="#5f6368"/>
+<path d="M 2364 980 C 1807 980, 1529 183, 972 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="980" r="3.2" fill="#5f6368"/>
+<path d="M 2364 980 C 1542 980, 1130 172, 308 172" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="980" r="3.2" fill="#5f6368"/>
+<path d="M 2364 980 C 1940 980, 1728 162, 1304 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="980" r="3.2" fill="#5f6368"/>
+<path d="M 2364 980 C 2206 980, 2126 162, 1968 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="980" r="3.2" fill="#5f6368"/>
+<path d="M 2364 980 C 2324 980, 2340 162, 2300 162" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2364" cy="980" r="3.2" fill="#5f6368"/>
+<path d="M 2632 980 C 2525 980, 2471 183, 2364 183" fill="none" stroke="#9aa0a6" stroke-width="1.3" opacity="0.75"/>
+<circle cx="2632" cy="980" r="3.2" fill="#5f6368"/>
+<rect x="40" y="80" width="268" height="185" rx="7" fill="#ffffff" stroke="#185FA5" stroke-width="1.6"/>
+<path d="M 40 110 L 40 87 Q 40 80 47 80 L 301 80 Q 308 80 308 87 L 308 110 Z" fill="#378ADD"/>
+<text x="52" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">users</text>
+<rect x="41" y="110" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="41" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="146" font-size="13" font-weight="normal" fill="#202124">email</text>
+<rect x="41" y="152" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="167" font-size="13" font-weight="normal" fill="#202124">nickname</text>
+<rect x="41" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="188" font-size="13" font-weight="normal" fill="#202124">skill_level</text>
+<rect x="41" y="194" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="209" font-size="13" font-weight="normal" fill="#202124">interests (json)</text>
+<rect x="41" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="230" font-size="13" font-weight="normal" fill="#202124">last_login_at</text>
+<rect x="41" y="236" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="251" font-size="13" font-weight="normal" fill="#202124">created_at</text>
+<rect x="40" y="342" width="268" height="143" rx="7" fill="#ffffff" stroke="#185FA5" stroke-width="1.6"/>
+<path d="M 40 372 L 40 349 Q 40 342 47 342 L 301 342 Q 308 342 308 349 L 308 372 Z" fill="#378ADD"/>
+<text x="52" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">oauth_account</text>
+<rect x="41" y="372" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="41" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="408" font-size="13" font-weight="normal" fill="#042C53">FK user_id</text>
+<rect x="41" y="414" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="429" font-size="13" font-weight="normal" fill="#202124">provider</text>
+<rect x="41" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="450" font-size="13" font-weight="normal" fill="#202124">provider_user_id</text>
+<rect x="41" y="456" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="471" font-size="13" font-weight="normal" fill="#202124">token_expires_at</text>
+<rect x="40" y="604" width="268" height="143" rx="7" fill="#ffffff" stroke="#185FA5" stroke-width="1.6"/>
+<path d="M 40 634 L 40 611 Q 40 604 47 604 L 301 604 Q 308 604 308 611 L 308 634 Z" fill="#378ADD"/>
+<text x="52" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">refresh_token</text>
+<rect x="41" y="634" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="41" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="670" font-size="13" font-weight="normal" fill="#042C53">FK user_id</text>
+<rect x="41" y="676" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="691" font-size="13" font-weight="normal" fill="#202124">token_hash</text>
+<rect x="41" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="52" y="712" font-size="13" font-weight="normal" fill="#202124">expires_at</text>
+<rect x="41" y="718" width="266" height="21" fill="#E6F1FB"/>
+<text x="52" y="733" font-size="13" font-weight="normal" fill="#202124">revoked_at</text>
+<rect x="372" y="80" width="268" height="101" rx="7" fill="#ffffff" stroke="#993556" stroke-width="1.6"/>
+<path d="M 372 110 L 372 87 Q 372 80 379 80 L 633 80 Q 640 80 640 87 L 640 110 Z" fill="#D4537E"/>
+<text x="384" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">user_follow</text>
+<rect x="373" y="110" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="373" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="384" y="146" font-size="13" font-weight="normal" fill="#4B1528">FK follower_user_id</text>
+<rect x="373" y="152" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="167" font-size="13" font-weight="normal" fill="#4B1528">FK followee_user_id</text>
+<rect x="372" y="342" width="268" height="101" rx="7" fill="#ffffff" stroke="#993556" stroke-width="1.6"/>
+<path d="M 372 372 L 372 349 Q 372 342 379 342 L 633 342 Q 640 342 640 349 L 640 372 Z" fill="#D4537E"/>
+<text x="384" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">group_bookmark</text>
+<rect x="373" y="372" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="373" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="384" y="408" font-size="13" font-weight="normal" fill="#4B1528">FK user_id</text>
+<rect x="373" y="414" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="429" font-size="13" font-weight="normal" fill="#4B1528">FK group_id</text>
+<rect x="372" y="604" width="268" height="164" rx="7" fill="#ffffff" stroke="#993556" stroke-width="1.6"/>
+<path d="M 372 634 L 372 611 Q 372 604 379 604 L 633 604 Q 640 604 640 611 L 640 634 Z" fill="#D4537E"/>
+<text x="384" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">group_review</text>
+<rect x="373" y="634" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="373" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="384" y="670" font-size="13" font-weight="normal" fill="#4B1528">FK group_id</text>
+<rect x="373" y="676" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="691" font-size="13" font-weight="normal" fill="#4B1528">FK member_id</text>
+<rect x="373" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="384" y="712" font-size="13" font-weight="normal" fill="#4B1528">FK user_id</text>
+<rect x="373" y="718" width="266" height="21" fill="#FBEAF0"/>
+<text x="384" y="733" font-size="13" font-weight="normal" fill="#202124">rating</text>
+<rect x="373" y="739" width="266" height="21" fill="#ffffff"/>
+<text x="384" y="754" font-size="13" font-weight="normal" fill="#202124">content</text>
+<rect x="704" y="80" width="268" height="206" rx="7" fill="#ffffff" stroke="#0F6E56" stroke-width="1.6"/>
+<path d="M 704 110 L 704 87 Q 704 80 711 80 L 965 80 Q 972 80 972 87 L 972 110 Z" fill="#1D9E75"/>
+<text x="716" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">study_group</text>
+<rect x="705" y="110" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="705" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="146" font-size="13" font-weight="normal" fill="#04342C">FK created_by</text>
+<rect x="705" y="152" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="167" font-size="13" font-weight="normal" fill="#202124">name</text>
+<rect x="705" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="188" font-size="13" font-weight="normal" fill="#202124">topic</text>
+<rect x="705" y="194" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="209" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="705" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="230" font-size="13" font-weight="normal" fill="#202124">max_members</text>
+<rect x="705" y="236" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="251" font-size="13" font-weight="normal" fill="#202124">invite_code</text>
+<rect x="705" y="257" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="272" font-size="13" font-weight="normal" fill="#202124">starts_at / ends_at</text>
+<rect x="704" y="342" width="268" height="164" rx="7" fill="#ffffff" stroke="#0F6E56" stroke-width="1.6"/>
+<path d="M 704 372 L 704 349 Q 704 342 711 342 L 965 342 Q 972 342 972 349 L 972 372 Z" fill="#1D9E75"/>
+<text x="716" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">group_member</text>
+<rect x="705" y="372" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="705" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="408" font-size="13" font-weight="normal" fill="#04342C">FK group_id</text>
+<rect x="705" y="414" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="429" font-size="13" font-weight="normal" fill="#04342C">FK user_id</text>
+<rect x="705" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="450" font-size="13" font-weight="normal" fill="#202124">permission</text>
+<rect x="705" y="456" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="471" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="705" y="477" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="492" font-size="13" font-weight="normal" fill="#202124">display_name</text>
+<rect x="704" y="604" width="268" height="164" rx="7" fill="#ffffff" stroke="#0F6E56" stroke-width="1.6"/>
+<path d="M 704 634 L 704 611 Q 704 604 711 604 L 965 604 Q 972 604 972 611 L 972 634 Z" fill="#1D9E75"/>
+<text x="716" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">group_rule</text>
+<rect x="705" y="634" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="705" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="670" font-size="13" font-weight="normal" fill="#04342C">FK group_id</text>
+<rect x="705" y="676" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="691" font-size="13" font-weight="normal" fill="#04342C">FK created_by</text>
+<rect x="705" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="712" font-size="13" font-weight="normal" fill="#202124">rule_type</text>
+<rect x="705" y="718" width="266" height="21" fill="#E1F5EE"/>
+<text x="716" y="733" font-size="13" font-weight="normal" fill="#202124">config (json)</text>
+<rect x="705" y="739" width="266" height="21" fill="#ffffff"/>
+<text x="716" y="754" font-size="13" font-weight="normal" fill="#202124">is_active</text>
+<rect x="1036" y="80" width="268" height="164" rx="7" fill="#ffffff" stroke="#0F6E56" stroke-width="1.6"/>
+<path d="M 1036 110 L 1036 87 Q 1036 80 1043 80 L 1297 80 Q 1304 80 1304 87 L 1304 110 Z" fill="#1D9E75"/>
+<text x="1048" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">group_onboarding_response</text>
+<rect x="1037" y="110" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1037" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="146" font-size="13" font-weight="normal" fill="#04342C">FK group_id</text>
+<rect x="1037" y="152" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="167" font-size="13" font-weight="normal" fill="#04342C">FK member_id</text>
+<rect x="1037" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="188" font-size="13" font-weight="normal" fill="#202124">keyword_skill_levels</text>
+<rect x="1037" y="194" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="209" font-size="13" font-weight="normal" fill="#202124">task_preferences</text>
+<rect x="1037" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="230" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1036" y="342" width="268" height="143" rx="7" fill="#ffffff" stroke="#0F6E56" stroke-width="1.6"/>
+<path d="M 1036 372 L 1036 349 Q 1036 342 1043 342 L 1297 342 Q 1304 342 1304 349 L 1304 372 Z" fill="#1D9E75"/>
+<text x="1048" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">member_availability_slot</text>
+<rect x="1037" y="372" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1037" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="408" font-size="13" font-weight="normal" fill="#04342C">FK onboarding_response_id</text>
+<rect x="1037" y="414" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="429" font-size="13" font-weight="normal" fill="#04342C">FK member_id</text>
+<rect x="1037" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="450" font-size="13" font-weight="normal" fill="#202124">day_of_week</text>
+<rect x="1037" y="456" width="266" height="21" fill="#E1F5EE"/>
+<text x="1048" y="471" font-size="13" font-weight="normal" fill="#202124">start_time / end_time</text>
+<rect x="1036" y="604" width="268" height="143" rx="7" fill="#ffffff" stroke="#854F0B" stroke-width="1.6"/>
+<path d="M 1036 634 L 1036 611 Q 1036 604 1043 604 L 1297 604 Q 1304 604 1304 611 L 1304 634 Z" fill="#EF9F27"/>
+<text x="1048" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">group_board</text>
+<rect x="1037" y="634" width="266" height="21" fill="#FAEEDA"/>
+<text x="1048" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1037" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="670" font-size="13" font-weight="normal" fill="#412402">FK group_id</text>
+<rect x="1037" y="676" width="266" height="21" fill="#FAEEDA"/>
+<text x="1048" y="691" font-size="13" font-weight="normal" fill="#202124">board_type</text>
+<rect x="1037" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="1048" y="712" font-size="13" font-weight="normal" fill="#202124">name</text>
+<rect x="1037" y="718" width="266" height="21" fill="#FAEEDA"/>
+<text x="1048" y="733" font-size="13" font-weight="normal" fill="#202124">display_order</text>
+<rect x="1368" y="80" width="268" height="164" rx="7" fill="#ffffff" stroke="#854F0B" stroke-width="1.6"/>
+<path d="M 1368 110 L 1368 87 Q 1368 80 1375 80 L 1629 80 Q 1636 80 1636 87 L 1636 110 Z" fill="#EF9F27"/>
+<text x="1380" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">group_board_post</text>
+<rect x="1369" y="110" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1369" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="146" font-size="13" font-weight="normal" fill="#412402">FK board_id</text>
+<rect x="1369" y="152" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="167" font-size="13" font-weight="normal" fill="#412402">FK group_id</text>
+<rect x="1369" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="188" font-size="13" font-weight="normal" fill="#412402">FK author_member_id</text>
+<rect x="1369" y="194" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="209" font-size="13" font-weight="normal" fill="#202124">title</text>
+<rect x="1369" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="230" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1368" y="342" width="268" height="164" rx="7" fill="#ffffff" stroke="#854F0B" stroke-width="1.6"/>
+<path d="M 1368 372 L 1368 349 Q 1368 342 1375 342 L 1629 342 Q 1636 342 1636 349 L 1636 372 Z" fill="#EF9F27"/>
+<text x="1380" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">group_board_comment</text>
+<rect x="1369" y="372" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1369" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="408" font-size="13" font-weight="normal" fill="#412402">FK post_id</text>
+<rect x="1369" y="414" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="429" font-size="13" font-weight="normal" fill="#412402">FK group_id</text>
+<rect x="1369" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="450" font-size="13" font-weight="normal" fill="#412402">FK author_member_id</text>
+<rect x="1369" y="456" width="266" height="21" fill="#FAEEDA"/>
+<text x="1380" y="471" font-size="13" font-weight="normal" fill="#202124">content</text>
+<rect x="1369" y="477" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="492" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1368" y="604" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 1368 634 L 1368 611 Q 1368 604 1375 604 L 1629 604 Q 1636 604 1636 611 L 1636 634 Z" fill="#639922"/>
+<text x="1380" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">curriculum</text>
+<rect x="1369" y="634" width="266" height="21" fill="#EAF3DE"/>
+<text x="1380" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1369" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="670" font-size="13" font-weight="normal" fill="#173404">FK group_id</text>
+<rect x="1369" y="676" width="266" height="21" fill="#EAF3DE"/>
+<text x="1380" y="691" font-size="13" font-weight="normal" fill="#173404">FK llm_usage_id</text>
+<rect x="1369" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="712" font-size="13" font-weight="normal" fill="#202124">title</text>
+<rect x="1369" y="718" width="266" height="21" fill="#EAF3DE"/>
+<text x="1380" y="733" font-size="13" font-weight="normal" fill="#202124">total_weeks</text>
+<rect x="1369" y="739" width="266" height="21" fill="#ffffff"/>
+<text x="1380" y="754" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1700" y="80" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 1700 110 L 1700 87 Q 1700 80 1707 80 L 1961 80 Q 1968 80 1968 87 L 1968 110 Z" fill="#639922"/>
+<text x="1712" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">curriculum_week</text>
+<rect x="1701" y="110" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1701" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="146" font-size="13" font-weight="normal" fill="#173404">FK curriculum_id</text>
+<rect x="1701" y="152" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="167" font-size="13" font-weight="normal" fill="#202124">week_number</text>
+<rect x="1701" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="188" font-size="13" font-weight="normal" fill="#202124">title</text>
+<rect x="1701" y="194" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="209" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1701" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="230" font-size="13" font-weight="normal" fill="#202124">starts_at / ends_at</text>
+<rect x="1700" y="342" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 1700 372 L 1700 349 Q 1700 342 1707 342 L 1961 342 Q 1968 342 1968 349 L 1968 372 Z" fill="#639922"/>
+<text x="1712" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">weekly_task</text>
+<rect x="1701" y="372" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1701" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="408" font-size="13" font-weight="normal" fill="#173404">FK curriculum_week_id</text>
+<rect x="1701" y="414" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="429" font-size="13" font-weight="normal" fill="#202124">display_order</text>
+<rect x="1701" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="450" font-size="13" font-weight="normal" fill="#202124">task_type</text>
+<rect x="1701" y="456" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="471" font-size="13" font-weight="normal" fill="#202124">title</text>
+<rect x="1701" y="477" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="492" font-size="13" font-weight="normal" fill="#202124">required</text>
+<rect x="1700" y="604" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 1700 634 L 1700 611 Q 1700 604 1707 604 L 1961 604 Q 1968 604 1968 611 L 1968 634 Z" fill="#639922"/>
+<text x="1712" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">member_week_progress</text>
+<rect x="1701" y="634" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="1701" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="670" font-size="13" font-weight="normal" fill="#173404">FK curriculum_week_id</text>
+<rect x="1701" y="676" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="691" font-size="13" font-weight="normal" fill="#173404">FK member_id</text>
+<rect x="1701" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="712" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="1701" y="718" width="266" height="21" fill="#EAF3DE"/>
+<text x="1712" y="733" font-size="13" font-weight="normal" fill="#202124">completed_at</text>
+<rect x="1701" y="739" width="266" height="21" fill="#ffffff"/>
+<text x="1712" y="754" font-size="13" font-weight="normal" fill="#202124">incomplete_reason</text>
+<rect x="2032" y="80" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 2032 110 L 2032 87 Q 2032 80 2039 80 L 2293 80 Q 2300 80 2300 87 L 2300 110 Z" fill="#639922"/>
+<text x="2044" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">task_completion</text>
+<rect x="2033" y="110" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2033" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="146" font-size="13" font-weight="normal" fill="#173404">FK progress_id</text>
+<rect x="2033" y="152" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="167" font-size="13" font-weight="normal" fill="#173404">FK weekly_task_id</text>
+<rect x="2033" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="188" font-size="13" font-weight="normal" fill="#173404">FK member_id</text>
+<rect x="2033" y="194" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="209" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="2033" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="230" font-size="13" font-weight="normal" fill="#202124">evidence_url</text>
+<rect x="2032" y="342" width="268" height="164" rx="7" fill="#ffffff" stroke="#3B6D11" stroke-width="1.6"/>
+<path d="M 2032 372 L 2032 349 Q 2032 342 2039 342 L 2293 342 Q 2300 342 2300 349 L 2300 372 Z" fill="#639922"/>
+<text x="2044" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">rule_violation</text>
+<rect x="2033" y="372" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2033" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="408" font-size="13" font-weight="normal" fill="#173404">FK rule_id</text>
+<rect x="2033" y="414" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="429" font-size="13" font-weight="normal" fill="#173404">FK member_id</text>
+<rect x="2033" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="450" font-size="13" font-weight="normal" fill="#173404">FK task_completion_id</text>
+<rect x="2033" y="456" width="266" height="21" fill="#EAF3DE"/>
+<text x="2044" y="471" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="2033" y="477" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="492" font-size="13" font-weight="normal" fill="#202124">occurred_at</text>
+<rect x="2032" y="604" width="268" height="206" rx="7" fill="#ffffff" stroke="#534AB7" stroke-width="1.6"/>
+<path d="M 2032 634 L 2032 611 Q 2032 604 2039 604 L 2293 604 Q 2300 604 2300 611 L 2300 634 Z" fill="#7F77DD"/>
+<text x="2044" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">llm_usage</text>
+<rect x="2033" y="634" width="266" height="21" fill="#EEEDFE"/>
+<text x="2044" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2033" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="670" font-size="13" font-weight="normal" fill="#26215C">FK user_id</text>
+<rect x="2033" y="676" width="266" height="21" fill="#EEEDFE"/>
+<text x="2044" y="691" font-size="13" font-weight="normal" fill="#26215C">FK group_id</text>
+<rect x="2033" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="712" font-size="13" font-weight="normal" fill="#202124">purpose</text>
+<rect x="2033" y="718" width="266" height="21" fill="#EEEDFE"/>
+<text x="2044" y="733" font-size="13" font-weight="normal" fill="#202124">provider</text>
+<rect x="2033" y="739" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="754" font-size="13" font-weight="normal" fill="#202124">model</text>
+<rect x="2033" y="760" width="266" height="21" fill="#EEEDFE"/>
+<text x="2044" y="775" font-size="13" font-weight="normal" fill="#202124">input/output_tokens</text>
+<rect x="2033" y="781" width="266" height="21" fill="#ffffff"/>
+<text x="2044" y="796" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="2364" y="80" width="268" height="206" rx="7" fill="#ffffff" stroke="#534AB7" stroke-width="1.6"/>
+<path d="M 2364 110 L 2364 87 Q 2364 80 2371 80 L 2625 80 Q 2632 80 2632 87 L 2632 110 Z" fill="#7F77DD"/>
+<text x="2376" y="100" font-size="14.5" font-weight="bold" fill="#ffffff">retrospective</text>
+<rect x="2365" y="110" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="125" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2365" y="131" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="146" font-size="13" font-weight="normal" fill="#26215C">FK progress_id</text>
+<rect x="2365" y="152" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="167" font-size="13" font-weight="normal" fill="#26215C">FK curriculum_week_id</text>
+<rect x="2365" y="173" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="188" font-size="13" font-weight="normal" fill="#26215C">FK member_id</text>
+<rect x="2365" y="194" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="209" font-size="13" font-weight="normal" fill="#26215C">FK llm_usage_id</text>
+<rect x="2365" y="215" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="230" font-size="13" font-weight="normal" fill="#202124">ai_feedback</text>
+<rect x="2365" y="236" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="251" font-size="13" font-weight="normal" fill="#202124">next_week_adjustment</text>
+<rect x="2365" y="257" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="272" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="2364" y="342" width="268" height="185" rx="7" fill="#ffffff" stroke="#534AB7" stroke-width="1.6"/>
+<path d="M 2364 372 L 2364 349 Q 2364 342 2371 342 L 2625 342 Q 2632 342 2632 349 L 2632 372 Z" fill="#7F77DD"/>
+<text x="2376" y="362" font-size="14.5" font-weight="bold" fill="#ffffff">ai_conversation</text>
+<rect x="2365" y="372" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="387" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2365" y="393" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="408" font-size="13" font-weight="normal" fill="#26215C">FK group_id</text>
+<rect x="2365" y="414" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="429" font-size="13" font-weight="normal" fill="#26215C">FK member_id</text>
+<rect x="2365" y="435" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="450" font-size="13" font-weight="normal" fill="#26215C">FK curriculum_week_id</text>
+<rect x="2365" y="456" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="471" font-size="13" font-weight="normal" fill="#26215C">FK retrospective_id</text>
+<rect x="2365" y="477" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="492" font-size="13" font-weight="normal" fill="#202124">conversation_type</text>
+<rect x="2365" y="498" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="513" font-size="13" font-weight="normal" fill="#202124">status</text>
+<rect x="2364" y="604" width="268" height="143" rx="7" fill="#ffffff" stroke="#534AB7" stroke-width="1.6"/>
+<path d="M 2364 634 L 2364 611 Q 2364 604 2371 604 L 2625 604 Q 2632 604 2632 611 L 2632 634 Z" fill="#7F77DD"/>
+<text x="2376" y="624" font-size="14.5" font-weight="bold" fill="#ffffff">ai_conversation_message</text>
+<rect x="2365" y="634" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="649" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2365" y="655" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="670" font-size="13" font-weight="normal" fill="#26215C">FK conversation_id</text>
+<rect x="2365" y="676" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="691" font-size="13" font-weight="normal" fill="#26215C">FK llm_usage_id</text>
+<rect x="2365" y="697" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="712" font-size="13" font-weight="normal" fill="#202124">sender_type</text>
+<rect x="2365" y="718" width="266" height="21" fill="#EEEDFE"/>
+<text x="2376" y="733" font-size="13" font-weight="normal" fill="#202124">content</text>
+<rect x="2364" y="866" width="268" height="227" rx="7" fill="#ffffff" stroke="#993C1D" stroke-width="1.6"/>
+<path d="M 2364 896 L 2364 873 Q 2364 866 2371 866 L 2625 866 Q 2632 866 2632 873 L 2632 896 Z" fill="#D85A30"/>
+<text x="2376" y="886" font-size="14.5" font-weight="bold" fill="#ffffff">notification</text>
+<rect x="2365" y="896" width="266" height="21" fill="#FAECE7"/>
+<text x="2376" y="911" font-size="13" font-weight="bold" fill="#202124">PK id</text>
+<rect x="2365" y="917" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="932" font-size="13" font-weight="normal" fill="#4A1B0C">FK group_id</text>
+<rect x="2365" y="938" width="266" height="21" fill="#FAECE7"/>
+<text x="2376" y="953" font-size="13" font-weight="normal" fill="#4A1B0C">FK recipient_user_id</text>
+<rect x="2365" y="959" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="974" font-size="13" font-weight="normal" fill="#4A1B0C">FK related_onboarding_response_id</text>
+<rect x="2365" y="980" width="266" height="21" fill="#FAECE7"/>
+<text x="2376" y="995" font-size="13" font-weight="normal" fill="#4A1B0C">FK related_week_id</text>
+<rect x="2365" y="1001" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="1016" font-size="13" font-weight="normal" fill="#4A1B0C">FK related_task_completion_id</text>
+<rect x="2365" y="1022" width="266" height="21" fill="#FAECE7"/>
+<text x="2376" y="1037" font-size="13" font-weight="normal" fill="#4A1B0C">FK related_retrospective_id</text>
+<rect x="2365" y="1043" width="266" height="21" fill="#ffffff"/>
+<text x="2376" y="1058" font-size="13" font-weight="normal" fill="#202124">notification_type</text>
+<rect x="2365" y="1064" width="266" height="21" fill="#FAECE7"/>
+<text x="2376" y="1079" font-size="13" font-weight="normal" fill="#202124">status</text>
+<text x="40" y="1125" font-size="13" fill="#444">Domains:</text>
+<rect x="110" y="1113" width="14" height="14" rx="3" fill="#378ADD"/>
+<text x="130" y="1125" font-size="13" fill="#444">Auth/User</text>
+<rect x="248.39999999999998" y="1113" width="14" height="14" rx="3" fill="#1D9E75"/>
+<text x="268.4" y="1125" font-size="13" fill="#444">Study group</text>
+<rect x="402.0" y="1113" width="14" height="14" rx="3" fill="#639922"/>
+<text x="422.0" y="1125" font-size="13" fill="#444">Curriculum/Progress</text>
+<rect x="616.4" y="1113" width="14" height="14" rx="3" fill="#7F77DD"/>
+<text x="636.4" y="1125" font-size="13" fill="#444">AI / LLM</text>
+<rect x="747.2" y="1113" width="14" height="14" rx="3" fill="#EF9F27"/>
+<text x="767.2" y="1125" font-size="13" fill="#444">Board</text>
+<rect x="855.2" y="1113" width="14" height="14" rx="3" fill="#D4537E"/>
+<text x="875.2" y="1125" font-size="13" fill="#444">Social</text>
+<rect x="970.8000000000001" y="1113" width="14" height="14" rx="3" fill="#D85A30"/>
+<text x="990.8000000000001" y="1125" font-size="13" fill="#444">Notification</text>
+</svg>
